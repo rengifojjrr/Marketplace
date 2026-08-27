@@ -1,0 +1,683 @@
+/* Generado por tools/build.py — no editar a mano. */
+window.TUMBO_PANTALLAS = [
+  {
+    "ruta": "marketplace/inicio.html",
+    "superficie": "marketplace",
+    "rol": "visitante",
+    "grupo": "Descubrimiento",
+    "titulo": "Inicio — Marketplace público",
+    "canonica": true,
+    "origen": "inicio_tumbo_market_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "marketplace/inicio-movil.html",
+    "superficie": "marketplace",
+    "rol": "visitante",
+    "grupo": "Descubrimiento",
+    "titulo": "Inicio (móvil 390 px)",
+    "canonica": false,
+    "origen": "inicio_tumbo_market_m_vil",
+    "demo": false
+  },
+  {
+    "ruta": "marketplace/inicio-variante.html",
+    "superficie": "marketplace",
+    "rol": "visitante",
+    "grupo": "Descubrimiento",
+    "titulo": "Inicio — variante de maquetación",
+    "canonica": false,
+    "origen": "marketplace_home_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "marketplace/resultados.html",
+    "superficie": "marketplace",
+    "rol": "visitante",
+    "grupo": "Descubrimiento",
+    "titulo": "Resultados de búsqueda",
+    "canonica": true,
+    "origen": "resultados_monitor_4k_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "marketplace/resultados-movil.html",
+    "superficie": "marketplace",
+    "rol": "visitante",
+    "grupo": "Descubrimiento",
+    "titulo": "Resultados de búsqueda (móvil)",
+    "canonica": false,
+    "origen": "resultados_monitor_4k_m_vil",
+    "demo": false
+  },
+  {
+    "ruta": "marketplace/producto.html",
+    "superficie": "marketplace",
+    "rol": "visitante",
+    "grupo": "Descubrimiento",
+    "titulo": "Detalle de producto — SKU-MOT-0832",
+    "canonica": true,
+    "origen": "detalle_de_producto_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "marketplace/producto-movil.html",
+    "superficie": "marketplace",
+    "rol": "visitante",
+    "grupo": "Descubrimiento",
+    "titulo": "Detalle de producto (móvil)",
+    "canonica": false,
+    "origen": "detalle_de_producto_m_vil",
+    "demo": false
+  },
+  {
+    "ruta": "marketplace/carrito.html",
+    "superficie": "marketplace",
+    "rol": "visitante",
+    "grupo": "Compra",
+    "titulo": "Carrito de compras",
+    "canonica": true,
+    "origen": "carrito_de_compras_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "marketplace/carrito-movil.html",
+    "superficie": "marketplace",
+    "rol": "visitante",
+    "grupo": "Compra",
+    "titulo": "Carrito de compras (móvil)",
+    "canonica": false,
+    "origen": "carrito_de_compras_m_vil",
+    "demo": false
+  },
+  {
+    "ruta": "marketplace/checkout-pago.html",
+    "superficie": "marketplace",
+    "rol": "comprador",
+    "grupo": "Compra",
+    "titulo": "Checkout — pago demo",
+    "canonica": true,
+    "origen": "checkout_pago_demo_desktop",
+    "demo": true
+  },
+  {
+    "ruta": "marketplace/checkout-pago-movil.html",
+    "superficie": "marketplace",
+    "rol": "comprador",
+    "grupo": "Compra",
+    "titulo": "Checkout — pago demo (móvil)",
+    "canonica": false,
+    "origen": "checkout_pago_demo_mobile",
+    "demo": true
+  },
+  {
+    "ruta": "marketplace/mi-cuenta.html",
+    "superficie": "marketplace",
+    "rol": "comprador",
+    "grupo": "Postventa",
+    "titulo": "Mi cuenta",
+    "canonica": true,
+    "origen": "mi_cuenta_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "marketplace/mi-cuenta-movil.html",
+    "superficie": "marketplace",
+    "rol": "comprador",
+    "grupo": "Postventa",
+    "titulo": "Mi cuenta (móvil)",
+    "canonica": false,
+    "origen": "mi_cuenta_mobile",
+    "demo": false
+  },
+  {
+    "ruta": "marketplace/pedido-seguimiento.html",
+    "superficie": "marketplace",
+    "rol": "comprador",
+    "grupo": "Postventa",
+    "titulo": "Detalle y seguimiento — TM-2026-00428",
+    "canonica": true,
+    "origen": "detalle_y_seguimiento_desktop",
+    "demo": true
+  },
+  {
+    "ruta": "marketplace/pedido-seguimiento-movil.html",
+    "superficie": "marketplace",
+    "rol": "comprador",
+    "grupo": "Postventa",
+    "titulo": "Detalle y seguimiento (móvil)",
+    "canonica": false,
+    "origen": "detalle_y_seguimiento_mobile",
+    "demo": true
+  },
+  {
+    "ruta": "marketplace/reclamo.html",
+    "superficie": "marketplace",
+    "rol": "comprador",
+    "grupo": "Postventa",
+    "titulo": "Reclamo del comprador — DSP-0098",
+    "canonica": true,
+    "origen": "gesti_n_de_reclamo_dsp_0098_desktop",
+    "demo": true
+  },
+  {
+    "ruta": "marketplace/reclamo-movil.html",
+    "superficie": "marketplace",
+    "rol": "comprador",
+    "grupo": "Postventa",
+    "titulo": "Reclamo del comprador (móvil)",
+    "canonica": false,
+    "origen": "gesti_n_de_reclamo_dsp_0098_mobile",
+    "demo": true
+  },
+  {
+    "ruta": "seller/onboarding-kyc.html",
+    "superficie": "seller",
+    "rol": "seller",
+    "grupo": "Homologación",
+    "titulo": "Onboarding y KYC — SEL-014",
+    "canonica": true,
+    "origen": "seller_center_onboarding_y_kyc",
+    "demo": false
+  },
+  {
+    "ruta": "seller/onboarding-verificacion.html",
+    "superficie": "seller",
+    "rol": "seller",
+    "grupo": "Homologación",
+    "titulo": "Onboarding y verificación — detalle",
+    "canonica": false,
+    "origen": "onboarding_y_verificaci_n_sel_014",
+    "demo": false
+  },
+  {
+    "ruta": "seller/dashboard.html",
+    "superficie": "seller",
+    "rol": "seller",
+    "grupo": "Gestión",
+    "titulo": "Panel del Seller Center",
+    "canonica": true,
+    "origen": "seller_center_dashboard_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "seller/dashboard-movil.html",
+    "superficie": "seller",
+    "rol": "seller",
+    "grupo": "Gestión",
+    "titulo": "Panel del seller (móvil)",
+    "canonica": false,
+    "origen": "seller_center_dashboard_m_vil",
+    "demo": false
+  },
+  {
+    "ruta": "seller/dashboard-principal.html",
+    "superficie": "seller",
+    "rol": "seller",
+    "grupo": "Gestión",
+    "titulo": "Panel — variante principal",
+    "canonica": false,
+    "origen": "seller_center_dashboard_principal",
+    "demo": false
+  },
+  {
+    "ruta": "seller/dashboard-sel-014.html",
+    "superficie": "seller",
+    "rol": "seller",
+    "grupo": "Gestión",
+    "titulo": "Panel SEL-014",
+    "canonica": false,
+    "origen": "seller_dashboard_desktop_sel_014",
+    "demo": false
+  },
+  {
+    "ruta": "seller/dashboard-sel-014-movil.html",
+    "superficie": "seller",
+    "rol": "seller",
+    "grupo": "Gestión",
+    "titulo": "Panel SEL-014 (móvil)",
+    "canonica": false,
+    "origen": "seller_dashboard_mobile_sel_014",
+    "demo": false
+  },
+  {
+    "ruta": "seller/dashboard-revisado.html",
+    "superficie": "seller",
+    "rol": "seller",
+    "grupo": "Gestión",
+    "titulo": "Panel — revisión de consistencia",
+    "canonica": false,
+    "origen": "demo_seller_dashboard_revisado",
+    "demo": false
+  },
+  {
+    "ruta": "seller/catalogo.html",
+    "superficie": "seller",
+    "rol": "seller",
+    "grupo": "Catálogo",
+    "titulo": "Catálogo de productos",
+    "canonica": true,
+    "origen": "seller_center_gesti_n_de_cat_logo",
+    "demo": false
+  },
+  {
+    "ruta": "seller/catalogo-sel-014.html",
+    "superficie": "seller",
+    "rol": "seller",
+    "grupo": "Catálogo",
+    "titulo": "Catálogo SEL-014 — vista ampliada",
+    "canonica": false,
+    "origen": "gesti_n_de_cat_logo_sel_014",
+    "demo": false
+  },
+  {
+    "ruta": "seller/catalogo-operador.html",
+    "superficie": "seller",
+    "rol": "operador",
+    "grupo": "Catálogo",
+    "titulo": "Catálogo — vista del operador",
+    "canonica": true,
+    "origen": "cat_logo_de_productos_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "seller/carga-manual.html",
+    "superficie": "seller",
+    "rol": "operador",
+    "grupo": "Catálogo",
+    "titulo": "Carga manual de producto",
+    "canonica": true,
+    "origen": "carga_manual_de_producto_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "seller/carga-masiva.html",
+    "superficie": "seller",
+    "rol": "operador",
+    "grupo": "Catálogo",
+    "titulo": "Carga masiva y reporte de errores",
+    "canonica": true,
+    "origen": "carga_masiva_y_errores_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "seller/pedidos.html",
+    "superficie": "seller",
+    "rol": "seller",
+    "grupo": "Pedidos",
+    "titulo": "Pedidos y ventas",
+    "canonica": true,
+    "origen": "seller_center_pedidos_y_ventas",
+    "demo": false
+  },
+  {
+    "ruta": "seller/pedidos-operador.html",
+    "superficie": "seller",
+    "rol": "operador",
+    "grupo": "Pedidos",
+    "titulo": "Pedidos — cola del operador",
+    "canonica": false,
+    "origen": "gesti_n_de_pedidos_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "seller/preparacion.html",
+    "superficie": "seller",
+    "rol": "operador",
+    "grupo": "Pedidos",
+    "titulo": "Preparación de pedido — TM-2026-00428",
+    "canonica": true,
+    "origen": "seller_center_preparaci_n_de_pedido",
+    "demo": true
+  },
+  {
+    "ruta": "seller/preparacion-detalle.html",
+    "superficie": "seller",
+    "rol": "operador",
+    "grupo": "Pedidos",
+    "titulo": "Preparación — picking y packing",
+    "canonica": false,
+    "origen": "preparaci_n_de_pedido_desktop",
+    "demo": true
+  },
+  {
+    "ruta": "seller/preparacion-guia.html",
+    "superficie": "seller",
+    "rol": "operador",
+    "grupo": "Pedidos",
+    "titulo": "Preparación — guía y recogida",
+    "canonica": false,
+    "origen": "preparaci_n_de_pedido_tm_2026_00428",
+    "demo": true
+  },
+  {
+    "ruta": "seller/preparacion-movil.html",
+    "superficie": "seller",
+    "rol": "operador",
+    "grupo": "Pedidos",
+    "titulo": "Preparación de pedido (móvil)",
+    "canonica": false,
+    "origen": "preparaci_n_de_pedido_m_vil",
+    "demo": true
+  },
+  {
+    "ruta": "seller/dashboard-operativo.html",
+    "superficie": "seller",
+    "rol": "operador",
+    "grupo": "Pedidos",
+    "titulo": "Panel operativo del seller",
+    "canonica": true,
+    "origen": "dashboard_operativo_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "seller/finanzas.html",
+    "superficie": "seller",
+    "rol": "seller",
+    "grupo": "Finanzas",
+    "titulo": "Finanzas y liquidaciones del seller",
+    "canonica": true,
+    "origen": "seller_center_finanzas_y_liquidaciones",
+    "demo": true
+  },
+  {
+    "ruta": "backoffice/dashboard-ejecutivo.html",
+    "superficie": "backoffice",
+    "rol": "superadmin",
+    "grupo": "Gobierno",
+    "titulo": "Panel ejecutivo",
+    "canonica": true,
+    "origen": "backoffice_dashboard_ejecutivo_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "backoffice/sellers-kyc.html",
+    "superficie": "backoffice",
+    "rol": "superadmin",
+    "grupo": "Gobierno",
+    "titulo": "Cola de sellers y KYC",
+    "canonica": true,
+    "origen": "backoffice_gesti_n_de_sellers_kyc_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "backoffice/sellers.html",
+    "superficie": "backoffice",
+    "rol": "superadmin",
+    "grupo": "Gobierno",
+    "titulo": "Gestión de sellers",
+    "canonica": false,
+    "origen": "backoffice_gesti_n_de_sellers_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "backoffice/sellers-kyc-revisado.html",
+    "superficie": "backoffice",
+    "rol": "superadmin",
+    "grupo": "Gobierno",
+    "titulo": "KYC — revisión de consistencia",
+    "canonica": false,
+    "origen": "demo_backoffice_kyc_revisado",
+    "demo": false
+  },
+  {
+    "ruta": "backoffice/moderacion.html",
+    "superficie": "backoffice",
+    "rol": "superadmin",
+    "grupo": "Gobierno",
+    "titulo": "Moderación de productos",
+    "canonica": true,
+    "origen": "backoffice_moderaci_n_de_productos_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "backoffice/configuracion.html",
+    "superficie": "backoffice",
+    "rol": "superadmin",
+    "grupo": "Gobierno",
+    "titulo": "Configuración global y reglas",
+    "canonica": true,
+    "origen": "backoffice_configuraci_n_global_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "backoffice/integraciones.html",
+    "superficie": "backoffice",
+    "rol": "superadmin",
+    "grupo": "Gobierno",
+    "titulo": "Integraciones y salud del sistema",
+    "canonica": true,
+    "origen": "backoffice_integraciones_y_salud_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "backoffice/analitica.html",
+    "superficie": "backoffice",
+    "rol": "superadmin",
+    "grupo": "Gobierno",
+    "titulo": "Analítica avanzada",
+    "canonica": true,
+    "origen": "backoffice_anal_tica_avanzada_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "backoffice/auditoria.html",
+    "superficie": "backoffice",
+    "rol": "superadmin",
+    "grupo": "Gobierno",
+    "titulo": "Auditoría de seguridad",
+    "canonica": true,
+    "origen": "backoffice_auditor_a_de_seguridad_desktop",
+    "demo": false
+  },
+  {
+    "ruta": "backoffice/seguridad-sesion.html",
+    "superficie": "backoffice",
+    "rol": "superadmin",
+    "grupo": "Gobierno",
+    "titulo": "Seguridad y sesión (móvil)",
+    "canonica": false,
+    "origen": "backoffice_seguridad_y_sesi_n_mobile",
+    "demo": false
+  },
+  {
+    "ruta": "backoffice/ops-dashboard.html",
+    "superficie": "backoffice",
+    "rol": "ops",
+    "grupo": "Operaciones",
+    "titulo": "Panel operativo",
+    "canonica": true,
+    "origen": "dashboard_operativo_desktop_backoffice",
+    "demo": true
+  },
+  {
+    "ruta": "backoffice/ops-cola-pedidos.html",
+    "superficie": "backoffice",
+    "rol": "ops",
+    "grupo": "Operaciones",
+    "titulo": "Cola de pedidos",
+    "canonica": true,
+    "origen": "cola_de_pedidos_desktop_backoffice",
+    "demo": true
+  },
+  {
+    "ruta": "backoffice/ops-cola-pedidos-movil.html",
+    "superficie": "backoffice",
+    "rol": "ops",
+    "grupo": "Operaciones",
+    "titulo": "Cola de pedidos (móvil)",
+    "canonica": false,
+    "origen": "cola_de_pedidos_m_vil_backoffice",
+    "demo": true
+  },
+  {
+    "ruta": "backoffice/ops-pedido-detalle.html",
+    "superficie": "backoffice",
+    "rol": "ops",
+    "grupo": "Operaciones",
+    "titulo": "Detalle de pedido e incidencias",
+    "canonica": true,
+    "origen": "detalle_de_pedido_desktop_backoffice",
+    "demo": true
+  },
+  {
+    "ruta": "backoffice/ops-pedido-detalle-movil.html",
+    "superficie": "backoffice",
+    "rol": "ops",
+    "grupo": "Operaciones",
+    "titulo": "Detalle de pedido (móvil)",
+    "canonica": false,
+    "origen": "detalle_de_pedido_m_vil_backoffice",
+    "demo": true
+  },
+  {
+    "ruta": "backoffice/ops-disputa.html",
+    "superficie": "backoffice",
+    "rol": "ops",
+    "grupo": "Operaciones",
+    "titulo": "Expediente de disputa — DSP-0098",
+    "canonica": true,
+    "origen": "expediente_de_disputa_dsp_0098_desktop_backoffice",
+    "demo": true
+  },
+  {
+    "ruta": "backoffice/ops-bandeja.html",
+    "superficie": "backoffice",
+    "rol": "ops",
+    "grupo": "Operaciones",
+    "titulo": "Bandeja omnicanal",
+    "canonica": true,
+    "origen": "bandeja_omnicanal_desktop_backoffice",
+    "demo": true
+  },
+  {
+    "ruta": "backoffice/finanzas-dashboard.html",
+    "superficie": "backoffice",
+    "rol": "finanzas",
+    "grupo": "Finanzas",
+    "titulo": "Panel financiero",
+    "canonica": true,
+    "origen": "finanzas_dashboard_desktop",
+    "demo": true
+  },
+  {
+    "ruta": "backoffice/finanzas-conciliacion.html",
+    "superficie": "backoffice",
+    "rol": "finanzas",
+    "grupo": "Finanzas",
+    "titulo": "Conciliación bancaria",
+    "canonica": true,
+    "origen": "finanzas_conciliaci_n_desktop",
+    "demo": true
+  },
+  {
+    "ruta": "backoffice/finanzas-custodia.html",
+    "superficie": "backoffice",
+    "rol": "finanzas",
+    "grupo": "Finanzas",
+    "titulo": "Libro de custodia y retenciones",
+    "canonica": true,
+    "origen": "finanzas_libro_de_custodia_desktop",
+    "demo": true
+  },
+  {
+    "ruta": "backoffice/finanzas-liquidaciones.html",
+    "superficie": "backoffice",
+    "rol": "finanzas",
+    "grupo": "Finanzas",
+    "titulo": "Liquidaciones a sellers",
+    "canonica": true,
+    "origen": "finanzas_liquidaciones_desktop",
+    "demo": true
+  },
+  {
+    "ruta": "backoffice/finanzas-liquidaciones-rev.html",
+    "superficie": "backoffice",
+    "rol": "finanzas",
+    "grupo": "Finanzas",
+    "titulo": "Liquidaciones — revisión de consistencia",
+    "canonica": false,
+    "origen": "finanzas_liquidaciones_revisado",
+    "demo": true
+  },
+  {
+    "ruta": "backoffice/finanzas-monitoreo-movil.html",
+    "superficie": "backoffice",
+    "rol": "finanzas",
+    "grupo": "Finanzas",
+    "titulo": "Monitoreo financiero (móvil)",
+    "canonica": false,
+    "origen": "finanzas_monitoreo_m_vil",
+    "demo": true
+  },
+  {
+    "ruta": "demo/controlador.html",
+    "superficie": "demo",
+    "rol": "demo",
+    "grupo": "Recorrido",
+    "titulo": "Controlador de prototipo",
+    "canonica": true,
+    "origen": "controlador_de_prototipo_tumbo_market",
+    "demo": false
+  },
+  {
+    "ruta": "demo/marketplace.html",
+    "superficie": "demo",
+    "rol": "demo",
+    "grupo": "Recorrido",
+    "titulo": "Recorrido transversal — vista comprador",
+    "canonica": true,
+    "origen": "demo_marketplace_home_contexto_transversal",
+    "demo": false
+  },
+  {
+    "ruta": "demo/seller.html",
+    "superficie": "demo",
+    "rol": "demo",
+    "grupo": "Recorrido",
+    "titulo": "Recorrido transversal — vista seller",
+    "canonica": true,
+    "origen": "demo_seller_dashboard_contexto_transversal",
+    "demo": false
+  },
+  {
+    "ruta": "demo/backoffice.html",
+    "superficie": "demo",
+    "rol": "demo",
+    "grupo": "Recorrido",
+    "titulo": "Recorrido transversal — vista backoffice",
+    "canonica": true,
+    "origen": "demo_backoffice_kyc_contexto_transversal",
+    "demo": false
+  },
+  {
+    "ruta": "sistema/mapa-interfaces.html",
+    "superficie": "sistema",
+    "rol": "todos",
+    "grupo": "Sistema",
+    "titulo": "Mapa de interfaces",
+    "canonica": true,
+    "origen": "mapa_de_interfaces_tumbo_market",
+    "demo": false
+  },
+  {
+    "ruta": "sistema/indice-maestro.html",
+    "superficie": "sistema",
+    "rol": "todos",
+    "grupo": "Sistema",
+    "titulo": "Índice maestro (versión Stitch)",
+    "canonica": true,
+    "origen": "ndice_maestro_beta_tumbo_market",
+    "demo": false
+  },
+  {
+    "ruta": "sistema/403.html",
+    "superficie": "sistema",
+    "rol": "todos",
+    "grupo": "Sistema",
+    "titulo": "Acceso denegado (403)",
+    "canonica": true,
+    "origen": "403_acceso_denied_desktop",
+    "demo": false
+  }
+];

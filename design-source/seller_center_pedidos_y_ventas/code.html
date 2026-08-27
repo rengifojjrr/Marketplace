@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Gestión de Pedidos - Seller Center</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-highest": "#e3e2e5",
+                        "secondary-container": "#316bf3",
+                        "inverse-on-surface": "#f2f0f3",
+                        "on-background": "#1b1b1e",
+                        "surface-dim": "#dbd9dd",
+                        "outline": "#74777f",
+                        "surface-container": "#efedf0",
+                        "secondary-fixed-dim": "#b4c5ff",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "surface": "#faf9fc",
+                        "on-tertiary-fixed": "#00201d",
+                        "on-secondary-fixed-variant": "#003ea8",
+                        "secondary": "#0051d5",
+                        "error-container": "#ffdad6",
+                        "error": "#ba1a1a",
+                        "on-surface-variant": "#44474e",
+                        "surface-variant": "#e3e2e5",
+                        "on-primary-fixed-variant": "#314769",
+                        "primary-fixed-dim": "#b1c7f0",
+                        "surface-container-high": "#e9e7eb",
+                        "primary-container": "#0b2545",
+                        "on-error-container": "#93000a",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed-variant": "#00504a",
+                        "surface-bright": "#faf9fc",
+                        "on-tertiary-container": "#419990",
+                        "on-secondary-fixed": "#00174b",
+                        "surface-container-low": "#f5f3f6",
+                        "background": "#faf9fc",
+                        "primary": "#001026",
+                        "on-error": "#ffffff",
+                        "primary-fixed": "#d5e3ff",
+                        "inverse-primary": "#b1c7f0",
+                        "tertiary-fixed": "#9cf2e8",
+                        "tertiary": "#001311",
+                        "secondary-fixed": "#dbe1ff",
+                        "on-secondary-container": "#fefcff",
+                        "inverse-surface": "#303033",
+                        "on-surface": "#1b1b1e",
+                        "on-primary-container": "#778db2",
+                        "surface-tint": "#495f82",
+                        "tertiary-container": "#002a27",
+                        "outline-variant": "#c4c6cf",
+                        "on-primary-fixed": "#001c3b",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#80d5cb"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "md": "16px",
+                        "margin-mobile": "16px",
+                        "lg": "24px",
+                        "sm": "8px",
+                        "xl": "32px",
+                        "unit": "4px",
+                        "xxl": "48px",
+                        "container-max": "1280px",
+                        "gutter": "24px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "label-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "display-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-md": ["14px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen flex">
+<!-- Shared Component: SideNavBar -->
+<nav class="bg-primary dark:bg-primary-container text-on-primary dark:text-on-primary-container h-screen w-64 flex flex-col fixed left-0 top-0 shadow-md z-50">
+<div class="flex flex-col h-full py-lg">
+<!-- Header Brand -->
+<div class="px-lg mb-xl flex items-center gap-md">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-primary-container shrink-0 border border-on-primary-container/30 flex items-center justify-center">
+<img class="w-full h-full object-cover" data-alt="A clean, minimalist 3D rendering of a generic storefront icon, high contrast against a dark navy background, subtle studio lighting, modern vector art style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZuo7C_XM5OMygOXwSNO-stBgxSfckayL78DQssF3eiSpfTaFM6A6ZTww0C-FM57NLIlMEm7wXtAzBOLuOZROspymJDeCvJoq3bkj-3Jw9JUH4bsu3GmZhXgR7Iov9Wtj2C9lHOg-5MSjnEGpSMO4Z_ZRgaAgOdoQQMyO3ClNh0O0fDih_Mns_onbaIsMHhsDhhMR-z7JzS-HtasDcvOeGCUMP-VEq6mvuBMJboqBwCRi5CN3fABjU"/>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-on-primary tracking-tight">Seller Center</h1>
+<p class="font-label-sm text-label-sm text-on-primary-container mt-xs">SEL-014 Marketplace</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<ul class="flex flex-col gap-unit flex-1 overflow-y-auto px-unit">
+<li>
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md transition-colors duration-200 ease-linear" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+</li>
+<li>
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md transition-colors duration-200 ease-linear" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">inventory_2</span>
+<span class="font-label-md text-label-md">Catálogo</span>
+</a>
+</li>
+<!-- ACTIVE ITEM -->
+<li>
+<a class="bg-secondary-container text-on-secondary-container font-semibold rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">shopping_cart</span>
+<span class="font-label-md text-label-md">Pedidos</span>
+</a>
+</li>
+<li>
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md transition-colors duration-200 ease-linear" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">payments</span>
+<span class="font-label-md text-label-md">Finanzas</span>
+</a>
+</li>
+<li>
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md transition-colors duration-200 ease-linear" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">group</span>
+<span class="font-label-md text-label-md">Equipo</span>
+</a>
+</li>
+<li>
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md transition-colors duration-200 ease-linear" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">settings</span>
+<span class="font-label-md text-label-md">Configuración</span>
+</a>
+</li>
+</ul>
+<!-- CTA -->
+<div class="px-lg mt-auto">
+<button class="w-full bg-secondary text-on-secondary rounded-lg py-md flex items-center justify-center gap-sm hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-[18px]">add</span>
+<span class="font-label-md text-label-md">Nueva Publicación</span>
+</button>
+</div>
+</div>
+</nav>
+<!-- Main Content Wrapper -->
+<div class="flex-1 flex flex-col ml-64 min-w-0">
+<!-- Shared Component: TopNavBar -->
+<header class="bg-surface dark:bg-surface-dim text-on-surface dark:text-on-surface-variant w-full h-16 fixed top-0 z-40 border-b border-outline-variant dark:border-outline flex justify-between items-center ml-64 px-lg w-[calc(100%-16rem)]">
+<div class="flex-1 max-w-md">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full pl-xl pr-md py-sm bg-surface-container-low border border-outline-variant rounded-lg text-body-sm font-body-sm focus:border-secondary focus:ring-2 focus:ring-secondary/30 transition-all outline-none text-on-surface" placeholder="Buscar pedidos, clientes..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-md ml-auto">
+<button class="text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors duration-200 p-sm rounded-full flex items-center justify-center scale-100 active:scale-95">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors duration-200 p-sm rounded-full flex items-center justify-center scale-100 active:scale-95">
+<span class="material-symbols-outlined">storefront</span>
+</button>
+<div class="w-px h-6 bg-outline-variant mx-sm"></div>
+<button class="text-on-surface-variant hover:text-primary flex items-center gap-sm transition-colors duration-200">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest overflow-hidden border border-outline-variant flex items-center justify-center">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a corporate manager, neutral expression, crisp focus, studio lighting against a light gray background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDBhRM4iX4g7JF4S-z5DKIZCbb4x28tdePcJ25ghMKvWY7Z0Aoge8tssSZ468zgQxHhzstMWZklqxkL9HKFi7iAZ2vJDHwerTf4j919uuk5UsPFkBdn9_jycfnBTEHlHN-tWHzsgzuy-TVj1rD1P5kC8Oxaf6lfdtLCo4yEAQatBwYQ-c0LMdtkU3tBOUNKcBv6qVufFLEhLoaqocJznFGnrfCHnSPuLThU9G-aLmjpUa150RyI72GL"/>
+</div>
+</button>
+</div>
+</header>
+<!-- Page Content Canvas -->
+<main class="flex-1 mt-16 p-lg bg-background overflow-x-hidden">
+<!-- Page Header Area -->
+<div class="flex justify-between items-end mb-xl">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-xs">Gestión de Pedidos</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Administra el flujo de despacho y SLAs de tus envíos B2C.</p>
+</div>
+<div class="flex gap-md">
+<button class="border border-outline text-on-surface rounded-lg px-md py-sm flex items-center gap-sm font-label-md text-label-md hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[18px]">calendar_today</span>
+                        Últimos 7 días
+                    </button>
+<button class="border border-outline text-on-surface rounded-lg px-md py-sm flex items-center gap-sm font-label-md text-label-md hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                        Exportar
+                    </button>
+</div>
+</div>
+<!-- Tabs Nav -->
+<div class="border-b border-outline-variant mb-lg flex gap-xl overflow-x-auto">
+<button class="pb-sm font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors whitespace-nowrap">
+                    Todos
+                </button>
+<!-- Active Tab -->
+<button class="pb-sm font-label-md text-label-md text-secondary font-bold border-b-2 border-secondary whitespace-nowrap flex items-center gap-sm">
+                    Por Preparar
+                    <span class="bg-error text-on-error font-label-sm text-[10px] leading-none px-2 py-1 rounded-full">8</span>
+</button>
+<button class="pb-sm font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors whitespace-nowrap">
+                    En Camino
+                </button>
+<button class="pb-sm font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors whitespace-nowrap">
+                    Entregados
+                </button>
+<button class="pb-sm font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors whitespace-nowrap">
+                    Cancelados/Disputas
+                </button>
+</div>
+<!-- Bulk Actions (Contextual, visible when items selected - simulated visible here) -->
+<div class="bg-secondary-fixed text-on-secondary-fixed rounded-lg p-md mb-lg flex items-center justify-between border border-secondary-fixed-dim/50 shadow-sm transition-all">
+<div class="flex items-center gap-md font-label-md text-label-md">
+<span class="material-symbols-outlined">check_box</span>
+<span>3 pedidos seleccionados</span>
+</div>
+<div class="flex gap-md">
+<button class="bg-secondary text-on-secondary rounded-lg px-md py-sm font-label-md text-label-md hover:opacity-90 transition-opacity flex items-center gap-sm shadow-sm">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+                        Generar Etiquetas (3)
+                    </button>
+</div>
+</div>
+<!-- Data Table Container -->
+<div class="bg-surface border border-outline-variant rounded-[14px] shadow-[0_4px_12px_rgba(11,37,69,0.02)] overflow-hidden">
+<div class="overflow-x-auto w-full">
+<table class="w-full text-left border-collapse whitespace-nowrap">
+<thead>
+<tr class="bg-surface-container-lowest border-b border-outline-variant text-on-surface-variant font-label-sm text-label-sm">
+<th class="p-md w-12 text-center">
+<input checked="" class="rounded border-outline text-secondary focus:ring-secondary/30 bg-surface-container-highest w-4 h-4 cursor-pointer" type="checkbox"/>
+</th>
+<th class="p-md font-semibold">ID Pedido</th>
+<th class="p-md font-semibold">Fecha</th>
+<th class="p-md font-semibold">Comprador</th>
+<th class="p-md font-semibold text-right">Total (Bs.)</th>
+<th class="p-md font-semibold">Método Envío</th>
+<th class="p-md font-semibold">SLA</th>
+<th class="p-md font-semibold text-right">Acciones</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm text-on-surface divide-y divide-outline-variant">
+<!-- Row 1: Selected, Urgent -->
+<tr class="hover:bg-surface-container-low transition-colors bg-secondary-fixed/10">
+<td class="p-md text-center">
+<input checked="" class="rounded border-outline text-secondary focus:ring-secondary/30 w-4 h-4 cursor-pointer" type="checkbox"/>
+</td>
+<td class="p-md font-label-md text-primary font-semibold">TM-2026-00428</td>
+<td class="p-md text-on-surface-variant">24 Oct, 09:15 AM</td>
+<td class="p-md flex items-center gap-sm">
+<div class="w-6 h-6 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-label-sm text-[10px]">JC</div>
+<span>Juan C.</span>
+</td>
+<td class="p-md text-right font-medium">1,250.00</td>
+<td class="p-md">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded bg-surface-container-highest text-on-surface font-label-sm text-[11px]">
+<span class="material-symbols-outlined text-[14px]">local_shipping</span>
+                                        Zoom Expreso
+                                    </span>
+</td>
+<td class="p-md">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded-full bg-error-container/30 text-error font-label-sm">
+<span class="material-symbols-outlined text-[14px]">timer</span>
+                                        2h restantes
+                                    </span>
+</td>
+<td class="p-md text-right">
+<div class="flex justify-end gap-sm">
+<button class="text-on-surface-variant hover:text-secondary p-xs rounded hover:bg-surface-container-highest transition-colors" title="Ver Detalle">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary p-xs rounded hover:bg-surface-container-highest transition-colors" title="Imprimir Guía">
+<span class="material-symbols-outlined text-[20px]">print</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2: Selected, Normal -->
+<tr class="hover:bg-surface-container-low transition-colors bg-secondary-fixed/10">
+<td class="p-md text-center">
+<input checked="" class="rounded border-outline text-secondary focus:ring-secondary/30 w-4 h-4 cursor-pointer" type="checkbox"/>
+</td>
+<td class="p-md font-label-md text-primary font-semibold">TM-2026-00429</td>
+<td class="p-md text-on-surface-variant">24 Oct, 11:30 AM</td>
+<td class="p-md flex items-center gap-sm">
+<div class="w-6 h-6 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center font-label-sm text-[10px]">MR</div>
+<span>Maria R.</span>
+</td>
+<td class="p-md text-right font-medium">450.50</td>
+<td class="p-md">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded bg-surface-container-highest text-on-surface font-label-sm text-[11px]">
+<span class="material-symbols-outlined text-[14px]">storefront</span>
+                                        Retiro en Tienda
+                                    </span>
+</td>
+<td class="p-md">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm">
+<span class="material-symbols-outlined text-[14px]">schedule</span>
+                                        12h restantes
+                                    </span>
+</td>
+<td class="p-md text-right">
+<div class="flex justify-end gap-sm">
+<button class="text-on-surface-variant hover:text-secondary p-xs rounded hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary p-xs rounded hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-[20px]">print</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3: Selected -->
+<tr class="hover:bg-surface-container-low transition-colors bg-secondary-fixed/10">
+<td class="p-md text-center">
+<input checked="" class="rounded border-outline text-secondary focus:ring-secondary/30 w-4 h-4 cursor-pointer" type="checkbox"/>
+</td>
+<td class="p-md font-label-md text-primary font-semibold">TM-2026-00430</td>
+<td class="p-md text-on-surface-variant">24 Oct, 01:10 PM</td>
+<td class="p-md flex items-center gap-sm">
+<div class="w-6 h-6 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-label-sm text-[10px]">LP</div>
+<span>Luis P.</span>
+</td>
+<td class="p-md text-right font-medium">3,100.00</td>
+<td class="p-md">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded bg-surface-container-highest text-on-surface font-label-sm text-[11px]">
+<span class="material-symbols-outlined text-[14px]">local_shipping</span>
+                                        Domesa Cobro Destino
+                                    </span>
+</td>
+<td class="p-md">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm">
+<span class="material-symbols-outlined text-[14px]">schedule</span>
+                                        14h restantes
+                                    </span>
+</td>
+<td class="p-md text-right">
+<div class="flex justify-end gap-sm">
+<button class="text-on-surface-variant hover:text-secondary p-xs rounded hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary p-xs rounded hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-[20px]">print</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 4: Unselected -->
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="p-md text-center">
+<input class="rounded border-outline text-secondary focus:ring-secondary/30 bg-surface-container-lowest w-4 h-4 cursor-pointer" type="checkbox"/>
+</td>
+<td class="p-md font-label-md text-primary font-semibold">TM-2026-00431</td>
+<td class="p-md text-on-surface-variant">24 Oct, 02:45 PM</td>
+<td class="p-md flex items-center gap-sm">
+<div class="w-6 h-6 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-label-sm text-[10px]">AV</div>
+<span>Ana V.</span>
+</td>
+<td class="p-md text-right font-medium">890.00</td>
+<td class="p-md">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded bg-surface-container-highest text-on-surface font-label-sm text-[11px]">
+<span class="material-symbols-outlined text-[14px]">local_shipping</span>
+                                        Zoom Estandar
+                                    </span>
+</td>
+<td class="p-md">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded-full bg-secondary-fixed/50 text-on-secondary-fixed font-label-sm">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                                        Holgado (22h)
+                                    </span>
+</td>
+<td class="p-md text-right">
+<div class="flex justify-end gap-sm">
+<button class="text-on-surface-variant hover:text-secondary p-xs rounded hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary p-xs rounded hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-[20px]">print</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination Footer -->
+<div class="border-t border-outline-variant p-md flex items-center justify-between bg-surface-container-lowest">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Mostrando 1 a 4 de 8 pedidos pendientes</span>
+<div class="flex gap-xs">
+<button class="p-sm rounded border border-outline-variant text-on-surface-variant hover:bg-surface-container-low transition-colors opacity-50 cursor-not-allowed">
+<span class="material-symbols-outlined text-[18px]">chevron_left</span>
+</button>
+<button class="p-sm rounded border border-outline-variant text-on-surface-variant hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Shared Component: Footer -->
+<footer class="bg-surface-container-low dark:bg-surface-container-lowest text-on-surface-variant w-full py-md border-t border-outline-variant flex justify-between items-center px-lg">
+<div class="font-label-md text-label-md font-bold text-primary">
+                © 2024 Marketplace B2B2C. Panel Administrativo de Alta Precisión.
+            </div>
+<div class="flex gap-lg font-label-sm text-label-sm">
+<a class="text-on-surface-variant hover:text-secondary hover:underline transition-opacity opacity-100 hover:opacity-80" href="#">Soporte</a>
+<a class="text-on-surface-variant hover:text-secondary hover:underline transition-opacity opacity-100 hover:opacity-80" href="#">Documentación API</a>
+<a class="text-on-surface-variant hover:text-secondary hover:underline transition-opacity opacity-100 hover:opacity-80" href="#">Privacidad</a>
+</div>
+</footer>
+</div>
+</body></html>

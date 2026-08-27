@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+
+<html data-tumbo-escritorio="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Carga manual de producto · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .icon-fill {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+<link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Carga manual de producto — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex">
+<!-- SideNavBar (Catalog Active) -->
+<nav class="fixed left-0 top-0 h-screen w-64 bg-surface-container-low dark:bg-inverse-surface flex flex-col py-md px-sm z-50">
+<div class="mb-lg px-sm">
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">Seller Center</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">Operations Hub</p>
+</div>
+<button class="mb-lg w-full bg-primary-container text-on-primary py-sm px-md rounded-lg font-label-caps text-label-caps flex items-center justify-center gap-sm hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-[18px]">upload_file</span>
+            Carga masiva
+        </button>
+<ul class="flex-1 space-y-xs">
+<li>
+<a class="flex items-center gap-md px-md py-sm rounded-md text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Panel</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-md px-md py-sm rounded-md text-primary font-bold border-r-4 border-primary bg-surface-container-high" href="#">
+<span class="material-symbols-outlined icon-fill">inventory_2</span>
+<span class="font-body-md text-body-md">Catálogo</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-md px-md py-sm rounded-md text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined">warehouse</span>
+<span class="font-body-md text-body-md">Inventario</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-md px-md py-sm rounded-md text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined">local_shipping</span>
+<span class="font-body-md text-body-md">Pedidos</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-md px-md py-sm rounded-md text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined">notifications_active</span>
+<span class="font-body-md text-body-md">Alertas operativas</span>
+</a>
+</li>
+</ul>
+<div class="mt-auto pt-md border-t border-outline-variant/30 flex items-center gap-sm px-sm">
+<img loading="lazy" alt="Foto de perfil — imagen de demostración" class="w-8 h-8 rounded-full object-cover border border-outline-variant" data-alt="A small, professional headshot portrait of a logistics operator in a bright, modern office setting. The person is looking slightly off-camera with a neutral expression. The lighting is crisp and cool, reflecting a high-tech corporate environment. The image is cropped in a tight circle." src="../../assets/img/avatar-05.svg"/>
+<div class="flex-1 min-w-0">
+<p class="font-body-sm text-body-sm font-bold truncate">Admin User</p>
+<p class="font-label-caps text-[10px] text-on-surface-variant truncate">Operator</p>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 ml-64 flex flex-col min-h-screen">
+<!-- TopNavBar -->
+<header class="flex justify-between items-center h-16 px-lg sticky top-0 z-40 bg-surface border-b border-surface-container shadow-sm">
+<div class="flex items-center gap-lg">
+<span class="font-headline-md text-headline-md font-bold text-primary">Seller Center</span>
+<div class="hidden md:flex gap-md">
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary transition-colors" href="#">Picking</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary transition-colors" href="#">Empaque</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary transition-colors" href="#">Despacho</a>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<span class="font-label-caps text-label-caps text-secondary flex items-center gap-xs">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+                    System Status: OK
+                </span>
+<div class="h-6 w-px bg-outline-variant mx-xs"></div>
+<button class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">notifications</span></button>
+<button class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">help</span></button>
+<button class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">account_circle</span></button>
+</div>
+</header>
+<!-- Page Content -->
+<main class="flex-1 p-lg bg-surface-bright">
+<div class="max-w-[1400px] mx-auto">
+<div class="flex items-center justify-between mb-lg">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Carga Manual de Producto</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-xs">Paso 1 de 2: Información Básica y Multimedia</p>
+</div>
+<div class="flex items-center gap-sm">
+<button class="px-md py-sm rounded-lg border border-outline text-on-surface font-body-md text-body-md flex items-center gap-xs hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[18px]">cloud_off</span>
+                            Guardar Borrador
+                        </button>
+<button class="px-md py-sm rounded-lg bg-primary-container text-on-primary font-body-md text-body-md hover:opacity-90 transition-opacity">
+                            Continuar
+                        </button>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-lg items-start">
+<!-- Left Form Area (8 cols) -->
+<div class="lg:col-span-8 space-y-md">
+<!-- Identity & Category -->
+<section class="bg-surface-container-lowest rounded-xl p-lg border border-surface-container-highest">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-md">Identidad del Producto</h3>
+<div class="space-y-md">
+<div>
+<label class="block font-label-caps text-label-caps text-on-surface mb-xs">Nombre del Producto *</label>
+<input class="w-full bg-surface border border-outline-variant rounded-md px-sm py-sm font-body-md text-body-md focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] outline-none" placeholder="Ej. iPhone 13 Pro 128GB" type="text"/>
+</div>
+<div class="grid grid-cols-2 gap-md">
+<div>
+<label class="block font-label-caps text-label-caps text-on-surface mb-xs">SKU Interno</label>
+<input class="w-full bg-surface border border-outline-variant rounded-md px-sm py-sm font-data-mono text-data-mono focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] outline-none" placeholder="SKU-XXXX" type="text"/>
+</div>
+<div>
+<label class="block font-label-caps text-label-caps text-on-surface mb-xs">Categoría Sugerida (AI) <span class="material-symbols-outlined text-[14px] text-primary align-middle ml-xs">auto_awesome</span></label>
+<select class="w-full bg-surface-container-low border border-outline-variant rounded-md px-sm py-sm font-body-md text-body-md focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] outline-none text-on-surface">
+<option>Electrónica &gt; Smartphones</option>
+<option>Seleccionar otra...</option>
+</select>
+</div>
+</div>
+</div>
+</section>
+<!-- Media Dropzone -->
+<section class="bg-surface-container-lowest rounded-xl p-lg border border-surface-container-highest">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-md">Multimedia</h3>
+<div class="border-2 border-dashed border-outline-variant rounded-lg p-xl flex flex-col items-center justify-center bg-surface hover:bg-surface-container-low transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-[48px] text-on-surface-variant mb-sm">add_photo_alternate</span>
+<p class="font-body-md text-body-md text-on-surface font-semibold">Arrastra imágenes aquí o haz clic para subir</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">PNG, JPG hasta 5MB. Mínimo 800x800px.</p>
+</div>
+</section>
+</div>
+<!-- Right Sidebar Preview (4 cols) -->
+<div class="lg:col-span-4 sticky top-24">
+<div class="bg-surface-container-lowest rounded-xl p-md border border-surface-container-highest shadow-[0px_4px_20px_rgba(11,37,69,0.08)]">
+<div class="flex items-center gap-xs mb-md pb-xs border-b border-surface-container text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+<span class="font-label-caps text-label-caps">Vista Previa Marketplace</span>
+</div>
+<!-- Mock Product Card -->
+<div class="border border-surface-container rounded-lg overflow-hidden bg-surface">
+<div class="aspect-square bg-surface-container flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-[64px] opacity-20">image</span>
+</div>
+<div class="p-sm">
+<p class="font-label-caps text-[10px] text-on-surface-variant mb-xs">CATEGORÍA</p>
+<h4 class="font-body-md text-body-md font-semibold text-on-surface line-clamp-2 mb-xs">Nombre del Producto</h4>
+<p class="font-headline-md text-headline-md text-primary font-bold">Bs. 0.00</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_PAGINA={"ruta": "seller/carga-manual.html", "superficie": "seller", "rol": "operador", "titulo": "Carga manual de producto"};</script>
+</body></html>

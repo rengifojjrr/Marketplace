@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Detalle de Pedido - Backoffice | OpsCentral</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config injected from Design System -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#002a27",
+                        "on-secondary-fixed-variant": "#003ea8",
+                        "on-error-container": "#93000a",
+                        "on-surface-variant": "#44474e",
+                        "background": "#faf9fc",
+                        "surface-bright": "#faf9fc",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-fixed-variant": "#00504a",
+                        "surface-container-low": "#f5f3f6",
+                        "inverse-on-surface": "#f2f0f3",
+                        "on-background": "#1b1b1e",
+                        "surface-dim": "#dbd9dd",
+                        "surface": "#faf9fc",
+                        "on-secondary-container": "#fefcff",
+                        "error": "#ba1a1a",
+                        "surface-container": "#efedf0",
+                        "on-tertiary-fixed": "#00201d",
+                        "tertiary": "#001311",
+                        "tertiary-fixed": "#9cf2e8",
+                        "secondary-fixed-dim": "#b4c5ff",
+                        "on-tertiary-container": "#419990",
+                        "inverse-primary": "#b1c7f0",
+                        "secondary-fixed": "#dbe1ff",
+                        "on-primary": "#ffffff",
+                        "surface-tint": "#495f82",
+                        "tertiary-fixed-dim": "#80d5cb",
+                        "secondary-container": "#316bf3",
+                        "on-primary-container": "#778db2",
+                        "outline": "#74777f",
+                        "on-surface": "#1b1b1e",
+                        "secondary": "#0051d5",
+                        "surface-variant": "#e3e2e5",
+                        "surface-container-highest": "#e3e2e5",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed": "#001c3b",
+                        "inverse-surface": "#303033",
+                        "outline-variant": "#c4c6cf",
+                        "on-primary-fixed-variant": "#314769",
+                        "primary-container": "#0b2545",
+                        "error-container": "#ffdad6",
+                        "primary": "#001026",
+                        "surface-container-high": "#e9e7eb",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed-dim": "#b1c7f0",
+                        "primary-fixed": "#d5e3ff",
+                        "on-error": "#ffffff",
+                        "on-secondary-fixed": "#00174b"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "unit": "4px",
+                        "gutter": "24px",
+                        "xl": "32px",
+                        "xs": "4px",
+                        "margin-mobile": "16px",
+                        "md": "16px",
+                        "lg": "24px",
+                        "xxl": "48px",
+                        "container-max": "1280px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "label-md": ["14px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined[data-weight="fill"] {
+            font-variation-settings: 'FILL' 1;
+        }
+        /* Custom Utilities for the specific design specs */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .b2b-card {
+            background-color: #FFFFFF;
+            border: 1px solid #DCE3EC;
+            border-radius: 14px;
+            padding: 24px;
+        }
+        .notes-card {
+            background-color: #FFF9C4; /* Yellow pale */
+            border: 1px solid #FBC02D;
+            border-radius: 14px;
+            padding: 24px;
+        }
+        .timeline-line {
+            position: absolute;
+            left: 20px;
+            top: 24px;
+            bottom: 0;
+            width: 2px;
+            background-color: #DCE3EC;
+            z-index: 0;
+        }
+    </style>
+</head>
+<body class="bg-surface-container-low text-on-surface font-body-md min-h-screen flex flex-col md:flex-row antialiased selection:bg-secondary-container selection:text-on-secondary-container">
+<!-- TopNavBar (Web) / Hidden on md to let SideNav take over layout, but used as header if needed. Adjusting based on standard pattern -->
+<header class="sticky top-0 z-50 flex items-center justify-between px-lg w-full h-16 bg-surface-container-lowest border-b border-outline-variant md:hidden">
+<div class="flex items-center gap-md">
+<span class="font-headline-md text-headline-md font-bold text-primary">OpsCentral</span>
+</div>
+<div class="flex items-center gap-md text-primary">
+<button class="p-2 hover:bg-surface-container-high transition-colors duration-200 rounded-full scale-95 duration-150 ease-in-out">
+<span class="material-symbols-outlined" data-icon="monitor_heart">monitor_heart</span>
+</button>
+<button class="p-2 hover:bg-surface-container-high transition-colors duration-200 rounded-full scale-95 duration-150 ease-in-out">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 hover:bg-surface-container-high transition-colors duration-200 rounded-full scale-95 duration-150 ease-in-out">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<img alt="Support Agent Avatar" class="w-8 h-8 rounded-full object-cover border border-outline-variant" data-alt="A detailed headshot of a professional support agent in a well-lit corporate office setting. The agent is wearing a sleek headset and smiling warmly, communicating trust and efficiency. Soft, natural lighting from a nearby window creates a bright, modern light-mode aesthetic, fitting a high-end B2B SaaS platform avatar." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCbvG1nMVS0lDiSV67ydKTe733e7qfm0ZFKyDlKekCHhqDwU10s1WsPs0ZBzIGieARVurwVbe02jKEbmlrjGmzFsEpkVhuYImvFMQu9cBRf0rNtuTRiK1QQVCHp_Bt2-rFzO3c5P7IDloOyaj6umVwGoSnMhhkbiKfDb3NdMxVphFjQUcmLWGEShuBJrpBZOLby46BwABdm89firZGm80vZJVM9i24lql3hBJOapuNlSbFEGMrq4Q9Z"/>
+</div>
+</header>
+<!-- SideNavBar (Desktop) -->
+<nav class="hidden md:flex flex-col fixed left-0 top-0 h-screen w-64 p-md gap-sm bg-surface-container border-r border-outline-variant z-40">
+<div class="flex items-center gap-sm mb-lg px-sm">
+<div class="w-10 h-10 rounded bg-primary-container text-on-primary-container flex items-center justify-center font-bold font-headline-sm">
+                O
+            </div>
+<div>
+<h1 class="font-headline-sm text-headline-sm font-black text-on-surface">Backoffice</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Operations Shell</p>
+</div>
+</div>
+<button class="w-full bg-secondary text-on-secondary font-label-md text-label-md py-sm rounded-lg mb-md hover:bg-secondary/90 transition-colors">
+            New Report
+        </button>
+<div class="flex-1 flex flex-col gap-xs overflow-y-auto">
+<!-- Navigation Items -->
+<a class="flex items-center gap-sm px-sm py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all duration-200 translate-x-1 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                Dashboard
+            </a>
+<!-- Active State: Orders because we are in Order Details -->
+<a class="flex items-center gap-sm px-sm py-sm rounded-lg text-secondary font-bold bg-secondary-container font-label-md text-label-md translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="package_2" data-weight="fill">package_2</span>
+                Orders
+            </a>
+<a class="flex items-center gap-sm px-sm py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all duration-200 translate-x-1 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="report_problem">report_problem</span>
+                Incidents
+            </a>
+<a class="flex items-center gap-sm px-sm py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all duration-200 translate-x-1 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="gavel">gavel</span>
+                Disputes
+            </a>
+<a class="flex items-center gap-sm px-sm py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all duration-200 translate-x-1 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="chat">chat</span>
+                Messaging
+            </a>
+<a class="flex items-center gap-sm px-sm py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all duration-200 translate-x-1 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="storefront">storefront</span>
+                Sellers
+            </a>
+</div>
+<div class="mt-auto pt-md border-t border-outline-variant flex flex-col gap-xs">
+<a class="flex items-center gap-sm px-sm py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all duration-200 translate-x-1 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+                System Health
+            </a>
+<a class="flex items-center gap-sm px-sm py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all duration-200 translate-x-1 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                Settings
+            </a>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-1 md:ml-64 p-md md:p-lg pb-xxl flex flex-col gap-gutter max-w-container-max mx-auto w-full">
+<!-- Header -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-md mb-sm">
+<div>
+<div class="flex items-center gap-sm mb-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Detalle de Pedido</span>
+<span class="px-2 py-1 bg-surface-container-highest text-on-surface font-label-sm rounded flex items-center gap-1 border border-outline-variant">
+<span class="material-symbols-outlined text-[14px]" data-icon="schedule">schedule</span>
+                        En Tránsito
+                    </span>
+</div>
+<h2 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary flex items-center gap-sm">
+                    ORD-9982-A4F 
+                    <button class="text-on-surface-variant hover:text-secondary transition-colors" title="Copiar ID">
+<span class="material-symbols-outlined" data-icon="content_copy">content_copy</span>
+</button>
+</h2>
+<p class="font-body-sm text-on-surface-variant mt-1">Creado: 12 Oct 2023, 14:32 UTC</p>
+</div>
+<div class="flex gap-sm">
+<button class="px-md py-sm bg-surface-container-lowest border border-primary-container text-primary-container font-label-md rounded-[10px] hover:bg-surface-container transition-colors">
+                    Imprimir Recibo
+                </button>
+<!-- Ghost Button equivalent -->
+<button class="px-md py-sm text-primary-container font-label-md hover:bg-surface-container-high transition-colors rounded-[10px]">
+                    Ver Log
+                </button>
+</div>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+<!-- Left Column: Timeline & Items (Takes 7 cols) -->
+<div class="lg:col-span-7 flex flex-col gap-gutter">
+<!-- Items Box -->
+<section class="b2b-card flex flex-col gap-md">
+<h3 class="font-headline-sm text-headline-sm text-primary border-b border-outline-variant pb-sm">Artículos del Pedido (2)</h3>
+<div class="flex flex-col gap-sm">
+<!-- Item 1 -->
+<div class="flex items-center gap-md p-sm hover:bg-surface-container-low rounded-lg transition-colors border border-transparent hover:border-outline-variant">
+<img alt="Ergo Chair Pro" class="w-16 h-16 object-cover rounded border border-outline-variant" data-alt="A highly detailed, professional studio shot of a sleek, modern ergonomic office chair in deep navy blue. The chair is placed against a stark, high-key white background, illuminated by soft, diffused lighting that highlights its premium fabric and metallic accents, fitting a corporate B2B catalog aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBw3nY4R7eldGll1-GLR-7HvsuvU7P6VCBBJ_M7s0Tx6vQiEbImW8_CNrbI-L_JwxoWFLGYbor-7P19szsrexioZyswyM6mtsUkSYRNRn4Vh-XSN13o8ruV3eLOeBqMzow9cVZJ8kZ5894br6n-GTO-vYdJJFwbtQebDsZo0FsJ_4OslIWTi64wXO5rIFDVV9h9i4pqqP1tcWJT2vE70R8LFrW34jlkDi-bDe6VsZnjos4X7KUvLDWf"/>
+<div class="flex-1">
+<h4 class="font-label-md text-label-md text-on-surface">Silla Ergonómica Pro - Azul Marino</h4>
+<p class="font-body-sm text-on-surface-variant">SKU: CHR-992-BLU • Lote: 44A</p>
+</div>
+<div class="text-right">
+<p class="font-body-md text-on-surface font-semibold">$345.00</p>
+<p class="font-label-sm text-on-surface-variant">Cant: 1</p>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex items-center gap-md p-sm hover:bg-surface-container-low rounded-lg transition-colors border border-transparent hover:border-outline-variant">
+<img alt="Laptop Stand" class="w-16 h-16 object-cover rounded border border-outline-variant" data-alt="A crisp, high-resolution product photography shot of a minimalist, brushed aluminum laptop stand. The stand is shown at a dynamic angle on a pure white background with subtle shadow layering beneath it, reflecting a premium, modern technological design language suitable for an enterprise marketplace." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDzR6mcU9odDwr0nHlYyLfB20EkSvsXs4OL6is_RpBmsSGoIwfot7gKZXMY8hRb7c2wmb6l7xO4Tr4qA1DYRndA85t3p2Hplu1ahd-NNQ3TFttkpbYSVh1PfjyQKLPm82dDljFIqG7LX-VznDhmDyz40KgwqCMc27O8y210kI-vXydQaf844FDhZnDp1Pe39SSoqgB5UPMypwFNIT2j8p0mr1kDOmcTSlLVwh5J6-E5sQbSRX8fHDx1"/>
+<div class="flex-1">
+<h4 class="font-label-md text-label-md text-on-surface">Soporte Aluminio Ajustable</h4>
+<p class="font-body-sm text-on-surface-variant">SKU: LST-100-ALU • Lote: 12B</p>
+</div>
+<div class="text-right">
+<p class="font-body-md text-on-surface font-semibold">$45.00</p>
+<p class="font-label-sm text-on-surface-variant">Cant: 2</p>
+</div>
+</div>
+</div>
+<div class="flex justify-between border-t border-outline-variant pt-md mt-sm">
+<span class="font-label-md text-label-md text-on-surface-variant">Total Pedido (Solo Lectura)</span>
+<span class="font-headline-sm text-headline-sm text-primary">$435.00 USD</span>
+</div>
+</section>
+<!-- Unified Timeline -->
+<section class="b2b-card flex flex-col gap-md relative overflow-hidden">
+<h3 class="font-headline-sm text-headline-sm text-primary border-b border-outline-variant pb-sm mb-sm">Línea de Tiempo Unificada</h3>
+<div class="relative pl-xl pb-md">
+<div class="timeline-line"></div>
+<!-- Event 1: Payment -->
+<div class="relative mb-lg">
+<div class="absolute -left-[30px] w-8 h-8 rounded-full bg-[#E8F5E9] border-2 border-[#4CAF50] flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-[#4CAF50] text-[16px]" data-icon="check_circle" data-weight="fill">check_circle</span>
+</div>
+<div class="flex justify-between items-start mb-xs">
+<h4 class="font-label-md text-label-md text-on-surface">Pago Confirmado</h4>
+<span class="font-label-sm text-on-surface-variant">12 Oct, 14:35 UTC</span>
+</div>
+<p class="font-body-sm text-on-surface-variant">Transacción #TXN-8821. Método: Tarjeta de Crédito ****4242.</p>
+</div>
+<!-- Event 2: Preparation -->
+<div class="relative mb-lg">
+<div class="absolute -left-[30px] w-8 h-8 rounded-full bg-[#E8F5E9] border-2 border-[#4CAF50] flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-[#4CAF50] text-[16px]" data-icon="inventory_2" data-weight="fill">inventory_2</span>
+</div>
+<div class="flex justify-between items-start mb-xs">
+<h4 class="font-label-md text-label-md text-on-surface">Preparación de Seller</h4>
+<span class="font-label-sm text-on-surface-variant">13 Oct, 09:00 UTC</span>
+</div>
+<p class="font-body-sm text-on-surface-variant">Seller marcó como 'Listo para despachar'. Guía generada: TRK-551.</p>
+</div>
+<!-- Event 3: Transit (Current) -->
+<div class="relative mb-lg">
+<div class="absolute -left-[30px] w-8 h-8 rounded-full bg-[#E3F2FD] border-2 border-secondary flex items-center justify-center z-10 shadow-[0_0_0_4px_rgba(37,99,235,0.1)]">
+<span class="material-symbols-outlined text-secondary text-[16px]" data-icon="local_shipping" data-weight="fill">local_shipping</span>
+</div>
+<div class="flex justify-between items-start mb-xs">
+<h4 class="font-label-md text-label-md text-secondary">En Tránsito</h4>
+<span class="font-label-sm text-secondary">14 Oct, 11:20 UTC</span>
+</div>
+<p class="font-body-sm text-on-surface">Paquete recogido por operador logístico. Última ubicación: Centro Distribución Norte.</p>
+</div>
+<!-- Event 4: Incident (Warning) -->
+<div class="relative">
+<div class="absolute -left-[30px] w-8 h-8 rounded-full bg-[#FFF3E0] border-2 border-[#FF9800] flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-[#FF9800] text-[16px]" data-icon="warning" data-weight="fill">warning</span>
+</div>
+<div class="flex justify-between items-start mb-xs">
+<h4 class="font-label-md text-label-md text-on-surface">Alerta Logística</h4>
+<span class="font-label-sm text-on-surface-variant">14 Oct, 15:45 UTC</span>
+</div>
+<p class="font-body-sm text-on-surface-variant">Retraso reportado por clima. ETA actualizado +24h.</p>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column: People, Actions, Notes (Takes 5 cols) -->
+<div class="lg:col-span-5 flex flex-col gap-gutter">
+<!-- Action Panel (Sticky-ish) -->
+<section class="b2b-card bg-surface-container-lowest border-secondary-container/30 shadow-[0_4px_12px_rgba(11,37,69,0.05)] flex flex-col gap-sm relative z-20">
+<h3 class="font-headline-sm text-headline-sm text-primary mb-xs">Panel de Acciones</h3>
+<button class="w-full py-sm px-md bg-white border border-[#DCE3EC] text-on-surface font-label-md rounded-[10px] hover:bg-surface-container-low transition-colors flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="support_agent">support_agent</span>
+                        Abrir Incidencia
+                    </button>
+<button class="w-full py-sm px-md bg-white border border-[#DCE3EC] text-on-surface font-label-md rounded-[10px] hover:bg-surface-container-low transition-colors flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="escalator_warning">escalator_warning</span>
+                        Escalar Caso
+                    </button>
+<div class="h-px bg-outline-variant my-xs w-full"></div>
+<button class="w-full py-sm px-md bg-[#FFF5F5] border border-[#FFCDD2] text-[#C62828] font-label-md rounded-[10px] hover:bg-[#FFEBEE] transition-colors flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="cancel">cancel</span>
+                        Cancelar Pedido
+                    </button>
+<button class="w-full py-sm px-md bg-[#FFF5F5] border border-[#FFCDD2] text-[#C62828] font-label-md rounded-[10px] hover:bg-[#FFEBEE] transition-colors flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="ac_unit">ac_unit</span>
+                        Congelar Fondos
+                    </button>
+<p class="font-label-sm text-on-surface-variant text-center mt-xs flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="info">info</span>
+                        Elegibilidad verificada
+                    </p>
+</section>
+<!-- Users Card -->
+<section class="b2b-card flex flex-col gap-md">
+<h3 class="font-headline-sm text-headline-sm text-primary border-b border-outline-variant pb-sm">Participantes</h3>
+<!-- Buyer -->
+<div class="flex flex-col gap-xs">
+<span class="font-label-sm text-on-surface-variant uppercase tracking-wide">Comprador</span>
+<div class="flex items-center gap-sm bg-surface p-sm rounded-lg border border-outline-variant/50">
+<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold">
+                                MC
+                            </div>
+<div class="flex-1">
+<h4 class="font-label-md text-on-surface">Mariah Carey Corp.</h4>
+<p class="font-body-sm text-on-surface-variant">m.carey@example.com</p>
+</div>
+<button class="text-on-surface-variant hover:text-secondary p-1">
+<span class="material-symbols-outlined text-[20px]" data-icon="mail">mail</span>
+</button>
+</div>
+</div>
+<!-- Seller -->
+<div class="flex flex-col gap-xs mt-sm">
+<span class="font-label-sm text-on-surface-variant uppercase tracking-wide">Seller</span>
+<div class="flex items-center gap-sm bg-surface p-sm rounded-lg border border-outline-variant/50">
+<div class="w-10 h-10 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold">
+                                TS
+                            </div>
+<div class="flex-1">
+<h4 class="font-label-md text-on-surface">TechSupplies Inc.</h4>
+<p class="font-body-sm text-on-surface-variant">+1 (555) 019-2831</p>
+</div>
+<button class="text-on-surface-variant hover:text-secondary p-1">
+<span class="material-symbols-outlined text-[20px]" data-icon="call">call</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Internal Notes -->
+<section class="notes-card shadow-[0_4px_12px_rgba(251,192,45,0.15)] flex flex-col gap-sm">
+<div class="flex items-center justify-between mb-xs">
+<h3 class="font-headline-sm text-headline-sm text-[#F57F17] flex items-center gap-sm">
+<span class="material-symbols-outlined" data-icon="edit_note" data-weight="fill">edit_note</span>
+                            Notas Internas
+                        </h3>
+<span class="bg-[#FFF59D] text-[#F57F17] font-label-sm px-2 py-1 rounded">Solo Staff</span>
+</div>
+<div class="bg-white/60 p-sm rounded border border-[#FFF59D] font-body-sm text-[#424242]">
+<p><strong>14 Oct, OpsAgent:</strong> El seller indica que el retraso climático podría afectar el SLA. Monitorear en 24h. No escalar a menos que pase de 48h de retraso en nodo.</p>
+</div>
+<div class="mt-xs">
+<textarea class="w-full bg-white border border-[#FBC02D] rounded-[10px] p-sm font-body-sm focus:border-secondary focus:ring-2 focus:ring-secondary/30 transition-shadow outline-none resize-none placeholder:text-[#9E9E9E]" placeholder="Agregar nota operativa..." rows="2"></textarea>
+<div class="flex justify-end mt-xs">
+<button class="px-md py-xs bg-[#FBC02D] text-[#FFF9C4] font-label-md rounded-[10px] hover:bg-[#F9A825] transition-colors shadow-sm text-shadow-sm text-black">
+                                Guardar
+                            </button>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-sm py-unit bg-surface-container-highest shadow-lg rounded-t-xl border-t border-outline-variant">
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-surface-variant transition-colors rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label-sm text-label-sm mt-1">Dash</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl p-2 px-4 shadow-sm scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="package_2" data-weight="fill">package_2</span>
+<span class="font-label-sm text-label-sm mt-1">Orders</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-surface-variant transition-colors rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="report_problem">report_problem</span>
+<span class="font-label-sm text-label-sm mt-1">Incidents</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-surface-variant transition-colors rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="gavel">gavel</span>
+<span class="font-label-sm text-label-sm mt-1">Disputes</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-surface-variant transition-colors rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-label-sm text-label-sm mt-1">Profile</span>
+</a>
+</nav>
+</body></html>

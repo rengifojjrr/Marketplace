@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Dashboard Financiero - Tumbo Market</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed-dim": "#93ccff",
+                        "inverse-primary": "#b1c7f0",
+                        "primary-fixed": "#d5e3ff",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "surface-container-highest": "#dfe3e7",
+                        "on-tertiary": "#ffffff",
+                        "on-background": "#171c1f",
+                        "tertiary": "#00111f",
+                        "tertiary-container": "#00273f",
+                        "on-error-container": "#93000a",
+                        "secondary-container": "#d0e1fb",
+                        "primary": "#001026",
+                        "inverse-surface": "#2c3134",
+                        "surface-dim": "#d6dade",
+                        "on-tertiary-fixed-variant": "#004b73",
+                        "surface": "#f6fafe",
+                        "on-tertiary-container": "#2993d6",
+                        "surface-variant": "#dfe3e7",
+                        "inverse-on-surface": "#edf1f5",
+                        "danger": "#ef4444",
+                        "on-primary": "#ffffff",
+                        "surface-tint": "#495f82",
+                        "tertiary-fixed": "#cce5ff",
+                        "error": "#ba1a1a",
+                        "primary-container": "#0b2545",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "on-tertiary-fixed": "#001d31",
+                        "on-surface-variant": "#44474e",
+                        "on-error": "#ffffff",
+                        "outline": "#74777f",
+                        "on-secondary-fixed": "#0b1c30",
+                        "on-primary-fixed": "#001c3b",
+                        "on-primary-fixed-variant": "#314769",
+                        "success": "#10b981",
+                        "surface-container-high": "#e4e9ed",
+                        "secondary": "#505f76",
+                        "primary-fixed-dim": "#b1c7f0",
+                        "on-primary-container": "#778db2",
+                        "on-surface": "#171c1f",
+                        "surface-border": "#e2e8f0",
+                        "secondary-fixed": "#d3e4fe",
+                        "data-row-hover": "#f8fafc",
+                        "surface-container": "#eaeef2",
+                        "surface-container-low": "#f0f4f8",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "warning": "#f59e0b",
+                        "error-container": "#ffdad6",
+                        "surface-bright": "#f6fafe",
+                        "background": "#f6fafe",
+                        "outline-variant": "#c4c6cf",
+                        "info": "#3b82f6",
+                        "on-secondary-container": "#54647a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "header-height": "56px",
+                        "tight": "8px",
+                        "gutter": "16px",
+                        "base": "4px",
+                        "sidebar-width": "240px",
+                        "compact": "12px",
+                        "standard": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "data-mono": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "body-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "data-mono": ["13px", { "lineHeight": "18px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+                        "body-lg": ["15px", { "lineHeight": "22px", "fontWeight": "400" }],
+                        "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "500" }],
+                        "headline-lg": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "600" }],
+                        "headline-sm": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .material-symbols-outlined.fill { font-variation-settings: 'FILL' 1; }
+        /* Scrollbar styling for density */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #dfe3e7; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #c4c6cf; }
+    </style>
+</head>
+<body class="bg-background text-on-surface h-screen w-full flex overflow-hidden font-body-md">
+<!-- SideNavBar (Shared Component JSON) -->
+<nav class="hidden lg:flex flex-col h-full p-md gap-sm bg-surface-container-low dark:bg-primary-container border-r border-outline-variant dark:border-outline docked left-0 h-screen w-64 flex-shrink-0 z-40">
+<!-- Header -->
+<div class="flex items-center gap-tight p-tight mb-standard">
+<img alt="Store Logo" class="w-8 h-8 rounded-full bg-surface-container-high object-cover" data-alt="A professional corporate logo for a seller center, featuring abstract geometric shapes in deep navy blue on a crisp white background. Minimalist, modern, and high-contrast." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAgU0o4AL-PWU7K4RikCa1zHt3dXLFZk1sg1FoHGxy1hxqYmQBGCbDIaygim2qxMik1Ks1Tahb6_vRS4ULDd2LBkCducIYxOo5ALeBCHL1vL1le7pBmBanqxovw4lNaqNIH7HH73nPEbXz7t7me-98IU6LhP426lUz-ks61cOsEdlczC1G-b9Ajis1qkSUmhnbmuvU-U7AuNfWCDbowW3JsDUdbJiEGa_d91WVFya3A1gJGXMm9zZ-H"/>
+<div class="flex flex-col">
+<span class="font-headline-sm text-headline-sm font-bold text-primary dark:text-primary-fixed">Seller Center</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Managing: Caracas Central</span>
+</div>
+</div>
+<!-- Navigation Tabs -->
+<div class="flex flex-col gap-base flex-1">
+<!-- Active: Dashboard -->
+<a class="flex items-center gap-tight p-tight bg-secondary-fixed dark:bg-secondary-container text-on-secondary-fixed dark:text-on-secondary-container rounded-lg font-bold Active: scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-tight p-tight text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">inventory_2</span>
+<span class="font-label-md text-label-md">Inventory</span>
+</a>
+<a class="flex items-center gap-tight p-tight text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">shopping_cart</span>
+<span class="font-label-md text-label-md">Orders</span>
+</a>
+<a class="flex items-center gap-tight p-tight text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">payments</span>
+<span class="font-label-md text-label-md">Payments</span>
+</a>
+<a class="flex items-center gap-tight p-tight text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">leaderboard</span>
+<span class="font-label-md text-label-md">Analytics</span>
+</a>
+<a class="flex items-center gap-tight p-tight text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</div>
+<!-- CTA -->
+<button class="w-full bg-primary-container text-on-primary py-tight px-standard rounded bg-primary-container font-label-md text-label-md mb-standard shadow-sm hover:opacity-90 transition-opacity">
+            Add Product
+        </button>
+<!-- Footer Tabs -->
+<div class="flex flex-col gap-base pt-standard border-t border-surface-border">
+<a class="flex items-center gap-tight p-tight text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">contact_support</span>
+<span class="font-label-md text-label-md">Support</span>
+</a>
+<a class="flex items-center gap-tight p-tight text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">logout</span>
+<span class="font-label-md text-label-md">Logout</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Wrapper -->
+<div class="flex-1 flex flex-col min-w-0 bg-background h-screen overflow-hidden">
+<!-- TopNavBar (Shared Component JSON) -->
+<header class="sticky top-0 z-50 flex justify-between items-center w-full px-lg py-md bg-surface dark:bg-primary-container border-b border-outline-variant dark:border-outline flat no shadows flex-shrink-0 px-standard py-compact">
+<div class="flex items-center gap-standard">
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">Tumbo Market</span>
+<!-- Navigation Links -->
+<nav class="hidden md:flex items-center gap-standard ml-standard">
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-secondary dark:hover:text-secondary-fixed transition-colors duration-200 font-body-md text-body-md py-tight" href="#">Marketplace</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-secondary dark:hover:text-secondary-fixed transition-colors duration-200 font-body-md text-body-md py-tight" href="#">Seller Center</a>
+<!-- Active: Backoffice (closest fit for Finanzas) -->
+<a class="text-secondary dark:text-secondary-fixed font-bold border-b-2 border-secondary font-body-md text-body-md py-tight Active: opacity-80 transition-all duration-200" href="#">Backoffice</a>
+</nav>
+</div>
+<div class="flex items-center gap-compact">
+<!-- Search (on_left implicitly handled or skipped for density here, adding standard icon) -->
+<div class="relative hidden sm:block w-64 mr-standard">
+<span class="material-symbols-outlined absolute left-tight top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+<input class="w-full h-8 pl-8 pr-tight bg-surface border border-surface-border rounded text-body-sm focus:border-primary-container focus:ring-0 outline-none" placeholder="Buscar transacciones..." type="text"/>
+</div>
+<!-- Trailing Icons -->
+<button class="text-secondary dark:text-secondary-fixed hover:bg-surface-container-highest p-base rounded-full transition-colors flex items-center justify-center w-8 h-8">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<button class="text-secondary dark:text-secondary-fixed hover:bg-surface-container-highest p-base rounded-full transition-colors flex items-center justify-center w-8 h-8">
+<span class="material-symbols-outlined text-[20px]">help</span>
+</button>
+<button class="text-secondary dark:text-secondary-fixed hover:bg-surface-container-highest p-base rounded-full transition-colors flex items-center justify-center w-8 h-8">
+<span class="material-symbols-outlined text-[20px]">account_circle</span>
+</button>
+<img alt="User Profile" class="w-8 h-8 rounded-full border border-surface-border object-cover ml-tight" data-alt="A small, professional headshot of a corporate financial manager in a dark suit against a neutral gray background. High quality, sharp focus." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAdCI8v0j3deZQldMHuDMUJ0HPTBAm8vykEAY2An7UWz4KWjS9X1Orei_WPkgHfqJh1ZMslN1vW-uqtRkYaizwzaW2gA8B928ktDlp7i9bkDRuRnEMlL0gLCbRjtTgBtavekup2_coyGzQcbNbgPRHqfShbJZjyWoO2Y_LwpG6AgmL_qQW5JHS9tJ2B15FP8SfSOn1iMfqaZ5dqGwQ46jd4uKaaYb3fokLxkyCVIBXCbWRs-sPfBwix"/>
+</div>
+</header>
+<!-- Main Scrollable Canvas -->
+<main class="flex-1 overflow-y-auto p-standard 2xl:container 2xl:mx-auto w-full">
+<!-- Page Header -->
+<div class="flex justify-between items-end mb-standard">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface">Finanzas Generales</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-base">Vista consolidada de flujo de caja y liquidaciones.</p>
+</div>
+<div class="flex gap-compact">
+<button class="h-8 px-compact bg-surface-container-lowest border border-surface-border text-on-surface-variant rounded font-label-sm text-label-sm flex items-center gap-base hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-[16px]">calendar_today</span>
+                        Últimos 30 días
+                    </button>
+<button class="h-8 px-compact bg-primary-container text-on-primary rounded font-label-sm text-label-sm flex items-center gap-base hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-[16px]">download</span>
+                        Exportar
+                    </button>
+</div>
+</div>
+<!-- Dashboard Grid -->
+<div class="grid grid-cols-12 gap-compact mb-standard">
+<!-- KPIs (Dense layout, 6 metrics) -->
+<!-- Cobrado -->
+<div class="col-span-12 sm:col-span-6 md:col-span-4 lg:col-span-2 bg-surface-container-lowest border border-surface-border rounded p-compact flex flex-col justify-between h-24 shadow-sm">
+<div class="flex justify-between items-start">
+<span class="font-label-sm text-label-sm uppercase text-on-surface-variant">Cobrado (Bruto)</span>
+<span class="material-symbols-outlined text-[16px] text-info">account_balance_wallet</span>
+</div>
+<div>
+<div class="font-headline-md text-headline-md text-on-surface">$1,245,000</div>
+<div class="font-body-sm text-body-sm text-success flex items-center mt-base"><span class="material-symbols-outlined text-[14px] mr-[2px]">trending_up</span> +12.5%</div>
+</div>
+</div>
+<!-- Pendiente de Conciliar -->
+<div class="col-span-12 sm:col-span-6 md:col-span-4 lg:col-span-2 bg-surface-container-lowest border border-surface-border rounded p-compact flex flex-col justify-between h-24 shadow-sm">
+<div class="flex justify-between items-start">
+<span class="font-label-sm text-label-sm uppercase text-on-surface-variant">Pendiente Conciliar</span>
+<span class="material-symbols-outlined text-[16px] text-warning">pending_actions</span>
+</div>
+<div>
+<div class="font-headline-md text-headline-md text-on-surface">$85,400</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant mt-base">452 transacciones</div>
+</div>
+</div>
+<!-- Retenido -->
+<div class="col-span-12 sm:col-span-6 md:col-span-4 lg:col-span-2 bg-surface-container-lowest border border-surface-border rounded p-compact flex flex-col justify-between h-24 shadow-sm">
+<div class="flex justify-between items-start">
+<span class="font-label-sm text-label-sm uppercase text-on-surface-variant">Retenido (Custodia)</span>
+<span class="material-symbols-outlined text-[16px] text-secondary">lock</span>
+</div>
+<div>
+<div class="font-headline-md text-headline-md text-on-surface">$320,100</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant mt-base">Libera en 48h avg</div>
+</div>
+</div>
+<!-- Congelado -->
+<div class="col-span-12 sm:col-span-6 md:col-span-4 lg:col-span-2 bg-surface-container-lowest border border-surface-border rounded p-compact flex flex-col justify-between h-24 shadow-sm">
+<div class="flex justify-between items-start">
+<span class="font-label-sm text-label-sm uppercase text-on-surface-variant">Congelado (Disputas)</span>
+<span class="material-symbols-outlined text-[16px] text-danger">gavel</span>
+</div>
+<div>
+<div class="font-headline-md text-headline-md text-on-surface">$12,050</div>
+<div class="font-body-sm text-body-sm text-danger mt-base">14 casos activos</div>
+</div>
+</div>
+<!-- Disponible para Liquidar -->
+<div class="col-span-12 sm:col-span-6 md:col-span-4 lg:col-span-2 bg-primary-container text-on-primary rounded p-compact flex flex-col justify-between h-24 shadow-sm">
+<div class="flex justify-between items-start">
+<span class="font-label-sm text-label-sm uppercase text-on-primary-container opacity-80">Disponible Liquidar</span>
+<span class="material-symbols-outlined text-[16px]">payments</span>
+</div>
+<div>
+<div class="font-headline-md text-headline-md">$827,450</div>
+<div class="font-body-sm text-body-sm opacity-80 mt-base">Listo para payout</div>
+</div>
+</div>
+<!-- Total Liquidado -->
+<div class="col-span-12 sm:col-span-6 md:col-span-4 lg:col-span-2 bg-surface-container-lowest border border-surface-border rounded p-compact flex flex-col justify-between h-24 shadow-sm">
+<div class="flex justify-between items-start">
+<span class="font-label-sm text-label-sm uppercase text-on-surface-variant">Total Liquidado (Mes)</span>
+<span class="material-symbols-outlined text-[16px] text-success">check_circle</span>
+</div>
+<div>
+<div class="font-headline-md text-headline-md text-on-surface">$2,450,000</div>
+<div class="font-body-sm text-body-sm text-success mt-base">12 payouts realizados</div>
+</div>
+</div>
+</div>
+<!-- Middle Section: Chart & Integrations Health -->
+<div class="grid grid-cols-12 gap-compact mb-standard h-[300px]">
+<!-- Cash Flow Chart Area -->
+<div class="col-span-12 lg:col-span-8 bg-surface-container-lowest border border-surface-border rounded p-standard flex flex-col shadow-sm">
+<div class="flex justify-between items-center mb-standard">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Flujo de Caja y Proyecciones</h2>
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">more_vert</span></button>
+</div>
+<div class="flex-1 w-full bg-surface-container-highest rounded flex items-center justify-center relative overflow-hidden group">
+<!-- Abstract placeholder for chart -->
+<div class="absolute inset-0 bg-gradient-to-r from-transparent via-primary-container/10 to-transparent opacity-50 w-[200%] animate-[slide_3s_linear_infinite]"></div>
+<div class="flex flex-col items-center text-on-surface-variant">
+<span class="material-symbols-outlined text-[32px] mb-tight">monitoring</span>
+<span class="font-body-sm text-body-sm">[Gráfico de Flujo de Caja Renderizado Aquí]</span>
+</div>
+</div>
+</div>
+<!-- Bank Integrations Health Widget -->
+<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest border border-surface-border rounded p-standard flex flex-col shadow-sm overflow-hidden">
+<div class="flex justify-between items-center mb-standard">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Salud de Integraciones</h2>
+<span class="material-symbols-outlined text-[20px] text-on-surface-variant">api</span>
+</div>
+<div class="flex-1 overflow-y-auto pr-tight flex flex-col gap-tight">
+<!-- Integration Item -->
+<div class="flex items-center justify-between p-tight border border-surface-border rounded bg-surface">
+<div class="flex items-center gap-tight">
+<div class="w-8 h-8 rounded bg-primary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-fixed text-[16px]">account_balance</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface">Banco Mercantil</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">API V2 • Conciliación Automática</span>
+</div>
+</div>
+<!-- Status Badge -->
+<div class="px-2 py-1 rounded bg-success/10 text-success font-label-sm text-label-sm flex items-center gap-1">
+<div class="w-1.5 h-1.5 rounded-full bg-success"></div> Operativo
+                            </div>
+</div>
+<!-- Integration Item -->
+<div class="flex items-center justify-between p-tight border border-surface-border rounded bg-surface">
+<div class="flex items-center gap-tight">
+<div class="w-8 h-8 rounded bg-primary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-fixed text-[16px]">credit_card</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface">Stripe Gateway</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Pagos Internacionales</span>
+</div>
+</div>
+<!-- Status Badge -->
+<div class="px-2 py-1 rounded bg-success/10 text-success font-label-sm text-label-sm flex items-center gap-1">
+<div class="w-1.5 h-1.5 rounded-full bg-success"></div> Operativo
+                            </div>
+</div>
+<!-- Integration Item (Degraded) -->
+<div class="flex items-center justify-between p-tight border border-warning/30 rounded bg-warning/5">
+<div class="flex items-center gap-tight">
+<div class="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">sync_problem</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface">Zelle Scraper</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Retraso de 15 min</span>
+</div>
+</div>
+<!-- Status Badge -->
+<div class="px-2 py-1 rounded bg-warning/10 text-warning font-label-sm text-label-sm flex items-center gap-1">
+<div class="w-1.5 h-1.5 rounded-full bg-warning"></div> Degradado
+                            </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Financial Alerts Table -->
+<div class="w-full bg-surface-container-lowest border border-surface-border rounded shadow-sm overflow-hidden">
+<div class="flex justify-between items-center p-standard border-b border-surface-border bg-surface">
+<h2 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-tight">
+<span class="material-symbols-outlined text-danger text-[20px]">warning</span>
+                        Alertas Financieras & Anomalías
+                    </h2>
+<div class="flex gap-tight">
+<!-- Search & Filter compact -->
+<div class="relative w-48">
+<span class="material-symbols-outlined absolute left-tight top-1/2 -translate-y-1/2 text-on-surface-variant text-[16px]">search</span>
+<input class="w-full h-8 pl-7 pr-tight bg-surface-container-lowest border border-surface-border rounded text-body-sm focus:border-primary-container focus:ring-0 outline-none" placeholder="ID Transacción..." type="text"/>
+</div>
+<button class="h-8 px-compact border border-surface-border text-on-surface-variant rounded font-label-sm text-label-sm flex items-center gap-base hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-[16px]">filter_list</span> Filtrar
+                        </button>
+</div>
+</div>
+<div class="overflow-x-auto w-full">
+<table class="w-full text-left border-collapse whitespace-nowrap">
+<thead>
+<tr class="bg-surface-container-low border-b border-surface-border">
+<th class="py-tight px-compact font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Fecha / Hora</th>
+<th class="py-tight px-compact font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Tipo de Alerta</th>
+<th class="py-tight px-compact font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Referencia</th>
+<th class="py-tight px-compact font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-right">Monto Involucrado</th>
+<th class="py-tight px-compact font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Estado</th>
+<th class="py-tight px-compact font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-right">Acción</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm text-on-surface divide-y divide-surface-border">
+<!-- Row 1: Diferencia Monto -->
+<tr class="hover:bg-data-row-hover transition-colors group">
+<td class="py-tight px-compact text-on-surface-variant">Hoy, 10:45 AM</td>
+<td class="py-tight px-compact font-label-md text-danger">Diferencia de Monto (Conciliación)</td>
+<td class="py-tight px-compact font-data-mono">TRX-9824-A</td>
+<td class="py-tight px-compact text-right font-data-mono font-bold">$1,200.00 vs $1,150.00</td>
+<td class="py-tight px-compact">
+<span class="px-2 py-1 rounded bg-danger/10 text-danger font-label-sm">Requiere Revisión</span>
+</td>
+<td class="py-tight px-compact text-right">
+<button class="text-primary hover:underline font-label-sm">Revisar</button>
+</td>
+</tr>
+<!-- Row 2: Pago Fallido -->
+<tr class="hover:bg-data-row-hover transition-colors group">
+<td class="py-tight px-compact text-on-surface-variant">Hoy, 09:12 AM</td>
+<td class="py-tight px-compact font-label-md text-warning">Fallo en Pasarela (Timeout)</td>
+<td class="py-tight px-compact font-data-mono">PAY-STR-441</td>
+<td class="py-tight px-compact text-right font-data-mono">$450.00</td>
+<td class="py-tight px-compact">
+<span class="px-2 py-1 rounded bg-warning/10 text-warning font-label-sm">Reintento Auto (1/3)</span>
+</td>
+<td class="py-tight px-compact text-right">
+<button class="text-primary hover:underline font-label-sm">Ver Log</button>
+</td>
+</tr>
+<!-- Row 3: Fraude Potencial -->
+<tr class="hover:bg-data-row-hover transition-colors group">
+<td class="py-tight px-compact text-on-surface-variant">Ayer, 16:30 PM</td>
+<td class="py-tight px-compact font-label-md text-danger">Alerta de Fraude (Score Alto)</td>
+<td class="py-tight px-compact font-data-mono">USR-2291 / TRX-881</td>
+<td class="py-tight px-compact text-right font-data-mono">$3,400.00</td>
+<td class="py-tight px-compact">
+<span class="px-2 py-1 rounded bg-danger/10 text-danger font-label-sm">Fondos Congelados</span>
+</td>
+<td class="py-tight px-compact text-right">
+<button class="text-primary hover:underline font-label-sm">Gestionar Disputa</button>
+</td>
+</tr>
+<!-- Row 4: Resolved -->
+<tr class="hover:bg-data-row-hover transition-colors group opacity-60">
+<td class="py-tight px-compact text-on-surface-variant">Ayer, 11:00 AM</td>
+<td class="py-tight px-compact font-label-md text-on-surface">Conciliación Forzada Manual</td>
+<td class="py-tight px-compact font-data-mono">TRX-7721-B</td>
+<td class="py-tight px-compact text-right font-data-mono">$85.00</td>
+<td class="py-tight px-compact">
+<span class="px-2 py-1 rounded bg-success/10 text-success font-label-sm flex items-center gap-1 w-max"><span class="material-symbols-outlined text-[14px]">check</span> Resuelto</span>
+</td>
+<td class="py-tight px-compact text-right">
+<span class="text-on-surface-variant text-label-sm">--</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</main>
+</div>
+</body></html>

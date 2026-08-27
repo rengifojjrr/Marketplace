@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Bandeja Omnicanal - Backoffice</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#002a27",
+                        "on-secondary-fixed-variant": "#003ea8",
+                        "on-error-container": "#93000a",
+                        "on-surface-variant": "#44474e",
+                        "background": "#faf9fc",
+                        "surface-bright": "#faf9fc",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-fixed-variant": "#00504a",
+                        "surface-container-low": "#f5f3f6",
+                        "inverse-on-surface": "#f2f0f3",
+                        "on-background": "#1b1b1e",
+                        "surface-dim": "#dbd9dd",
+                        "surface": "#faf9fc",
+                        "on-secondary-container": "#fefcff",
+                        "error": "#ba1a1a",
+                        "surface-container": "#efedf0",
+                        "on-tertiary-fixed": "#00201d",
+                        "tertiary": "#001311",
+                        "tertiary-fixed": "#9cf2e8",
+                        "secondary-fixed-dim": "#b4c5ff",
+                        "on-tertiary-container": "#419990",
+                        "inverse-primary": "#b1c7f0",
+                        "secondary-fixed": "#dbe1ff",
+                        "on-primary": "#ffffff",
+                        "surface-tint": "#495f82",
+                        "tertiary-fixed-dim": "#80d5cb",
+                        "secondary-container": "#316bf3",
+                        "on-primary-container": "#778db2",
+                        "outline": "#74777f",
+                        "on-surface": "#1b1b1e",
+                        "secondary": "#0051d5",
+                        "surface-variant": "#e3e2e5",
+                        "surface-container-highest": "#e3e2e5",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed": "#001c3b",
+                        "inverse-surface": "#303033",
+                        "outline-variant": "#c4c6cf",
+                        "on-primary-fixed-variant": "#314769",
+                        "primary-container": "#0b2545",
+                        "error-container": "#ffdad6",
+                        "primary": "#001026",
+                        "surface-container-high": "#e9e7eb",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed-dim": "#b1c7f0",
+                        "primary-fixed": "#d5e3ff",
+                        "on-error": "#ffffff",
+                        "on-secondary-fixed": "#00174b"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "unit": "4px",
+                        "gutter": "24px",
+                        "xl": "32px",
+                        "xs": "4px",
+                        "margin-mobile": "16px",
+                        "md": "16px",
+                        "lg": "24px",
+                        "xxl": "48px",
+                        "container-max": "1280px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "label-md": ["14px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface h-screen flex overflow-hidden font-body-md">
+<!-- SideNavBar -->
+<nav class="hidden md:flex flex-col fixed left-0 top-0 h-screen w-64 p-md gap-sm bg-surface-container dark:bg-surface-container-low border-r border-outline-variant dark:border-on-surface-variant z-40">
+<div class="flex items-center gap-sm mb-lg px-unit">
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold">O</div>
+<div>
+<h1 class="font-headline-sm text-headline-sm font-black text-on-surface dark:text-on-surface-variant">Backoffice</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Operations Shell</p>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto space-y-unit">
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-outline-variant hover:text-on-surface hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-outline-variant hover:text-on-surface hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">package_2</span>
+<span class="font-label-md text-label-md">Orders</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-outline-variant hover:text-on-surface hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">report_problem</span>
+<span class="font-label-md text-label-md">Incidents</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-outline-variant hover:text-on-surface hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">gavel</span>
+<span class="font-label-md text-label-md">Disputes</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-secondary dark:text-secondary-fixed font-bold bg-secondary-container dark:bg-tertiary-container rounded-lg transition-all duration-200 translate-x-1" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">chat</span>
+<span class="font-label-md text-label-md">Messaging</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-outline-variant hover:text-on-surface hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">storefront</span>
+<span class="font-label-md text-label-md">Sellers</span>
+</a>
+</div>
+<div class="mt-auto pt-md border-t border-outline-variant dark:border-on-surface-variant space-y-unit">
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-outline-variant hover:text-on-surface hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">analytics</span>
+<span class="font-label-md text-label-md">System Health</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-outline-variant hover:text-on-surface hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+<button class="w-full mt-sm py-sm bg-primary text-on-primary rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity">
+                New Report
+            </button>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col ml-0 md:ml-64 w-full h-full relative">
+<!-- TopNavBar -->
+<header class="sticky top-0 z-30 flex items-center justify-between px-lg w-full h-16 bg-surface-container-lowest dark:bg-surface-container-low border-b border-outline-variant dark:border-on-surface-variant">
+<div class="flex items-center gap-md">
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">OpsCentral</span>
+</div>
+<div class="flex-1 max-w-md mx-lg hidden md:block">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full pl-xl pr-sm py-sm bg-surface rounded-lg border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary outline-none font-body-sm transition-all text-on-surface" placeholder="Search orders, tickets..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-md text-primary dark:text-primary-fixed-dim">
+<button class="hover:bg-surface-container-high dark:hover:bg-surface-container-highest p-sm rounded-full transition-colors duration-200">
+<span class="material-symbols-outlined">monitor_heart</span>
+</button>
+<button class="hover:bg-surface-container-high dark:hover:bg-surface-container-highest p-sm rounded-full transition-colors duration-200 relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1 right-1 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="hover:bg-surface-container-high dark:hover:bg-surface-container-highest p-sm rounded-full transition-colors duration-200">
+<span class="material-symbols-outlined">help</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant ml-sm">
+<img alt="Support Agent Avatar" class="w-full h-full object-cover" data-alt="A highly detailed close-up portrait of a professional customer support agent smiling warmly in a well-lit modern corporate office setting. The lighting is soft and bright, emphasizing a clean, trustworthy aesthetic suitable for a B2B SaaS platform avatar. The background is slightly blurred with subtle hints of technology." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAapqs3puIi-wmUE3IZDyLo3DG7EQTpZQdqV9HlEHl8aodOwCuBmGS6XW2QXpRjXM0Lxu2-3pJtz7zxtuf-ULw7uiUd3YPDC221Z7YYrIkFtwRaBFzqw94lzGqlYk_Y8x9oirT_Cfml5UOCY_02ljhyxiKuaI06zfehij9lRGO1FTv8RpNfW1fmAo6wENInTgdSXwVNws5IET6aiyLP61DLU6WcUxQYQGnUEiGJDBg0JrFQ9tDfpd0U"/>
+</div>
+</div>
+</header>
+<!-- Chat Workspace -->
+<div class="flex-1 flex overflow-hidden bg-background">
+<!-- Conversation List (Left Panel) -->
+<aside class="w-80 border-r border-outline-variant bg-surface-container-lowest flex flex-col h-full hidden lg:flex shrink-0">
+<div class="p-md border-b border-outline-variant">
+<div class="flex items-center justify-between mb-sm">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Inbox</h2>
+<button class="text-secondary"><span class="material-symbols-outlined">filter_list</span></button>
+</div>
+<div class="flex gap-sm">
+<button class="flex-1 py-xs px-sm rounded-full bg-secondary-container text-on-secondary-fixed-variant font-label-sm text-label-sm font-bold">All</button>
+<button class="flex-1 py-xs px-sm rounded-full border border-outline-variant text-on-surface-variant font-label-sm text-label-sm hover:bg-surface-variant transition-colors">Unread</button>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto">
+<!-- Active Chat Item -->
+<div class="p-md border-b border-outline-variant bg-surface-container cursor-pointer border-l-4 border-l-secondary relative">
+<div class="flex justify-between items-start mb-xs">
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-[#25D366] text-sm" style="font-size: 16px;">forum</span> <!-- Using forum as proxy for WA -->
+<span class="font-label-md text-label-md text-on-surface font-bold">Juan Perez</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">10:42 AM</span>
+</div>
+<div class="flex justify-between items-end">
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate pr-md">¿Dónde está mi pedido? Ha pasado...</p>
+<span class="w-5 h-5 rounded-full bg-error text-on-error flex items-center justify-center font-label-sm text-label-sm shrink-0">2</span>
+</div>
+<span class="inline-block mt-unit px-xs py-xs bg-surface-variant rounded text-on-surface-variant text-[10px] uppercase font-bold tracking-wider">#ORD-9921</span>
+</div>
+<!-- Inactive Chat Item 1 -->
+<div class="p-md border-b border-outline-variant hover:bg-surface-container-low cursor-pointer transition-colors">
+<div class="flex justify-between items-start mb-xs">
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-secondary text-sm" style="font-size: 16px;">mail</span>
+<span class="font-label-md text-label-md text-on-surface">Maria Garcia</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">09:15 AM</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Necesito cambiar la dirección de...</p>
+<span class="inline-block mt-unit px-xs py-xs bg-surface-variant rounded text-on-surface-variant text-[10px] uppercase font-bold tracking-wider">#ORD-8834</span>
+</div>
+<!-- Inactive Chat Item 2 -->
+<div class="p-md border-b border-outline-variant hover:bg-surface-container-low cursor-pointer transition-colors">
+<div class="flex justify-between items-start mb-xs">
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-on-surface-variant text-sm" style="font-size: 16px;">confirmation_number</span>
+<span class="font-label-md text-label-md text-on-surface">Carlos Lopez</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Yesterday</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">El producto llegó dañado...</p>
+<span class="inline-block mt-unit px-xs py-xs bg-error-container text-on-error-container rounded text-[10px] uppercase font-bold tracking-wider">High Priority</span>
+</div>
+</div>
+</aside>
+<!-- Main Chat Area -->
+<section class="flex-1 flex flex-col h-full bg-surface-bright relative">
+<!-- Chat Header -->
+<div class="px-lg py-md border-b border-outline-variant bg-surface-container-lowest flex items-center justify-between shrink-0 shadow-sm z-10">
+<div class="flex items-center gap-md">
+<button class="lg:hidden text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div class="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant font-bold text-lg">
+                            JP
+                        </div>
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-sm">
+                                Juan Perez
+                                <span class="flex items-center gap-xs text-[12px] font-normal text-secondary bg-secondary-container px-sm py-xs rounded-full">
+<span class="material-symbols-outlined" style="font-size: 14px;">forum</span> WhatsApp
+                                </span>
+</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Active now • Related to #ORD-9921</p>
+</div>
+</div>
+<div class="flex gap-sm">
+<button class="p-sm text-on-surface-variant hover:bg-surface-variant rounded-full transition-colors" title="Transfer">
+<span class="material-symbols-outlined">move_up</span>
+</button>
+<button class="p-sm text-on-surface-variant hover:bg-surface-variant rounded-full transition-colors" title="Resolve">
+<span class="material-symbols-outlined">check_circle</span>
+</button>
+</div>
+</div>
+<!-- Chat Messages Scroll Area -->
+<div class="flex-1 overflow-y-auto p-lg flex flex-col gap-md bg-[#F8FAFC]">
+<!-- System Message -->
+<div class="flex justify-center my-sm">
+<span class="bg-surface-variant text-on-surface-variant font-label-sm text-label-sm px-md py-xs rounded-full shadow-sm">
+                            Conversation started today
+                        </span>
+</div>
+<!-- Customer Message -->
+<div class="flex justify-start max-w-[80%]">
+<div class="bg-surface-container-lowest border border-outline-variant text-on-surface p-md rounded-2xl rounded-tl-sm shadow-sm">
+<p class="font-body-md text-body-md">Hola, ¿dónde está mi pedido? Ha pasado la fecha estimada de entrega y no tengo noticias.</p>
+<span class="block mt-xs text-[11px] text-on-surface-variant text-right">10:40 AM</span>
+</div>
+</div>
+<!-- Internal Note (Private) -->
+<div class="flex justify-center w-full my-sm">
+<div class="bg-yellow-50 border border-yellow-200 w-full max-w-2xl p-sm rounded-lg flex items-start gap-sm shadow-sm relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-yellow-400"></div>
+<span class="material-symbols-outlined text-yellow-600 shrink-0 mt-xs" style="font-size: 18px;">lock</span>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-xs">
+<span class="font-label-sm text-label-sm text-yellow-800 font-bold">Internal Note • Agent Ops</span>
+<span class="text-[11px] text-yellow-600">10:43 AM</span>
+</div>
+<p class="font-body-sm text-body-sm text-yellow-900">Revisé con logística. El camión se retrasó por tráfico, pero está en ruta. Entrega estimada hoy antes de las 5 PM.</p>
+</div>
+</div>
+</div>
+<!-- Agent Message (Reply) -->
+<div class="flex justify-end max-w-[80%] self-end">
+<div class="bg-secondary text-on-secondary p-md rounded-2xl rounded-tr-sm shadow-sm">
+<p class="font-body-md text-body-md">Hola Juan, disculpa la demora. Hemos verificado con nuestra paquetería y tu pedido está en ruta para ser entregado el día de hoy antes de las 17:00 hrs. Te pedimos un poco más de paciencia.</p>
+<div class="flex justify-end items-center gap-xs mt-xs text-[11px] text-secondary-fixed-dim">
+<span>10:45 AM</span>
+<span class="material-symbols-outlined" style="font-size: 14px;">done_all</span>
+</div>
+</div>
+</div>
+<!-- Customer Message -->
+<div class="flex justify-start max-w-[80%]">
+<div class="bg-surface-container-lowest border border-outline-variant text-on-surface p-md rounded-2xl rounded-tl-sm shadow-sm">
+<p class="font-body-md text-body-md">Ok, muchas gracias. Quedo al pendiente.</p>
+<span class="block mt-xs text-[11px] text-on-surface-variant text-right">10:46 AM</span>
+</div>
+</div>
+</div>
+<!-- Chat Input Area -->
+<div class="p-md border-t border-outline-variant bg-surface-container-lowest shrink-0">
+<!-- Mode Switcher (Reply / Note) -->
+<div class="flex gap-sm mb-sm">
+<button class="px-md py-xs rounded-full bg-secondary-container text-on-secondary-fixed-variant font-label-sm text-label-sm flex items-center gap-xs font-bold transition-colors">
+<span class="material-symbols-outlined" style="font-size: 16px;">reply</span> Reply to Customer
+                        </button>
+<button class="px-md py-xs rounded-full border border-outline-variant text-on-surface-variant font-label-sm text-label-sm flex items-center gap-xs hover:bg-yellow-50 hover:text-yellow-700 hover:border-yellow-200 transition-colors">
+<span class="material-symbols-outlined" style="font-size: 16px;">edit_note</span> Add Internal Note
+                        </button>
+</div>
+<div class="relative bg-surface rounded-xl border border-outline-variant focus-within:border-secondary focus-within:ring-1 focus-within:ring-secondary transition-all shadow-sm">
+<textarea class="w-full p-md bg-transparent border-none focus:ring-0 resize-none font-body-sm text-on-surface" placeholder="Type a message..." rows="3" style="min-height: 80px;"></textarea>
+<div class="flex justify-between items-center p-sm border-t border-outline-variant bg-surface-container-low rounded-b-xl">
+<div class="flex gap-sm text-on-surface-variant">
+<button class="p-xs hover:text-secondary transition-colors" title="Attach file"><span class="material-symbols-outlined" style="font-size: 20px;">attach_file</span></button>
+<button class="p-xs hover:text-secondary transition-colors" title="Insert Template"><span class="material-symbols-outlined" style="font-size: 20px;">assignment</span></button>
+<button class="p-xs hover:text-secondary transition-colors" title="Emoji"><span class="material-symbols-outlined" style="font-size: 20px;">sentiment_satisfied</span></button>
+</div>
+<button class="bg-secondary text-on-secondary px-lg py-sm rounded-lg font-label-md text-label-md flex items-center gap-xs shadow-md hover:bg-opacity-90 transition-all">
+                                Send <span class="material-symbols-outlined" style="font-size: 18px;">send</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Order Details Panel (Right) -->
+<aside class="w-80 border-l border-outline-variant bg-surface-container-lowest flex flex-col h-full hidden xl:flex shrink-0 overflow-y-auto">
+<!-- Order Header -->
+<div class="p-lg border-b border-outline-variant sticky top-0 bg-surface-container-lowest z-10">
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-sm">Order Context</h3>
+<div class="bg-surface border border-outline-variant rounded-xl p-md shadow-sm">
+<div class="flex justify-between items-center mb-md">
+<span class="font-label-md text-label-md font-bold text-primary">#ORD-9921</span>
+<span class="bg-blue-50 text-blue-700 text-xs px-sm py-xs rounded-full font-bold flex items-center gap-xs">
+<span class="material-symbols-outlined" style="font-size: 12px;">local_shipping</span> In Transit
+                            </span>
+</div>
+<div class="space-y-sm">
+<div class="flex justify-between text-body-sm">
+<span class="text-on-surface-variant">Date</span>
+<span class="text-on-surface font-medium">Oct 24, 2023</span>
+</div>
+<div class="flex justify-between text-body-sm">
+<span class="text-on-surface-variant">Total</span>
+<span class="text-on-surface font-medium">$124.50</span>
+</div>
+<div class="flex justify-between text-body-sm">
+<span class="text-on-surface-variant">Carrier</span>
+<span class="text-on-surface font-medium">ExpressLogistics</span>
+</div>
+</div>
+<button class="w-full mt-md py-sm border border-outline-variant rounded-lg text-on-surface-variant font-label-sm text-label-sm hover:bg-surface-variant transition-colors">
+                            View Full Order
+                        </button>
+</div>
+</div>
+<!-- Customer Info -->
+<div class="p-lg border-b border-outline-variant">
+<h4 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-md">Customer</h4>
+<div class="flex items-center gap-md mb-md">
+<div class="w-12 h-12 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant font-bold text-xl">
+                            JP
+                        </div>
+<div>
+<p class="font-body-md font-bold text-on-surface">Juan Perez</p>
+<p class="font-body-sm text-on-surface-variant">VIP Member</p>
+</div>
+</div>
+<div class="space-y-sm text-body-sm">
+<div class="flex items-center gap-sm text-on-surface">
+<span class="material-symbols-outlined text-outline" style="font-size: 16px;">mail</span>
+                            juan.perez@example.com
+                        </div>
+<div class="flex items-center gap-sm text-on-surface">
+<span class="material-symbols-outlined text-outline" style="font-size: 16px;">call</span>
+                            +52 55 1234 5678
+                        </div>
+</div>
+</div>
+<!-- Quick Templates -->
+<div class="p-lg flex-1">
+<h4 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-md">Quick Templates</h4>
+<div class="space-y-sm">
+<button class="w-full text-left p-sm border border-outline-variant rounded-lg hover:border-secondary hover:bg-secondary-container hover:text-on-secondary-container transition-all group">
+<div class="font-label-sm text-label-sm font-bold mb-xs group-hover:text-secondary">Greeting &amp; Status Update</div>
+<div class="font-body-sm text-on-surface-variant text-xs truncate group-hover:text-on-secondary-container/80">"Hello! I'm checking on your order..."</div>
+</button>
+<button class="w-full text-left p-sm border border-outline-variant rounded-lg hover:border-secondary hover:bg-secondary-container hover:text-on-secondary-container transition-all group">
+<div class="font-label-sm text-label-sm font-bold mb-xs group-hover:text-secondary">Apology for Delay</div>
+<div class="font-body-sm text-on-surface-variant text-xs truncate group-hover:text-on-secondary-container/80">"We apologize for the unexpected delay..."</div>
+</button>
+<button class="w-full text-left p-sm border border-outline-variant rounded-lg hover:border-secondary hover:bg-secondary-container hover:text-on-secondary-container transition-all group">
+<div class="font-label-sm text-label-sm font-bold mb-xs group-hover:text-secondary">Request More Info</div>
+<div class="font-body-sm text-on-surface-variant text-xs truncate group-hover:text-on-secondary-container/80">"To help you better, could you provide..."</div>
+</button>
+</div>
+</div>
+</aside>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-sm py-unit bg-surface-container-highest dark:bg-surface-container-low shadow-lg border-t border-outline-variant rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant active:bg-surface-variant dark:active:bg-surface-dim p-unit rounded-lg" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-sm text-label-sm mt-xs">Dash</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant active:bg-surface-variant dark:active:bg-surface-dim p-unit rounded-lg" href="#">
+<span class="material-symbols-outlined">package_2</span>
+<span class="font-label-sm text-label-sm mt-xs">Orders</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-secondary-container text-on-primary-container dark:text-on-secondary-container rounded-xl p-unit shadow-sm transform scale-90" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">chat</span>
+<span class="font-label-sm text-label-sm mt-xs">Chat</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant active:bg-surface-variant dark:active:bg-surface-dim p-unit rounded-lg" href="#">
+<span class="material-symbols-outlined">report_problem</span>
+<span class="font-label-sm text-label-sm mt-xs">Incidents</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant active:bg-surface-variant dark:active:bg-surface-dim p-unit rounded-lg" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-sm text-label-sm mt-xs">Profile</span>
+</a>
+</nav>
+</body></html>

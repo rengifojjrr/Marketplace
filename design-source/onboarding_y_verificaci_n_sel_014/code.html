@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Onboarding - Tumbo Seller Center</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container-high": "#e9e7eb",
+                      "secondary-container": "#316bf3",
+                      "on-surface-variant": "#44474e",
+                      "on-tertiary-fixed": "#00201d",
+                      "on-secondary-fixed-variant": "#003ea8",
+                      "inverse-primary": "#b1c7f0",
+                      "primary-fixed": "#d5e3ff",
+                      "surface-dim": "#dbd9dd",
+                      "on-surface": "#1b1b1e",
+                      "tertiary-container": "#002a27",
+                      "surface-container-lowest": "#ffffff",
+                      "secondary": "#0051d5",
+                      "on-primary": "#ffffff",
+                      "surface-variant": "#e3e2e5",
+                      "on-background": "#1b1b1e",
+                      "surface-container-highest": "#e3e2e5",
+                      "on-primary-fixed-variant": "#314769",
+                      "on-secondary-container": "#fefcff",
+                      "on-tertiary": "#ffffff",
+                      "on-error": "#ffffff",
+                      "surface-container": "#efedf0",
+                      "outline-variant": "#c4c6cf",
+                      "primary-fixed-dim": "#b1c7f0",
+                      "primary": "#001026",
+                      "on-secondary": "#ffffff",
+                      "tertiary": "#001311",
+                      "on-error-container": "#93000a",
+                      "background": "#faf9fc",
+                      "tertiary-fixed": "#9cf2e8",
+                      "tertiary-fixed-dim": "#80d5cb",
+                      "surface": "#faf9fc",
+                      "primary-container": "#0b2545",
+                      "secondary-fixed": "#dbe1ff",
+                      "on-primary-container": "#778db2",
+                      "inverse-surface": "#303033",
+                      "secondary-fixed-dim": "#b4c5ff",
+                      "inverse-on-surface": "#f2f0f3",
+                      "error-container": "#ffdad6",
+                      "on-tertiary-fixed-variant": "#00504a",
+                      "outline": "#74777f",
+                      "on-primary-fixed": "#001c3b",
+                      "error": "#ba1a1a",
+                      "on-tertiary-container": "#419990",
+                      "surface-bright": "#faf9fc",
+                      "surface-tint": "#495f82",
+                      "on-secondary-fixed": "#00174b",
+                      "surface-container-low": "#f5f3f6"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "container-max": "1280px",
+                      "gutter": "24px",
+                      "sm": "8px",
+                      "lg": "24px",
+                      "unit": "4px",
+                      "xl": "32px",
+                      "xs": "4px",
+                      "md": "16px",
+                      "margin-mobile": "16px",
+                      "xxl": "48px"
+              },
+              "fontFamily": {
+                      "headline-sm": ["Inter"],
+                      "headline-lg": ["Inter"],
+                      "body-sm": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "headline-lg-mobile": ["Inter"],
+                      "body-md": ["Inter"],
+                      "headline-md": ["Inter"],
+                      "display-lg": ["Inter"],
+                      "label-sm": ["Inter"],
+                      "label-md": ["Inter"]
+              },
+              "fontSize": {
+                      "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                      "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                      "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .icon-fill {
+            font-variation-settings: 'FILL' 1;
+        }
+        
+        /* Subtle transition for interactive elements */
+        .interactive-element {
+            transition: all 200ms linear;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md text-body-md min-h-screen flex flex-col">
+<!-- Simplified Header for Onboarding (Nav Suppressed) -->
+<header class="bg-surface-container-lowest border-b border-outline-variant h-16 px-lg flex items-center justify-between sticky top-0 z-40">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary text-[28px] icon-fill">storefront</span>
+<span class="font-headline-sm text-headline-sm text-primary">Tumbo Seller Center</span>
+</div>
+<button class="font-label-md text-label-md text-on-surface-variant hover:text-primary interactive-element flex items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">logout</span>
+            Guardar y Salir
+        </button>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 w-full max-w-4xl mx-auto px-margin-mobile md:px-lg py-xl flex flex-col gap-xl">
+<!-- Header Section -->
+<div class="flex flex-col gap-sm">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary">Verificación de Identidad (KYC)</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Complete los pasos a continuación para activar su cuenta de vendedor. La documentación es requerida por normativas legales.</p>
+</div>
+<!-- Stepper -->
+<div class="relative w-full py-md">
+<!-- Progress Line Background -->
+<div class="absolute top-1/2 left-0 w-full h-[2px] bg-surface-variant -translate-y-1/2 z-0"></div>
+<!-- Active Progress Line -->
+<div class="absolute top-1/2 left-0 w-[33%] h-[2px] bg-secondary -translate-y-1/2 z-0"></div>
+<div class="relative z-10 flex justify-between items-center w-full">
+<!-- Step 1: Completed -->
+<div class="flex flex-col items-center gap-xs">
+<div class="w-8 h-8 rounded-full bg-secondary text-on-secondary flex items-center justify-center border-2 border-secondary">
+<span class="material-symbols-outlined text-[18px] icon-fill">check</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface hidden md:block">Datos del Comercio</span>
+</div>
+<!-- Step 2: Active -->
+<div class="flex flex-col items-center gap-xs">
+<div class="w-8 h-8 rounded-full bg-surface-container-lowest text-secondary flex items-center justify-center border-2 border-secondary shadow-[0px_4px_12px_rgba(11,37,69,0.05)]">
+<span class="font-label-md text-label-md">2</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary font-bold hidden md:block">Documentación</span>
+</div>
+<!-- Step 3: Pending -->
+<div class="flex flex-col items-center gap-xs">
+<div class="w-8 h-8 rounded-full bg-surface-container-lowest text-on-surface-variant flex items-center justify-center border-2 border-outline-variant">
+<span class="font-label-md text-label-md">3</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant hidden md:block">Cuentas Bancarias</span>
+</div>
+<!-- Step 4: Pending -->
+<div class="flex flex-col items-center gap-xs">
+<div class="w-8 h-8 rounded-full bg-surface-container-lowest text-on-surface-variant flex items-center justify-center border-2 border-outline-variant">
+<span class="font-label-md text-label-md">4</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant hidden md:block">Contrato</span>
+</div>
+</div>
+</div>
+<!-- Feedback Section (Operations Observations) -->
+<div class="bg-error-container border border-error/20 rounded-xl p-md flex items-start gap-md">
+<span class="material-symbols-outlined text-error icon-fill mt-xs">warning</span>
+<div class="flex flex-col gap-xs">
+<h3 class="font-label-md text-label-md text-on-error-container font-bold">Observaciones de Operaciones</h3>
+<p class="font-body-sm text-body-sm text-on-error-container">Hemos revisado sus documentos y se requiere su atención en uno o más archivos. Motivo principal: <strong>RIF vencido, por favor actualizar.</strong></p>
+</div>
+</div>
+<!-- Document Upload Section -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-lg flex flex-col gap-lg shadow-[0px_4px_12px_rgba(11,37,69,0.02)]">
+<div class="flex flex-col gap-xs border-b border-outline-variant pb-md">
+<h2 class="font-headline-sm text-headline-sm text-primary">Carga de Documentos</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Formatos aceptados: PDF, JPG, PNG. Tamaño máximo: 5MB por archivo.</p>
+</div>
+<div class="flex flex-col gap-md">
+<!-- Document Item 1: RIF (Rejected) -->
+<div class="flex flex-col md:flex-row md:items-center justify-between p-md border border-error/30 bg-error-container/10 rounded-lg gap-md interactive-element hover:border-error/50">
+<div class="flex items-start gap-md">
+<div class="w-10 h-10 rounded-full bg-error-container text-error flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined">description</span>
+</div>
+<div class="flex flex-col gap-xs">
+<h4 class="font-label-md text-label-md text-primary">Registro de Información Fiscal (RIF)</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Documento actualizado emitido por el SENIAT.</p>
+<!-- Badge -->
+<div class="inline-flex items-center gap-xs bg-error-container text-error px-sm py-xs rounded-full w-fit mt-xs">
+<span class="material-symbols-outlined text-[14px] icon-fill">cancel</span>
+<span class="font-label-sm text-label-sm">Rechazado</span>
+</div>
+</div>
+</div>
+<button class="shrink-0 bg-surface-container-lowest border border-error text-error rounded-lg px-md py-sm font-label-md text-label-md hover:bg-error-container interactive-element flex items-center gap-xs justify-center w-full md:w-auto">
+<span class="material-symbols-outlined text-[18px]">upload</span>
+                        Reemplazar Archivo
+                    </button>
+</div>
+<!-- Document Item 2: CI (Loaded/Success) -->
+<div class="flex flex-col md:flex-row md:items-center justify-between p-md border border-outline-variant rounded-lg gap-md interactive-element hover:border-outline hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)]">
+<div class="flex items-start gap-md">
+<div class="w-10 h-10 rounded-full bg-surface-container text-on-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined">badge</span>
+</div>
+<div class="flex flex-col gap-xs">
+<h4 class="font-label-md text-label-md text-primary">Cédula de Identidad</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Documento de identidad del Representante Legal.</p>
+<!-- Badge -->
+<div class="inline-flex items-center gap-xs bg-[#e0f2f1] text-tertiary-container px-sm py-xs rounded-full w-fit mt-xs">
+<span class="material-symbols-outlined text-[14px] icon-fill">check_circle</span>
+<span class="font-label-sm text-label-sm">Cargado</span>
+</div>
+</div>
+</div>
+<button class="shrink-0 text-primary-container font-label-md text-label-md hover:bg-surface-container px-md py-sm rounded-lg interactive-element flex items-center gap-xs justify-center w-full md:w-auto">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+                        Ver Documento
+                    </button>
+</div>
+<!-- Document Item 3: Registro (Pending) -->
+<div class="flex flex-col md:flex-row md:items-center justify-between p-md border border-outline-variant rounded-lg gap-md interactive-element hover:border-outline hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)]">
+<div class="flex items-start gap-md">
+<div class="w-10 h-10 rounded-full bg-surface-container text-on-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined">account_balance</span>
+</div>
+<div class="flex flex-col gap-xs">
+<h4 class="font-label-md text-label-md text-primary">Registro Mercantil</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Acta constitutiva y última asamblea (si aplica).</p>
+<!-- Badge -->
+<div class="inline-flex items-center gap-xs bg-surface-variant text-on-surface-variant px-sm py-xs rounded-full w-fit mt-xs">
+<span class="material-symbols-outlined text-[14px]">pending</span>
+<span class="font-label-sm text-label-sm">Pendiente</span>
+</div>
+</div>
+</div>
+<button class="shrink-0 bg-surface-container-lowest border border-primary-container text-primary-container rounded-lg px-md py-sm font-label-md text-label-md hover:bg-surface-container interactive-element flex items-center gap-xs justify-center w-full md:w-auto">
+<span class="material-symbols-outlined text-[18px]">upload</span>
+                        Subir Archivo
+                    </button>
+</div>
+</div>
+</div>
+<!-- Action Footer -->
+<div class="flex flex-col-reverse md:flex-row justify-end items-center gap-md pt-md">
+<button class="w-full md:w-auto bg-transparent border-none text-primary-container font-label-md text-label-md px-lg py-sm rounded-lg hover:bg-surface-container interactive-element">
+                Atrás
+            </button>
+<button class="w-full md:w-auto bg-secondary text-on-secondary font-label-md text-label-md px-lg py-[10px] rounded-[10px] hover:bg-primary interactive-element flex justify-center items-center gap-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                Guardar y Continuar
+                <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+</main>
+</body></html>

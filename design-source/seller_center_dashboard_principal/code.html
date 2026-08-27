@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Seller Center - Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container-highest": "#e3e2e5",
+                      "secondary-container": "#316bf3",
+                      "inverse-on-surface": "#f2f0f3",
+                      "on-background": "#1b1b1e",
+                      "surface-dim": "#dbd9dd",
+                      "outline": "#74777f",
+                      "surface-container": "#efedf0",
+                      "secondary-fixed-dim": "#b4c5ff",
+                      "on-secondary": "#ffffff",
+                      "on-tertiary": "#ffffff",
+                      "surface": "#faf9fc",
+                      "on-tertiary-fixed": "#00201d",
+                      "on-secondary-fixed-variant": "#003ea8",
+                      "secondary": "#0051d5",
+                      "error-container": "#ffdad6",
+                      "error": "#ba1a1a",
+                      "on-surface-variant": "#44474e",
+                      "surface-variant": "#e3e2e5",
+                      "on-primary-fixed-variant": "#314769",
+                      "primary-fixed-dim": "#b1c7f0",
+                      "surface-container-high": "#e9e7eb",
+                      "primary-container": "#0b2545",
+                      "on-error-container": "#93000a",
+                      "surface-container-lowest": "#ffffff",
+                      "on-tertiary-fixed-variant": "#00504a",
+                      "surface-bright": "#faf9fc",
+                      "on-tertiary-container": "#419990",
+                      "on-secondary-fixed": "#00174b",
+                      "surface-container-low": "#f5f3f6",
+                      "background": "#faf9fc",
+                      "primary": "#001026",
+                      "on-error": "#ffffff",
+                      "primary-fixed": "#d5e3ff",
+                      "inverse-primary": "#b1c7f0",
+                      "tertiary-fixed": "#9cf2e8",
+                      "tertiary": "#001311",
+                      "secondary-fixed": "#dbe1ff",
+                      "on-secondary-container": "#fefcff",
+                      "inverse-surface": "#303033",
+                      "on-surface": "#1b1b1e",
+                      "on-primary-container": "#778db2",
+                      "surface-tint": "#495f82",
+                      "tertiary-container": "#002a27",
+                      "outline-variant": "#c4c6cf",
+                      "on-primary-fixed": "#001c3b",
+                      "on-primary": "#ffffff",
+                      "tertiary-fixed-dim": "#80d5cb"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "md": "16px",
+                      "margin-mobile": "16px",
+                      "lg": "24px",
+                      "sm": "8px",
+                      "xl": "32px",
+                      "unit": "4px",
+                      "xxl": "48px",
+                      "container-max": "1280px",
+                      "gutter": "24px",
+                      "xs": "4px"
+              },
+              "fontFamily": {
+                      "headline-lg-mobile": [
+                              "Inter"
+                      ],
+                      "body-sm": [
+                              "Inter"
+                      ],
+                      "label-md": [
+                              "Inter"
+                      ],
+                      "label-sm": [
+                              "Inter"
+                      ],
+                      "headline-lg": [
+                              "Inter"
+                      ],
+                      "headline-sm": [
+                              "Inter"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "display-lg": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "headline-lg-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-sm": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-sm": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md text-body-md overflow-x-hidden flex h-screen">
+<!-- SideNavBar -->
+<nav class="bg-primary dark:bg-primary-container h-screen w-64 flex flex-col fixed left-0 top-0 shadow-md z-50">
+<div class="flex flex-col h-full py-lg">
+<div class="px-md mb-xl flex flex-col items-center">
+<img class="w-16 h-16 rounded-full mb-md object-cover border-2 border-on-primary/20" data-alt="A clean, professional minimalist logo for a seller center dashboard. Bright, modern, high contrast. A small abstract geometric shape in deep blue and bright white. Smooth vector style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVNvCczsSvrEPrcy9aLyKZNW2QVt3-92RqN4I1s8NPu5fXppx2WYwoFf9eTPKVagcQuAWrW1_Dhk3-Xl5HX8-Q--4otg7x1zaB8Phwhlksm5eICf2y__z_lvyQanaylCVQOUfmD6T0pcqOC-iniIy5tUw2bSgy4pnvn6R2vRAADDqqG-c1ww6gIsBmkd7F1RUvSDsF2Nfx4u7qdIiBZxSqPzAfWgZAgaA2NK_Dd_HyhLpqNb3qnwqy"/>
+<div class="text-center">
+<h2 class="font-headline-md text-headline-md font-bold text-on-primary">Seller Center</h2>
+<p class="font-body-sm text-body-sm text-on-primary/70">SEL-014 Marketplace</p>
+</div>
+</div>
+<div class="px-md mb-lg">
+<button class="w-full bg-secondary text-on-secondary rounded-[10px] py-sm px-md font-label-md text-label-md flex items-center justify-center gap-xs hover:bg-secondary/90 transition-colors duration-200">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
+                    Nueva Publicación
+                </button>
+</div>
+<div class="flex-1 overflow-y-auto flex flex-col gap-unit px-xs">
+<a class="bg-secondary-container text-on-secondary-container font-semibold rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md scale-95 transition-transform group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md transition-colors duration-200 ease-linear group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">inventory_2</span>
+<span class="font-label-md text-label-md">Catálogo</span>
+</a>
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md transition-colors duration-200 ease-linear group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">shopping_cart</span>
+<span class="font-label-md text-label-md">Pedidos</span>
+</a>
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md transition-colors duration-200 ease-linear group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">payments</span>
+<span class="font-label-md text-label-md">Finanzas</span>
+</a>
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md transition-colors duration-200 ease-linear group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">group</span>
+<span class="font-label-md text-label-md">Equipo</span>
+</a>
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md transition-colors duration-200 ease-linear group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">settings</span>
+<span class="font-label-md text-label-md">Configuración</span>
+</a>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 ml-64 flex flex-col min-h-screen bg-surface">
+<!-- TopNavBar -->
+<header class="bg-surface dark:bg-surface-dim w-full h-16 fixed top-0 z-40 border-b border-outline-variant dark:border-outline flex justify-between items-center px-lg w-[calc(100%-16rem)]">
+<div class="flex items-center gap-lg">
+<div class="relative hidden md:block">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="pl-xl pr-md py-sm rounded-[10px] border border-outline-variant bg-surface-container-lowest focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none w-64 text-body-sm font-body-sm transition-all duration-200" placeholder="Buscar pedidos, productos..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<button class="text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors duration-200 p-sm rounded-full scale-100 active:scale-95 relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1 right-1 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors duration-200 p-sm rounded-full scale-100 active:scale-95">
+<span class="material-symbols-outlined">storefront</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors duration-200 p-sm rounded-full scale-100 active:scale-95">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</header>
+<!-- Dashboard Content -->
+<div class="mt-16 p-lg flex-1 overflow-y-auto">
+<!-- Hero Section -->
+<div class="mb-lg bg-surface-container-lowest border border-outline-variant rounded-[14px] p-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-md">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface mb-unit">Hola, Tumbo Market</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Aquí tienes un resumen de tu actividad de hoy.</p>
+</div>
+<div class="bg-surface-container-low rounded-lg p-md border border-outline-variant flex items-center gap-md min-w-[300px]">
+<div class="p-sm bg-primary/10 rounded-full text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-xs">Saldo Disponible</p>
+<div class="flex items-end gap-sm">
+<span class="font-headline-md text-headline-md text-on-surface">Bs. 45.200,00</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant pb-[2px]">/ $1.200,00</span>
+</div>
+</div>
+</div>
+</div>
+<!-- KPI Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-lg mb-lg">
+<!-- Ventas -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-lg hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-shadow duration-200 group">
+<div class="flex justify-between items-start mb-md">
+<p class="font-label-md text-label-md text-on-surface-variant">Ventas del mes</p>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">trending_up</span>
+</div>
+<p class="font-headline-sm text-headline-sm text-on-surface mb-xs">Bs. 128.500,00</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant text-tertiary-container flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span>
+                        12% vs mes anterior
+                    </p>
+</div>
+<!-- Pedidos -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-lg hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-shadow duration-200 group">
+<div class="flex justify-between items-start mb-md">
+<p class="font-label-md text-label-md text-on-surface-variant">Pedidos por preparar</p>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">local_shipping</span>
+</div>
+<p class="font-headline-sm text-headline-sm text-on-surface mb-xs">8</p>
+<div class="bg-error/10 text-error inline-flex items-center gap-xs px-2 py-1 rounded font-label-sm text-label-sm mt-xs">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+                        3 urgentes
+                    </div>
+</div>
+<!-- Reclamos -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-lg hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-shadow duration-200 group">
+<div class="flex justify-between items-start mb-md">
+<p class="font-label-md text-label-md text-on-surface-variant">Reclamos abiertos</p>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">assignment_late</span>
+</div>
+<p class="font-headline-sm text-headline-sm text-on-surface mb-xs">2</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Atención requerida</p>
+</div>
+<!-- Nivel de Servicio -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-lg hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-shadow duration-200 group">
+<div class="flex justify-between items-start mb-md">
+<p class="font-label-md text-label-md text-on-surface-variant">Nivel de Servicio</p>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">verified</span>
+</div>
+<p class="font-headline-sm text-headline-sm text-on-surface mb-xs">98%</p>
+<div class="w-full bg-surface-variant h-1.5 rounded-full mt-sm overflow-hidden">
+<div class="bg-primary-container h-full rounded-full" style="width: 98%"></div>
+</div>
+</div>
+</div>
+<!-- Main Content Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-lg mb-lg">
+<!-- Left Column (Actions & Chart) -->
+<div class="lg:col-span-2 flex flex-col gap-lg">
+<!-- Acciones Urgentes Bento Box -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-[14px] flex flex-col overflow-hidden">
+<div class="p-lg border-b border-outline-variant flex justify-between items-center bg-surface-bright">
+<h3 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-sm">
+<span class="material-symbols-outlined text-error">priority_high</span>
+                                Acciones Urgentes
+                            </h3>
+<button class="text-secondary font-label-md text-label-md hover:underline">Ver todas</button>
+</div>
+<div class="p-0">
+<ul class="divide-y divide-outline-variant">
+<li class="p-lg hover:bg-surface-container-low transition-colors flex justify-between items-center group cursor-pointer">
+<div class="flex items-start gap-md">
+<div class="p-sm bg-error/10 text-error rounded-lg">
+<span class="material-symbols-outlined">timer</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface mb-xs group-hover:text-primary transition-colors">3 pedidos próximos a vencer SLA</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Preparación requerida en las próximas 4 horas.</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors">chevron_right</span>
+</li>
+<li class="p-lg hover:bg-surface-container-low transition-colors flex justify-between items-center group cursor-pointer">
+<div class="flex items-start gap-md">
+<div class="p-sm bg-error/10 text-error rounded-lg">
+<span class="material-symbols-outlined">gavel</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface mb-xs group-hover:text-primary transition-colors">2 productos rechazados</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Falta documentación de RIF actualizada.</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors">chevron_right</span>
+</li>
+<li class="p-lg hover:bg-surface-container-low transition-colors flex justify-between items-center group cursor-pointer">
+<div class="flex items-start gap-md">
+<div class="p-sm bg-tertiary-container/10 text-tertiary-container rounded-lg">
+<span class="material-symbols-outlined">forum</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface mb-xs group-hover:text-primary transition-colors">Disputa DSP-0098 esperando respuesta</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Cliente reporta artículo dañado. Requiere evidencia.</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors">chevron_right</span>
+</li>
+</ul>
+</div>
+</div>
+<!-- Chart Placeholder -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-lg">
+<div class="flex justify-between items-center mb-lg">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Rendimiento (Últimos 7 días)</h3>
+<select class="border border-outline-variant rounded-md text-body-sm font-body-sm py-1 px-2 bg-surface focus:ring-secondary outline-none">
+<option>Ventas vs Pedidos</option>
+</select>
+</div>
+<div class="w-full h-64 bg-surface-container-low rounded-lg border border-outline-variant border-dashed flex items-center justify-center relative overflow-hidden">
+<!-- Placeholder for chart -->
+<div class="absolute bottom-0 left-0 w-full h-full flex items-end justify-between px-md pt-lg pb-sm opacity-50 pointer-events-none">
+<div class="w-1/12 h-[20%] bg-primary-container rounded-t-sm"></div>
+<div class="w-1/12 h-[40%] bg-primary-container rounded-t-sm"></div>
+<div class="w-1/12 h-[30%] bg-primary-container rounded-t-sm"></div>
+<div class="w-1/12 h-[60%] bg-primary-container rounded-t-sm"></div>
+<div class="w-1/12 h-[50%] bg-primary-container rounded-t-sm"></div>
+<div class="w-1/12 h-[80%] bg-primary-container rounded-t-sm"></div>
+<div class="w-1/12 h-[75%] bg-primary-container rounded-t-sm"></div>
+</div>
+<span class="font-body-sm text-body-sm text-outline z-10 bg-surface-container-low/80 px-2 py-1 rounded">Visualización de Gráfico</span>
+</div>
+</div>
+</div>
+<!-- Right Column (News) -->
+<div class="lg:col-span-1">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-[14px] h-full flex flex-col">
+<div class="p-lg border-b border-outline-variant bg-surface-bright">
+<h3 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-sm">
+<span class="material-symbols-outlined text-secondary">campaign</span>
+                                Novedades del Marketplace
+                            </h3>
+</div>
+<div class="p-lg flex-1 flex flex-col gap-lg bg-surface-container-low/30">
+<!-- News Item 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md hover:shadow-sm transition-shadow cursor-pointer">
+<div class="flex items-start gap-md">
+<img class="w-16 h-16 rounded object-cover" data-alt="A bright, summery abstract graphic promoting a summer sale campaign. Vibrant warm colors, sunburst motifs, modern clean vector design, perfect for a high-end marketplace dashboard news feed." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCQ1_iGX7vUVgRpe0OEae1dxAzzturY880J9xnmqYZOlQsIUmdcyr896SJJZeV7IB4h4aehnfU7xJKEGWijsv2Buprmm5D3Can7zx3QAP6MA8nMxmz0J1vkpNcRZjPEJX0G4wrrkul186kQ1mVOQKr2MIF2kBDxabkgZ7xBu8q31nC2P6CzCXKqWBxtVbsgNh2shbRX0rkmKH8n0_cvFj60Zybo0_I-tMsRRoAEsQAVLMhFGediiDbT"/>
+<div>
+<span class="text-[10px] font-bold text-secondary uppercase tracking-wider mb-xs block">Marketing</span>
+<h4 class="font-label-md text-label-md text-on-surface mb-xs">Nueva Campaña de Verano</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">Inscribe tus productos con un 10% de descuento y obtén mayor visibilidad en la página principal.</p>
+</div>
+</div>
+</div>
+<!-- News Item 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md hover:shadow-sm transition-shadow cursor-pointer">
+<div class="flex items-start gap-md">
+<div class="w-16 h-16 rounded bg-primary/5 flex items-center justify-center text-primary flex-shrink-0">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">percent</span>
+</div>
+<div>
+<span class="text-[10px] font-bold text-outline uppercase tracking-wider mb-xs block">Políticas</span>
+<h4 class="font-label-md text-label-md text-on-surface mb-xs">Actualización de Comisiones</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">Revisa la nueva estructura de comisiones por categoría aplicable a partir del próximo mes.</p>
+</div>
+</div>
+</div>
+<button class="mt-auto w-full border border-outline text-on-surface font-label-md text-label-md py-sm rounded-[10px] hover:bg-surface-container-high transition-colors">
+                                Ver Centro de Anuncios
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer -->
+<footer class="bg-surface-container-low dark:bg-surface-container-lowest w-full py-md border-t border-outline-variant px-lg mt-auto flex justify-between items-center text-on-surface-variant font-label-sm text-label-sm">
+<div>
+                © 2024 Marketplace B2B2C. Panel Administrativo de Alta Precisión.
+            </div>
+<div class="flex gap-lg">
+<a class="hover:text-secondary hover:underline transition-colors opacity-100 hover:opacity-80" href="#">Soporte</a>
+<a class="hover:text-secondary hover:underline transition-colors opacity-100 hover:opacity-80" href="#">Documentación API</a>
+<a class="hover:text-secondary hover:underline transition-colors opacity-100 hover:opacity-80" href="#">Privacidad</a>
+</div>
+</footer>
+</main>
+</body></html>

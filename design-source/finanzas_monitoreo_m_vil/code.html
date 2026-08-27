@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Monitoreo Financiero - Tumbo Market</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed-dim": "#93ccff",
+                        "inverse-primary": "#b1c7f0",
+                        "primary-fixed": "#d5e3ff",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "surface-container-highest": "#dfe3e7",
+                        "on-tertiary": "#ffffff",
+                        "on-background": "#171c1f",
+                        "tertiary": "#00111f",
+                        "tertiary-container": "#00273f",
+                        "on-error-container": "#93000a",
+                        "secondary-container": "#d0e1fb",
+                        "primary": "#001026",
+                        "inverse-surface": "#2c3134",
+                        "surface-dim": "#d6dade",
+                        "on-tertiary-fixed-variant": "#004b73",
+                        "surface": "#f6fafe",
+                        "on-tertiary-container": "#2993d6",
+                        "surface-variant": "#dfe3e7",
+                        "inverse-on-surface": "#edf1f5",
+                        "danger": "#ef4444",
+                        "on-primary": "#ffffff",
+                        "surface-tint": "#495f82",
+                        "tertiary-fixed": "#cce5ff",
+                        "error": "#ba1a1a",
+                        "primary-container": "#0b2545",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "on-tertiary-fixed": "#001d31",
+                        "on-surface-variant": "#44474e",
+                        "on-error": "#ffffff",
+                        "outline": "#74777f",
+                        "on-secondary-fixed": "#0b1c30",
+                        "on-primary-fixed": "#001c3b",
+                        "on-primary-fixed-variant": "#314769",
+                        "success": "#10b981",
+                        "surface-container-high": "#e4e9ed",
+                        "secondary": "#505f76",
+                        "primary-fixed-dim": "#b1c7f0",
+                        "on-primary-container": "#778db2",
+                        "on-surface": "#171c1f",
+                        "surface-border": "#e2e8f0",
+                        "secondary-fixed": "#d3e4fe",
+                        "data-row-hover": "#f8fafc",
+                        "surface-container": "#eaeef2",
+                        "surface-container-low": "#f0f4f8",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "warning": "#f59e0b",
+                        "error-container": "#ffdad6",
+                        "surface-bright": "#f6fafe",
+                        "background": "#f6fafe",
+                        "outline-variant": "#c4c6cf",
+                        "info": "#3b82f6",
+                        "on-secondary-container": "#54647a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "header-height": "56px",
+                        "tight": "8px",
+                        "gutter": "16px",
+                        "base": "4px",
+                        "sidebar-width": "240px",
+                        "compact": "12px",
+                        "standard": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "data-mono": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "body-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "data-mono": ["13px", { "lineHeight": "18px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+                        "body-lg": ["15px", { "lineHeight": "22px", "fontWeight": "400" }],
+                        "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "500" }],
+                        "headline-lg": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "600" }],
+                        "headline-sm": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .icon-fill {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md antialiased min-h-screen flex flex-col w-full max-w-md mx-auto md:max-w-full overflow-x-hidden">
+<!-- TopNavBar (Shared Component adapted for mobile) -->
+<header class="sticky top-0 z-50 flex justify-between items-center w-full px-gutter py-compact bg-surface border-b border-outline-variant shadow-sm transition-all duration-200">
+<!-- Mobile Menu Trigger -->
+<button class="md:hidden text-secondary p-base hover:bg-surface-container-low rounded-lg transition-colors">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<!-- Brand Identity -->
+<div class="flex items-center gap-tight">
+<span class="font-headline-md text-headline-md font-bold text-primary">Tumbo Market</span>
+</div>
+<!-- Trailing Actions (Mobile: Reduced to Profile/Notifications) -->
+<div class="flex items-center gap-base">
+<button class="text-secondary p-tight hover:text-primary transition-colors relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 bg-danger rounded-full border border-surface"></span>
+</button>
+<button class="text-secondary p-tight hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="flex-1 flex flex-col p-standard gap-standard pb-24 md:pb-standard">
+<!-- Health Alerts Section -->
+<section aria-label="System Alerts">
+<div class="bg-error-container border border-error/20 rounded-lg p-compact flex gap-tight items-start shadow-sm">
+<span class="material-symbols-outlined text-danger text-[20px] mt-0.5 icon-fill">warning</span>
+<div class="flex-1">
+<h4 class="font-label-md text-label-md text-on-error-container font-bold">Alerta de Integración Crítica</h4>
+<p class="font-body-sm text-body-sm text-on-error-container/90 mt-base">Latencia alta detectada en el gateway principal (API Stripe). Operaciones de liquidación pueden sufrir retrasos.</p>
+</div>
+</div>
+</section>
+<!-- Financial Dashboard Summary -->
+<section aria-label="Financial Dashboard" class="flex flex-col gap-tight">
+<!-- Main Balance (Disponible) -->
+<div class="bg-surface-container-lowest border border-surface-border rounded-lg p-standard shadow-sm">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-secondary uppercase tracking-wider">Disponible para Liquidar</span>
+<span class="material-symbols-outlined text-success text-[18px]">trending_up</span>
+</div>
+<h2 class="font-headline-lg text-headline-lg text-primary mt-tight">$1,452,890.00</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-base flex items-center gap-base">
+<span class="text-success font-medium">+2.4%</span> vs mes anterior
+                </p>
+</div>
+<!-- Secondary Balances (Cobrado / Retenido) -->
+<div class="grid grid-cols-2 gap-tight">
+<div class="bg-surface-container-lowest border border-surface-border rounded-lg p-compact shadow-sm">
+<span class="font-label-sm text-label-sm text-secondary uppercase tracking-wider block mb-base">Cobrado (Total)</span>
+<span class="font-headline-sm text-headline-sm text-primary">$3,205,400.00</span>
+</div>
+<div class="bg-surface-container-lowest border border-surface-border rounded-lg p-compact shadow-sm">
+<div class="flex justify-between items-center mb-base">
+<span class="font-label-sm text-label-sm text-secondary uppercase tracking-wider">Retenido</span>
+<span class="material-symbols-outlined text-warning text-[14px]">lock</span>
+</div>
+<span class="font-headline-sm text-headline-sm text-primary">$185,000.00</span>
+</div>
+</div>
+</section>
+<!-- Pending Approvals List -->
+<section aria-label="Pending Approvals" class="mt-standard">
+<div class="flex justify-between items-center mb-compact border-b border-surface-border pb-tight">
+<h3 class="font-headline-sm text-headline-sm text-primary">Aprobaciones Pendientes</h3>
+<span class="bg-warning/10 text-warning font-label-sm text-label-sm px-2 py-0.5 rounded-DEFAULT">3 Críticas</span>
+</div>
+<div class="flex flex-col gap-compact">
+<!-- Approval Card 1 -->
+<div class="bg-surface-container-lowest border border-surface-border rounded-lg p-compact shadow-sm flex flex-col gap-tight">
+<div class="flex justify-between items-start">
+<div>
+<span class="font-label-md text-label-md text-primary block">Liquidación #LQ-8821</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Merchant: ElectroTech Caracas</span>
+</div>
+<span class="font-data-mono text-data-mono text-primary font-medium">$450,000.00</span>
+</div>
+<div class="flex items-center justify-between mt-base pt-tight border-t border-surface-border/50">
+<span class="font-label-sm text-label-sm text-secondary flex items-center gap-base">
+<span class="material-symbols-outlined text-[14px]">schedule</span> Hace 2h
+                        </span>
+<button class="bg-primary-container text-on-primary rounded-DEFAULT px-compact py-tight font-label-md text-label-md hover:opacity-90 transition-opacity flex items-center gap-base" onclick="open2FAModal('LQ-8821')">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                            Aprobar
+                        </button>
+</div>
+</div>
+<!-- Approval Card 2 -->
+<div class="bg-surface-container-lowest border border-surface-border rounded-lg p-compact shadow-sm flex flex-col gap-tight">
+<div class="flex justify-between items-start">
+<div>
+<span class="font-label-md text-label-md text-primary block">Liquidación #LQ-8822</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Merchant: MegaMarket Sur</span>
+</div>
+<span class="font-data-mono text-data-mono text-primary font-medium">$820,500.00</span>
+</div>
+<div class="flex items-center justify-between mt-base pt-tight border-t border-surface-border/50">
+<span class="font-label-sm text-label-sm text-danger flex items-center gap-base font-medium">
+<span class="material-symbols-outlined text-[14px]">warning</span> Alto Monto
+                        </span>
+<button class="bg-primary-container text-on-primary rounded-DEFAULT px-compact py-tight font-label-md text-label-md hover:opacity-90 transition-opacity flex items-center gap-base" onclick="open2FAModal('LQ-8822')">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                            Aprobar
+                        </button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- 2FA Simulation Modal (Hidden by default) -->
+<div class="fixed inset-0 z-[100] hidden flex items-center justify-center p-standard bg-inverse-surface/60 backdrop-blur-sm transition-opacity duration-200 opacity-0 pointer-events-none" id="modal-2fa">
+<div class="bg-surface-container-lowest rounded-lg border border-surface-border shadow-lg w-full max-w-sm flex flex-col transform scale-95 transition-transform duration-200" id="modal-content">
+<div class="p-compact border-b border-surface-border flex justify-between items-center">
+<h4 class="font-headline-sm text-headline-sm text-primary">Autorización de Seguridad</h4>
+<button class="text-secondary hover:text-primary transition-colors p-base" onclick="close2FAModal()">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<div class="p-standard flex flex-col items-center text-center gap-standard">
+<div class="w-12 h-12 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[24px]">phonelink_lock</span>
+</div>
+<div>
+<p class="font-body-md text-body-md text-on-surface">Ingresa el código 2FA generado en tu dispositivo para aprobar la liquidación <strong class="text-primary" id="modal-liq-id"></strong>.</p>
+</div>
+<div class="w-full flex gap-tight justify-center">
+<input aria-label="Digit 1" class="w-10 h-12 text-center font-headline-md text-headline-md border border-outline-variant rounded-DEFAULT focus:border-primary-container focus:ring-0 outline-none bg-surface" maxlength="1" type="text"/>
+<input aria-label="Digit 2" class="w-10 h-12 text-center font-headline-md text-headline-md border border-outline-variant rounded-DEFAULT focus:border-primary-container focus:ring-0 outline-none bg-surface" maxlength="1" type="text"/>
+<input aria-label="Digit 3" class="w-10 h-12 text-center font-headline-md text-headline-md border border-outline-variant rounded-DEFAULT focus:border-primary-container focus:ring-0 outline-none bg-surface" maxlength="1" type="text"/>
+<span class="text-outline flex items-center font-bold">-</span>
+<input aria-label="Digit 4" class="w-10 h-12 text-center font-headline-md text-headline-md border border-outline-variant rounded-DEFAULT focus:border-primary-container focus:ring-0 outline-none bg-surface" maxlength="1" type="text"/>
+<input aria-label="Digit 5" class="w-10 h-12 text-center font-headline-md text-headline-md border border-outline-variant rounded-DEFAULT focus:border-primary-container focus:ring-0 outline-none bg-surface" maxlength="1" type="text"/>
+<input aria-label="Digit 6" class="w-10 h-12 text-center font-headline-md text-headline-md border border-outline-variant rounded-DEFAULT focus:border-primary-container focus:ring-0 outline-none bg-surface" maxlength="1" type="text"/>
+</div>
+</div>
+<div class="p-compact border-t border-surface-border bg-surface-container-low flex justify-end gap-compact rounded-b-lg">
+<button class="px-standard py-tight border border-surface-border bg-surface-container-lowest text-secondary font-label-md text-label-md rounded-DEFAULT hover:bg-surface-variant transition-colors" onclick="close2FAModal()">
+                    Cancelar
+                </button>
+<button class="px-standard py-tight bg-primary-container text-on-primary font-label-md text-label-md rounded-DEFAULT hover:opacity-90 transition-opacity" onclick="simulateApproval()">
+                    Confirmar
+                </button>
+</div>
+</div>
+</div>
+<!-- Script for interaction -->
+<script>
+        const modal = document.getElementById('modal-2fa');
+        const modalContent = document.getElementById('modal-content');
+        const liqIdDisplay = document.getElementById('modal-liq-id');
+        const inputs = modal.querySelectorAll('input');
+
+        function open2FAModal(id) {
+            liqIdDisplay.textContent = '#' + id;
+            modal.classList.remove('hidden');
+            // Trigger reflow to enable transition
+            void modal.offsetWidth;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modalContent.classList.remove('scale-95');
+            modalContent.classList.add('scale-100');
+            
+            // Focus first input
+            setTimeout(() => inputs[0].focus(), 100);
+        }
+
+        function close2FAModal() {
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modalContent.classList.remove('scale-100');
+            modalContent.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                // clear inputs
+                inputs.forEach(input => input.value = '');
+            }, 200);
+        }
+
+        function simulateApproval() {
+            // Simulate processing
+            const btn = event.currentTarget;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">refresh</span> Procesando';
+            btn.disabled = true;
+
+            setTimeout(() => {
+                close2FAModal();
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                // Optional: show a toast notification here
+                alert('Liquidación ' + liqIdDisplay.textContent + ' aprobada con éxito.');
+            }, 1000);
+        }
+
+        // Auto-advance inputs for 2FA UX
+        inputs.forEach((input, index) => {
+            input.addEventListener('input', function() {
+                if(this.value.length === 1 && index < inputs.length - 1) {
+                    inputs[index + 1].focus();
+                }
+            });
+            input.addEventListener('keydown', function(e) {
+                if(e.key === 'Backspace' && this.value.length === 0 && index > 0) {
+                    inputs[index - 1].focus();
+                }
+            });
+        });
+    </script>
+</body></html>

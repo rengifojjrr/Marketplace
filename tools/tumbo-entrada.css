@@ -1,0 +1,5 @@
+/* Entrada del compilador de Tailwind. La capa de andamiaje de la demo
+   (dock, avisos, toasts) vive aparte en assets/css/tumbo.css. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

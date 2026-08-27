@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Tumbo Market - Inicio</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed": "#00174b",
+                        "tertiary-container": "#002a27",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#0b2545",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed": "#001c3b",
+                        "tertiary-fixed": "#9cf2e8",
+                        "surface-container-highest": "#e3e2e5",
+                        "inverse-surface": "#303033",
+                        "on-surface-variant": "#44474e",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed": "#dbe1ff",
+                        "on-tertiary-fixed-variant": "#00504a",
+                        "surface-container": "#efedf0",
+                        "primary-fixed": "#d5e3ff",
+                        "background": "#faf9fc",
+                        "surface-bright": "#faf9fc",
+                        "surface-tint": "#495f82",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed-dim": "#b1c7f0",
+                        "on-secondary-container": "#fefcff",
+                        "inverse-on-surface": "#f2f0f3",
+                        "surface-dim": "#dbd9dd",
+                        "on-secondary-fixed-variant": "#003ea8",
+                        "secondary-container": "#316bf3",
+                        "on-secondary": "#ffffff",
+                        "tertiary": "#001311",
+                        "on-primary-fixed-variant": "#314769",
+                        "on-error": "#ffffff",
+                        "on-background": "#1b1b1e",
+                        "on-tertiary-container": "#419990",
+                        "surface-variant": "#e3e2e5",
+                        "inverse-primary": "#b1c7f0",
+                        "on-surface": "#1b1b1e",
+                        "on-primary-container": "#778db2",
+                        "primary": "#001026",
+                        "surface-container-low": "#f5f3f6",
+                        "surface-container-high": "#e9e7eb",
+                        "surface": "#faf9fc",
+                        "tertiary-fixed-dim": "#80d5cb",
+                        "outline-variant": "#c4c6cf",
+                        "on-tertiary-fixed": "#00201d",
+                        "secondary-fixed-dim": "#b4c5ff",
+                        "error-container": "#ffdad6",
+                        "secondary": "#0051d5",
+                        "outline": "#74777f",
+                        "error": "#ba1a1a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "xxl": "48px",
+                        "margin-mobile": "16px",
+                        "unit": "4px",
+                        "gutter": "24px",
+                        "xl": "32px",
+                        "md": "16px",
+                        "container-max": "1280px",
+                        "lg": "24px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Inter"],
+                        "label-md": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-md": ["14px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-sm pb-xxl">
+<!-- TopNavBar (Mobile Adaptation) -->
+<header class="sticky top-0 z-50 flex items-center justify-between px-margin-mobile py-md w-full bg-surface/95 backdrop-blur-md">
+<div class="flex items-center gap-sm">
+<span class="text-headline-sm font-headline-sm font-bold text-primary">Tumbo Market</span>
+</div>
+<div class="flex items-center gap-md text-primary">
+<span class="material-symbols-outlined text-[24px]">payments</span>
+<span class="material-symbols-outlined text-[24px]">shopping_cart</span>
+<span class="material-symbols-outlined text-[24px]">account_circle</span>
+</div>
+</header>
+<!-- Search Bar -->
+<div class="px-margin-mobile py-sm">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full pl-xl pr-sm py-sm rounded-lg border border-outline-variant bg-surface text-body-sm text-on-surface focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none transition-all" placeholder="Buscar en Tumbo..." type="text"/>
+</div>
+</div>
+<!-- Value Proposition Banner -->
+<div class="px-margin-mobile py-md">
+<div class="bg-primary-container rounded-xl p-md text-on-primary-container relative overflow-hidden flex items-center justify-between">
+<div class="z-10 w-2/3">
+<h2 class="text-headline-sm font-headline-sm text-on-primary font-bold mb-xs">Todo lo que necesitas, en un solo lugar.</h2>
+<p class="text-body-sm font-body-sm text-on-primary/80">Compra rápido, seguro y al mejor precio.</p>
+</div>
+<div class="z-10 w-1/3 flex justify-end">
+<img class="w-24 h-24 object-contain" data-alt="A clean, minimalist 3D rendering of a shopping cart filled with colorful, abstract geometric shapes representing various products. The background is a soft, light corporate blue gradient. High quality, soft lighting, modern e-commerce aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCI_SX5X0oWZ5OFIAsmA2XJtV2KgihAzZn46Ifv6iqRNDqQzQ3UN6mNozXdXSrfrd0viv5an-16ZSsfcOtoLc-JXEFxsZ1ouJ16hnYpHec_5HXss_XOYYZZOQwSAZgQHJnPb_XKFSL-MWm5bcJHVPXUw2mrVuYCa178caA9IEDx7QkVrY6XBe2EPQZs-Et6ej8I_Bq51_bwoIelzXSUo_-rW5xvYGfVO254ecHVLHea6OlP51BDtiAK"/>
+</div>
+<div class="absolute inset-0 bg-gradient-to-r from-primary-container to-secondary-container/50 opacity-50 z-0"></div>
+</div>
+</div>
+<!-- Horizontal Categories -->
+<div class="py-sm">
+<div class="px-margin-mobile mb-xs flex justify-between items-center">
+<h3 class="text-label-md font-label-md text-on-surface">Categorías Destacadas</h3>
+<span class="text-secondary text-label-sm font-label-sm">Ver todas</span>
+</div>
+<div class="flex overflow-x-auto no-scrollbar gap-sm px-margin-mobile pb-sm snap-x">
+<!-- Category 1 -->
+<div class="flex flex-col items-center gap-xs min-w-[72px] snap-start">
+<div class="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center border border-outline-variant shadow-sm shrink-0 overflow-hidden">
+<img class="w-10 h-10 object-contain" data-alt="A small, stylized icon-style illustration of a modern smartphone, representing the electronics category. Clean lines, soft blue and gray tones, placed on a pure white background. Minimalist corporate aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD14hc8Uh5bMgm6-dMVhTCEYTAi1hzai3augq4GI3pw6bc7NTXpNCdsOS_FGoWOtVXBnYzZ-OI4_KBu5oOejJhWAFq2auZ5Pq57_AhIgbCeLVnCdwA4JwTOmHuvzAJ0aSylf8H7OtKrPyOrr9rLVEq4KTlcWaZK3ZlxTxEKNfmDB2sqIWlg-dstUzzt4nHgrJBopJGtBrBAWW6jsf8JtcHYFUqafMwV8FWOC-PhKoCdu2Nv8hnhnH-b"/>
+</div>
+<span class="text-label-sm font-label-sm text-on-surface-variant text-center leading-tight">Electrónica</span>
+</div>
+<!-- Category 2 -->
+<div class="flex flex-col items-center gap-xs min-w-[72px] snap-start">
+<div class="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center border border-outline-variant shadow-sm shrink-0 overflow-hidden">
+<img class="w-10 h-10 object-contain" data-alt="A small, stylized icon-style illustration of a folded t-shirt and jeans, representing the clothing category. Clean lines, soft blue and gray tones, placed on a pure white background. Minimalist corporate aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBg37IDtqqJaHkz84kfYHOIrmWXHAP_l06-OiXs5bpEVKZlIvA4oKrHD2f0uhmu29ur2ZrjNjdA__qLo7uvUBq4doXbLxDtaeIGOVWiAnsgvQFO7V4HISlL1lWhPKSxYgv8IPKPOekXWRAE-icEmxOErvimDIlBCdzYI-gN6bi_8CaQ5fYLnJa2hCsC-PEXwOtDOvYU5pkLZ91LqIb6VpnUkTjlM8BGI43QX5znK_hJ3mkZEPJ7HhZT"/>
+</div>
+<span class="text-label-sm font-label-sm text-on-surface-variant text-center leading-tight">Ropa</span>
+</div>
+<!-- Category 3 -->
+<div class="flex flex-col items-center gap-xs min-w-[72px] snap-start">
+<div class="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center border border-outline-variant shadow-sm shrink-0 overflow-hidden">
+<img class="w-10 h-10 object-contain" data-alt="A small, stylized icon-style illustration of a modern sofa and lamp, representing the home category. Clean lines, soft blue and gray tones, placed on a pure white background. Minimalist corporate aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB09APyfZRkH5DzqliioIx6DTtbltZDcndSWXETKEowvdlhg7yJVi7YdHF0pVXuaQU44YMujlYs4YbWED_VAnrmydAYW0Qy06qkSq6GMy_sYEB4LBn8tumazIbJoUtG9gGXYoCwnxGeFftZbDVAwM6Uz3ytfDpzZJ-d4z744gnGQXeda6KHQdBZ7OyhHcNKafH21zaRJTCwtt7590GImPPMBX2HLPANpvavO1jlE58Kn9F1lTj4pO2d"/>
+</div>
+<span class="text-label-sm font-label-sm text-on-surface-variant text-center leading-tight">Hogar</span>
+</div>
+<!-- Category 4 -->
+<div class="flex flex-col items-center gap-xs min-w-[72px] snap-start">
+<div class="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center border border-outline-variant shadow-sm shrink-0 overflow-hidden">
+<img class="w-10 h-10 object-contain" data-alt="A small, stylized icon-style illustration of fresh groceries in a paper bag, representing the supermarket category. Clean lines, soft blue and gray tones, placed on a pure white background. Minimalist corporate aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBOPai6sEIvIl5FkBatVMD614Hf-tpXbNU7lCUS4KV0GowLadR9MJfoE0OIbBB2ck8DYe0AQPkW-8orMa3BPv_p5zqS5mbfFCfboEYyCvleS951k9WHVMXw-Gg4PiXppwbFpFFeXMvlusa8i1raQmJHy0FppIJ2Z3xIvFXahphVt6ajiTzOor_gmiScrexV_JYNLzzuANXG7A3b5IXuNsDkrq448hwuGbwdxFZ4Y766H4nIK-Q-MK1N"/>
+</div>
+<span class="text-label-sm font-label-sm text-on-surface-variant text-center leading-tight">Super</span>
+</div>
+<!-- Category 5 -->
+<div class="flex flex-col items-center gap-xs min-w-[72px] snap-start">
+<div class="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center border border-outline-variant shadow-sm shrink-0 overflow-hidden">
+<span class="material-symbols-outlined text-outline">more_horiz</span>
+</div>
+<span class="text-label-sm font-label-sm text-on-surface-variant text-center leading-tight">Más</span>
+</div>
+</div>
+</div>
+<!-- Featured Products Bento Grid -->
+<div class="px-margin-mobile py-md">
+<h3 class="text-label-md font-label-md text-on-surface mb-sm">Ofertas del Día</h3>
+<div class="grid grid-cols-2 gap-sm">
+<!-- Product Card 1 (Large) -->
+<div class="col-span-2 bg-surface rounded-xl border border-outline-variant p-sm flex gap-sm items-center shadow-sm relative">
+<div class="absolute top-sm right-sm bg-error-container text-on-error-container text-label-sm font-label-sm px-2 py-0.5 rounded-full z-10 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">local_fire_department</span> -20%
+                </div>
+<img class="w-24 h-24 object-cover rounded-lg bg-surface-container-low shrink-0" data-alt="A high-end, sleek black wireless headphone sitting on a minimalist white pedestal. Soft studio lighting creating gentle shadows. The background is a clean, corporate light gray. High resolution, professional product photography style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC1dar43o5Gg8Z6RR96UPgSiosEykVSXKLosfI18pz9RQlGg__xC6ePVi2bFlfgZIo7UXu8dfCOCLtAhMZpZn0EzM61d4gVkbg8dNtDhE60zznJT76Jw3VEj-bwy2vppl16_pC-Bka32gABO-Jea6WaB01FsrdkQI_IZ67e4dMuPw2KTznRUR5MOZJrGzxeh1uca0BX2gUEVYoAhfGZ6WT9-WSDBGU0zhbBdm4-e-KummJu683Shb23"/>
+<div class="flex flex-col justify-between h-full py-1">
+<div>
+<h4 class="text-label-md font-label-md text-on-surface line-clamp-2">Auriculares Inalámbricos Premium Pro Max</h4>
+<span class="text-label-sm text-on-surface-variant line-through text-xs mt-1">Ref 120.00</span>
+</div>
+<div>
+<div class="text-headline-sm font-headline-sm font-bold text-primary">Ref 96.00</div>
+<div class="text-label-sm font-label-sm text-secondary">Bs. 3,552.00</div>
+</div>
+</div>
+</div>
+<!-- Product Card 2 (Small) -->
+<div class="bg-surface rounded-xl border border-outline-variant p-sm flex flex-col gap-sm shadow-sm relative">
+<img class="w-full h-24 object-cover rounded-lg bg-surface-container-low" data-alt="A modern smartwatch with a dark silicone band displayed against a pristine white background. Crisp details, bright lighting, emphasizing the screen interface. Minimalist e-commerce product shot." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBjoGNKCRAf2u4A-gDQE8NGkf_9ov1yUy_sy4_dTbNw_hpiwQlx8VKWLajc9Tp6-bPm2ojMmjP2S0m7SFahj2KScZPhIamMUAjLoYTwG6d5WnheyipI_IcNnwAVzv7gP_BS2-Dcf21gJbNfHqsLHTdfJo5QyQjjWXpGGZLwl3lqGlK7IYZ7J7wavbr_gAY8uz4KhzS2tdxmJ0PJ60KXxaM_TgWpIEgRDID7m8jKBf1HicBancvGSBUO"/>
+<div class="flex flex-col flex-grow justify-between">
+<h4 class="text-label-sm font-label-sm text-on-surface line-clamp-2 mb-1">Smartwatch Serie 8 Fitness Tracker</h4>
+<div>
+<div class="text-body-md font-body-md font-bold text-primary">Ref 45.00</div>
+<div class="text-[10px] text-secondary">Bs. 1,665.00</div>
+</div>
+</div>
+</div>
+<!-- Product Card 3 (Small) -->
+<div class="bg-surface rounded-xl border border-outline-variant p-sm flex flex-col gap-sm shadow-sm relative">
+<img class="w-full h-24 object-cover rounded-lg bg-surface-container-low" data-alt="A sleek, silver laptop slightly open, viewed from an angle against a solid white background. Clean, modern, professional product photography suited for a premium B2B2C marketplace." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD6NjwvMQvUX91mvwAERDBYNtXgjsIdpm3XPM3K4cVyB5nIwEqsABPGLdshWvhELnVjzyz5TA7MIpqn6_KX1YYu-6Cp1G_2ps2BmXVczNDRRgCU97rDJWQhl-HTFQ67Cv4eBC_Q4JVy9RZWqj61wA3liordAoZc4SlJdo7gSRegEiq18yTdd21q_HP27br_LnuE6hR4ecaC7s4l8n9mSX-4tttLh6ESqk3qTx5YlpI2rn1cliZ9Vgcw"/>
+<div class="flex flex-col flex-grow justify-between">
+<h4 class="text-label-sm font-label-sm text-on-surface line-clamp-2 mb-1">Laptop Ultra Slim 14" 8GB RAM</h4>
+<div>
+<div class="text-body-md font-body-md font-bold text-primary">Ref 299.99</div>
+<div class="text-[10px] text-secondary">Bs. 11,099.63</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Top Sellers Horizontal Scroll -->
+<div class="py-md bg-surface-container-low mt-sm border-y border-outline-variant">
+<div class="px-margin-mobile mb-sm flex justify-between items-center">
+<h3 class="text-label-md font-label-md text-on-surface">Tiendas Oficiales</h3>
+</div>
+<div class="flex overflow-x-auto no-scrollbar gap-sm px-margin-mobile snap-x pb-2">
+<!-- Seller 1 -->
+<div class="bg-surface border border-outline-variant rounded-lg p-sm min-w-[140px] snap-start flex flex-col items-center justify-center text-center shadow-sm">
+<img class="w-12 h-12 rounded-full border border-outline-variant mb-2 object-cover" data-alt="A minimalist logo for a tech brand, featuring a stylized blue letter 'T' inside a geometric shape. Rendered in a clean, corporate style against a white background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB6gj_AAimNYvSZOAQuh4gTSwQXqG0Wd9l_ci2b_k_bYgtQjPahbvGukPqxSUZ1S-pATuev3iqPsvxdKM-ddgUz48iNCTZYm_yORolTU2ZZLFixetAXWwf_oPY8O1DRdsWQ-m_WtMYJz2rdE5u9B2hgS5_7GzW9QHQybR87vQpqv-o-6SgVVhjyd_oXt-NIZTMq8BtzgxWPyCDOcsKZUGYF5hLoIYeMPEa1WO1FD3UMqf-nXZK9-nR2"/>
+<span class="text-label-sm font-label-sm text-on-surface font-semibold">TechCorp C.A.</span>
+<span class="text-[10px] text-on-surface-variant flex items-center gap-1 justify-center mt-1"><span class="material-symbols-outlined text-[12px] text-tertiary-container" style="font-variation-settings: 'FILL' 1;">verified</span> Oficial</span>
+</div>
+<!-- Seller 2 -->
+<div class="bg-surface border border-outline-variant rounded-lg p-sm min-w-[140px] snap-start flex flex-col items-center justify-center text-center shadow-sm">
+<img class="w-12 h-12 rounded-full border border-outline-variant mb-2 object-cover" data-alt="A sleek, modern logo for a home goods store, showing an abstract line-art house in dark navy blue. Professional, clean, and minimalist aesthetic on a white background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDG-sA0rcLouVAJPm6bMzPDaxBiSMPCmNeGDErY-83VXFBh_y_DBLkmulWvuQZwMaV3_btBnlycw370fKo1BqbBvG8EeBkb8qmZfSR7zPovqdzSfegAwDfK6hbN078kaBJZIk6mArm3_1P_UpOImpuxLB84iige9pBxaLW9IUSq8Pr7InBqy8qkiBVsw71QWORQ0c9AsMc6nvUlj15xcAZTIeiPCcgfSvxdZxF6Bdg4cQb3Te38RHGh"/>
+<span class="text-label-sm font-label-sm text-on-surface font-semibold">HogarPlus</span>
+<span class="text-[10px] text-on-surface-variant flex items-center gap-1 justify-center mt-1"><span class="material-symbols-outlined text-[12px] text-tertiary-container" style="font-variation-settings: 'FILL' 1;">verified</span> Oficial</span>
+</div>
+<!-- Seller 3 -->
+<div class="bg-surface border border-outline-variant rounded-lg p-sm min-w-[140px] snap-start flex flex-col items-center justify-center text-center shadow-sm">
+<img class="w-12 h-12 rounded-full border border-outline-variant mb-2 object-cover" data-alt="A minimalist fashion logo featuring a stylized 'M' in an elegant, thin sans-serif font. Dark blue on a white background, projecting a high-end corporate marketplace feel." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDFahhbN9ufLQBitvxt4TzjwyBpt2MIyivye4xDgBpsjcbcjnh0fQTCfGLcmoi7DfHmSZTOmvssA_n3xUZOzmmNNiA_oAudwMQIEeRZVI06jSZ4ZrJ2hweunjyLO8fbtwYYNEhT0cPzgK5O7ZOOoZtaAOEkORO18zy2t_46GN2nnOxVrnICAjDHMiHmIp1hiqxvmzR98XC4WaiNBngeXTC_dY4w5hxFTpMnFOSEBM0k-1Eq3b9iPhE-"/>
+<span class="text-label-sm font-label-sm text-on-surface font-semibold">ModaStore</span>
+<span class="text-[10px] text-on-surface-variant flex items-center gap-1 justify-center mt-1"><span class="material-symbols-outlined text-[12px] text-tertiary-container" style="font-variation-settings: 'FILL' 1;">verified</span> Oficial</span>
+</div>
+</div>
+</div>
+<!-- BottomNavBar (Shared Component) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center bg-surface px-4 py-2 lg:hidden rounded-t-xl border-t border-outline-variant shadow-[0_-4px_12px_rgba(11,37,69,0.08)]">
+<!-- Inicio (Active) -->
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed font-bold active:bg-surface-container-high transition-transform duration-200 active:scale-90 p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="text-label-sm font-label-sm-mobile">Inicio</span>
+</a>
+<!-- Buscar -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline active:bg-surface-container-high transition-transform duration-200 active:scale-90 p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined">search</span>
+<span class="text-label-sm font-label-sm-mobile">Buscar</span>
+</a>
+<!-- Carrito -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline active:bg-surface-container-high transition-transform duration-200 active:scale-90 p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined">shopping_bag</span>
+<span class="text-label-sm font-label-sm-mobile">Carrito</span>
+</a>
+<!-- Perfil -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline active:bg-surface-container-high transition-transform duration-200 active:scale-90 p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="text-label-sm font-label-sm-mobile">Perfil</span>
+</a>
+</nav>
+</body></html>

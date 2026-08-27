@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Prototype Controller - Role Simulation</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config injected from system prompt -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "outline": "#74777f",
+                    "tertiary-fixed": "#9cf2e8",
+                    "background": "#faf9fc",
+                    "primary": "#001026",
+                    "primary-fixed-dim": "#b1c7f0",
+                    "on-error-container": "#93000a",
+                    "on-tertiary-container": "#419990",
+                    "surface-container-lowest": "#ffffff",
+                    "inverse-on-surface": "#f2f0f3",
+                    "on-tertiary": "#ffffff",
+                    "inverse-primary": "#b1c7f0",
+                    "tertiary": "#001311",
+                    "on-primary": "#ffffff",
+                    "surface-container": "#efedf0",
+                    "surface": "#faf9fc",
+                    "surface-container-low": "#f5f3f6",
+                    "inverse-surface": "#303033",
+                    "error-container": "#ffdad6",
+                    "on-primary-fixed": "#001c3b",
+                    "surface-bright": "#faf9fc",
+                    "secondary-container": "#316bf3",
+                    "on-tertiary-fixed": "#00201d",
+                    "on-surface-variant": "#44474e",
+                    "on-tertiary-fixed-variant": "#00504a",
+                    "tertiary-container": "#002a27",
+                    "error": "#ba1a1a",
+                    "secondary": "#0051d5",
+                    "outline-variant": "#c4c6cf",
+                    "primary-fixed": "#d5e3ff",
+                    "on-secondary": "#ffffff",
+                    "on-secondary-fixed-variant": "#003ea8",
+                    "on-secondary-fixed": "#00174b",
+                    "secondary-fixed-dim": "#b4c5ff",
+                    "on-surface": "#1b1b1e",
+                    "secondary-fixed": "#dbe1ff",
+                    "on-primary-container": "#778db2",
+                    "on-error": "#ffffff",
+                    "surface-variant": "#e3e2e5",
+                    "on-secondary-container": "#fefcff",
+                    "primary-container": "#0b2545",
+                    "surface-container-highest": "#e3e2e5",
+                    "on-background": "#1b1b1e",
+                    "surface-tint": "#495f82",
+                    "on-primary-fixed-variant": "#314769",
+                    "tertiary-fixed-dim": "#80d5cb",
+                    "surface-container-high": "#e9e7eb",
+                    "surface-dim": "#dbd9dd"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "xl": "32px",
+                    "gutter": "24px",
+                    "lg": "24px",
+                    "xxl": "48px",
+                    "unit": "4px",
+                    "container-max": "1280px",
+                    "md": "16px",
+                    "margin-mobile": "16px",
+                    "sm": "8px",
+                    "xs": "4px"
+            },
+            "fontFamily": {
+                    "display-lg": [
+                            "Inter"
+                    ],
+                    "label-md": [
+                            "Inter"
+                    ],
+                    "headline-sm": [
+                            "Inter"
+                    ],
+                    "body-lg": [
+                            "Inter"
+                    ],
+                    "headline-lg-mobile": [
+                            "Inter"
+                    ],
+                    "headline-lg": [
+                            "Inter"
+                    ],
+                    "body-md": [
+                            "Inter"
+                    ],
+                    "body-sm": [
+                            "Inter"
+                    ],
+                    "headline-md": [
+                            "Inter"
+                    ],
+                    "label-sm": [
+                            "Inter"
+                    ]
+            },
+            "fontSize": {
+                    "display-lg": [
+                            "48px",
+                            {
+                                    "lineHeight": "56px",
+                                    "letterSpacing": "-0.02em",
+                                    "fontWeight": "700"
+                            }
+                    ],
+                    "label-md": [
+                            "14px",
+                            {
+                                    "lineHeight": "16px",
+                                    "letterSpacing": "0.05em",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "headline-sm": [
+                            "20px",
+                            {
+                                    "lineHeight": "28px",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "body-lg": [
+                            "18px",
+                            {
+                                    "lineHeight": "28px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "headline-lg-mobile": [
+                            "24px",
+                            {
+                                    "lineHeight": "32px",
+                                    "fontWeight": "700"
+                            }
+                    ],
+                    "headline-lg": [
+                            "32px",
+                            {
+                                    "lineHeight": "40px",
+                                    "letterSpacing": "-0.01em",
+                                    "fontWeight": "700"
+                            }
+                    ],
+                    "body-md": [
+                            "16px",
+                            {
+                                    "lineHeight": "24px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "body-sm": [
+                            "14px",
+                            {
+                                    "lineHeight": "20px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "headline-md": [
+                            "24px",
+                            {
+                                    "lineHeight": "32px",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "label-sm": [
+                            "12px",
+                            {
+                                    "lineHeight": "16px",
+                                    "fontWeight": "500"
+                            }
+                    ]
+            }
+    },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .filled-icon {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md h-screen flex overflow-hidden">
+<!-- SideNavBar (from JSON) -->
+<aside class="hidden md:flex flex-col bg-surface-container-low h-screen left-0 w-64 border-r border-outline-variant p-md gap-sm flex-shrink-0 z-20">
+<!-- Header -->
+<div class="flex items-center gap-sm mb-lg">
+<img class="w-10 h-10 rounded-full border border-outline-variant object-cover" data-alt="A small, professional avatar of a system administrator in a high-tech corporate setting, subtle dramatic lighting, deep blue and slate gray tones, modern minimalist aesthetic, representing control and oversight." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDuhv4NDszZF0k1B0RlUGxZroa7EbRUseL0n51UkiNjN_ZBwiPKseqkaj0y0tQ85dfNjRXe3-dSi4X74jz63lCq24zbA3T8D2cei1osI1f6lMStbYgxUidvgwNtfHYtQ-DMZs1-n6XFS0Hgjn88YFTzS3q2C2GpMk2x4aHdncejM69oH6d-a9mddimEvyHe_nacwxsN_IGChCiwXE4Af2TLG-wN5PxuegM53uhOOYhr3_z83BRb6_Mg"/>
+<div>
+<h2 class="font-headline-sm text-headline-sm text-primary">Prototype Controller</h2>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Role Simulation Mode</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<nav class="flex-1 flex flex-col gap-unit">
+<a class="flex items-center gap-sm p-sm text-on-surface-variant hover:bg-surface-variant rounded-lg transition-all duration-200 cursor-pointer active:opacity-80" href="#">
+<span class="material-symbols-outlined">shopping_cart</span>
+<span class="font-label-md text-label-md">Buyer View</span>
+</a>
+<a class="flex items-center gap-sm p-sm bg-secondary-container text-on-secondary-container rounded-lg font-bold transition-all duration-200 cursor-pointer active:opacity-80" href="#">
+<span class="material-symbols-outlined filled-icon">precision_manufacturing</span>
+<span class="font-label-md text-label-md">Seller Operator</span>
+</a>
+<a class="flex items-center gap-sm p-sm text-on-surface-variant hover:bg-surface-variant rounded-lg transition-all duration-200 cursor-pointer active:opacity-80" href="#">
+<span class="material-symbols-outlined">admin_panel_settings</span>
+<span class="font-label-md text-label-md">Seller Admin</span>
+</a>
+<a class="flex items-center gap-sm p-sm text-on-surface-variant hover:bg-surface-variant rounded-lg transition-all duration-200 cursor-pointer active:opacity-80" href="#">
+<span class="material-symbols-outlined">account_tree</span>
+<span class="font-label-md text-label-md">Backoffice Ops</span>
+</a>
+<a class="flex items-center gap-sm p-sm text-on-surface-variant hover:bg-surface-variant rounded-lg transition-all duration-200 cursor-pointer active:opacity-80" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-label-md text-label-md">Backoffice Finance</span>
+</a>
+</nav>
+<!-- Footer / Events -->
+<div class="mt-auto flex flex-col gap-unit border-t border-outline-variant pt-sm">
+<div class="font-label-sm text-label-sm text-on-surface-variant mb-unit px-sm">Active Context</div>
+<a class="flex items-center gap-sm p-sm text-on-surface-variant hover:bg-surface-variant rounded-lg transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[18px]">info</span>
+<span class="font-label-sm text-label-sm truncate">Event: TM-2026-00428</span>
+</a>
+<a class="flex items-center gap-sm p-sm text-on-surface-variant hover:bg-surface-variant rounded-lg transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[18px]">history</span>
+<span class="font-label-sm text-label-sm truncate">Event: DSP-0098</span>
+</a>
+<button class="mt-sm w-full py-2 px-4 bg-transparent border border-primary-container text-primary-container rounded-lg font-label-md text-label-md hover:bg-surface-variant transition-colors">
+                Reset State
+            </button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col h-screen overflow-y-auto bg-background relative">
+<!-- TopNavBar (from JSON - Desktop Only) -->
+<header class="hidden md:flex justify-between items-center w-full px-lg h-16 max-w-container-max mx-auto bg-surface border-b border-outline-variant z-10 sticky top-0">
+<div class="flex items-center gap-xl">
+<div class="font-headline-md text-headline-md font-bold text-primary">Marketplace Prototype</div>
+<nav class="flex gap-md h-full items-end">
+<a class="text-on-surface-variant hover:text-primary transition-colors duration-200 h-full flex items-center px-sm" href="#">Dashboard</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors duration-200 h-full flex items-center px-sm" href="#">Orders</a>
+<a class="text-secondary border-b-2 border-secondary pb-1 h-full flex items-center px-sm font-medium" href="#">Inventory</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors duration-200 h-full flex items-center px-sm" href="#">Users</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<button class="font-label-md text-label-md text-primary-container hover:bg-surface-container-low px-sm py-1 rounded transition-colors duration-200">Switch Role</button>
+<div class="flex gap-unit">
+<button class="p-xs text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors cursor-pointer active:scale-95"><span class="material-symbols-outlined">settings</span></button>
+<button class="p-xs text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors cursor-pointer active:scale-95"><span class="material-symbols-outlined">notifications</span></button>
+</div>
+<img alt="User profile" class="w-8 h-8 rounded-full border border-outline-variant cursor-pointer active:scale-95 object-cover" data-alt="A small, professional user profile image of a marketplace seller in a modern corporate setting, clean lighting, white and navy blue aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCf3u3mOe9v1_w8Hh8BZFX_JZNQGLnps_byAGyJA7RXmCFMbCQRzrMRLyIuwk7vZteIhpql-lpovnrSZQiouU_XpkH5IhcZRiTM01oWSotU8KKh7pe0E5mK8ds2lRMTgMdWS9SZNoXsKwqZxwZ5CpyQva2L_vzPC9to1__O6Mz7ji03C6tnHJSIQCSnGHSw98EEw3csksRmsLbdxZiCyFOZt9IiMwjd6Hc8XLLo3ErmJturYSZXsR4Q"/>
+</div>
+</header>
+<!-- Canvas Content -->
+<div class="p-lg max-w-container-max w-full mx-auto flex flex-col gap-lg pb-xxl">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-md mb-md">
+<div>
+<h1 class="font-display-lg text-display-lg text-primary mb-unit">Simulation Matrix</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Select a role context and monitor system event propagation.</p>
+</div>
+</div>
+<!-- Dashboard Grid (Bento Style) -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-lg">
+<!-- Role Selector (Spans 8 cols) -->
+<div class="md:col-span-8 bg-surface-container-lowest rounded-xl border border-outline-variant p-lg shadow-[0px_4px_12px_rgba(11,37,69,0.05)]">
+<h3 class="font-headline-sm text-headline-sm text-primary mb-md flex items-center gap-sm">
+<span class="material-symbols-outlined text-secondary">groups</span>
+                        Target Persona
+                    </h3>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-md">
+<!-- Buyer -->
+<div class="border border-outline-variant rounded-lg p-md cursor-pointer hover:border-secondary hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-all bg-surface">
+<div class="flex justify-between items-start mb-sm">
+<span class="material-symbols-outlined text-outline">shopping_bag</span>
+<span class="w-3 h-3 rounded-full bg-surface-variant"></span>
+</div>
+<h4 class="font-label-md text-label-md text-on-surface mb-xs">End Consumer</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">Experience the marketplace from the perspective of a retail buyer placing orders.</p>
+</div>
+<!-- Seller (Active) -->
+<div class="border-2 border-secondary rounded-lg p-md cursor-pointer bg-surface-container-low shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-all relative overflow-hidden">
+<div class="absolute top-0 right-0 w-16 h-16 bg-secondary/10 rounded-bl-full -z-0"></div>
+<div class="flex justify-between items-start mb-sm relative z-10">
+<span class="material-symbols-outlined text-secondary filled-icon">storefront</span>
+<span class="material-symbols-outlined text-secondary text-[20px]">check_circle</span>
+</div>
+<h4 class="font-label-md text-label-md text-primary mb-xs relative z-10">Seller Operator</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 relative z-10">Manage inventory, fulfill orders, and handle basic disputes in the seller portal.</p>
+</div>
+<!-- Backoffice -->
+<div class="border border-outline-variant rounded-lg p-md cursor-pointer hover:border-secondary hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-all bg-surface">
+<div class="flex justify-between items-start mb-sm">
+<span class="material-symbols-outlined text-outline">shield_person</span>
+<span class="w-3 h-3 rounded-full bg-surface-variant"></span>
+</div>
+<h4 class="font-label-md text-label-md text-on-surface mb-xs">Platform Admin</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">Full system visibility, dispute resolution override, and financial reconciliation.</p>
+</div>
+</div>
+</div>
+<!-- Integration Health (Spans 4 cols) -->
+<div class="md:col-span-4 bg-surface-container-lowest rounded-xl border border-outline-variant p-lg shadow-[0px_4px_12px_rgba(11,37,69,0.05)] flex flex-col">
+<h3 class="font-headline-sm text-headline-sm text-primary mb-md flex items-center gap-sm">
+<span class="material-symbols-outlined text-outline">health_and_safety</span>
+                        Integration Status
+                    </h3>
+<div class="flex flex-col gap-sm flex-1 justify-center">
+<!-- Courier Status -->
+<div class="flex items-center justify-between p-sm border border-outline-variant rounded-lg bg-surface-container-low">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-on-surface-variant">local_shipping</span>
+<div>
+<div class="font-label-sm text-label-sm text-on-surface">Courier API</div>
+<div class="font-body-sm text-body-sm text-error flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+                                        Webhook Down
+                                    </div>
+</div>
+</div>
+<div class="bg-surface-tint/10 text-surface-tint font-label-sm text-label-sm px-2 py-1 rounded flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">sync_alt</span>
+                                Fallback Active
+                            </div>
+</div>
+<!-- WhatsApp Status -->
+<div class="flex items-center justify-between p-sm border border-outline-variant rounded-lg bg-surface-container-low">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-on-surface-variant">chat</span>
+<div>
+<div class="font-label-sm text-label-sm text-on-surface">WhatsApp Notification</div>
+<div class="font-body-sm text-body-sm text-error flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">error</span>
+                                        Service Down
+                                    </div>
+</div>
+</div>
+<div class="bg-surface-tint/10 text-surface-tint font-label-sm text-label-sm px-2 py-1 rounded flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">mail</span>
+                                Email Fallback
+                            </div>
+</div>
+</div>
+</div>
+<!-- Event Timeline & Context (Spans 12 cols) -->
+<div class="md:col-span-12 bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0px_4px_12px_rgba(11,37,69,0.05)] overflow-hidden flex flex-col md:flex-row">
+<!-- Event List Side -->
+<div class="w-full md:w-1/3 border-r border-outline-variant bg-surface flex flex-col">
+<div class="p-md border-b border-outline-variant bg-surface-container-low">
+<h3 class="font-headline-sm text-headline-sm text-primary">Active Contexts</h3>
+</div>
+<div class="flex-1 overflow-y-auto">
+<!-- Order Event -->
+<div class="p-md border-b border-outline-variant cursor-pointer hover:bg-surface-container-low transition-colors">
+<div class="flex justify-between items-start mb-unit">
+<span class="font-label-md text-label-md text-primary">Pedido TM-2026-00428</span>
+<span class="bg-tertiary-container/10 text-tertiary-container font-label-sm text-label-sm px-2 py-0.5 rounded flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                                        Pagado
+                                    </span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Normal happy-path execution scenario.</p>
+</div>
+<!-- Dispute Event (Active) -->
+<div class="p-md border-l-4 border-l-secondary bg-surface-container-low cursor-pointer">
+<div class="flex justify-between items-start mb-unit">
+<span class="font-label-md text-label-md text-primary">Disputa DSP-0098</span>
+<span class="bg-error-container text-on-error-container font-label-sm text-label-sm px-2 py-0.5 rounded flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">gavel</span>
+                                        Abierta
+                                    </span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Exception path: Item reported damaged upon delivery.</p>
+</div>
+</div>
+</div>
+<!-- Timeline Visualization Side -->
+<div class="w-full md:w-2/3 p-lg bg-surface-container-lowest relative flex flex-col">
+<h3 class="font-headline-sm text-headline-sm text-primary mb-lg">Scenario: EXCEPTION (Dispute Flow)</h3>
+<div class="relative flex-1 pl-md">
+<!-- Vertical Line -->
+<div class="absolute left-6 top-2 bottom-2 w-0.5 bg-outline-variant"></div>
+<!-- Timeline Steps -->
+<div class="flex flex-col gap-lg relative z-10">
+<!-- Step 1: Delivered -->
+<div class="flex gap-md group">
+<div class="w-8 h-8 rounded-full bg-surface border-2 border-outline-variant flex items-center justify-center flex-shrink-0 mt-1 relative">
+<div class="w-3 h-3 rounded-full bg-outline"></div>
+</div>
+<div class="bg-surface border border-outline-variant rounded-lg p-md flex-1 group-hover:border-outline transition-colors">
+<div class="flex justify-between items-center mb-xs">
+<h4 class="font-label-md text-label-md text-on-surface">Order Marked Delivered</h4>
+<span class="font-label-sm text-label-sm text-on-surface-variant">10:42 AM</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Courier webhook failed. Fallback cron job synchronized status.</p>
+</div>
+</div>
+<!-- Step 2: Dispute Opened -->
+<div class="flex gap-md group">
+<div class="w-8 h-8 rounded-full bg-surface border-2 border-secondary flex items-center justify-center flex-shrink-0 mt-1 relative">
+<span class="material-symbols-outlined text-[16px] text-secondary">gavel</span>
+</div>
+<div class="bg-secondary-container/10 border border-secondary rounded-lg p-md flex-1 shadow-[0px_4px_12px_rgba(11,37,69,0.05)]">
+<div class="flex justify-between items-center mb-xs">
+<h4 class="font-label-md text-label-md text-primary">Buyer Initiated Dispute</h4>
+<span class="font-label-sm text-label-sm text-secondary">11:15 AM</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-sm">Reason: Product damaged during transit. 2 photos attached.</p>
+<div class="flex gap-sm">
+<button class="bg-secondary text-on-secondary font-label-md text-label-md px-4 py-2 rounded-lg hover:opacity-90 transition-opacity">
+                                                Review Evidence as Seller
+                                            </button>
+<button class="bg-transparent border border-primary-container text-primary-container font-label-md text-label-md px-4 py-2 rounded-lg hover:bg-surface-container-low transition-colors">
+                                                Escalate to Admin
+                                            </button>
+</div>
+</div>
+</div>
+<!-- Step 3: Pending Action -->
+<div class="flex gap-md opacity-50">
+<div class="w-8 h-8 rounded-full bg-surface border-2 border-outline-variant border-dashed flex items-center justify-center flex-shrink-0 mt-1 relative">
+<div class="w-2 h-2 rounded-full bg-outline-variant"></div>
+</div>
+<div class="bg-surface border border-outline-variant border-dashed rounded-lg p-md flex-1">
+<h4 class="font-label-md text-label-md text-on-surface mb-xs">Resolution Decision</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Awaiting action from Seller or Admin override.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

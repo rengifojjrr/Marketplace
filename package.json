@@ -1,0 +1,20 @@
+{
+  "name": "tumbo-market-beta",
+  "version": "1.0.0-beta",
+  "private": true,
+  "description": "Beta navegable del marketplace curado de Venezuela: 68 pantallas, 8 roles, 3 superficies. Modo demo, sin dependencias externas.",
+  "scripts": {
+    "start": "python3 serve.py 8000",
+    "build": "npm run build:css && npm run build:html",
+    "build:css": "tailwindcss -c tailwind.config.js -i tools/tumbo-entrada.css -o assets/css/tumbo-tailwind.css --minify",
+    "build:html": "python3 tools/build.py",
+    "build:fuentes": "python3 tools/fuentes.py",
+    "test": "node tools/verificar.js"
+  },
+  "devDependencies": {
+    "@tailwindcss/container-queries": "^0.1.1",
+    "@tailwindcss/forms": "^0.5.10",
+    "tailwindcss": "^3.4.17"
+  },
+  "license": "UNLICENSED"
+}

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+
+<html data-tumbo-banner="1" data-tumbo-movil="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Detalle y seguimiento (móvil) · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #faf9fc; /* bg-background */
+        }
+        
+        .timeline-line {
+            width: 2px;
+            background-color: #dbe1ff; /* secondary-fixed */
+            position: absolute;
+            top: 24px;
+            bottom: -24px;
+            left: 23px;
+            z-index: 0;
+        }
+        
+        .timeline-item:last-child .timeline-line {
+            display: none;
+        }
+        
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        
+        .accordion-active .accordion-content {
+            max-height: 500px;
+        }
+        
+        .accordion-active .material-symbols-outlined[data-icon="expand_more"] {
+            transform: rotate(180deg);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  <link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Detalle y seguimiento (móvil) — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col pb-[80px]">
+<div data-tumbo-ui="banner" class="tumbo-banner-demo" role="note"><span class="material-symbols-outlined" aria-hidden="true">science</span><span>MODO DEMO — El rastreo proviene de datos simulados, no de un courier real.</span></div>
+<!-- Top Navigation Bar (Mobile Header) -->
+<header class="bg-surface sticky top-0 z-50 flex items-center justify-between px-md py-sm w-full border-b border-outline-variant">
+<button aria-label="Volver" class="p-2 text-on-surface hover:bg-surface-container rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-headline-sm text-headline-sm text-primary">Mi Pedido</h1>
+<div class="w-10"></div> <!-- Spacer for center alignment -->
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 overflow-y-auto px-margin-mobile py-lg space-y-lg">
+<!-- Status Card -->
+<section class="bg-surface-container-lowest rounded-[14px] border border-outline-variant p-lg shadow-[0_4px_12px_rgba(11,37,69,0.05)]">
+<div class="flex items-start justify-between mb-md">
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface mb-xs">En tránsito</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Llegada estimada: 24 Oct, 2024</p>
+</div>
+<div class="bg-secondary-fixed/20 text-secondary-fixed-variant p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="local_shipping" data-weight="fill" style="font-variation-settings: 'FILL' 1;">local_shipping</span>
+</div>
+</div>
+<div class="bg-surface-container rounded-lg p-md mb-md">
+<div class="flex justify-between items-center mb-sm">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Tracking ID</span>
+<span class="font-body-sm text-body-sm text-primary font-medium">TMB-9824-XTQ</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Courier</span>
+<span class="font-body-sm text-body-sm text-primary font-medium">LogisCorp Enterprise</span>
+</div>
+</div>
+<button class="w-full bg-secondary text-on-secondary font-label-md text-label-md py-md rounded-[10px] hover:bg-on-secondary-fixed-variant transition-colors flex items-center justify-center gap-2 shadow-sm">
+                Rastrear en Courier
+                <span class="material-symbols-outlined text-[18px]" data-icon="open_in_new">open_in_new</span>
+</button>
+</section>
+<!-- Tracking Timeline -->
+<section class="bg-surface-container-lowest rounded-[14px] border border-outline-variant p-lg">
+<h3 class="font-headline-sm text-headline-sm text-primary mb-lg">Historial de Envío</h3>
+<div class="relative pl-sm">
+<!-- Timeline Item 1 (Active) -->
+<div class="timeline-item relative flex gap-md mb-lg">
+<div class="timeline-line"></div>
+<div class="relative z-10 bg-secondary text-on-secondary w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-4 border-surface-container-lowest shadow-sm">
+<span class="material-symbols-outlined text-[20px]" data-icon="local_shipping" data-weight="fill" style="font-variation-settings: 'FILL' 1;">local_shipping</span>
+</div>
+<div class="flex-1 pt-1">
+<h4 class="font-body-md text-body-md font-medium text-on-surface">Salió del centro de distribución</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Santiago, CL</p>
+<p class="font-label-sm text-label-sm text-outline mt-1">Hoy, 08:45 AM</p>
+</div>
+</div>
+<!-- Timeline Item 2 -->
+<div class="timeline-item relative flex gap-md mb-lg">
+<div class="timeline-line"></div>
+<div class="relative z-10 bg-secondary-fixed text-secondary-fixed-variant w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-4 border-surface-container-lowest">
+<span class="material-symbols-outlined text-[20px]" data-icon="inventory_2" data-weight="fill" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+</div>
+<div class="flex-1 pt-1">
+<h4 class="font-body-md text-body-md font-medium text-on-surface">Pedido empaquetado</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Bodega Central, Tumbo</p>
+<p class="font-label-sm text-label-sm text-outline mt-1">Ayer, 16:20 PM</p>
+</div>
+</div>
+<!-- Timeline Item 3 -->
+<div class="timeline-item relative flex gap-md mb-lg">
+<div class="timeline-line"></div>
+<div class="relative z-10 bg-secondary-fixed text-secondary-fixed-variant w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-4 border-surface-container-lowest">
+<span class="material-symbols-outlined text-[20px]" data-icon="check_circle" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex-1 pt-1">
+<h4 class="font-body-md text-body-md font-medium text-on-surface">Pago confirmado</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Transacción exitosa</p>
+<p class="font-label-sm text-label-sm text-outline mt-1">Ayer, 10:15 AM</p>
+</div>
+</div>
+<!-- Timeline Item 4 -->
+<div class="timeline-item relative flex gap-md">
+<div class="timeline-line"></div>
+<div class="relative z-10 bg-secondary-fixed text-secondary-fixed-variant w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-4 border-surface-container-lowest">
+<span class="material-symbols-outlined text-[20px]" data-icon="receipt_long" data-weight="fill" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
+</div>
+<div class="flex-1 pt-1">
+<h4 class="font-body-md text-body-md font-medium text-on-surface">Pedido recibido</h4>
+<p class="font-label-sm text-label-sm text-outline mt-1">Ayer, 10:12 AM</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Product Details Accordion -->
+<section class="bg-surface-container-lowest rounded-[14px] border border-outline-variant overflow-hidden" id="product-accordion">
+<button class="w-full flex items-center justify-between p-lg focus:outline-none focus:bg-surface-container-low transition-colors" onclick="toggleAccordion('product-accordion')">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" data-icon="shopping_bag">shopping_bag</span>
+<h3 class="font-headline-sm text-headline-sm text-primary">Detalles de los productos (2)</h3>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant transition-transform duration-300" data-icon="expand_more">expand_more</span>
+</button>
+<div class="accordion-content border-t border-outline-variant/50">
+<div class="p-lg space-y-md">
+<!-- Product 1 -->
+<div class="flex gap-md">
+<div class="w-20 h-20 rounded-lg overflow-hidden shrink-0 bg-surface-container-high border border-outline-variant">
+<img loading="lazy" alt="Imagen del producto — demostración" class="w-full h-full object-cover" data-alt="A professional studio product shot of a sleek, modern enterprise server rack component in silver and black metal. The lighting is bright and clean, emphasizing the corporate B2B high-end technology aesthetic against a pristine white background." src="../../assets/img/producto-05.svg"/>
+</div>
+<div class="flex-1">
+<h4 class="font-body-md text-body-md font-medium text-on-surface line-clamp-2 mb-1">Módulo de Servidor Enterprise X-2000</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">SKU: SVR-X2K-B</p>
+<div class="flex justify-between items-center">
+<span class="font-body-sm text-body-sm text-on-surface">Cant: 1</span>
+<span class="font-body-md text-body-md font-semibold text-primary">$1,250.00</span>
+</div>
+</div>
+</div>
+<hr class="border-outline-variant/30"/>
+<!-- Product 2 -->
+<div class="flex gap-md">
+<div class="w-20 h-20 rounded-lg overflow-hidden shrink-0 bg-surface-container-high border border-outline-variant">
+<img loading="lazy" alt="Imagen del producto — demostración" class="w-full h-full object-cover" data-alt="A professional studio product shot of a set of premium networking cables organized neatly in a modern corporate style. Bright, clean lighting, highlighting the high-quality materials and B2B technological focus." src="../../assets/img/producto-04.svg"/>
+</div>
+<div class="flex-1">
+<h4 class="font-body-md text-body-md font-medium text-on-surface line-clamp-2 mb-1">Kit Cables de Red Fibra Óptica Pro (10m)</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">SKU: NET-FOB-10M</p>
+<div class="flex justify-between items-center">
+<span class="font-body-sm text-body-sm text-on-surface">Cant: 2</span>
+<span class="font-body-md text-body-md font-semibold text-primary">$180.00</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Delivery Address -->
+<section class="bg-surface-container-lowest rounded-[14px] border border-outline-variant p-lg">
+<h3 class="font-headline-sm text-headline-sm text-primary mb-md flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="place">place</span>
+                Dirección de Entrega
+            </h3>
+<div class="pl-8">
+<p class="font-body-md text-body-md text-on-surface font-medium">Oficinas Centrales Corp</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Av. Apoquindo 4501, Piso 12</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Las Condes, Santiago, Región Metropolitana</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-2">Contacto: Juan Pérez (+56 9 1234 5678)</p>
+</div>
+</section>
+</main>
+<!-- Floating Action Button -->
+<div class="fixed bottom-lg right-lg z-50">
+<button class="bg-primary text-on-primary w-14 h-14 rounded-full shadow-[0_4px_12px_rgba(11,37,69,0.3)] flex items-center justify-center hover:bg-primary-container transition-colors focus:ring-4 focus:ring-primary-fixed">
+<span class="material-symbols-outlined text-[24px]" data-icon="chat">chat</span>
+</button>
+</div>
+<script>
+        function toggleAccordion(id) {
+            const element = document.getElementById(id);
+            element.classList.toggle('accordion-active');
+        }
+    </script>
+<div class="px-4 pb-4"><button class="w-full flex items-center justify-center gap-2 border border-error text-error py-3 px-4 rounded-[10px] font-label-md text-label-md min-h-[44px]"><span class="material-symbols-outlined">gavel</span>Abrir reclamo o devolución</button></div>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_PAGINA={"ruta": "marketplace/pedido-seguimiento-movil.html", "superficie": "marketplace", "rol": "comprador", "titulo": "Detalle y seguimiento (móvil)"};</script>
+</body></html>

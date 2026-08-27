@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Conciliación Bancaria - Tumbo Market</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "tertiary-fixed-dim": "#93ccff",
+                      "inverse-primary": "#b1c7f0",
+                      "primary-fixed": "#d5e3ff",
+                      "on-secondary-fixed-variant": "#38485d",
+                      "surface-container-highest": "#dfe3e7",
+                      "on-tertiary": "#ffffff",
+                      "on-background": "#171c1f",
+                      "tertiary": "#00111f",
+                      "tertiary-container": "#00273f",
+                      "on-error-container": "#93000a",
+                      "secondary-container": "#d0e1fb",
+                      "primary": "#001026",
+                      "inverse-surface": "#2c3134",
+                      "surface-dim": "#d6dade",
+                      "on-tertiary-fixed-variant": "#004b73",
+                      "surface": "#f6fafe",
+                      "on-tertiary-container": "#2993d6",
+                      "surface-variant": "#dfe3e7",
+                      "inverse-on-surface": "#edf1f5",
+                      "danger": "#ef4444",
+                      "on-primary": "#ffffff",
+                      "surface-tint": "#495f82",
+                      "tertiary-fixed": "#cce5ff",
+                      "error": "#ba1a1a",
+                      "primary-container": "#0b2545",
+                      "secondary-fixed-dim": "#b7c8e1",
+                      "on-tertiary-fixed": "#001d31",
+                      "on-surface-variant": "#44474e",
+                      "on-error": "#ffffff",
+                      "outline": "#74777f",
+                      "on-secondary-fixed": "#0b1c30",
+                      "on-primary-fixed": "#001c3b",
+                      "on-primary-fixed-variant": "#314769",
+                      "success": "#10b981",
+                      "surface-container-high": "#e4e9ed",
+                      "secondary": "#505f76",
+                      "primary-fixed-dim": "#b1c7f0",
+                      "on-primary-container": "#778db2",
+                      "on-surface": "#171c1f",
+                      "surface-border": "#e2e8f0",
+                      "secondary-fixed": "#d3e4fe",
+                      "data-row-hover": "#f8fafc",
+                      "surface-container": "#eaeef2",
+                      "surface-container-low": "#f0f4f8",
+                      "surface-container-lowest": "#ffffff",
+                      "on-secondary": "#ffffff",
+                      "warning": "#f59e0b",
+                      "error-container": "#ffdad6",
+                      "surface-bright": "#f6fafe",
+                      "background": "#f6fafe",
+                      "outline-variant": "#c4c6cf",
+                      "info": "#3b82f6",
+                      "on-secondary-container": "#54647a"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "header-height": "56px",
+                      "tight": "8px",
+                      "gutter": "16px",
+                      "base": "4px",
+                      "sidebar-width": "240px",
+                      "compact": "12px",
+                      "standard": "16px"
+              },
+              "fontFamily": {
+                      "headline-md": ["Inter"],
+                      "data-mono": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "label-sm": ["Inter"],
+                      "headline-lg": ["Inter"],
+                      "body-md": ["Inter"],
+                      "label-md": ["Inter"],
+                      "headline-sm": ["Inter"],
+                      "body-sm": ["Inter"]
+              },
+              "fontSize": {
+                      "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "data-mono": ["13px", {"lineHeight": "18px", "letterSpacing": "-0.01em", "fontWeight": "400"}],
+                      "body-lg": ["15px", {"lineHeight": "22px", "fontWeight": "400"}],
+                      "label-sm": ["11px", {"lineHeight": "14px", "fontWeight": "500"}],
+                      "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                      "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "600"}],
+                      "headline-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                      "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings: 'FILL' 1;
+        }
+        /* Custom scrollbar for data tables */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md h-screen flex overflow-hidden">
+<!-- SideNavBar -->
+<nav class="hidden lg:flex flex-col h-full p-compact gap-compact bg-surface-container-low text-secondary font-label-md w-[240px] border-r border-outline-variant shrink-0 relative z-20">
+<!-- Header -->
+<div class="flex items-center gap-compact mb-standard">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center shrink-0 border border-surface-border overflow-hidden">
+<img alt="Store Logo" class="w-full h-full object-cover" data-alt="A small, professional store logo icon. Simple geometric shapes in dark blue and white, suitable for a minimalist corporate dashboard context. Clean light background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBesl37Dtq1U1Wvvbz_QZ64tYbV9eh0wmXA9JYme0ZuToEL-1J85wSzwS3C7bz43IIfg8OYccQS1Que79lqX309JyBqcCyH0GoI7eOk41AwEc5pHQfUPbztv77bIbnnJC_BsxFnkqA3oIc9TU827IAtXJsEFq-Z6LzCNJa5DbMnXbHclMK_k7Xx3RaGuXmNdrFecPfutgL25nm5uP6yOte0VfHzAuuHpOIz8uVpsAN0W5BgwEpMf6D7"/>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-headline-sm text-headline-sm font-bold text-primary truncate">Seller Center</span>
+<span class="text-on-surface-variant text-[10px] truncate">Managing: Caracas Central</span>
+</div>
+</div>
+<!-- Navigation Tabs -->
+<div class="flex flex-col gap-base flex-1 overflow-y-auto">
+<a class="flex items-center gap-compact px-compact py-tight rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-compact px-compact py-tight rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="inventory_2">inventory_2</span>
+<span>Inventory</span>
+</a>
+<a class="flex items-center gap-compact px-compact py-tight rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="shopping_cart">shopping_cart</span>
+<span>Orders</span>
+</a>
+<a class="flex items-center gap-compact px-compact py-tight rounded-lg bg-secondary-fixed text-on-secondary-fixed font-bold" href="#">
+<span class="material-symbols-outlined text-[20px] filled" data-icon="payments">payments</span>
+<span>Payments</span>
+</a>
+<a class="flex items-center gap-compact px-compact py-tight rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="leaderboard">leaderboard</span>
+<span>Analytics</span>
+</a>
+<a class="flex items-center gap-compact px-compact py-tight rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+<span>Settings</span>
+</a>
+</div>
+<!-- Footer Actions -->
+<div class="mt-auto pt-compact border-t border-surface-border flex flex-col gap-base">
+<button class="w-full bg-primary-container text-on-primary rounded-lg py-tight font-label-md flex items-center justify-center gap-tight hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                Add Product
+            </button>
+<a class="flex items-center gap-compact px-compact py-tight rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="contact_support">contact_support</span>
+<span>Support</span>
+</a>
+<a class="flex items-center gap-compact px-compact py-tight rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="logout">logout</span>
+<span>Logout</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col min-w-0 overflow-hidden bg-background">
+<!-- TopNavBar -->
+<header class="sticky top-0 z-50 flex justify-between items-center w-full px-standard py-compact bg-surface border-b border-outline-variant h-header-height shrink-0">
+<!-- Mobile Menu Trigger & Brand (Left) -->
+<div class="flex items-center gap-standard">
+<button class="lg:hidden text-on-surface-variant p-1 -ml-1 hover:bg-surface-container rounded">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div class="font-headline-md text-headline-md font-bold text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container">storefront</span>
+                    Tumbo Market
+                </div>
+</div>
+<!-- Navigation Links (Center - Hidden on Mobile/Small Desktop for space) -->
+<nav class="hidden xl:flex items-center gap-standard font-body-md text-body-md">
+<a class="text-on-surface-variant hover:text-secondary transition-colors duration-200 py-4 border-b-2 border-transparent" href="#">Marketplace</a>
+<a class="text-secondary font-bold border-b-2 border-secondary py-4 opacity-80 transition-all duration-200" href="#">Seller Center</a>
+<a class="text-on-surface-variant hover:text-secondary transition-colors duration-200 py-4 border-b-2 border-transparent" href="#">Backoffice</a>
+</nav>
+<!-- Actions (Right) -->
+<div class="flex items-center gap-compact">
+<!-- Search Bar -->
+<div class="hidden md:flex relative items-center w-64 mr-2">
+<span class="material-symbols-outlined absolute left-tight text-on-surface-variant text-[18px]">search</span>
+<input class="w-full h-8 pl-8 pr-tight bg-surface-container-lowest border border-surface-border rounded text-body-sm focus:outline-none focus:border-primary-container transition-colors" placeholder="Search transactions..." type="text"/>
+</div>
+<button class="text-on-surface-variant hover:text-secondary transition-colors duration-200 p-1 rounded-full hover:bg-surface-container relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-1 right-1 w-2 h-2 bg-danger rounded-full"></span>
+</button>
+<button class="text-on-surface-variant hover:text-secondary transition-colors duration-200 p-1 rounded-full hover:bg-surface-container">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<button class="w-8 h-8 rounded-full border border-surface-border overflow-hidden ml-1 hover:opacity-80 transition-opacity">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="A small, professional avatar of a user profile. Clean, well-lit portrait of a professional against a neutral background. High quality, corporate style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBIsXRmNE0tQMhSYHh2V0rxs4BNUpMN9SiM-z4pZ8MaswZrnknzh4VUrLveRtWDIQMz3HsmJvpLZS4yLfzXObCII1779arLW4vSJ4SUbjsezRZ0KR9uQtbC86U3bTpCYP4Wo6yR5beLWOZKf-XC6Tg4dy0tzzsUM48rWFGWirjidhS0QGnhKUMlv25bOvNh_i7T44n3mtr9j4gS8uhvyuA88s-0Sm5uZfdm8WyhW7BoIiljA0-tJa_K"/>
+</button>
+</div>
+</header>
+<!-- Canvas / Page Content -->
+<div class="flex-1 overflow-y-auto p-standard lg:p-6 w-full max-w-[1600px] mx-auto">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-standard mb-6">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-primary mb-1">Conciliación Bancaria</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">DEMO MODE - Review and reconcile incoming payments against orders.</p>
+</div>
+<div class="flex gap-compact w-full md:w-auto">
+<button class="flex-1 md:flex-none px-4 py-2 border border-surface-border bg-surface-container-lowest text-on-secondary-fixed-variant rounded font-label-md flex items-center justify-center gap-tight hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                        Export
+                    </button>
+<button class="flex-1 md:flex-none px-4 py-2 bg-primary-container text-on-primary rounded font-label-md flex items-center justify-center gap-tight hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-[18px]">sync</span>
+                        Run Auto-Match
+                    </button>
+</div>
+</div>
+<!-- Filters Banner -->
+<div class="bg-surface border border-surface-border rounded-lg p-compact mb-standard flex flex-wrap items-center gap-compact">
+<div class="flex items-center gap-2 text-on-surface-variant font-label-sm uppercase tracking-wider mr-2">
+<span class="material-symbols-outlined text-[16px]">filter_list</span> Filters:
+                </div>
+<!-- Filter Chips -->
+<div class="flex items-center gap-tight bg-surface-container px-3 py-1.5 rounded-full border border-surface-border text-body-sm">
+<span class="text-on-surface-variant">Date:</span>
+<span class="font-medium">Last 7 Days</span>
+<button class="ml-1 text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined text-[14px]">close</span></button>
+</div>
+<div class="flex items-center gap-tight bg-surface-container px-3 py-1.5 rounded-full border border-surface-border text-body-sm">
+<span class="text-on-surface-variant">Status:</span>
+<span class="font-medium text-warning">Exceptions</span>
+<button class="ml-1 text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined text-[14px]">close</span></button>
+</div>
+<!-- Add Filter Dropdown Trigger -->
+<button class="flex items-center gap-tight px-3 py-1.5 rounded-full border border-dashed border-outline text-body-sm text-on-surface-variant hover:bg-surface-container transition-colors ml-auto">
+<span class="material-symbols-outlined text-[16px]">add</span>
+                    Add Filter
+                </button>
+</div>
+<!-- Main Data Table Container -->
+<div class="bg-surface border border-surface-border rounded-lg flex flex-col min-h-[500px]">
+<!-- Table Header Row -->
+<div class="grid grid-cols-12 gap-compact px-compact py-tight border-b border-surface-border bg-surface-container-low font-label-sm uppercase text-on-surface-variant sticky top-0">
+<div class="col-span-2 flex items-center gap-2">Referencia</div>
+<div class="col-span-2 flex items-center">Fecha</div>
+<div class="col-span-2 flex items-center">Método</div>
+<div class="col-span-2 flex items-center justify-end">Monto (Esp/Rec)</div>
+<div class="col-span-1 flex items-center justify-center">Pedido</div>
+<div class="col-span-2 flex items-center">Estado</div>
+<div class="col-span-1 flex items-center justify-end">Acciones</div>
+</div>
+<!-- Table Body -->
+<div class="flex-1 overflow-y-auto flex flex-col font-body-sm">
+<!-- Row 1: Perfect Match -->
+<div class="grid grid-cols-12 gap-compact px-compact py-tight border-b border-surface-border hover:bg-data-row-hover transition-colors items-center">
+<div class="col-span-2 font-data-mono text-primary">#REF-884920</div>
+<div class="col-span-2 text-on-surface-variant">24 Oct 2023, 14:30</div>
+<div class="col-span-2 flex items-center gap-tight">
+<span class="material-symbols-outlined text-[16px] text-primary-container">phone_iphone</span>
+                            Pago Móvil
+                        </div>
+<div class="col-span-2 flex flex-col items-end">
+<span class="font-data-mono text-on-surface">$120.00</span>
+<span class="font-data-mono text-on-surface-variant text-[11px]">$120.00</span>
+</div>
+<div class="col-span-1 flex justify-center">
+<a class="text-info hover:underline font-data-mono" href="#">ORD-092</a>
+</div>
+<div class="col-span-2">
+<span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-success/10 text-success text-[11px] font-medium border border-success/20">
+<span class="material-symbols-outlined text-[12px]">check_circle</span>
+                                Match Perfecto
+                            </span>
+</div>
+<div class="col-span-1 flex justify-end gap-1">
+<button class="p-1 text-on-surface-variant hover:text-primary rounded hover:bg-surface-container" title="Ver Detalle">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+</div>
+</div>
+<!-- Row 2: Amount Exception -->
+<div class="grid grid-cols-12 gap-compact px-compact py-tight border-b border-surface-border hover:bg-data-row-hover transition-colors items-center bg-warning/5">
+<div class="col-span-2 font-data-mono text-primary">#TRX-551029</div>
+<div class="col-span-2 text-on-surface-variant">24 Oct 2023, 15:45</div>
+<div class="col-span-2 flex items-center gap-tight">
+<span class="material-symbols-outlined text-[16px] text-primary-container">account_balance</span>
+                            Transferencia
+                        </div>
+<div class="col-span-2 flex flex-col items-end">
+<span class="font-data-mono text-danger">$350.00</span>
+<span class="font-data-mono text-on-surface-variant text-[11px] line-through">$345.50</span>
+</div>
+<div class="col-span-1 flex justify-center">
+<a class="text-info hover:underline font-data-mono" href="#">ORD-104</a>
+</div>
+<div class="col-span-2">
+<span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-warning/10 text-warning-700 text-[11px] font-medium border border-warning/20">
+<span class="material-symbols-outlined text-[12px]">warning</span>
+                                Excepción Monto
+                            </span>
+</div>
+<div class="col-span-1 flex justify-end gap-1">
+<button class="p-1 text-on-surface-variant hover:text-primary rounded hover:bg-surface-container" title="Forzar Conciliación">
+<span class="material-symbols-outlined text-[18px]">handshake</span>
+</button>
+<button class="p-1 text-on-surface-variant hover:text-primary rounded hover:bg-surface-container" title="Ver Detalle">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+</div>
+</div>
+<!-- Row 3: Not Found -->
+<div class="grid grid-cols-12 gap-compact px-compact py-tight border-b border-surface-border hover:bg-data-row-hover transition-colors items-center bg-danger/5">
+<div class="col-span-2 font-data-mono text-primary">#CC-990182</div>
+<div class="col-span-2 text-on-surface-variant">24 Oct 2023, 16:10</div>
+<div class="col-span-2 flex items-center gap-tight">
+<span class="material-symbols-outlined text-[16px] text-primary-container">credit_card</span>
+                            Tarjeta
+                        </div>
+<div class="col-span-2 flex flex-col items-end">
+<span class="font-data-mono text-on-surface">$85.00</span>
+<span class="font-data-mono text-on-surface-variant text-[11px]">N/A</span>
+</div>
+<div class="col-span-1 flex justify-center">
+<span class="text-on-surface-variant font-data-mono">--</span>
+</div>
+<div class="col-span-2">
+<span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-danger/10 text-danger text-[11px] font-medium border border-danger/20">
+<span class="material-symbols-outlined text-[12px]">error</span>
+                                Ref. No Encontrada
+                            </span>
+</div>
+<div class="col-span-1 flex justify-end gap-1">
+<button class="p-1 text-on-surface-variant hover:text-primary rounded hover:bg-surface-container" title="Crear Excepción">
+<span class="material-symbols-outlined text-[18px]">assignment_add</span>
+</button>
+<button class="p-1 text-on-surface-variant hover:text-primary rounded hover:bg-surface-container" title="Ver Detalle">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Pagination Footer -->
+<div class="border-t border-surface-border bg-surface-container-lowest p-compact flex justify-between items-center text-body-sm text-on-surface-variant">
+<div>Mostrando 1-3 de 156 transacciones</div>
+<div class="flex items-center gap-2">
+<button class="p-1 rounded hover:bg-surface-container disabled:opacity-50" disabled=""><span class="material-symbols-outlined text-[20px]">chevron_left</span></button>
+<span class="font-medium text-on-surface">1</span>
+<button class="p-1 rounded hover:bg-surface-container"><span class="material-symbols-outlined text-[20px]">chevron_right</span></button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

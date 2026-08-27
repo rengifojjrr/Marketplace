@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Dashboard Operativo - SEL-014</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts: Hanken Grotesk & JetBrains Mono -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#edf0ff",
+                        "surface-dim": "#d1daf4",
+                        "on-primary": "#ffffff",
+                        "on-secondary-fixed": "#00201d",
+                        "on-tertiary-fixed-variant": "#003ea8",
+                        "surface-tint": "#495f82",
+                        "surface-container-high": "#e1e8ff",
+                        "surface": "#f9f9ff",
+                        "outline": "#74777f",
+                        "surface-container-highest": "#d9e2fc",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed": "#dbe1ff",
+                        "secondary-fixed": "#9cf2e8",
+                        "primary-fixed-dim": "#b1c7f0",
+                        "error": "#ba1a1a",
+                        "outline-variant": "#c4c6cf",
+                        "surface-container-low": "#f1f3ff",
+                        "inverse-surface": "#273044",
+                        "on-primary-fixed": "#001c3b",
+                        "on-primary-container": "#778db2",
+                        "surface-container": "#e9edff",
+                        "on-secondary-container": "#006f67",
+                        "secondary": "#006a63",
+                        "on-tertiary-fixed": "#00174b",
+                        "secondary-fixed-dim": "#80d5cb",
+                        "on-tertiary-container": "#5885ff",
+                        "on-error": "#ffffff",
+                        "primary": "#001026",
+                        "on-primary-fixed-variant": "#314769",
+                        "tertiary-container": "#001f5e",
+                        "on-background": "#121b2e",
+                        "surface-variant": "#d9e2fc",
+                        "background": "#f9f9ff",
+                        "primary-container": "#0b2545",
+                        "error-container": "#ffdad6",
+                        "inverse-primary": "#b1c7f0",
+                        "primary-fixed": "#d5e3ff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed-variant": "#00504a",
+                        "on-surface": "#121b2e",
+                        "secondary-container": "#99efe5",
+                        "tertiary": "#000c31",
+                        "on-secondary": "#ffffff",
+                        "on-surface-variant": "#44474e",
+                        "surface-bright": "#f9f9ff",
+                        "tertiary-fixed-dim": "#b4c5ff",
+                        "on-error-container": "#93000a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xl": "48px",
+                        "xs": "4px",
+                        "sm": "8px",
+                        "lg": "24px",
+                        "md": "16px",
+                        "gutter": "20px",
+                        "base": "4px",
+                        "container-max": "1280px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Hanken Grotesk"],
+                        "display-lg": ["Hanken Grotesk"],
+                        "body-md": ["Hanken Grotesk"],
+                        "data-mono": ["JetBrains Mono"],
+                        "label-caps": ["Hanken Grotesk"],
+                        "body-sm": ["Hanken Grotesk"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "headline-lg": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "data-mono": ["13px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased min-h-screen flex">
+<!-- SideNavBar (Shared Component) -->
+<nav class="bg-surface-container-low dark:bg-inverse-surface fixed left-0 top-0 h-screen w-64 flex flex-col py-md px-sm border-r border-outline-variant">
+<!-- Header -->
+<div class="flex items-center gap-sm px-sm mb-lg">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-high flex items-center justify-center">
+<img class="w-full h-full object-cover" data-alt="A highly detailed close-up portrait of a professional logistics operator wearing a clean, modern uniform. The lighting is crisp and even, suitable for a corporate ID badge. The background is a neutral light blue, creating a sense of professional reliability and clean modern aesthetics." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3iqi7kf80rxWEBkQKNXyNiECqjQ0-CH6CxLxxAKT7jMRuVgnXDbblqlAaezJvSPCuYspCu-9CuekpbaKnblkhrFOkl8OBb6DzVwq_T6JJX46JxistKRW43sWee37LL-sO0BSQTmIKJXcEi87VkLYbKC4h0lzj9E53p3WsowAVjp-ukw1qCewgZxttx8OGuYKibNloIeYlb9RdswMbuzZl-XIYlEtUhWd5UWK0JOU7CIBvqGcHR3G9"/>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">Seller Center</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Operations Hub</p>
+</div>
+</div>
+<!-- Navigation Tabs -->
+<ul class="flex flex-col gap-xs flex-1">
+<!-- Active Tab: Dashboard -->
+<li>
+<a class="flex items-center gap-md px-md py-sm rounded-lg hover:bg-surface-container-high transition-colors font-body-sm text-body-sm text-primary dark:text-primary-fixed font-bold border-r-4 border-primary dark:border-primary-fixed opacity-80 duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+                    Dashboard
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-md px-md py-sm rounded-lg hover:bg-surface-container-high transition-colors font-body-sm text-body-sm text-on-surface-variant dark:text-outline-variant" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+                    Catalog
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-md px-md py-sm rounded-lg hover:bg-surface-container-high transition-colors font-body-sm text-body-sm text-on-surface-variant dark:text-outline-variant" href="#">
+<span class="material-symbols-outlined">warehouse</span>
+                    Inventory
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-md px-md py-sm rounded-lg hover:bg-surface-container-high transition-colors font-body-sm text-body-sm text-on-surface-variant dark:text-outline-variant" href="#">
+<span class="material-symbols-outlined">local_shipping</span>
+                    Orders
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-md px-md py-sm rounded-lg hover:bg-surface-container-high transition-colors font-body-sm text-body-sm text-on-surface-variant dark:text-outline-variant" href="#">
+<span class="material-symbols-outlined">notifications_active</span>
+                    Operational Alerts
+                </a>
+</li>
+</ul>
+<!-- CTA -->
+<div class="mt-auto px-xs">
+<button class="w-full bg-primary-container text-on-primary-container font-label-caps text-label-caps py-sm px-md rounded-lg flex items-center justify-center gap-sm hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined">upload_file</span>
+                Bulk Upload
+            </button>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 ml-64 flex flex-col min-h-screen">
+<!-- TopNavBar (Shared Component) -->
+<header class="bg-surface dark:bg-background shadow-sm flex justify-between items-center h-16 px-lg sticky top-0 z-50 border-b border-surface-container">
+<div class="flex items-center gap-lg">
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">Seller Center Ops</span>
+<nav class="hidden md:flex gap-md">
+<!-- Assuming non-active state for sub-nav based on intent -->
+<a class="font-label-caps text-label-caps text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed transition-all duration-200 ease-in-out py-md" href="#">Picking</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed transition-all duration-200 ease-in-out py-md" href="#">Packing</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed transition-all duration-200 ease-in-out py-md" href="#">Dispatch</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<span class="font-label-caps text-label-caps text-on-surface-variant bg-surface-container-low px-sm py-xs rounded-full flex items-center gap-xs">
+<span class="w-2 h-2 rounded-full bg-secondary inline-block"></span>
+                    System Status: OK
+                </span>
+<div class="flex gap-sm">
+<button class="text-on-surface-variant hover:text-primary transition-colors p-xs"><span class="material-symbols-outlined">notifications</span></button>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-xs"><span class="material-symbols-outlined">help_outline</span></button>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-xs"><span class="material-symbols-outlined">account_circle</span></button>
+</div>
+</div>
+</header>
+<!-- Modo Demo Banner (Guidance strict requirement) -->
+<div class="h-12 flex items-center justify-center font-bold font-body-sm text-body-sm px-lg sticky top-16 z-40" style="background-color: #F59E0B; color: #172033;">
+<span class="material-symbols-outlined mr-sm">warning</span>
+            MODO DEMO - OPERATOR CONTEXT: SEL-014 - Bulk Upload Processing In Progress...
+        </div>
+<!-- Canvas -->
+<main class="p-lg flex flex-col gap-lg flex-1">
+<!-- Page Header -->
+<div class="flex justify-between items-end">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-primary">Dashboard Operativo</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-xs">Gestión integral para <span class="font-data-mono text-data-mono bg-surface-container px-xs py-1 rounded">SEL-014</span></p>
+</div>
+<div class="text-right font-body-sm text-body-sm text-on-surface-variant">
+                    Última actualización: 10:45 AM
+                </div>
+</div>
+<!-- Summary Cards (Bento Grid Style) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-16 h-16 bg-error-container rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+<div class="flex justify-between items-start relative z-10">
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant">SLA &lt; 2H</p>
+<h3 class="font-display-lg text-display-lg text-error mt-xs">12</h3>
+</div>
+<span class="material-symbols-outlined text-error">timer</span>
+</div>
+<div class="mt-md flex gap-xs items-center relative z-10">
+<span class="material-symbols-outlined text-error text-[16px]">arrow_upward</span>
+<span class="font-body-sm text-body-sm text-error font-semibold">+3 desde ayer</span>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md shadow-sm hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant">Catálogo con Errores</p>
+<h3 class="font-display-lg text-display-lg text-primary mt-xs">4</h3>
+</div>
+<span class="material-symbols-outlined text-outline">error</span>
+</div>
+<div class="mt-md">
+<a class="font-body-sm text-body-sm text-primary hover:underline" href="#">Revisar SKUs →</a>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md shadow-sm hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant">SKUs Bajo Stock</p>
+<h3 class="font-display-lg text-display-lg text-primary mt-xs">28</h3>
+</div>
+<span class="material-symbols-outlined text-outline">trending_down</span>
+</div>
+<div class="mt-md">
+<a class="font-body-sm text-body-sm text-primary hover:underline" href="#">Ver Inventario →</a>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md shadow-sm hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant">Pickups Hoy</p>
+<h3 class="font-display-lg text-display-lg text-secondary mt-xs">5</h3>
+</div>
+<span class="material-symbols-outlined text-secondary">local_shipping</span>
+</div>
+<div class="mt-md flex gap-xs items-center">
+<span class="font-body-sm text-body-sm text-on-surface-variant">2 completados</span>
+</div>
+</div>
+</div>
+<!-- Main Section: Tareas Críticas -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg flex flex-col mt-sm overflow-hidden shadow-sm flex-1">
+<div class="border-b border-surface-variant p-md flex justify-between items-center bg-surface">
+<h3 class="font-headline-md text-headline-md font-bold text-primary">Tareas Críticas</h3>
+<span class="bg-error-container text-on-error-container font-label-caps text-label-caps px-sm py-xs rounded-full">Acción Requerida (Pagados)</span>
+</div>
+<!-- Data Table (Compact spacing as per guidelines) -->
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-surface-variant bg-surface-container-low font-label-caps text-label-caps text-on-surface-variant">
+<th class="p-sm pl-md font-normal w-48">Orden ID</th>
+<th class="p-sm font-normal">Cliente / Destino</th>
+<th class="p-sm font-normal">Monto (Bs.)</th>
+<th class="p-sm font-normal">SLA Restante</th>
+<th class="p-sm pr-md font-normal text-right">Acción</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm">
+<!-- Row 1 -->
+<tr class="border-b border-surface-variant hover:bg-surface-container-low transition-colors">
+<td class="p-sm pl-md font-data-mono text-data-mono text-primary">ORD-202311-8842</td>
+<td class="p-sm">
+<div class="font-semibold text-primary">Juan Pérez</div>
+<div class="text-on-surface-variant text-xs mt-xs">Caracas, Zona Norte</div>
+</td>
+<td class="p-sm font-data-mono text-data-mono font-semibold">Bs. 4,520.00</td>
+<td class="p-sm text-error font-semibold flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">timer</span> 0h 45m
+                                </td>
+<td class="p-sm pr-md text-right">
+<button class="bg-primary-container text-on-primary-container rounded-lg px-md py-sm font-body-sm text-body-sm hover:opacity-90 transition-opacity">Aceptar Orden</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="border-b border-surface-variant hover:bg-surface-container-low transition-colors">
+<td class="p-sm pl-md font-data-mono text-data-mono text-primary">ORD-202311-8843</td>
+<td class="p-sm">
+<div class="font-semibold text-primary">María García</div>
+<div class="text-on-surface-variant text-xs mt-xs">Valencia, Centro</div>
+</td>
+<td class="p-sm font-data-mono text-data-mono font-semibold">Bs. 1,250.50</td>
+<td class="p-sm text-on-surface-variant flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">schedule</span> 1h 20m
+                                </td>
+<td class="p-sm pr-md text-right">
+<button class="bg-primary-container text-on-primary-container rounded-lg px-md py-sm font-body-sm text-body-sm hover:opacity-90 transition-opacity">Aceptar Orden</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</main>
+</div>
+</body></html>

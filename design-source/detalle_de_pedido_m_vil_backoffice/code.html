@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Detalle de Pedido e Incidencia - OpsCentral</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#002a27",
+                        "on-secondary-fixed-variant": "#003ea8",
+                        "on-error-container": "#93000a",
+                        "on-surface-variant": "#44474e",
+                        "background": "#faf9fc",
+                        "surface-bright": "#faf9fc",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-fixed-variant": "#00504a",
+                        "surface-container-low": "#f5f3f6",
+                        "inverse-on-surface": "#f2f0f3",
+                        "on-background": "#1b1b1e",
+                        "surface-dim": "#dbd9dd",
+                        "surface": "#faf9fc",
+                        "on-secondary-container": "#fefcff",
+                        "error": "#ba1a1a",
+                        "surface-container": "#efedf0",
+                        "on-tertiary-fixed": "#00201d",
+                        "tertiary": "#001311",
+                        "tertiary-fixed": "#9cf2e8",
+                        "secondary-fixed-dim": "#b4c5ff",
+                        "on-tertiary-container": "#419990",
+                        "inverse-primary": "#b1c7f0",
+                        "secondary-fixed": "#dbe1ff",
+                        "on-primary": "#ffffff",
+                        "surface-tint": "#495f82",
+                        "tertiary-fixed-dim": "#80d5cb",
+                        "secondary-container": "#316bf3",
+                        "on-primary-container": "#778db2",
+                        "outline": "#74777f",
+                        "on-surface": "#1b1b1e",
+                        "secondary": "#0051d5",
+                        "surface-variant": "#e3e2e5",
+                        "surface-container-highest": "#e3e2e5",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed": "#001c3b",
+                        "inverse-surface": "#303033",
+                        "outline-variant": "#c4c6cf",
+                        "on-primary-fixed-variant": "#314769",
+                        "primary-container": "#0b2545",
+                        "error-container": "#ffdad6",
+                        "primary": "#001026",
+                        "surface-container-high": "#e9e7eb",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed-dim": "#b1c7f0",
+                        "primary-fixed": "#d5e3ff",
+                        "on-error": "#ffffff",
+                        "on-secondary-fixed": "#00174b"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "unit": "4px",
+                        "gutter": "24px",
+                        "xl": "32px",
+                        "xs": "4px",
+                        "margin-mobile": "16px",
+                        "md": "16px",
+                        "lg": "24px",
+                        "xxl": "48px",
+                        "container-max": "1280px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "label-md": ["14px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #F8FAFC; /* Level 0 Background */
+        }
+        
+        .tab-active {
+            border-bottom-width: 2px;
+            border-color: #0051d5; /* secondary color */
+            color: #0051d5;
+            font-weight: 600;
+        }
+        .tab-inactive {
+            color: #44474e; /* on-surface-variant */
+        }
+        
+        /* Timeline specific styles */
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: 20px; /* Adjust based on icon size and padding */
+            top: 40px; /* Adjust to connect icons */
+            bottom: -20px;
+            width: 2px;
+            background-color: #e3e2e5; /* surface-variant */
+            z-index: 0;
+        }
+        .timeline-item:last-child::before {
+            display: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="antialiased text-on-surface font-body-sm h-screen flex flex-col overflow-hidden bg-[#F8FAFC]">
+<!-- TopNavBar (App Header - Subpage mode, navigation suppressed) -->
+<header class="sticky top-0 z-50 flex items-center px-lg w-full h-16 bg-surface-container-lowest text-primary font-headline-sm text-headline-sm no shadows border-b border-outline-variant">
+<button class="mr-sm p-sm rounded-full hover:bg-surface-container-high transition-colors duration-200">
+<span class="material-symbols-outlined text-primary" data-icon="arrow_back">arrow_back</span>
+</button>
+<div class="flex-grow flex items-center justify-between">
+<span class="font-headline-sm text-headline-sm font-bold text-primary">Detalle de Pedido</span>
+<div class="flex items-center gap-xs">
+<button class="p-xs rounded-full hover:bg-surface-container-high transition-colors duration-200 scale-95 duration-150 ease-in-out">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="monitor_heart">monitor_heart</span>
+</button>
+<button class="p-xs rounded-full hover:bg-surface-container-high transition-colors duration-200 scale-95 duration-150 ease-in-out">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="notifications">notifications</span>
+</button>
+<button class="p-xs rounded-full hover:bg-surface-container-high transition-colors duration-200 scale-95 duration-150 ease-in-out">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="help">help</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 overflow-y-auto w-full max-w-[600px] mx-auto pb-xxl">
+<!-- Order Header Summary -->
+<section class="bg-surface-container-lowest p-md border-b border-outline-variant mb-sm shadow-[0_4px_12px_rgba(11,37,69,0.02)]">
+<div class="flex justify-between items-start mb-sm">
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-xs">Orden #ORD-8472-X</p>
+<h1 class="font-headline-md text-headline-md text-primary font-bold">MacBook Pro M3 Max</h1>
+</div>
+<div class="bg-error-container text-on-error-container px-sm py-xs rounded-full flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]" data-icon="warning">warning</span>
+<span class="font-label-sm text-label-sm font-bold">Incidencia</span>
+</div>
+</div>
+<div class="flex items-center gap-sm text-on-surface-variant font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="person">person</span>
+<span>Cliente: <strong>Elena Rodríguez</strong></span>
+<span class="mx-xs text-outline-variant">•</span>
+<span class="material-symbols-outlined text-[18px]" data-icon="calendar_today">calendar_today</span>
+<span>12 Oct, 14:30</span>
+</div>
+</section>
+<!-- Tabs -->
+<div class="flex bg-surface-container-lowest border-b border-outline-variant mb-md px-md sticky top-0 z-40">
+<button class="flex-1 py-md text-center font-label-md text-label-md tab-active transition-colors duration-200">
+                Timeline y Detalles
+            </button>
+<button class="flex-1 py-md text-center font-label-md text-label-md tab-inactive hover:text-on-surface transition-colors duration-200 flex items-center justify-center gap-xs">
+                Chat de Soporte
+                <span class="bg-error text-on-error text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">2</span>
+</button>
+</div>
+<!-- Tracking & Timeline Section -->
+<section class="px-md mb-lg">
+<h2 class="font-headline-sm text-headline-sm text-primary mb-md font-semibold">Estado de Envío</h2>
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-md mb-md shadow-[0_4px_12px_rgba(11,37,69,0.02)]">
+<!-- Map Placeholder -->
+<div class="w-full h-32 bg-surface-variant rounded-lg mb-sm relative overflow-hidden flex items-center justify-center cursor-pointer group" data-alt="A clean, minimalist UI map showing a route path between a warehouse and a delivery destination. The map style is light mode, using pale grays and subtle blues, resembling a high-end corporate logistics interface. A prominent blue pin marks the current location. The lighting is flat and uniform." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDIqxmTH9Xv19ys0RxxmZ4mBgtewuCSiN7aXmPjV3OswV43HosfRbJZU6ghHMPiKZ63ERtiDBOovOhN41U1EeP5th6AYL0DihWiEwU0OP8dOlmFWpKcWr7k3fAo3EY3zT2byfgrd7dkxW5Tnvq950t542-0d0Xp1AvzDNMAC6WOSrJfDhMo2q0QV8xzIB0d7caCBgR27ZEgme20jE7qQ_AeCAlClUydM_3r7K7PDs79RJM8CCsLQ_2B')">
+<div class="absolute inset-0 bg-primary/10 group-hover:bg-primary/5 transition-colors duration-200"></div>
+<span class="material-symbols-outlined text-secondary text-[32px] absolute z-10" data-icon="pin_drop" style="font-variation-settings: 'FILL' 1;">pin_drop</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]" data-icon="local_shipping">local_shipping</span>
+                        Última ubi: Centro Logístico Madrid Sur
+                    </span>
+<button class="text-secondary font-label-sm text-label-sm font-semibold hover:underline">Ver Mapa Completo</button>
+</div>
+</div>
+<!-- Vertical Timeline -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-md relative shadow-[0_4px_12px_rgba(11,37,69,0.02)]">
+<!-- Timeline Item 1 (Error State) -->
+<div class="timeline-item relative flex gap-md mb-lg">
+<div class="w-10 h-10 rounded-full bg-error-container text-on-error-container flex items-center justify-center z-10 flex-shrink-0 border-2 border-surface-container-lowest">
+<span class="material-symbols-outlined" data-icon="report">report</span>
+</div>
+<div class="flex-1 pt-xs">
+<div class="flex justify-between items-start mb-xs">
+<h3 class="font-label-md text-label-md text-error font-bold">Retraso Crítico Reportado</h3>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Hoy, 09:15</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-sm">El transportista reporta avería del vehículo en ruta. Paquete retenido en tránsito temporalmente.</p>
+<div class="bg-surface-container p-sm rounded-lg border border-outline-variant">
+<span class="font-label-sm text-label-sm text-primary-fixed-variant font-semibold flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]" data-icon="support_agent">support_agent</span>
+                                 Acción requerida por Soporte Nivel 2
+                             </span>
+</div>
+</div>
+</div>
+<!-- Timeline Item 2 -->
+<div class="timeline-item relative flex gap-md mb-lg">
+<div class="w-10 h-10 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center z-10 flex-shrink-0 border-2 border-surface-container-lowest">
+<span class="material-symbols-outlined" data-icon="local_shipping" style="font-variation-settings: 'FILL' 1;">local_shipping</span>
+</div>
+<div class="flex-1 pt-xs">
+<div class="flex justify-between items-start mb-xs">
+<h3 class="font-label-md text-label-md text-primary font-bold">En Tránsito</h3>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Ayer, 18:30</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">El paquete ha salido de las instalaciones de origen.</p>
+</div>
+</div>
+<!-- Timeline Item 3 -->
+<div class="timeline-item relative flex gap-md">
+<div class="w-10 h-10 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center z-10 flex-shrink-0 border-2 border-surface-container-lowest">
+<span class="material-symbols-outlined text-outline" data-icon="check_circle">check_circle</span>
+</div>
+<div class="flex-1 pt-xs">
+<div class="flex justify-between items-start mb-xs">
+<h3 class="font-label-md text-label-md text-on-surface font-semibold">Pedido Confirmado</h3>
+<span class="font-label-sm text-label-sm text-on-surface-variant">12 Oct, 14:35</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Pago procesado y pedido aceptado por el vendedor.</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Floating Action Button (FAB) - 'Acciones de Soporte' -->
+<div class="fixed bottom-sm right-sm z-50">
+<button class="bg-primary text-on-primary shadow-lg rounded-xl flex items-center gap-sm px-md py-sm hover:bg-on-primary-fixed-variant transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="handyman">handyman</span>
+<span class="font-label-md text-label-md font-bold">Resolver Incidencia</span>
+</button>
+</div>
+</body></html>

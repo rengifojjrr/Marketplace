@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Caso DSP-0098 - Tumbo Market</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed": "#00174b",
+                        "on-background": "#1b1b1e",
+                        "tertiary": "#001311",
+                        "on-error": "#ffffff",
+                        "secondary-fixed": "#dbe1ff",
+                        "surface-dim": "#dbd9dd",
+                        "on-secondary": "#ffffff",
+                        "tertiary-container": "#002a27",
+                        "surface-bright": "#faf9fc",
+                        "on-error-container": "#93000a",
+                        "on-surface-variant": "#44474e",
+                        "on-tertiary-fixed": "#00201d",
+                        "surface-container-highest": "#e3e2e5",
+                        "outline": "#74777f",
+                        "on-tertiary-fixed-variant": "#00504a",
+                        "on-secondary-fixed-variant": "#003ea8",
+                        "secondary": "#0051d5",
+                        "primary-fixed-dim": "#b1c7f0",
+                        "on-primary-container": "#778db2",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#1b1b1e",
+                        "surface": "#faf9fc",
+                        "inverse-surface": "#303033",
+                        "tertiary-fixed": "#9cf2e8",
+                        "primary": "#001026",
+                        "secondary-fixed-dim": "#b4c5ff",
+                        "inverse-on-surface": "#f2f0f3",
+                        "surface-container-high": "#e9e7eb",
+                        "surface-container": "#efedf0",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-container": "#419990",
+                        "outline-variant": "#c4c6cf",
+                        "background": "#faf9fc",
+                        "surface-tint": "#495f82",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#0b2545",
+                        "on-primary-fixed-variant": "#314769",
+                        "on-tertiary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "secondary-container": "#316bf3",
+                        "tertiary-fixed-dim": "#80d5cb",
+                        "on-secondary-container": "#fefcff",
+                        "primary-fixed": "#d5e3ff",
+                        "surface-container-low": "#f5f3f6",
+                        "on-primary-fixed": "#001c3b",
+                        "inverse-primary": "#b1c7f0",
+                        "surface-variant": "#e3e2e5"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "lg": "24px",
+                        "xs": "4px",
+                        "gutter": "24px",
+                        "unit": "4px",
+                        "container-max": "1280px",
+                        "xl": "32px",
+                        "md": "16px",
+                        "sm": "8px",
+                        "margin-mobile": "16px",
+                        "xxl": "48px"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "label-md": ["14px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<nav class="bg-surface sticky top-0 z-50 flex items-center justify-between px-lg w-full max-w-container-max mx-auto border-b border-outline-variant h-16">
+<div class="flex items-center gap-lg">
+<div class="font-headline-md text-headline-md font-bold text-primary">B2B Marketplace</div>
+<div class="hidden md:flex gap-lg h-full items-center">
+<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors duration-200" href="#">Orders</a>
+<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors duration-200" href="#">Inventory</a>
+<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors duration-200" href="#">Messages</a>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<button class="text-on-surface-variant hover:text-secondary transition-colors duration-200">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-secondary transition-colors duration-200">
+<span class="material-symbols-outlined">shopping_cart</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-variant overflow-hidden border border-outline-variant">
+<img alt="Buyer profile photo" class="w-full h-full object-cover" data-alt="A professional headshot of a corporate buyer in a well-lit office environment. Corporate Modernism aesthetic, high-trust, B2B context. Clean composition, professional attire, soft natural lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVESgsK2_Re8M9N7wu9ecpJv9qEvGAKleVfWhQRss_MAQR2G3WeGrqgETGCYtMvkaBfczQTVBi4rnjYCSyG21eDtrn5m0e9Bnp8QYGpnA9olCjsCS7YUJrWxS7TB7_QQxMOa1oylUE5PQBOmusbyj-cb0pM5BOfe-e9PqqIJnBWTcujjJmeacNL9rWtFwT9c3Si7HrZVIV9JuAKinXvHICqowmTXgxRMZYMeZEAeBkqL8HMlJela3l"/>
+</div>
+</div>
+</nav>
+<div class="flex flex-1 overflow-hidden w-full max-w-container-max mx-auto">
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col w-64 h-full bg-surface-container-low border-r border-outline-variant p-md space-y-sm flex-shrink-0">
+<div class="mb-lg px-sm">
+<h2 class="font-headline-sm text-headline-sm text-primary font-bold">Verified Buyer</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Enterprise Tier</p>
+</div>
+<button class="w-full bg-secondary text-on-secondary py-sm rounded-lg font-label-md text-label-md mb-md transition-transform hover:scale-[0.98] active:scale-95 flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                New Order
+            </button>
+<nav class="flex-1 space-y-xs">
+<a class="flex items-center gap-md px-sm py-sm text-on-surface-variant hover:bg-surface-container-highest rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-md px-sm py-sm text-on-surface-variant hover:bg-surface-container-highest rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">shopping_bag</span>
+<span class="font-label-md text-label-md">Purchases</span>
+</a>
+<a class="flex items-center gap-md px-sm py-sm text-on-surface-variant hover:bg-surface-container-highest rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span class="font-label-md text-label-md">Wallet</span>
+</a>
+<a class="flex items-center gap-md px-sm py-sm bg-secondary-container text-on-secondary-container rounded-lg font-bold scale-[0.98] transition-all" href="#">
+<span class="material-symbols-outlined">gavel</span>
+<span class="font-label-md text-label-md">Disputes</span>
+</a>
+<a class="flex items-center gap-md px-sm py-sm text-on-surface-variant hover:bg-surface-container-highest rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</nav>
+<div class="mt-auto space-y-xs pt-md border-t border-outline-variant">
+<a class="flex items-center gap-md px-sm py-sm text-on-surface-variant hover:bg-surface-container-highest rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-label-md text-label-md">Help Center</span>
+</a>
+<a class="flex items-center gap-md px-sm py-sm text-on-surface-variant hover:bg-surface-container-highest rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-label-md text-label-md">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background">
+<!-- Header -->
+<header class="px-lg py-md border-b border-outline-variant bg-surface flex justify-between items-center shrink-0">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-primary flex items-center gap-sm">
+                        Caso DSP-0098
+                        <span class="inline-flex items-center gap-xs px-2 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed text-label-sm font-label-sm ml-md">
+<span class="material-symbols-outlined text-[14px]">pending_actions</span>
+                            En Revisión por Operaciones
+                        </span>
+</h1>
+</div>
+<div class="flex gap-sm">
+<button class="px-md py-sm rounded-lg border border-primary-container text-primary-container font-label-md text-label-md hover:bg-surface-container-highest transition-colors">
+                        Escalar a Operaciones
+                    </button>
+<button class="px-md py-sm rounded-lg bg-secondary text-on-secondary font-label-md text-label-md hover:opacity-90 transition-opacity">
+                        Aceptar Solución
+                    </button>
+</div>
+</header>
+<!-- Three Column Layout -->
+<div class="flex-1 flex overflow-hidden">
+<!-- Left: Case Info -->
+<div class="w-1/4 min-w-[280px] border-r border-outline-variant bg-surface-bright p-lg overflow-y-auto flex flex-col gap-lg">
+<section>
+<h3 class="font-headline-sm text-headline-sm text-primary mb-sm">Detalles del Caso</h3>
+<div class="bg-surface rounded-xl border border-outline-variant p-md space-y-md">
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-xs">Razón</p>
+<p class="font-body-md text-body-md text-on-surface font-medium">Producto defectuoso</p>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-xs">SLA Restante</p>
+<p class="font-body-md text-body-md text-error flex items-center gap-xs font-medium">
+<span class="material-symbols-outlined text-[18px]">timer</span>
+                                    24h restantes
+                                </p>
+</div>
+<div class="pt-sm border-t border-outline-variant">
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-xs">Orden Asociada</p>
+<a class="font-body-md text-body-md text-secondary hover:underline flex items-center justify-between" href="#">
+                                    ORD-2023-8892
+                                    <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+</a>
+</div>
+</div>
+</section>
+</div>
+<!-- Center: Chat -->
+<div class="flex-1 flex flex-col bg-surface-container-lowest min-w-[400px]">
+<div class="flex-1 overflow-y-auto p-lg space-y-lg">
+<!-- Message Admin -->
+<div class="flex gap-md">
+<div class="w-8 h-8 rounded-full bg-tertiary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-tertiary-container text-[16px]">support_agent</span>
+</div>
+<div class="max-w-[80%]">
+<div class="flex items-baseline gap-sm mb-xs">
+<span class="font-label-md text-label-md text-primary">Tumbo Support</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Ayer, 14:30</span>
+</div>
+<div class="bg-surface-container-low p-md rounded-xl rounded-tl-none border border-outline-variant font-body-md text-body-md text-on-surface">
+                                    Hola. Hemos recibido el reclamo sobre el producto defectuoso. ¿Podría el comprador proporcionar más evidencia del problema de encendido?
+                                </div>
+</div>
+</div>
+<!-- Message Buyer -->
+<div class="flex gap-md flex-row-reverse">
+<div class="w-8 h-8 rounded-full bg-secondary-container overflow-hidden shrink-0">
+<img alt="Buyer" class="w-full h-full object-cover" data-alt="A professional headshot of a corporate buyer in a well-lit office environment. Corporate Modernism aesthetic, high-trust, B2B context." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBv-UkwqU9XwKT5zPu0Y7ARGIR3cQ2sxW0bi8arI-lU32AITpIeMIElWLCv9hnyegzAqFHQoiR-pg8-T1jVol3OR4BS_eseDLhFEEX16a-5V6w5T5gYtC5t6pDjUqC5IgGB932aYngidzWeXGLSe-NGMTL5Xf7Ye0o0hzZG0JxjbtUDq0iVoQqOi7Yu52PVkwqY2sfbsEvhKryjuh9kmOqiYZElLH1o0X3_IAUkZ8DU7hD03O7ggEB8"/>
+</div>
+<div class="max-w-[80%] flex flex-col items-end">
+<div class="flex items-baseline gap-sm mb-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Ayer, 15:45</span>
+<span class="font-label-md text-label-md text-primary">Tú (Comprador)</span>
+</div>
+<div class="bg-secondary text-on-secondary p-md rounded-xl rounded-tr-none font-body-md text-body-md">
+                                    Sí, acabo de subir un video donde se muestra que al conectarlo a la corriente no enciende ningún indicador LED.
+                                </div>
+</div>
+</div>
+<!-- Internal Note (Hidden from buyer conceptually, shown in UI for admin context) -->
+<div class="flex gap-md opacity-70">
+<div class="w-8 h-8 rounded-full bg-surface-variant border border-outline border-dashed flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">visibility_off</span>
+</div>
+<div class="max-w-[80%]">
+<div class="flex items-baseline gap-sm mb-xs">
+<span class="font-label-md text-label-md text-on-surface-variant">Nota Interna (Operaciones)</span>
+</div>
+<div class="bg-surface-variant p-md rounded-xl rounded-tl-none border border-outline border-dashed font-body-md text-body-md text-on-surface-variant italic">
+                                    Revisar historial del vendedor. Tiene 3 reclamos similares este mes. Si la evidencia es clara, fallar a favor del comprador inmediatamente.
+                                </div>
+</div>
+</div>
+</div>
+<!-- Chat Input -->
+<div class="p-md bg-surface border-t border-outline-variant">
+<div class="flex items-end gap-sm bg-surface-container-lowest border border-outline-variant rounded-xl p-xs focus-within:border-secondary focus-within:ring-1 focus-within:ring-secondary transition-all">
+<button class="p-sm text-on-surface-variant hover:text-secondary rounded-lg transition-colors">
+<span class="material-symbols-outlined">attach_file</span>
+</button>
+<textarea class="flex-1 bg-transparent border-none resize-none max-h-32 min-h-[44px] py-sm px-xs font-body-md text-body-md focus:ring-0" placeholder="Escribe un mensaje al caso..."></textarea>
+<button class="p-sm bg-secondary text-on-secondary rounded-lg hover:opacity-90 transition-opacity mb-[2px] mr-[2px]">
+<span class="material-symbols-outlined">send</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Right: Evidence Viewer -->
+<div class="w-1/4 min-w-[300px] border-l border-outline-variant bg-surface-bright p-lg overflow-y-auto">
+<h3 class="font-headline-sm text-headline-sm text-primary mb-md">Evidencia Adjunta</h3>
+<div class="space-y-md">
+<!-- Evidence Item 1 -->
+<div class="bg-surface rounded-xl border border-outline-variant overflow-hidden group cursor-pointer hover:border-secondary transition-colors">
+<div class="h-32 bg-surface-variant relative">
+<img alt="Box photo" class="w-full h-full object-cover" data-alt="A clear, high-resolution photograph of a damaged cardboard shipping box on a clean industrial warehouse table. Corporate Modernism aesthetic. The box shows slight crushing on one corner. Bright, even lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDa8mhJ_mY8Qi5K41JhOU5KQuT0qbEbJx51kqED4Jc4ZUMoJT-TEEBf7k9AO3TX5_x8HA_a5J-WzKW4JMrerFWhM13tMi2RCeDHp32q1jLofXWytPIMoa2cWKHTCb4bA4QIQQ6k2EI7dwUaMZWZQfRmoykTwFsDcURpVC-zGNp0obNhLOwAAet-RJkV0-0tkAf60um1f_1utenGf9pzqr32qveF-ZdhyEtJAVcZcvSMiMZN26FRM4wP"/>
+<div class="absolute inset-0 bg-primary/0 group-hover:bg-primary/10 transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md">zoom_in</span>
+</div>
+</div>
+<div class="p-sm flex justify-between items-center">
+<div>
+<p class="font-label-md text-label-md text-primary truncate">foto_caja_exterior.jpg</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Subido por Comprador</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">image</span>
+</div>
+</div>
+<!-- Evidence Item 2 -->
+<div class="bg-surface rounded-xl border border-outline-variant overflow-hidden group cursor-pointer hover:border-secondary transition-colors">
+<div class="h-32 bg-surface-variant relative flex items-center justify-center">
+<img alt="Video thumbnail" class="w-full h-full object-cover opacity-80" data-alt="A still frame from a video showing a sleek, modern electronic device (like a router or small server) sitting on a clean desk. The device appears off, with no lights. Corporate Modernism aesthetic, high-trust tech environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCC5wWpPqqBZcrgpw4UmkeZP4-5XPYAyPi03cpUn-ipMocKJQAcp1bn9rCLqyBRVC-IS3NRquvXKzu6C_YvmokZ_zuBv7VmwHPCX56POMOX1KTew1QE7CNKYJnpJnaKApmDrgg4tQqCFyPLYruuBZkaR2k5YOMP_RfOL6yjkgx7JTyZ69uNfKKlw2WwpAh9qQUXI3go42YBPN2zgq1T1Op7hdRptmlP_q6Q698GUxdgSc5RPkj2bpwA"/>
+<div class="absolute inset-0 bg-primary/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-[32px] drop-shadow-md">play_circle</span>
+</div>
+</div>
+<div class="p-sm flex justify-between items-center">
+<div>
+<p class="font-label-md text-label-md text-primary truncate">video_falla_encendido.mp4</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Subido por Comprador</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">movie</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

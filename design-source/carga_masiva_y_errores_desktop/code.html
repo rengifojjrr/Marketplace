@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Carga Masiva e Historial</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-on-surface": "#edf0ff",
+                    "surface-dim": "#d1daf4",
+                    "on-primary": "#ffffff",
+                    "on-secondary-fixed": "#00201d",
+                    "on-tertiary-fixed-variant": "#003ea8",
+                    "surface-tint": "#495f82",
+                    "surface-container-high": "#e1e8ff",
+                    "surface": "#f9f9ff",
+                    "outline": "#74777f",
+                    "surface-container-highest": "#d9e2fc",
+                    "on-tertiary": "#ffffff",
+                    "tertiary-fixed": "#dbe1ff",
+                    "secondary-fixed": "#9cf2e8",
+                    "primary-fixed-dim": "#b1c7f0",
+                    "error": "#ba1a1a",
+                    "outline-variant": "#c4c6cf",
+                    "surface-container-low": "#f1f3ff",
+                    "inverse-surface": "#273044",
+                    "on-primary-fixed": "#001c3b",
+                    "on-primary-container": "#778db2",
+                    "surface-container": "#e9edff",
+                    "on-secondary-container": "#006f67",
+                    "secondary": "#006a63",
+                    "on-tertiary-fixed": "#00174b",
+                    "secondary-fixed-dim": "#80d5cb",
+                    "on-tertiary-container": "#5885ff",
+                    "on-error": "#ffffff",
+                    "primary": "#001026",
+                    "on-primary-fixed-variant": "#314769",
+                    "tertiary-container": "#001f5e",
+                    "on-background": "#121b2e",
+                    "surface-variant": "#d9e2fc",
+                    "background": "#f9f9ff",
+                    "primary-container": "#0b2545",
+                    "error-container": "#ffdad6",
+                    "inverse-primary": "#b1c7f0",
+                    "primary-fixed": "#d5e3ff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary-fixed-variant": "#00504a",
+                    "on-surface": "#121b2e",
+                    "secondary-container": "#99efe5",
+                    "tertiary": "#000c31",
+                    "on-secondary": "#ffffff",
+                    "on-surface-variant": "#44474e",
+                    "surface-bright": "#f9f9ff",
+                    "tertiary-fixed-dim": "#b4c5ff",
+                    "on-error-container": "#93000a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "xl": "48px",
+                    "xs": "4px",
+                    "sm": "8px",
+                    "lg": "24px",
+                    "md": "16px",
+                    "gutter": "20px",
+                    "base": "4px",
+                    "container-max": "1280px"
+            },
+            "fontFamily": {
+                    "body-lg": ["Hanken Grotesk"],
+                    "display-lg": ["Hanken Grotesk"],
+                    "body-md": ["Hanken Grotesk"],
+                    "data-mono": ["JetBrains Mono"],
+                    "label-caps": ["Hanken Grotesk"],
+                    "body-sm": ["Hanken Grotesk"],
+                    "headline-md": ["Hanken Grotesk"],
+                    "headline-lg": ["Hanken Grotesk"]
+            },
+            "fontSize": {
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "data-mono": ["13px", {"lineHeight": "16px", "fontWeight": "500"}],
+                    "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings:
+            'FILL' 0,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24
+        }
+        .fill-icon {
+             font-variation-settings: 'FILL' 1;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-screen w-64 bg-surface-container-low dark:bg-inverse-surface flex flex-col py-md px-sm z-40 border-r border-outline-variant">
+<div class="px-md pb-lg">
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">Seller Center</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Operations Hub</p>
+</div>
+<nav class="flex-1 flex flex-col gap-sm">
+<a class="flex items-center gap-md px-md py-sm rounded text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-md px-md py-sm rounded text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+                Catalog
+            </a>
+<!-- Intent mapping: Bulk Upload is related to Inventory/Catalog, defaulting to Inventory for this context -->
+<a class="flex items-center gap-md px-md py-sm rounded text-primary dark:text-primary-fixed font-bold border-r-4 border-primary dark:border-primary-fixed bg-surface-container-high font-body-sm text-body-sm opacity-80 duration-150" href="#">
+<span class="material-symbols-outlined fill-icon" data-icon="warehouse">warehouse</span>
+                Inventory
+            </a>
+<a class="flex items-center gap-md px-md py-sm rounded text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+                Orders
+            </a>
+<a class="flex items-center gap-md px-md py-sm rounded text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined" data-icon="notifications_active">notifications_active</span>
+                Operational Alerts
+            </a>
+</nav>
+<div class="pt-md border-t border-outline-variant">
+<button class="w-full bg-primary-container text-on-primary py-sm px-md rounded-lg font-body-sm text-body-sm font-bold flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined text-[18px]">upload</span>
+                Bulk Upload
+            </button>
+<div class="mt-md flex items-center gap-sm px-sm">
+<img alt="Operator Profile" class="w-8 h-8 rounded-full object-cover" data-alt="A small, professional headshot avatar of a logistics operator in a clean, brightly lit corporate environment. The image is circular and minimalist." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDohKfk4yaMVtzDclKANuaHOw9TG_ekucLJLLJy5QTp3SY0OGnqwTWmB-b5Udf1kcbU1FazK9gVrfXfVd58ZCHM-vG4Ds61a0MwV1iHPXgtsqse0IUBNuZpjzgLOutf-8ssg1h9XOeFtNYz_XpTX2OXJ2qnJ432GrTCsiXf9XugOAiyhc62YzmQcWQ6fu4LdmbsQwWgsgVy3Z_oTFPMXq3yifC54zfQBaYR3AutrXNlCrmpET2v8hVm"/>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">operator@seller.com</span>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 ml-64 flex flex-col min-h-screen">
+<!-- TopNavBar -->
+<header class="flex justify-between items-center h-16 px-lg sticky top-0 z-50 bg-surface dark:bg-background shadow-sm">
+<div class="flex items-center gap-lg">
+<!-- Navigation Links from TopNavBar JSON -->
+<nav class="flex items-center gap-md">
+<a class="font-label-caps text-label-caps text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed Transition-all duration-200 ease-in-out" href="#">Picking</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed Transition-all duration-200 ease-in-out" href="#">Packing</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed Transition-all duration-200 ease-in-out" href="#">Dispatch</a>
+</nav>
+</div>
+<div class="flex items-center gap-lg">
+<span class="font-body-sm text-body-sm text-secondary font-semibold">System Status: OK</span>
+<div class="flex items-center gap-sm">
+<button class="text-on-surface-variant hover:text-primary transition-colors p-sm">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-sm">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-sm">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Page Content Canvas -->
+<div class="p-xl flex-1 flex flex-col gap-lg max-w-container-max mx-auto w-full">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-xs">Carga Masiva e Historial</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Sube tu inventario mediante un archivo CSV o Excel.</p>
+</div>
+<!-- Upload Area -->
+<section class="bg-surface-container-lowest rounded-xl border border-outline-variant p-lg flex flex-col items-center justify-center border-dashed border-2 hover:border-primary transition-colors cursor-pointer group min-h-[200px]">
+<div class="bg-surface-container-low p-md rounded-full mb-md group-hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-[32px] text-primary" data-icon="cloud_upload">cloud_upload</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-sm text-center">Arrastra y suelta tu archivo aquí</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-center mb-md">Formatos soportados: .csv, .xlsx, .xls</p>
+<div class="flex gap-sm">
+<button class="bg-primary-container text-on-primary py-sm px-lg rounded-lg font-body-sm text-body-sm font-bold shadow-sm hover:opacity-90 transition-opacity">
+                        Seleccionar Archivo
+                    </button>
+<button class="border border-outline-variant text-on-background py-sm px-lg rounded-lg font-body-sm text-body-sm font-bold flex items-center gap-xs hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                        Descargar Plantilla
+                    </button>
+</div>
+</section>
+<!-- Processing Queue -->
+<section class="bg-surface-container-lowest rounded-xl border border-outline-variant p-lg shadow-sm">
+<div class="flex items-center justify-between mb-md">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-secondary" data-icon="sync">sync</span>
+<h4 class="font-headline-md text-headline-md text-on-surface">Cola de Procesamiento</h4>
+</div>
+<span class="font-data-mono text-data-mono text-on-surface-variant">BAT-2023-11-24-001</span>
+</div>
+<div class="mb-sm flex justify-between items-center">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Procesando inventario_noviembre.csv</span>
+<span class="font-body-sm text-body-sm font-bold text-primary">65%</span>
+</div>
+<div class="w-full bg-surface-container-high rounded-full h-2.5 overflow-hidden">
+<div class="bg-primary h-2.5 rounded-full" style="width: 65%"></div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-sm text-right">Aprox. 2 min restantes</p>
+</section>
+<!-- Error Report Section -->
+<section class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex-1 flex flex-col">
+<div class="p-lg border-b border-outline-variant flex justify-between items-center bg-error-container/20">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-error" data-icon="error">error</span>
+<h4 class="font-headline-md text-headline-md text-on-surface">Reporte de Errores</h4>
+<span class="bg-error text-on-error font-data-mono text-data-mono px-2 py-1 rounded ml-sm">3 Errores</span>
+</div>
+<button class="bg-primary-container text-on-primary py-sm px-md rounded-lg font-body-sm text-body-sm font-bold shadow-sm hover:opacity-90 transition-opacity flex items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">replay</span>
+                        Reintentar parcial
+                    </button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low border-b border-outline-variant">
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">Fila</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">Columna</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">Causa del Error</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">Solución Sugerida</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">Acción</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm text-on-surface">
+<tr class="border-b border-outline-variant hover:bg-surface-container-lowest transition-colors">
+<td class="p-md font-data-mono text-data-mono text-on-surface-variant">142</td>
+<td class="p-md">Category_ID</td>
+<td class="p-md text-error font-medium flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">cancel</span>
+                                    Invalid Category ID
+                                </td>
+<td class="p-md text-on-surface-variant">ID no existe. Usar 'CAT-001' o 'CAT-002'.</td>
+<td class="p-md">
+<button class="text-primary hover:underline font-medium text-sm">Editar</button>
+</td>
+</tr>
+<tr class="border-b border-outline-variant hover:bg-surface-container-lowest transition-colors bg-surface-container-highest/30">
+<td class="p-md font-data-mono text-data-mono text-on-surface-variant">255</td>
+<td class="p-md">Price_Bs</td>
+<td class="p-md text-error font-medium flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">cancel</span>
+                                    Formato Numérico Inválido
+                                </td>
+<td class="p-md text-on-surface-variant">Eliminar símbolos de moneda ('Bs.'). Usar solo números.</td>
+<td class="p-md">
+<button class="text-primary hover:underline font-medium text-sm">Editar</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="p-md font-data-mono text-data-mono text-on-surface-variant">310</td>
+<td class="p-md">SKU_Code</td>
+<td class="p-md text-error font-medium flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">cancel</span>
+                                    SKU Duplicado
+                                </td>
+<td class="p-md text-on-surface-variant">El SKU 'SKU-992-11' ya existe en el catálogo.</td>
+<td class="p-md">
+<button class="text-primary hover:underline font-medium text-sm">Ignorar Fila</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</div>
+</main>
+</body></html>

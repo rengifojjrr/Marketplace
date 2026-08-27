@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Carrito de Compras - Tumbo Market</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed": "#00174b",
+                        "tertiary-container": "#002a27",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#0b2545",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed": "#001c3b",
+                        "tertiary-fixed": "#9cf2e8",
+                        "surface-container-highest": "#e3e2e5",
+                        "inverse-surface": "#303033",
+                        "on-surface-variant": "#44474e",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed": "#dbe1ff",
+                        "on-tertiary-fixed-variant": "#00504a",
+                        "surface-container": "#efedf0",
+                        "primary-fixed": "#d5e3ff",
+                        "background": "#faf9fc",
+                        "surface-bright": "#faf9fc",
+                        "surface-tint": "#495f82",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed-dim": "#b1c7f0",
+                        "on-secondary-container": "#fefcff",
+                        "inverse-on-surface": "#f2f0f3",
+                        "surface-dim": "#dbd9dd",
+                        "on-secondary-fixed-variant": "#003ea8",
+                        "secondary-container": "#316bf3",
+                        "on-secondary": "#ffffff",
+                        "tertiary": "#001311",
+                        "on-primary-fixed-variant": "#314769",
+                        "on-error": "#ffffff",
+                        "on-background": "#1b1b1e",
+                        "on-tertiary-container": "#419990",
+                        "surface-variant": "#e3e2e5",
+                        "inverse-primary": "#b1c7f0",
+                        "on-surface": "#1b1b1e",
+                        "on-primary-container": "#778db2",
+                        "primary": "#001026",
+                        "surface-container-low": "#f5f3f6",
+                        "surface-container-high": "#e9e7eb",
+                        "surface": "#faf9fc",
+                        "tertiary-fixed-dim": "#80d5cb",
+                        "outline-variant": "#c4c6cf",
+                        "on-tertiary-fixed": "#00201d",
+                        "secondary-fixed-dim": "#b4c5ff",
+                        "error-container": "#ffdad6",
+                        "secondary": "#0051d5",
+                        "outline": "#74777f",
+                        "error": "#ba1a1a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "xxl": "48px",
+                        "margin-mobile": "16px",
+                        "unit": "4px",
+                        "gutter": "24px",
+                        "xl": "32px",
+                        "md": "16px",
+                        "container-max": "1280px",
+                        "lg": "24px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Inter"],
+                        "label-md": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-md": ["14px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background-color: #c4c6cf; border-radius: 20px; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md antialiased md:hidden pb-32">
+<!-- Top Navigation (Mobile Specific for Cart) -->
+<header class="sticky top-0 z-50 flex items-center justify-between px-md py-md w-full bg-surface/95 backdrop-blur-md border-b border-outline-variant shadow-sm">
+<button class="text-on-surface hover:text-secondary transition-colors" onclick="history.back()">
+<span class="material-symbols-outlined text-2xl">arrow_back</span>
+</button>
+<h1 class="text-headline-sm font-headline-sm text-primary">Mi Carrito</h1>
+<button class="text-on-surface hover:text-secondary transition-colors relative">
+<span class="material-symbols-outlined text-2xl filled">shopping_cart</span>
+<span class="absolute -top-1 -right-1 bg-secondary text-on-secondary text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">3</span>
+</button>
+</header>
+<!-- Main Content -->
+<main class="p-md space-y-md">
+<!-- Validation Message -->
+<div class="bg-error-container/20 border border-error/30 rounded-lg p-sm flex items-start gap-sm mb-lg">
+<span class="material-symbols-outlined text-error text-xl mt-xs">info</span>
+<p class="text-body-sm font-body-sm text-on-surface">Un artículo en tu carrito tiene inventario limitado. Finaliza tu compra pronto para asegurar disponibilidad.</p>
+</div>
+<!-- Cart Items List -->
+<div class="space-y-md pb-lg">
+<!-- Cart Item 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex gap-md shadow-[0_2px_8px_rgba(11,37,69,0.04)] relative">
+<button class="absolute top-sm right-sm text-outline hover:text-error transition-colors">
+<span class="material-symbols-outlined text-xl">close</span>
+</button>
+<div class="w-24 h-24 rounded-lg bg-surface-container overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="A clean, minimalist product shot of a premium noise-canceling headphone in matte black, placed on a crisp white background with subtle studio lighting highlighting its sleek design and corporate modernism aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCmBBnrxL5_VVSd5Th352GhbHSGci8_mHJn4Za8vYezLmGvTCStQc0N4qNBdQfJQd_W7zMns_d5yQINPmG7UJ29SKM8RRmpr1EV7tjbh8n_f9rEqdEaqx8UaffGxoy8AhNu2gQbyTh9iz5mQp9WqkNM53HpWGa0_55y2xHcRedC6j9p6r_WBOXrJGMkNmD-SvqvQPwlXPfjSHVSykmG0wFEZNO54FyzyjQ06QOYrioitAyqXF1vTAz3"/>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<h3 class="text-label-md font-label-md text-primary pr-xl line-clamp-2">Audífonos Inalámbricos Pro Max Noise Cancelling</h3>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-xs">Color: Negro</p>
+</div>
+<div class="flex items-end justify-between mt-sm">
+<div>
+<p class="text-label-md font-label-md text-on-background">$249.99</p>
+<p class="text-label-sm font-label-sm text-outline">Bs. 8,950.00</p>
+</div>
+<div class="flex items-center border border-outline-variant rounded-md bg-surface-container-low">
+<button class="px-2 py-1 text-on-surface hover:text-secondary"><span class="material-symbols-outlined text-sm">remove</span></button>
+<span class="text-body-sm font-body-sm px-2">1</span>
+<button class="px-2 py-1 text-on-surface hover:text-secondary"><span class="material-symbols-outlined text-sm">add</span></button>
+</div>
+</div>
+</div>
+</div>
+<!-- Cart Item 2 (Limited Stock) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex gap-md shadow-[0_2px_8px_rgba(11,37,69,0.04)] relative">
+<button class="absolute top-sm right-sm text-outline hover:text-error transition-colors">
+<span class="material-symbols-outlined text-xl">close</span>
+</button>
+<div class="w-24 h-24 rounded-lg bg-surface-container overflow-hidden flex-shrink-0 relative">
+<div class="absolute bottom-0 left-0 right-0 bg-error/90 text-on-error text-[10px] font-bold text-center py-0.5">Quedan 2</div>
+<img class="w-full h-full object-cover" data-alt="A high-quality top-down shot of a sleek, modern mechanical keyboard with subtle RGB lighting, set against a pristine light grey desk surface. The lighting is soft and professional, emphasizing the premium build." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCgHDB5D3VkhELgB-9dZCBhyJgWk51VxAekMtaYqgvXFYTqtfvV675EIIGPNch9DhqDhVBxqY94QJ6NA76fT4fGp11g7dgbePz0GjZ6dOgN5tN-pCE9a2oNzTo3a_ccGzUtQWAzXcnGEjz3DPwxk7NU8Ximf9KHbvvodQkzQV_UwZBmduI6srNwtdmES1-jMXT4BGwfCjIqYQnQUkfF7tngbBHA1m6TyNLHQInr4KqS5wAWtzwZGLq-"/>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<h3 class="text-label-md font-label-md text-primary pr-xl line-clamp-2">Teclado Mecánico K8 Pro Inalámbrico</h3>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-xs">Switches: Red</p>
+</div>
+<div class="flex items-end justify-between mt-sm">
+<div>
+<p class="text-label-md font-label-md text-on-background">$99.00</p>
+<p class="text-label-sm font-label-sm text-outline">Bs. 3,544.20</p>
+</div>
+<div class="flex items-center border border-outline-variant rounded-md bg-surface-container-low">
+<button class="px-2 py-1 text-on-surface hover:text-secondary"><span class="material-symbols-outlined text-sm">remove</span></button>
+<span class="text-body-sm font-body-sm px-2">1</span>
+<button class="px-2 py-1 text-on-surface hover:text-secondary"><span class="material-symbols-outlined text-sm">add</span></button>
+</div>
+</div>
+</div>
+</div>
+<!-- Cart Item 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex gap-md shadow-[0_2px_8px_rgba(11,37,69,0.04)] relative">
+<button class="absolute top-sm right-sm text-outline hover:text-error transition-colors">
+<span class="material-symbols-outlined text-xl">close</span>
+</button>
+<div class="w-24 h-24 rounded-lg bg-surface-container overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="A detailed, professional photograph of a minimalist ergonomic mouse in soft white, resting on a clean wooden desk surface. Soft, natural light highlights the sleek curves, fitting a modern B2B tech aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBYcTl2BczzwrK3Wxgn5lS_2VN0etupxKPGPZoYiw4SOhKbmShJsk56_0brARK3FipmUbIFKcPKr6FdHEAc7oHcxtli3E60PvY133tKf0eBQVq4ffxAyzs3nCdMh-ldYFilAdg2bHswe0XPhClQ2NXEKgdp4ktFpGKqSVMXlql4617oyfbaYrRG44zcn49IopAIbXTC5EoLr7SYZVsuysirZfj_zoEKzs7m9CuH6lIQOJFSwXxZqOJM"/>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<h3 class="text-label-md font-label-md text-primary pr-xl line-clamp-2">Mouse Ergonómico MX Master 3S</h3>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-xs">Color: Gris Claro</p>
+</div>
+<div class="flex items-end justify-between mt-sm">
+<div>
+<p class="text-label-md font-label-md text-on-background">$99.99</p>
+<p class="text-label-sm font-label-sm text-outline">Bs. 3,580.00</p>
+</div>
+<div class="flex items-center border border-outline-variant rounded-md bg-surface-container-low">
+<button class="px-2 py-1 text-on-surface hover:text-secondary"><span class="material-symbols-outlined text-sm">remove</span></button>
+<span class="text-body-sm font-body-sm px-2">1</span>
+<button class="px-2 py-1 text-on-surface hover:text-secondary"><span class="material-symbols-outlined text-sm">add</span></button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Order Summary Section (Integrated above sticky footer) -->
+<div class="bg-surface-container-low rounded-xl p-md border border-outline-variant mb-xl">
+<h2 class="text-label-md font-label-md text-primary mb-md">Resumen de Compra</h2>
+<div class="space-y-sm mb-md border-b border-outline-variant pb-md">
+<div class="flex justify-between text-body-sm font-body-sm text-on-surface-variant">
+<span>Subtotal (3 artículos)</span>
+<span>$448.98</span>
+</div>
+<div class="flex justify-between text-body-sm font-body-sm text-on-surface-variant">
+<span>Envío estimado</span>
+<span>$12.00</span>
+</div>
+<div class="flex justify-between text-body-sm font-body-sm text-on-surface-variant">
+<span>Impuestos</span>
+<span>$0.00</span>
+</div>
+</div>
+<div class="flex justify-between items-end">
+<span class="text-label-md font-label-md text-primary">Total Estimado</span>
+<div class="text-right">
+<span class="block text-headline-sm font-headline-sm text-primary">$460.98</span>
+<span class="block text-label-sm font-label-sm text-outline">Bs. 16,503.08</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Fixed Bottom Checkout Button -->
+<div class="fixed bottom-0 left-0 w-full z-50 bg-surface px-md py-md border-t border-outline-variant shadow-[0_-4px_12px_rgba(11,37,69,0.08)]">
+<button class="w-full bg-secondary hover:bg-secondary/90 text-on-secondary rounded-[10px] py-md text-label-md font-label-md transition-colors flex justify-center items-center gap-sm">
+            Continuar para comprar
+            <span class="material-symbols-outlined text-lg">arrow_forward</span>
+</button>
+</div>
+</body></html>

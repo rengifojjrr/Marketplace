@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+
+<html data-tumbo-banner="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Reclamo del comprador — DSP-0098 · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+<link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Reclamo del comprador — DSP-0098 — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col">
+<div data-tumbo-ui="banner" class="tumbo-banner-demo" role="note"><span class="material-symbols-outlined" aria-hidden="true">science</span><span>MODO DEMO — Expediente de demostración. Las evidencias no se envían a ningún servicio externo.</span></div>
+<!-- TopNavBar -->
+<nav class="bg-surface sticky top-0 z-50 flex items-center justify-between px-lg w-full max-w-container-max mx-auto border-b border-outline-variant h-16">
+<div class="flex items-center gap-lg">
+<div class="font-headline-md text-headline-md font-bold text-primary">Tumbo Market</div>
+<div class="hidden md:flex gap-lg h-full items-center">
+<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors duration-200" href="#">Pedidos</a>
+<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors duration-200" href="#">Inventario</a>
+<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors duration-200" href="#">Mensajes</a>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<button class="text-on-surface-variant hover:text-secondary transition-colors duration-200">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-secondary transition-colors duration-200">
+<span class="material-symbols-outlined">shopping_cart</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-variant overflow-hidden border border-outline-variant">
+<img loading="lazy" alt="Foto de perfil — imagen de demostración" class="w-full h-full object-cover" data-alt="A professional headshot of a corporate buyer in a well-lit office environment. Corporate Modernism aesthetic, high-trust, B2B context. Clean composition, professional attire, soft natural lighting." src="../../assets/img/avatar-06.svg"/>
+</div>
+</div>
+</nav>
+<div class="flex flex-1 overflow-hidden w-full max-w-container-max mx-auto">
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col w-64 h-full bg-surface-container-low border-r border-outline-variant p-md space-y-sm flex-shrink-0">
+<div class="mb-lg px-sm">
+<h2 class="font-headline-sm text-headline-sm text-primary font-bold">Verified Buyer</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Enterprise Tier</p>
+</div>
+<button class="w-full bg-secondary text-on-secondary py-sm rounded-lg font-label-md text-label-md mb-md transition-transform hover:scale-[0.98] active:scale-95 flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                Nuevo pedido
+            </button>
+<nav class="flex-1 space-y-xs">
+<a class="flex items-center gap-md px-sm py-sm text-on-surface-variant hover:bg-surface-container-highest rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Panel</span>
+</a>
+<a class="flex items-center gap-md px-sm py-sm text-on-surface-variant hover:bg-surface-container-highest rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">shopping_bag</span>
+<span class="font-label-md text-label-md">Compras</span>
+</a>
+<a class="flex items-center gap-md px-sm py-sm text-on-surface-variant hover:bg-surface-container-highest rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span class="font-label-md text-label-md">Billetera</span>
+</a>
+<a class="flex items-center gap-md px-sm py-sm bg-secondary-container text-on-secondary-container rounded-lg font-bold scale-[0.98] transition-all" href="#">
+<span class="material-symbols-outlined">gavel</span>
+<span class="font-label-md text-label-md">Disputas</span>
+</a>
+<a class="flex items-center gap-md px-sm py-sm text-on-surface-variant hover:bg-surface-container-highest rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">Configuración</span>
+</a>
+</nav>
+<div class="mt-auto space-y-xs pt-md border-t border-outline-variant">
+<a class="flex items-center gap-md px-sm py-sm text-on-surface-variant hover:bg-surface-container-highest rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-label-md text-label-md">Centro de ayuda</span>
+</a>
+<a class="flex items-center gap-md px-sm py-sm text-on-surface-variant hover:bg-surface-container-highest rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-label-md text-label-md">Cerrar sesión</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background">
+<!-- Header -->
+<header class="px-lg py-md border-b border-outline-variant bg-surface flex justify-between items-center shrink-0">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-primary flex items-center gap-sm">
+                        Caso DSP-0098
+                        <span class="inline-flex items-center gap-xs px-2 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed text-label-sm font-label-sm ml-md">
+<span class="material-symbols-outlined text-[14px]">pending_actions</span>
+                            En Revisión por Operaciones
+                        </span>
+</h1>
+</div>
+<div class="flex gap-sm">
+<button class="px-md py-sm rounded-lg border border-primary-container text-primary-container font-label-md text-label-md hover:bg-surface-container-highest transition-colors">
+                        Escalar a Operaciones
+                    </button>
+<button class="px-md py-sm rounded-lg bg-secondary text-on-secondary font-label-md text-label-md hover:opacity-90 transition-opacity">
+                        Aceptar Solución
+                    </button>
+</div>
+</header>
+<!-- Three Column Layout -->
+<div class="flex-1 flex overflow-hidden">
+<!-- Left: Case Info -->
+<div class="w-1/4 min-w-[280px] border-r border-outline-variant bg-surface-bright p-lg overflow-y-auto flex flex-col gap-lg">
+<section>
+<h3 class="font-headline-sm text-headline-sm text-primary mb-sm">Detalles del Caso</h3>
+<div class="bg-surface rounded-xl border border-outline-variant p-md space-y-md">
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-xs">Razón</p>
+<p class="font-body-md text-body-md text-on-surface font-medium">Producto defectuoso</p>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-xs">SLA Restante</p>
+<p class="font-body-md text-body-md text-error flex items-center gap-xs font-medium">
+<span class="material-symbols-outlined text-[18px]">timer</span>
+                                    24h restantes
+                                </p>
+</div>
+<div class="pt-sm border-t border-outline-variant">
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-xs">Orden Asociada</p>
+<a class="font-body-md text-body-md text-secondary hover:underline flex items-center justify-between" href="#">
+                                    ORD-2023-8892
+                                    <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+</a>
+</div>
+</div>
+</section>
+</div>
+<!-- Center: Chat -->
+<div class="flex-1 flex flex-col bg-surface-container-lowest min-w-[400px]">
+<div class="flex-1 overflow-y-auto p-lg space-y-lg">
+<!-- Message Admin -->
+<div class="flex gap-md">
+<div class="w-8 h-8 rounded-full bg-tertiary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-tertiary-container text-[16px]">support_agent</span>
+</div>
+<div class="max-w-[80%]">
+<div class="flex items-baseline gap-sm mb-xs">
+<span class="font-label-md text-label-md text-primary">Tumbo Support</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Ayer, 14:30</span>
+</div>
+<div class="bg-surface-container-low p-md rounded-xl rounded-tl-none border border-outline-variant font-body-md text-body-md text-on-surface">
+                                    Hola. Hemos recibido el reclamo sobre el producto defectuoso. ¿Podría el comprador proporcionar más evidencia del problema de encendido?
+                                </div>
+</div>
+</div>
+<!-- Message Buyer -->
+<div class="flex gap-md flex-row-reverse">
+<div class="w-8 h-8 rounded-full bg-secondary-container overflow-hidden shrink-0">
+<img loading="lazy" alt="Foto de perfil — imagen de demostración" class="w-full h-full object-cover" data-alt="A professional headshot of a corporate buyer in a well-lit office environment. Corporate Modernism aesthetic, high-trust, B2B context." src="../../assets/img/avatar-02.svg"/>
+</div>
+<div class="max-w-[80%] flex flex-col items-end">
+<div class="flex items-baseline gap-sm mb-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Ayer, 15:45</span>
+<span class="font-label-md text-label-md text-primary">Tú (Comprador)</span>
+</div>
+<div class="bg-secondary text-on-secondary p-md rounded-xl rounded-tr-none font-body-md text-body-md">
+                                    Sí, acabo de subir un video donde se muestra que al conectarlo a la corriente no enciende ningún indicador LED.
+                                </div>
+</div>
+</div>
+<!-- Internal Note (Hidden from buyer conceptually, shown in UI for admin context) -->
+<div class="flex gap-md opacity-70">
+<div class="w-8 h-8 rounded-full bg-surface-variant border border-outline border-dashed flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">visibility_off</span>
+</div>
+<div class="max-w-[80%]">
+<div class="flex items-baseline gap-sm mb-xs">
+<span class="font-label-md text-label-md text-on-surface-variant">Nota Interna (Operaciones)</span>
+</div>
+<div class="bg-surface-variant p-md rounded-xl rounded-tl-none border border-outline border-dashed font-body-md text-body-md text-on-surface-variant italic">
+                                    Revisar historial del vendedor. Tiene 3 reclamos similares este mes. Si la evidencia es clara, fallar a favor del comprador inmediatamente.
+                                </div>
+</div>
+</div>
+</div>
+<!-- Chat Input -->
+<div class="p-md bg-surface border-t border-outline-variant">
+<div class="flex items-end gap-sm bg-surface-container-lowest border border-outline-variant rounded-xl p-xs focus-within:border-secondary focus-within:ring-1 focus-within:ring-secondary transition-all">
+<button class="p-sm text-on-surface-variant hover:text-secondary rounded-lg transition-colors">
+<span class="material-symbols-outlined">attach_file</span>
+</button>
+<textarea class="flex-1 bg-transparent border-none resize-none max-h-32 min-h-[44px] py-sm px-xs font-body-md text-body-md focus:ring-0" placeholder="Escribe un mensaje al caso..."></textarea>
+<button class="p-sm bg-secondary text-on-secondary rounded-lg hover:opacity-90 transition-opacity mb-[2px] mr-[2px]">
+<span class="material-symbols-outlined">send</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Right: Evidence Viewer -->
+<div class="w-1/4 min-w-[300px] border-l border-outline-variant bg-surface-bright p-lg overflow-y-auto">
+<h3 class="font-headline-sm text-headline-sm text-primary mb-md">Evidencia Adjunta</h3>
+<div class="space-y-md">
+<!-- Evidence Item 1 -->
+<div class="bg-surface rounded-xl border border-outline-variant overflow-hidden group cursor-pointer hover:border-secondary transition-colors">
+<div class="h-32 bg-surface-variant relative">
+<img loading="lazy" alt="Imagen logística — demostración" class="w-full h-full object-cover" data-alt="A clear, high-resolution photograph of a damaged cardboard shipping box on a clean industrial warehouse table. Corporate Modernism aesthetic. The box shows slight crushing on one corner. Bright, even lighting." src="../../assets/img/logistica-02.svg"/>
+<div class="absolute inset-0 bg-primary/0 group-hover:bg-primary/10 transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md">zoom_in</span>
+</div>
+</div>
+<div class="p-sm flex justify-between items-center">
+<div>
+<p class="font-label-md text-label-md text-primary truncate">foto_caja_exterior.jpg</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Subido por Comprador</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">image</span>
+</div>
+</div>
+<!-- Evidence Item 2 -->
+<div class="bg-surface rounded-xl border border-outline-variant overflow-hidden group cursor-pointer hover:border-secondary transition-colors">
+<div class="h-32 bg-surface-variant relative flex items-center justify-center">
+<img loading="lazy" alt="Imagen del producto — demostración" class="w-full h-full object-cover opacity-80" data-alt="A still frame from a video showing a sleek, modern electronic device (like a router or small server) sitting on a clean desk. The device appears off, with no lights. Corporate Modernism aesthetic, high-trust tech environment." src="../../assets/img/producto-06.svg"/>
+<div class="absolute inset-0 bg-primary/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-[32px] drop-shadow-md">play_circle</span>
+</div>
+</div>
+<div class="p-sm flex justify-between items-center">
+<div>
+<p class="font-label-md text-label-md text-primary truncate">video_falla_encendido.mp4</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Subido por Comprador</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">movie</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_PAGINA={"ruta": "marketplace/reclamo.html", "superficie": "marketplace", "rol": "comprador", "titulo": "Reclamo del comprador — DSP-0098"};</script>
+</body></html>

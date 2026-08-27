@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pagar - Tumbo Market Core</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed": "#00174b",
+                        "on-background": "#1b1b1e",
+                        "tertiary": "#001311",
+                        "on-error": "#ffffff",
+                        "secondary-fixed": "#dbe1ff",
+                        "surface-dim": "#dbd9dd",
+                        "on-secondary": "#ffffff",
+                        "tertiary-container": "#002a27",
+                        "surface-bright": "#faf9fc",
+                        "on-error-container": "#93000a",
+                        "on-surface-variant": "#44474e",
+                        "on-tertiary-fixed": "#00201d",
+                        "surface-container-highest": "#e3e2e5",
+                        "outline": "#74777f",
+                        "on-tertiary-fixed-variant": "#00504a",
+                        "on-secondary-fixed-variant": "#003ea8",
+                        "secondary": "#0051d5",
+                        "primary-fixed-dim": "#b1c7f0",
+                        "on-primary-container": "#778db2",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#1b1b1e",
+                        "surface": "#faf9fc",
+                        "inverse-surface": "#303033",
+                        "tertiary-fixed": "#9cf2e8",
+                        "primary": "#001026",
+                        "secondary-fixed-dim": "#b4c5ff",
+                        "inverse-on-surface": "#f2f0f3",
+                        "surface-container-high": "#e9e7eb",
+                        "surface-container": "#efedf0",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-container": "#419990",
+                        "outline-variant": "#c4c6cf",
+                        "background": "#faf9fc",
+                        "surface-tint": "#495f82",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#0b2545",
+                        "on-primary-fixed-variant": "#314769",
+                        "on-tertiary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "secondary-container": "#316bf3",
+                        "tertiary-fixed-dim": "#80d5cb",
+                        "on-secondary-container": "#fefcff",
+                        "primary-fixed": "#d5e3ff",
+                        "surface-container-low": "#f5f3f6",
+                        "on-primary-fixed": "#001c3b",
+                        "inverse-primary": "#b1c7f0",
+                        "surface-variant": "#e3e2e5"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "lg": "24px",
+                        "xs": "4px",
+                        "gutter": "24px",
+                        "unit": "4px",
+                        "container-max": "1280px",
+                        "xl": "32px",
+                        "md": "16px",
+                        "sm": "8px",
+                        "margin-mobile": "16px",
+                        "xxl": "48px"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "label-md": ["14px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col">
+<!-- Header -->
+<header class="sticky top-0 z-50 bg-surface border-b border-outline-variant flex items-center px-margin-mobile h-16 w-full">
+<button aria-label="Volver a Revisión" class="text-primary hover:bg-surface-container-highest p-xs rounded-full transition-colors mr-sm">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-primary font-semibold flex-grow text-center pr-[32px]">Pagar</h1>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow pb-[100px] flex flex-col w-full max-w-container-max mx-auto px-margin-mobile pt-lg gap-lg">
+<!-- Total Amount Prominent -->
+<section class="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant flex flex-col items-center justify-center gap-xs shadow-[0_4px_12px_rgba(11,37,69,0.02)]">
+<p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Total a Pagar</p>
+<h2 class="font-display-lg text-display-lg text-primary-container font-bold">$1,250.00</h2>
+<p class="font-body-sm text-body-sm text-outline mt-sm flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]" data-icon="info">info</span>
+                Operación de prueba
+            </p>
+</section>
+<!-- Payment Methods Accordion -->
+<section class="flex flex-col gap-sm w-full">
+<h3 class="font-headline-sm text-headline-sm text-primary-container mb-xs">Método de Pago</h3>
+<!-- Pago Móvil (Expanded) -->
+<div class="bg-surface-container-lowest rounded-xl border-2 border-secondary overflow-hidden shadow-[0_4px_12px_rgba(11,37,69,0.05)] transition-all">
+<div class="p-md flex items-center gap-md bg-secondary-fixed bg-opacity-10 cursor-pointer">
+<div class="w-10 h-10 rounded-full bg-secondary text-on-secondary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined" data-icon="smartphone">smartphone</span>
+</div>
+<div class="flex-grow">
+<h4 class="font-label-md text-label-md text-on-background font-semibold">Pago Móvil</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Transferencia instantánea</p>
+</div>
+<span class="material-symbols-outlined text-secondary" data-icon="radio_button_checked">radio_button_checked</span>
+</div>
+<!-- Expanded Content (Inputs) -->
+<div class="p-md border-t border-outline-variant bg-surface flex flex-col gap-md">
+<div class="bg-surface-container-low p-sm rounded-lg border border-outline-variant text-body-sm text-on-surface-variant mb-xs">
+<p class="font-medium">Datos del receptor:</p>
+<p>Banco: Mercantil (0105)</p>
+<p>Teléfono: 0414-1234567</p>
+<p>Cédula: V-12345678</p>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="font-label-sm text-label-sm text-on-surface-variant" for="phone">Teléfono Origen</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-sm text-body-md text-on-background focus:border-secondary focus:ring-2 focus:ring-secondary focus:ring-opacity-30 transition-all outline-none" id="phone" placeholder="04xx-xxxxxxx" type="tel"/>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="font-label-sm text-label-sm text-on-surface-variant" for="id_doc">Cédula Origen</label>
+<div class="flex gap-sm">
+<select class="bg-surface-container-lowest border border-outline-variant rounded-lg p-sm text-body-md text-on-background focus:border-secondary outline-none w-[80px]">
+<option>V-</option>
+<option>J-</option>
+<option>E-</option>
+</select>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-sm text-body-md text-on-background focus:border-secondary focus:ring-2 focus:ring-secondary focus:ring-opacity-30 transition-all outline-none" id="id_doc" placeholder="Número de cédula" type="text"/>
+</div>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="font-label-sm text-label-sm text-on-surface-variant" for="reference">Número de Referencia (Últimos 4 dígitos)</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-sm text-body-md text-on-background focus:border-secondary focus:ring-2 focus:ring-secondary focus:ring-opacity-30 transition-all outline-none" id="reference" maxlength="4" placeholder="Ej: 4567" type="text"/>
+</div>
+</div>
+</div>
+<!-- Transferencia Bancaria (Collapsed) -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="p-md flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined" data-icon="account_balance">account_balance</span>
+</div>
+<div class="flex-grow">
+<h4 class="font-label-md text-label-md text-on-background font-medium">Transferencia Bancaria</h4>
+<p class="font-body-sm text-body-sm text-outline">Bancos Nacionales</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant" data-icon="radio_button_unchecked">radio_button_unchecked</span>
+</div>
+</div>
+<!-- Zelle (Collapsed) -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="p-md flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+</div>
+<div class="flex-grow">
+<h4 class="font-label-md text-label-md text-on-background font-medium">Zelle</h4>
+<p class="font-body-sm text-body-sm text-outline">USD USD</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant" data-icon="radio_button_unchecked">radio_button_unchecked</span>
+</div>
+</div>
+</section>
+</main>
+<!-- Floating Bottom Button Area -->
+<div class="fixed bottom-0 left-0 w-full bg-surface border-t border-outline-variant p-margin-mobile shadow-[0_-4px_12px_rgba(11,37,69,0.05)] z-40">
+<button class="w-full bg-secondary text-on-secondary font-label-md text-label-md py-md rounded-[10px] flex items-center justify-center gap-sm hover:bg-on-secondary-fixed-variant transition-colors active:scale-[0.98]">
+<span class="material-symbols-outlined" data-icon="check_circle">check_circle</span>
+            Confirmar Pago
+        </button>
+</div>
+</body></html>

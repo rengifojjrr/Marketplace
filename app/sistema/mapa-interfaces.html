@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+
+<html lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mapa de interfaces · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+        body { background-color: #F8FAFC; }
+        .demo-banner { background-color: #F59E0B; color: #172033; font-weight: bold; }
+        .card-level-1 { background-color: #FFFFFF; border: 1px solid #DCE3EC; border-radius: 12px; }
+        .btn-primary { background-color: #0B2545; color: #FFFFFF; border-radius: 10px; }
+        .btn-primary:focus { outline: 2px solid #2563EB; outline-offset: 4px; }
+        .btn-primary:hover { background-color: #0A1E38; }
+        .text-navy { color: #0B2545; }
+    </style>
+<link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Mapa de interfaces — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="min-h-screen flex flex-col font-body-md text-body-md text-on-surface">
+<!-- Modo Demo Banner -->
+<div class="demo-banner w-full h-[48px] flex items-center justify-center font-headline-md text-headline-md uppercase tracking-wider sticky top-0 z-50">
+        Modo Demo Activo
+    </div>
+<!-- Header / Brand -->
+<header class="w-full max-w-container-max mx-auto px-gutter py-lg flex justify-between items-center border-b border-outline-variant">
+<h1 class="font-display-lg text-display-lg text-navy tracking-tight">Tumbo Market</h1>
+<div class="flex items-center gap-sm text-on-surface-variant">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+<span class="font-data-mono text-data-mono">Admin VZ</span>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-grow w-full max-w-container-max mx-auto px-gutter py-xl">
+<!-- Introduction -->
+<section class="mb-xl max-w-3xl">
+<h2 class="font-headline-lg text-headline-lg text-navy mb-md">Mapa de Interfaces</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">
+                Explora las tres superficies operativas del marketplace curado. Este ecosistema conecta compradores, vendedores homologados y equipos operativos asegurando transacciones transparentes y logística eficiente.
+            </p>
+</section>
+<!-- Bento Grid / Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-lg">
+<!-- Marketplace Público -->
+<article class="card-level-1 p-lg flex flex-col h-full hover:shadow-lg transition-shadow duration-300">
+<header class="flex items-center gap-md mb-md">
+<div class="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined" style="font-size: 28px;">storefront</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-navy">Marketplace</h3>
+<p class="font-label-caps text-label-caps text-on-surface-variant uppercase">Visitante / Comprador</p>
+</div>
+</header>
+<div class="flex-grow mb-lg">
+<ul class="space-y-sm font-body-sm text-body-sm text-on-surface-variant">
+<li class="flex items-start gap-xs">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                            Catálogo curado de productos B2C/B2B
+                        </li>
+<li class="flex items-start gap-xs">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                            Checkout multimoneda (Bs./USD)
+                        </li>
+<li class="flex items-start gap-xs">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                            Seguimiento de pedidos en tiempo real
+                        </li>
+</ul>
+<div class="mt-md pt-md border-t border-outline-variant flex items-center justify-between text-xs font-data-mono text-data-mono text-on-primary-container">
+<span>Device: Mobile-first</span>
+<span class="material-symbols-outlined">mobile</span>
+</div>
+</div>
+<button class="btn-primary w-full py-sm px-md font-body-md text-body-md flex items-center justify-center gap-xs focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-2" tabindex="0">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+                    Ver Prototipo
+                </button>
+</article>
+<!-- Seller Center -->
+<article class="card-level-1 p-lg flex flex-col h-full hover:shadow-lg transition-shadow duration-300 relative overflow-hidden">
+<div class="absolute top-0 right-0 bg-secondary-container text-on-secondary-container px-sm py-xs rounded-bl-lg font-data-mono text-[10px]">
+                    SKU-MOT-0832
+                </div>
+<header class="flex items-center gap-md mb-md">
+<div class="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined" style="font-size: 28px;">inventory_2</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-navy">Seller Center</h3>
+<p class="font-label-caps text-label-caps text-on-surface-variant uppercase">Seller Homologado</p>
+</div>
+</header>
+<div class="flex-grow mb-lg">
+<ul class="space-y-sm font-body-sm text-body-sm text-on-surface-variant">
+<li class="flex items-start gap-xs">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                            Gestión integral de catálogo y SKUs
+                        </li>
+<li class="flex items-start gap-xs">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                            Estrategia de precios y promociones
+                        </li>
+<li class="flex items-start gap-xs">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                            Operaciones de despacho (Ref: SEL-014)
+                        </li>
+</ul>
+<div class="mt-md pt-md border-t border-outline-variant flex items-center justify-between text-xs font-data-mono text-data-mono text-on-primary-container">
+<span>Device: Desktop Sidebar</span>
+<span class="material-symbols-outlined">desktop_windows</span>
+</div>
+</div>
+<button class="btn-primary w-full py-sm px-md font-body-md text-body-md flex items-center justify-center gap-xs focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-2" tabindex="0">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+                    Ver Prototipo
+                </button>
+</article>
+<!-- Backoffice -->
+<article class="card-level-1 p-lg flex flex-col h-full hover:shadow-lg transition-shadow duration-300 relative overflow-hidden">
+<div class="absolute top-0 right-0 bg-error-container text-on-error-container px-sm py-xs rounded-bl-lg font-data-mono text-[10px]">
+                    DSP-0098
+                </div>
+<header class="flex items-center gap-md mb-md">
+<div class="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined" style="font-size: 28px;">admin_panel_settings</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-navy">Backoffice</h3>
+<p class="font-label-caps text-label-caps text-on-surface-variant uppercase">Superadmin / Finanzas</p>
+</div>
+</header>
+<div class="flex-grow mb-lg">
+<ul class="space-y-sm font-body-sm text-body-sm text-on-surface-variant">
+<li class="flex items-start gap-xs">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                            Conciliación y liquidaciones financieras
+                        </li>
+<li class="flex items-start gap-xs">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                            Gestión de Disputas y atención al cliente
+                        </li>
+<li class="flex items-start gap-xs">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                            Auditoría de sistema (Ref: TM-2026-00428)
+                        </li>
+</ul>
+<div class="mt-md pt-md border-t border-outline-variant flex items-center justify-between text-xs font-data-mono text-data-mono text-on-primary-container">
+<span>Device: Desktop Panel</span>
+<span class="material-symbols-outlined">dashboard</span>
+</div>
+</div>
+<button class="btn-primary w-full py-sm px-md font-body-md text-body-md flex items-center justify-center gap-xs focus:ring-2 focus:ring-[#2563EB] focus:ring-offset-2" tabindex="0">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+                    Ver Prototipo
+                </button>
+</article>
+</div>
+</main>
+<!-- Footer -->
+<footer class="w-full bg-surface-container-low border-t border-outline-variant py-md mt-auto">
+<div class="max-w-container-max mx-auto px-gutter flex flex-col md:flex-row justify-between items-center text-on-surface-variant font-data-mono text-data-mono text-[11px]">
+<p>© 2023 Tumbo Market. All rights reserved.</p>
+<div class="flex gap-md mt-sm md:mt-0">
+<span>Location: Venezuela</span>
+<span>Timezone: VET (UTC-4)</span>
+<span>Status: Operational</span>
+</div>
+</div>
+</footer>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_PAGINA={"ruta": "sistema/mapa-interfaces.html", "superficie": "sistema", "rol": "todos", "titulo": "Mapa de interfaces"};</script>
+</body></html>

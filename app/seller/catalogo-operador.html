@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+
+<html data-tumbo-escritorio="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Catálogo — vista del operador · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+        body { background-color: #F8FAFC; }
+        .data-table th { text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; color: #74777f; padding: 12px 16px; border-bottom: 1px solid #c4c6cf; background-color: #f1f3ff; }
+        .data-table td { padding: 12px 16px; border-bottom: 1px solid #e1e8ff; }
+        .data-table tr:hover { background-color: #f9f9ff; }
+    </style>
+<link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Catálogo — vista del operador — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="font-body-md text-on-surface flex bg-background">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-screen w-64 bg-surface-container-low dark:bg-inverse-surface flex flex-col h-full py-md px-sm border-r border-outline-variant z-40 hidden md:flex">
+<div class="mb-lg px-sm">
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">Seller Center</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Operations Hub</p>
+</div>
+<nav class="flex-1 space-y-sm">
+<a class="flex items-center px-sm py-2 rounded text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined mr-sm" data-icon="dashboard">dashboard</span> Panel
+            </a>
+<a class="flex items-center px-sm py-2 rounded text-primary dark:text-primary-fixed font-bold border-r-4 border-primary dark:border-primary-fixed font-body-sm text-body-sm opacity-80 duration-150" href="#">
+<span class="material-symbols-outlined mr-sm" data-icon="inventory_2" data-weight="fill" style="font-variation-settings: 'FILL' 1;">inventory_2</span> Catálogo
+            </a>
+<a class="flex items-center px-sm py-2 rounded text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined mr-sm" data-icon="warehouse">warehouse</span> Inventario
+            </a>
+<a class="flex items-center px-sm py-2 rounded text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined mr-sm" data-icon="local_shipping">local_shipping</span> Pedidos
+            </a>
+<a class="flex items-center px-sm py-2 rounded text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined mr-sm" data-icon="notifications_active">notifications_active</span> Alertas operativas
+            </a>
+</nav>
+<div class="mt-auto pt-lg">
+<button class="w-full bg-primary-container text-on-primary font-label-caps text-label-caps py-2 rounded-DEFAULT hover:opacity-90 transition-opacity flex items-center justify-center">
+                Carga masiva
+            </button>
+<div class="flex items-center mt-md px-sm border-t border-outline-variant pt-md">
+<img loading="lazy" alt="Foto de perfil — imagen de demostración" class="w-8 h-8 rounded-full object-cover bg-surface-variant" data-alt="A small, professional headshot photo of an operator in a logistics center, neutral background, bright even lighting, high-resolution portrait." src="../../assets/img/avatar-06.svg"/>
+<span class="ml-sm font-label-caps text-label-caps text-on-surface-variant">Admin 01</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Wrapper -->
+<div class="flex-1 flex flex-col md:ml-64 min-h-screen">
+<!-- TopNavBar -->
+<header class="bg-surface dark:bg-background docked full-width top-0 bg-surface-container dark:bg-surface-container shadow-sm flex justify-between items-center h-16 px-lg sticky top-0 z-50">
+<div class="flex items-center">
+<!-- Mobile Menu Button -->
+<button class="md:hidden mr-md text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<div class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed mr-xl">Seller Center</div>
+<div class="hidden md:flex items-center bg-surface-container-low rounded px-sm py-1 border border-outline-variant">
+<span class="material-symbols-outlined text-outline text-sm mr-1" data-icon="search">search</span>
+<input class="bg-transparent border-none outline-none font-body-sm text-body-sm w-48 text-on-surface focus:ring-0" placeholder="Search catalog..." type="text"/>
+</div>
+</div>
+<nav class="hidden md:flex space-x-lg font-label-caps text-label-caps h-full">
+<a class="flex items-center text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed Transition-all duration-200 ease-in-out h-full" href="#">Picking</a>
+<a class="flex items-center text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed Transition-all duration-200 ease-in-out h-full" href="#">Empaque</a>
+<a class="flex items-center text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed Transition-all duration-200 ease-in-out h-full" href="#">Despacho</a>
+</nav>
+<div class="flex items-center space-x-md">
+<span class="font-label-caps text-label-caps text-secondary flex items-center bg-secondary-container px-2 py-1 rounded-sm"><span class="w-2 h-2 rounded-full bg-secondary mr-2"></span> System Status: OK</span>
+<div class="flex space-x-sm text-on-surface-variant">
+<button class="hover:text-primary transition-colors"><span class="material-symbols-outlined" data-icon="notifications">notifications</span></button>
+<button class="hover:text-primary transition-colors"><span class="material-symbols-outlined" data-icon="help">help</span></button>
+<button class="hover:text-primary transition-colors"><span class="material-symbols-outlined" data-icon="account_circle">account_circle</span></button>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<main class="flex-1 p-lg md:p-xl space-y-lg max-w-[container-max] mx-auto w-full">
+<!-- Header & Actions -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-md">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-primary">Gestión de Catálogo</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Manage product listings, pricing, and availability.</p>
+</div>
+<div class="flex gap-sm">
+<button class="px-md py-2 border border-outline-variant rounded text-on-surface font-body-sm text-body-sm hover:bg-surface-container-low transition-colors flex items-center">
+<span class="material-symbols-outlined mr-xs text-sm" data-icon="add">add</span> Carga Manual
+                    </button>
+<button class="px-md py-2 bg-primary-container text-on-primary rounded font-body-sm text-body-sm hover:opacity-90 transition-opacity flex items-center">
+<span class="material-symbols-outlined mr-xs text-sm" data-icon="upload_file">upload_file</span> Carga Masiva
+                    </button>
+</div>
+</div>
+<!-- Filters & Search Bar -->
+<div class="bg-surface-container-lowest rounded-lg border border-outline-variant p-md flex flex-col lg:flex-row gap-md items-start lg:items-center justify-between shadow-sm">
+<!-- Tabs -->
+<div class="flex overflow-x-auto w-full lg:w-auto pb-2 lg:pb-0 gap-sm font-label-caps text-label-caps hide-scrollbar">
+<button class="px-3 py-1.5 rounded-full bg-surface-container-high text-on-surface border border-outline-variant whitespace-nowrap">Borrador <span class="ml-1 text-outline">(12)</span></button>
+<button class="px-3 py-1.5 rounded-full text-on-surface-variant hover:bg-surface-container whitespace-nowrap">Procesando</button>
+<button class="px-3 py-1.5 rounded-full text-on-surface-variant hover:bg-surface-container whitespace-nowrap">En validación</button>
+<button class="px-3 py-1.5 rounded-full bg-primary-container text-on-primary whitespace-nowrap font-bold">Publicado <span class="ml-1 text-primary-fixed-dim">(1.2k)</span></button>
+<button class="px-3 py-1.5 rounded-full text-on-surface-variant hover:bg-surface-container whitespace-nowrap">Rechazado</button>
+<button class="px-3 py-1.5 rounded-full text-on-surface-variant hover:bg-surface-container whitespace-nowrap">Pausado</button>
+</div>
+<div class="flex items-center gap-sm w-full lg:w-auto">
+<div class="flex-1 lg:w-64 relative">
+<span class="material-symbols-outlined absolute left-2 top-2 text-outline text-sm" data-icon="search">search</span>
+<input class="w-full pl-8 pr-3 py-1.5 border border-outline-variant rounded font-body-sm text-body-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none" placeholder="Search SKU, Name..." type="text"/>
+</div>
+<button class="p-1.5 border border-outline-variant rounded text-on-surface-variant hover:bg-surface-container" title="Advanced Filters">
+<span class="material-symbols-outlined text-sm" data-icon="tune">tune</span>
+</button>
+</div>
+</div>
+<!-- Catalog Table (B2B Density) -->
+<div class="bg-surface-container-lowest rounded-lg border border-outline-variant shadow-sm overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse data-table">
+<thead>
+<tr>
+<th class="w-12 text-center"><input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/></th>
+<th>Item Details</th>
+<th>SKU</th>
+<th>Category</th>
+<th>Stock (Phys/Res/Avail)</th>
+<th>Price (Bs / USD)</th>
+<th>Estado</th>
+<th class="text-right">Acciones</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm">
+<!-- Row 1 (Target Example) -->
+<tr>
+<td class="text-center"><input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/></td>
+<td>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded border border-outline-variant overflow-hidden bg-surface flex-shrink-0">
+<img loading="lazy" alt="Imagen del producto — demostración" class="w-full h-full object-cover" data-alt="A clean, studio-lit photo of a high-quality motorcycle replacement part, specifically a starter motor, isolated on a pure white background. Professional product photography style, sharp focus, metallic textures visible." src="../../assets/img/producto-05.svg"/>
+</div>
+<div class="font-headline-md text-[14px] leading-tight text-primary">Arranque de Moto 150cc<br/><span class="font-body-sm text-xs text-on-surface-variant font-normal">Marca: Bera | Ref: B-150</span></div>
+</div>
+</td>
+<td class="font-data-mono text-data-mono text-on-surface">SKU-MOT-0832</td>
+<td class="text-on-surface-variant">Motorcycles &gt; Parts</td>
+<td>
+<div class="flex items-center gap-2">
+<span class="text-on-surface font-medium">120</span> <span class="text-outline text-xs">/</span>
+<span class="text-error font-medium">15</span> <span class="text-outline text-xs">/</span>
+<span class="text-secondary font-medium">105</span>
+</div>
+</td>
+<td>
+<div class="flex flex-col">
+<span class="font-medium text-on-surface">Bs. 845,50</span>
+<span class="text-on-surface-variant text-xs">Ref: $25.00</span>
+</div>
+</td>
+<td>
+<span class="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-label-caps bg-secondary-container text-on-secondary-container border border-secondary/20">
+                                        Published
+                                    </span>
+</td>
+<td class="text-right">
+<button class="text-primary hover:bg-surface-container p-1 rounded transition-colors"><span class="material-symbols-outlined text-sm" data-icon="edit">edit</span></button>
+<button class="text-on-surface-variant hover:bg-surface-container p-1 rounded transition-colors"><span class="material-symbols-outlined text-sm" data-icon="more_vert">more_vert</span></button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr>
+<td class="text-center"><input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/></td>
+<td>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded border border-outline-variant overflow-hidden bg-surface flex-shrink-0 flex items-center justify-center text-outline">
+<span class="material-symbols-outlined" data-icon="image">image</span>
+</div>
+<div class="font-headline-md text-[14px] leading-tight text-primary">Pastillas de Freno Universales<br/><span class="font-body-sm text-xs text-on-surface-variant font-normal">Marca: Genérico | Ref: N/A</span></div>
+</div>
+</td>
+<td class="font-data-mono text-data-mono text-on-surface">SKU-MOT-0911</td>
+<td class="text-on-surface-variant">Motorcycles &gt; Brakes</td>
+<td>
+<div class="flex items-center gap-2">
+<span class="text-on-surface font-medium">50</span> <span class="text-outline text-xs">/</span>
+<span class="text-error font-medium">0</span> <span class="text-outline text-xs">/</span>
+<span class="text-secondary font-medium">50</span>
+</div>
+</td>
+<td>
+<div class="flex flex-col">
+<span class="font-medium text-on-surface">Bs. 270,56</span>
+<span class="text-on-surface-variant text-xs">Ref: $8.00</span>
+</div>
+</td>
+<td>
+<span class="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-label-caps bg-surface-variant text-on-surface border border-outline-variant">
+                                        Draft
+                                    </span>
+</td>
+<td class="text-right">
+<button class="text-primary hover:bg-surface-container p-1 rounded transition-colors"><span class="material-symbols-outlined text-sm" data-icon="edit">edit</span></button>
+<button class="text-on-surface-variant hover:bg-surface-container p-1 rounded transition-colors"><span class="material-symbols-outlined text-sm" data-icon="more_vert">more_vert</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-sm border-t border-outline-variant flex justify-between items-center text-on-surface-variant font-body-sm text-xs">
+<span>Showing 1-2 of 1,212 items</span>
+<div class="flex gap-1">
+<button class="p-1 border border-outline-variant rounded hover:bg-surface-container disabled:opacity-50"><span class="material-symbols-outlined text-sm" data-icon="chevron_left">chevron_left</span></button>
+<button class="p-1 border border-outline-variant rounded hover:bg-surface-container"><span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span></button>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_PAGINA={"ruta": "seller/catalogo-operador.html", "superficie": "seller", "rol": "operador", "titulo": "Catálogo — vista del operador"};</script>
+</body></html>

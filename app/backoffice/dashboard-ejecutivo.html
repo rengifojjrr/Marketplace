@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+
+<html data-tumbo-escritorio="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Panel ejecutivo · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9; /* Layer 0 Canvas */
+            margin: 0;
+            padding: 0;
+            color: #171c1f;
+        }
+        
+        /* Utility classes for specific styles */
+        .card-surface {
+            background-color: #ffffff; /* Layer 1 Surface */
+            border: 1px solid #e2e8f0;
+            border-radius: 0.25rem; /* lg */
+        }
+        
+        .status-badge-success {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+            border-radius: 0.125rem; /* DEFAULT */
+            padding: 2px 8px;
+        }
+        
+        .status-badge-warning {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: #f59e0b;
+            border-radius: 0.125rem;
+            padding: 2px 8px;
+        }
+        
+        .status-badge-danger {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border-radius: 0.125rem;
+            padding: 2px 8px;
+        }
+        
+        .table-header-cell {
+            background-color: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 8px 12px;
+            text-transform: uppercase;
+        }
+        
+        .table-data-cell {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .data-row:hover {
+            background-color: #f8fafc; /* Data row hover */
+        }
+    </style>
+<link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Panel ejecutivo — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="flex h-screen overflow-hidden text-on-surface">
+<!-- SideNavBar (Shared Component) -->
+<aside class="fixed left-0 top-0 h-full w-[sidebar-width] bg-surface border-r border-surface-border flex flex-col z-20">
+<!-- Brand Header -->
+<div class="h-header-height flex items-center px-standard border-b border-surface-border">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined" style="font-size: 18px;">storefront</span>
+</div>
+<div>
+<h1 class="font-headline-sm text-headline-sm font-bold text-primary tracking-tight">Tumbo Market</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Backoffice</p>
+</div>
+</div>
+</div>
+<!-- Navigation Tabs -->
+<nav class="flex-1 overflow-y-auto py-standard flex flex-col gap-1 px-tight">
+<a class="flex items-center gap-3 px-standard py-2 rounded-lg bg-secondary-container text-on-secondary-container font-semibold transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-sm text-body-sm">Panel</span>
+</a>
+<a class="flex items-center gap-3 px-standard py-2 rounded-lg text-secondary hover:bg-data-row-hover transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined">verified_user</span>
+<span class="font-body-sm text-body-sm">Sellers (KYC)</span>
+</a>
+<a class="flex items-center gap-3 px-standard py-2 rounded-lg text-secondary hover:bg-data-row-hover transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined">category</span>
+<span class="font-body-sm text-body-sm">Catálogo</span>
+</a>
+<a class="flex items-center gap-3 px-standard py-2 rounded-lg text-secondary hover:bg-data-row-hover transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined">gavel</span>
+<span class="font-body-sm text-body-sm">Moderación</span>
+</a>
+<a class="flex items-center gap-3 px-standard py-2 rounded-lg text-secondary hover:bg-data-row-hover transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined">rule</span>
+<span class="font-body-sm text-body-sm">Reglas</span>
+</a>
+<a class="flex items-center gap-3 px-standard py-2 rounded-lg text-secondary hover:bg-data-row-hover transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined">admin_panel_settings</span>
+<span class="font-body-sm text-body-sm">Users &amp; Roles</span>
+</a>
+<a class="flex items-center gap-3 px-standard py-2 rounded-lg text-secondary hover:bg-data-row-hover transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-body-sm text-body-sm">Pedidos globales</span>
+</a>
+</nav>
+<!-- Footer Actions -->
+<div class="border-t border-surface-border p-tight">
+<a class="flex items-center gap-3 px-standard py-2 rounded-lg text-secondary hover:bg-data-row-hover transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined">lock</span>
+<span class="font-body-sm text-body-sm">Seguridad</span>
+</a>
+<a class="flex items-center gap-3 px-standard py-2 rounded-lg text-secondary hover:bg-data-row-hover transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-body-sm text-body-sm">Cerrar sesión</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<div class="flex-1 ml-[sidebar-width] flex flex-col h-full bg-[#f1f5f9]">
+<!-- TopNavBar (Shared Component) -->
+<header class="flex justify-between items-center w-full px-gutter bg-surface-container-lowest h-[header-height] border-b border-surface-border z-10 sticky top-0 shadow-sm">
+<!-- Context Title -->
+<div class="flex items-center">
+<span class="font-headline-sm text-headline-sm font-bold text-primary">Panel ejecutivo</span>
+</div>
+<!-- Global Search & Actions -->
+<div class="flex items-center gap-standard">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-2 top-1.5 text-outline text-[18px]">search</span>
+<input class="pl-8 pr-3 py-1.5 h-8 text-body-sm font-body-sm border border-surface-border rounded focus:border-primary-container focus:ring-0 w-64 bg-surface" placeholder="Search orders, sellers, items..." type="text"/>
+</div>
+<div class="flex items-center gap-2 border-l border-surface-border pl-4">
+<button class="w-8 h-8 rounded hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<button class="w-8 h-8 rounded hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[20px]">security</span>
+</button>
+<button class="w-8 h-8 rounded hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors ml-2">
+<span class="material-symbols-outlined text-[24px]">account_circle</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="flex-1 overflow-y-auto p-gutter relative max-w-[1600px] mx-auto w-full">
+<!-- Top Action Bar -->
+<div class="flex justify-between items-end mb-standard">
+<div>
+<h2 class="font-headline-md text-headline-md text-primary mb-1">General Overview</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Real-time metrics for the Tumbo Market ecosystem.</p>
+</div>
+<div class="flex gap-2">
+<div class="flex items-center bg-white border border-surface-border rounded h-8 px-3 text-body-sm font-body-sm text-secondary cursor-pointer hover:bg-data-row-hover">
+<span class="material-symbols-outlined text-[16px] mr-2">calendar_today</span>
+                        Last 30 Days
+                        <span class="material-symbols-outlined text-[16px] ml-2">arrow_drop_down</span>
+</div>
+<button class="bg-primary-container text-white h-8 px-4 rounded font-label-md text-label-md hover:bg-opacity-90 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">download</span>
+                        Exportar reporte
+                    </button>
+</div>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-compact">
+<!-- KPI 1: GMV -->
+<div class="col-span-12 md:col-span-6 lg:col-span-3 card-surface p-standard flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-label-md text-secondary uppercase tracking-wider">Total GMV</span>
+<span class="status-badge-success font-label-sm text-label-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">trending_up</span> 12.5%
+                        </span>
+</div>
+<div>
+<div class="font-headline-lg text-headline-lg text-primary">Bs. 4,250,900</div>
+<div class="font-data-mono text-data-mono text-on-surface-variant mt-1">~ $1,180,805 USD</div>
+</div>
+</div>
+<!-- KPI 2: Orders -->
+<div class="col-span-12 md:col-span-6 lg:col-span-3 card-surface p-standard flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-label-md text-secondary uppercase tracking-wider">Volume (Orders)</span>
+<span class="status-badge-success font-label-sm text-label-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">trending_up</span> 8.2%
+                        </span>
+</div>
+<div>
+<div class="font-headline-lg text-headline-lg text-primary">14,208</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant mt-1">Completed this period</div>
+</div>
+</div>
+<!-- KPI 3: Sellers -->
+<div class="col-span-12 md:col-span-6 lg:col-span-3 card-surface p-standard flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-label-md text-secondary uppercase tracking-wider">Active Sellers</span>
+<span class="status-badge-warning font-label-sm text-label-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">trending_flat</span> 1.1%
+                        </span>
+</div>
+<div>
+<div class="font-headline-lg text-headline-lg text-primary">845</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant mt-1">+24 New onboarded</div>
+</div>
+</div>
+<!-- KPI 4: Conversion -->
+<div class="col-span-12 md:col-span-6 lg:col-span-3 card-surface p-standard flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-label-md text-secondary uppercase tracking-wider">Conversion Rate</span>
+<span class="status-badge-danger font-label-sm text-label-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">trending_down</span> -0.4%
+                        </span>
+</div>
+<div>
+<div class="font-headline-lg text-headline-lg text-primary">3.24%</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant mt-1">Avg. cart checkout</div>
+</div>
+</div>
+<!-- Trend Chart Section (Placeholder for complex viz) -->
+<div class="col-span-12 lg:col-span-8 card-surface flex flex-col">
+<div class="p-standard border-b border-surface-border flex justify-between items-center">
+<h3 class="font-headline-sm text-headline-sm text-primary">Sales &amp; Order Volume (30 Days)</h3>
+<div class="flex gap-2">
+<span class="flex items-center gap-1 font-label-sm text-label-sm"><span class="w-2 h-2 rounded-full bg-primary-container inline-block"></span> GMV</span>
+<span class="flex items-center gap-1 font-label-sm text-label-sm"><span class="w-2 h-2 rounded-full bg-info inline-block"></span> Pedidos</span>
+</div>
+</div>
+<div class="p-standard flex-1 relative min-h-[300px] flex items-center justify-center bg-surface-container-lowest">
+<!-- Simulated Chart Grid -->
+<div class="absolute inset-0 border-t border-b border-surface-border opacity-50 flex flex-col justify-between pointer-events-none">
+<div class="border-b border-dashed border-surface-border h-1/4"></div>
+<div class="border-b border-dashed border-surface-border h-1/4"></div>
+<div class="border-b border-dashed border-surface-border h-1/4"></div>
+<div class="h-1/4"></div>
+</div>
+<!-- Simulated Data Lines -->
+<svg class="absolute inset-0 h-full w-full px-standard pb-standard pt-[10%]" preserveaspectratio="none">
+<!-- Orders Line -->
+<path d="M0 80 Q 20 60 40 70 T 80 50 T 120 65 T 160 40 T 200 55 T 240 30 T 280 45 T 320 20 T 360 35 T 400 10 T 440 25 T 480 5 T 520 20 T 560 0 T 600 15 T 640 -10 T 680 5 T 720 -20 T 760 -5 T 800 -30" fill="none" opacity="0.6" stroke="#3b82f6" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+<!-- GMV Line -->
+<path d="M0 90 Q 30 80 60 85 T 120 70 T 180 75 T 240 60 T 300 65 T 360 45 T 420 50 T 480 30 T 540 35 T 600 15 T 660 20 T 720 0 T 780 5 T 840 -15" fill="none" stroke="#0b2545" stroke-width="3" vector-effect="non-scaling-stroke"></path>
+</svg>
+<div class="absolute bottom-2 w-full flex justify-between px-standard font-label-sm text-label-sm text-secondary">
+<span>1 Mar</span>
+<span>8 Mar</span>
+<span>15 Mar</span>
+<span>22 Mar</span>
+<span>30 Mar</span>
+</div>
+</div>
+</div>
+<!-- Critical Alerts Panel -->
+<div class="col-span-12 lg:col-span-4 card-surface flex flex-col border-l-4 border-l-danger">
+<div class="p-standard border-b border-surface-border flex justify-between items-center bg-error-container bg-opacity-20">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-danger text-[20px]">warning</span>
+<h3 class="font-headline-sm text-headline-sm text-danger">Critical Alerts</h3>
+</div>
+<span class="font-label-sm text-label-sm bg-danger text-white px-2 py-0.5 rounded-full">3</span>
+</div>
+<div class="flex-1 overflow-y-auto p-0">
+<ul class="divide-y divide-surface-border">
+<li class="p-standard hover:bg-data-row-hover transition-colors">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label-md text-label-md text-primary">Payment Gateway Timeout</span>
+<span class="font-label-sm text-label-sm text-secondary">12m ago</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Elevated latency detected on Stripe API endpoint.</p>
+<button class="mt-2 text-danger font-label-sm text-label-sm hover:underline">Confirmar recepción</button>
+</li>
+<li class="p-standard hover:bg-data-row-hover transition-colors">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label-md text-label-md text-primary">Suspicious Login Spike</span>
+<span class="font-label-sm text-label-sm text-secondary">1h ago</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Multiple failed admin attempts from unverified IPs.</p>
+<button class="mt-2 text-danger font-label-sm text-label-sm hover:underline">Investigar</button>
+</li>
+<li class="p-standard hover:bg-data-row-hover transition-colors">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label-md text-label-md text-primary">KYC Service Degraded</span>
+<span class="font-label-sm text-label-sm text-secondary">3h ago</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Third-party ID verification taking &gt;30s.</p>
+<button class="mt-2 text-danger font-label-sm text-label-sm hover:underline">Ver registros</button>
+</li>
+</ul>
+</div>
+</div>
+<!-- Ecosystem Health Widgets -->
+<div class="col-span-12 card-surface">
+<div class="p-standard border-b border-surface-border">
+<h3 class="font-headline-sm text-headline-sm text-primary">Ecosystem Health</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-surface-border">
+<!-- Disputes -->
+<div class="p-standard">
+<div class="flex justify-between items-center mb-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[20px]">gavel</span>
+<span class="font-label-md text-label-md text-secondary uppercase">Open Disputes</span>
+</div>
+<span class="font-headline-sm text-headline-sm text-primary">42</span>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between items-center text-body-sm font-body-sm">
+<span class="text-on-surface-variant">Escalated</span>
+<span class="font-medium text-danger">12</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5">
+<div class="bg-danger h-1.5 rounded-full" style="width: 28%"></div>
+</div>
+<div class="flex justify-between items-center text-body-sm font-body-sm pt-1">
+<span class="text-on-surface-variant">Pending Seller</span>
+<span class="font-medium text-secondary">30</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5">
+<div class="bg-secondary h-1.5 rounded-full" style="width: 72%"></div>
+</div>
+</div>
+<button class="mt-4 w-full bg-white border border-surface-border text-secondary font-label-sm text-label-sm py-1.5 rounded hover:bg-data-row-hover">Ver cola</button>
+</div>
+<!-- Pending Validation -->
+<div class="p-standard">
+<div class="flex justify-between items-center mb-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[20px]">fact_check</span>
+<span class="font-label-md text-label-md text-secondary uppercase">Pending Validation</span>
+</div>
+<span class="font-headline-sm text-headline-sm text-primary">156</span>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between items-center text-body-sm font-body-sm">
+<span class="text-on-surface-variant">Manual Payouts</span>
+<span class="font-medium text-warning">89</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5">
+<div class="bg-warning h-1.5 rounded-full" style="width: 57%"></div>
+</div>
+<div class="flex justify-between items-center text-body-sm font-body-sm pt-1">
+<span class="text-on-surface-variant">Seller Profiles</span>
+<span class="font-medium text-primary-container">67</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5">
+<div class="bg-primary-container h-1.5 rounded-full" style="width: 43%"></div>
+</div>
+</div>
+<button class="mt-4 w-full bg-white border border-surface-border text-secondary font-label-sm text-label-sm py-1.5 rounded hover:bg-data-row-hover">Revisar pendientes</button>
+</div>
+<!-- Integrations Status -->
+<div class="p-standard">
+<div class="flex justify-between items-center mb-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[20px]">hub</span>
+<span class="font-label-md text-label-md text-secondary uppercase">Integraciones</span>
+</div>
+<span class="status-badge-success font-label-sm text-label-sm">Operational</span>
+</div>
+<ul class="space-y-3">
+<li class="flex justify-between items-center">
+<span class="font-body-sm text-body-sm flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-success"></div> WhatsApp API
+                                    </span>
+<span class="font-data-mono text-data-mono text-secondary">99.9% Uptime</span>
+</li>
+<li class="flex justify-between items-center">
+<span class="font-body-sm text-body-sm flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-success"></div> Payment Gateway
+                                    </span>
+<span class="font-data-mono text-data-mono text-secondary">142ms Avg Latency</span>
+</li>
+<li class="flex justify-between items-center">
+<span class="font-body-sm text-body-sm flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-warning"></div> Core Couriers API
+                                    </span>
+<span class="font-data-mono text-data-mono text-secondary">Degraded (Sync)</span>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_PAGINA={"ruta": "backoffice/dashboard-ejecutivo.html", "superficie": "backoffice", "rol": "superadmin", "titulo": "Panel ejecutivo"};</script>
+</body></html>

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Tumbo Market - Resultados de Búsqueda</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed": "#00174b",
+                        "tertiary-container": "#002a27",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#0b2545",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed": "#001c3b",
+                        "tertiary-fixed": "#9cf2e8",
+                        "surface-container-highest": "#e3e2e5",
+                        "inverse-surface": "#303033",
+                        "on-surface-variant": "#44474e",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed": "#dbe1ff",
+                        "on-tertiary-fixed-variant": "#00504a",
+                        "surface-container": "#efedf0",
+                        "primary-fixed": "#d5e3ff",
+                        "background": "#faf9fc",
+                        "surface-bright": "#faf9fc",
+                        "surface-tint": "#495f82",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed-dim": "#b1c7f0",
+                        "on-secondary-container": "#fefcff",
+                        "inverse-on-surface": "#f2f0f3",
+                        "surface-dim": "#dbd9dd",
+                        "on-secondary-fixed-variant": "#003ea8",
+                        "secondary-container": "#316bf3",
+                        "on-secondary": "#ffffff",
+                        "tertiary": "#001311",
+                        "on-primary-fixed-variant": "#314769",
+                        "on-error": "#ffffff",
+                        "on-background": "#1b1b1e",
+                        "on-tertiary-container": "#419990",
+                        "surface-variant": "#e3e2e5",
+                        "inverse-primary": "#b1c7f0",
+                        "on-surface": "#1b1b1e",
+                        "on-primary-container": "#778db2",
+                        "primary": "#001026",
+                        "surface-container-low": "#f5f3f6",
+                        "surface-container-high": "#e9e7eb",
+                        "surface": "#faf9fc",
+                        "tertiary-fixed-dim": "#80d5cb",
+                        "outline-variant": "#c4c6cf",
+                        "on-tertiary-fixed": "#00201d",
+                        "secondary-fixed-dim": "#b4c5ff",
+                        "error-container": "#ffdad6",
+                        "secondary": "#0051d5",
+                        "outline": "#74777f",
+                        "error": "#ba1a1a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "xxl": "48px",
+                        "margin-mobile": "16px",
+                        "unit": "4px",
+                        "gutter": "24px",
+                        "xl": "32px",
+                        "md": "16px",
+                        "container-max": "1280px",
+                        "lg": "24px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Inter"],
+                        "label-md": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-md": ["14px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen pb-[80px]">
+<nav class="sticky top-0 z-50 flex flex-col px-md py-sm w-full bg-surface/95 backdrop-blur-md border-b border-outline-variant flat no shadows transition-all duration-200">
+<div class="flex items-center justify-between w-full mb-sm">
+<span class="text-headline-sm font-headline-sm font-bold text-primary">Tumbo Market</span>
+<div class="flex items-center gap-sm">
+<button class="scale-95 active:duration-100 hover:text-secondary transition-colors duration-200 p-sm rounded-full text-on-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">shopping_cart</span>
+</button>
+</div>
+</div>
+<div class="w-full relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-full py-2 pl-10 pr-4 text-body-sm font-body-sm text-on-surface focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-shadow" placeholder="Buscar en Tumbo..." type="text" value="Herramientas industriales"/>
+</div>
+<div class="w-full flex overflow-x-auto hide-scrollbar gap-sm mt-sm pb-1">
+<button class="shrink-0 flex items-center gap-xs px-3 py-1.5 rounded-full bg-secondary-container text-on-secondary-container text-label-sm font-label-sm border border-transparent">
+<span class="material-symbols-outlined text-[16px]">local_shipping</span>
+                Envío Gratis
+            </button>
+<button class="shrink-0 flex items-center gap-xs px-3 py-1.5 rounded-full bg-surface border border-outline-variant text-on-surface-variant text-label-sm font-label-sm active:bg-surface-variant transition-colors">
+                Mejor Calificados
+            </button>
+<button class="shrink-0 flex items-center gap-xs px-3 py-1.5 rounded-full bg-surface border border-outline-variant text-on-surface-variant text-label-sm font-label-sm active:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[16px]">sell</span>
+                Ofertas
+            </button>
+<button class="shrink-0 flex items-center gap-xs px-3 py-1.5 rounded-full bg-surface border border-outline-variant text-on-surface-variant text-label-sm font-label-sm active:bg-surface-variant transition-colors">
+                Menos de $100
+            </button>
+</div>
+</nav>
+<main class="px-md py-sm max-w-[390px] mx-auto w-full">
+<div class="flex items-center justify-between mb-md">
+<p class="text-body-sm font-body-sm text-on-surface-variant">124 resultados para <span class="font-semibold text-on-surface">"Herramientas"</span></p>
+<button class="text-label-sm font-label-sm text-secondary flex items-center gap-xs font-semibold">
+                Relevancia
+                <span class="material-symbols-outlined text-[16px]">expand_more</span>
+</button>
+</div>
+<div class="flex flex-col gap-sm">
+<div class="flex bg-surface rounded-xl border border-outline-variant p-sm gap-sm overflow-hidden relative shadow-[0_4px_12px_rgba(11,37,69,0.02)] transition-all active:scale-[0.98]">
+<div class="absolute top-sm left-sm bg-primary-container/10 text-primary-container backdrop-blur-sm px-2 py-0.5 rounded flex items-center gap-1 z-10">
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">public</span>
+<span class="text-[10px] font-bold uppercase tracking-wider">Importado</span>
+</div>
+<div class="w-[100px] h-[100px] shrink-0 rounded-lg overflow-hidden bg-surface-container-low flex items-center justify-center">
+<img class="w-full h-full object-cover" data-alt="A pristine, modern high-end power drill in a minimalist studio setting with bright, clinical white lighting and subtle cool blue undertones, emphasizing industrial durability and corporate reliability. B2B aesthetic, highly detailed." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC1T2gB-WttpPEgJo2ZfjDxXtZyaqKM-27I6ocAMfgxXV2UbKUTi6pZa2IUCNFPSRn43NmGXcHDntD0cPdXxSrGVb9Ma51WBrkG_xmrB-RUsLcuc2JhXLZAsNHg_vWKiw6nWVw5K4wwceIWHVqdRuNpft01OAwgiOnjpbV9B7nfPWmZrvHXio43CutPga214CkgjkDibmO5MztOS5T5ZpBLS5rhlDJyZB5YZ7n7vzR-jaSkIdi0eaVJ"/>
+</div>
+<div class="flex flex-col justify-between flex-1 py-xs">
+<div>
+<h3 class="text-label-md font-label-md text-on-surface leading-tight line-clamp-2 mb-1">Taladro Percutor Industrial 20V Max Pro Series</h3>
+<p class="text-[10px] text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-[12px] text-tertiary-container" style="font-variation-settings: 'FILL' 1;">star</span> 4.8 (120 reseñas)</p>
+</div>
+<div class="flex flex-col mt-2">
+<span class="text-headline-sm font-headline-sm text-primary leading-none">Bs. 3,450.00</span>
+<span class="text-label-sm font-label-sm text-on-surface-variant mt-0.5">Ref. $ 95.00</span>
+</div>
+</div>
+</div>
+<div class="flex bg-surface rounded-xl border border-outline-variant p-sm gap-sm overflow-hidden relative shadow-[0_4px_12px_rgba(11,37,69,0.02)] transition-all active:scale-[0.98]">
+<div class="absolute top-sm left-sm bg-tertiary-container/10 text-tertiary-container backdrop-blur-sm px-2 py-0.5 rounded flex items-center gap-1 z-10">
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">location_on</span>
+<span class="text-[10px] font-bold uppercase tracking-wider">Nacional</span>
+</div>
+<div class="w-[100px] h-[100px] shrink-0 rounded-lg overflow-hidden bg-surface-container-low flex items-center justify-center">
+<img class="w-full h-full object-cover" data-alt="A set of professional steel hand tools arranged neatly on a clean white surface with sharp, modern lighting. The composition is structured and precise, reflecting a high-trust B2B enterprise environment. No clutter, deep contrast." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAjsgy1dJ8vm__Gi9y9ee4d5-eTCPOKM4GlJqml9NplUi_VN6OJtrLKY3M0uDmq_7j6YSKfareYSyqYzHtWGfclPXO49X9HsSBIPbK0uetmL06EOi6Y7hsHN50eMmoJsnvQMLCNJ1JZNl_RC9yvtb801JNaeq9PewQTu_uMx86zU6k5PCIueDEV--5vanMK3oRWc9KHyS-LRUf1fEWOIqz_q2o3ft2CPLXOLZ9tcrPjcH4_kr87vBUS"/>
+</div>
+<div class="flex flex-col justify-between flex-1 py-xs">
+<div>
+<h3 class="text-label-md font-label-md text-on-surface leading-tight line-clamp-2 mb-1">Set de Herramientas Manuales 50 Piezas Acero Inox</h3>
+<p class="text-[10px] text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-[12px] text-tertiary-container" style="font-variation-settings: 'FILL' 1;">star</span> 4.5 (84 reseñas)</p>
+</div>
+<div class="flex flex-col mt-2">
+<span class="text-headline-sm font-headline-sm text-primary leading-none">Bs. 1,635.00</span>
+<span class="text-label-sm font-label-sm text-on-surface-variant mt-0.5">Ref. $ 45.00</span>
+</div>
+</div>
+</div>
+<div class="flex bg-surface rounded-xl border border-outline-variant p-sm gap-sm overflow-hidden relative shadow-[0_4px_12px_rgba(11,37,69,0.02)] transition-all active:scale-[0.98]">
+<div class="absolute top-sm left-sm bg-primary-container/10 text-primary-container backdrop-blur-sm px-2 py-0.5 rounded flex items-center gap-1 z-10">
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">public</span>
+<span class="text-[10px] font-bold uppercase tracking-wider">Importado</span>
+</div>
+<div class="w-[100px] h-[100px] shrink-0 rounded-lg overflow-hidden bg-surface-container-low flex items-center justify-center">
+<img class="w-full h-full object-cover" data-alt="A heavy-duty industrial air compressor positioned in a bright, modern warehouse setting. The lighting is crisp and cool, casting soft shadows that highlight the machine's robust construction. The overall aesthetic is professional, corporate, and clean." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCiwdcnxGxE8aL3hJqx0yzisruErM-LGE6Duvl6q2_hXvfBm0lcfB-vkCkS5LSjnC2xmXomZHhP8jzvj5skRHPL4-KpbakHTihBY0iFB-aWOMP4IvSdmC2yKqpCSUzow5rS7xuRMxn16ooAEYBAIxkDnPMX-aSFGBVXPQ7fI7iRyRSg2kYHg2cU-VPLvPWFE0SHXzcgvpq8ZbaSEjvw_PEH8V_sqMGNpi5MwHKQ_8MxfYHVBpaXpBBv"/>
+</div>
+<div class="flex flex-col justify-between flex-1 py-xs">
+<div>
+<h3 class="text-label-md font-label-md text-on-surface leading-tight line-clamp-2 mb-1">Compresor de Aire 50L Silencioso Motor Cobre</h3>
+<p class="text-[10px] text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-[12px] text-tertiary-container" style="font-variation-settings: 'FILL' 1;">star</span> 4.9 (32 reseñas)</p>
+</div>
+<div class="flex flex-col mt-2">
+<span class="text-headline-sm font-headline-sm text-primary leading-none">Bs. 7,990.00</span>
+<span class="text-label-sm font-label-sm text-on-surface-variant mt-0.5">Ref. $ 220.00</span>
+</div>
+</div>
+</div>
+<div class="flex bg-surface rounded-xl border border-outline-variant p-sm gap-sm overflow-hidden relative shadow-[0_4px_12px_rgba(11,37,69,0.02)] transition-all active:scale-[0.98]">
+<div class="absolute top-sm left-sm bg-tertiary-container/10 text-tertiary-container backdrop-blur-sm px-2 py-0.5 rounded flex items-center gap-1 z-10">
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">location_on</span>
+<span class="text-[10px] font-bold uppercase tracking-wider">Nacional</span>
+</div>
+<div class="w-[100px] h-[100px] shrink-0 rounded-lg overflow-hidden bg-surface-container-low flex items-center justify-center">
+<img class="w-full h-full object-cover" data-alt="A close-up shot of durable work gloves and safety glasses on a minimalist grey concrete surface. The image is brightly lit with a clean, high-contrast B2B aesthetic, emphasizing safety and industrial quality." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCLgoVpTSVhegxM8Nvl9XFksl9ZL95qLBQbYD9MuYuz9r4-An46PV_Z0gOOx___1I2YiJMljANEqBPuUj7fM3TGXTY1GMhYBlcmzoOMFwJ9Wfv_gX0Lhps23FqBWt8kJnrAZobFg6VfjIcotgPDss9GDYLsDIkL6a5ujUA94hQFfN-3b31nzBOJmXag9HN0GjjTOonFdy8yJD-viFITCSq5ZgzS8MWt5Pe_ZE6DuJmDHMHMPtc52L8q"/>
+</div>
+<div class="flex flex-col justify-between flex-1 py-xs">
+<div>
+<h3 class="text-label-md font-label-md text-on-surface leading-tight line-clamp-2 mb-1">Kit de Seguridad Industrial Guantes y Lentes</h3>
+<p class="text-[10px] text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-[12px] text-tertiary-container" style="font-variation-settings: 'FILL' 1;">star</span> 4.6 (210 reseñas)</p>
+</div>
+<div class="flex flex-col mt-2">
+<span class="text-headline-sm font-headline-sm text-primary leading-none">Bs. 545.00</span>
+<span class="text-label-sm font-label-sm text-on-surface-variant mt-0.5">Ref. $ 15.00</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<button class="fixed bottom-[96px] right-md bg-secondary text-on-secondary rounded-xl p-3 shadow-[0_4px_12px_rgba(11,37,69,0.15)] flex items-center gap-2 z-40 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[24px]">filter_list</span>
+<span class="text-label-md font-label-md pr-1">Filtros</span>
+</button>
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center bg-surface px-4 py-2 lg:hidden docked full-width rounded-t-xl border-t border-outline-variant shadow-[0_-4px_12px_rgba(11,37,69,0.08)]">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline active:bg-surface-container-high transition-transform duration-200 active:scale-90 p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[24px]">home</span>
+<span class="text-label-sm font-label-sm-mobile mt-1">Inicio</span>
+</a>
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed font-bold active:bg-surface-container-high transition-transform duration-200 active:scale-90 p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">search</span>
+<span class="text-label-sm font-label-sm-mobile mt-1">Buscar</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline active:bg-surface-container-high transition-transform duration-200 active:scale-90 p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[24px]">shopping_bag</span>
+<span class="text-label-sm font-label-sm-mobile mt-1">Carrito</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline active:bg-surface-container-high transition-transform duration-200 active:scale-90 p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined text-[24px]">person</span>
+<span class="text-label-sm font-label-sm-mobile mt-1">Perfil</span>
+</a>
+</nav>
+</body></html>

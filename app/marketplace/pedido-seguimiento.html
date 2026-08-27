@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+
+<html data-tumbo-banner="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Detalle y seguimiento — TM-2026-00428 · Tumbo Market beta</title>
+<!-- Material Symbols -->
+<!-- Tailwind CSS -->
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<!-- Tailwind Config injected from system prompt -->
+<style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+<link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Detalle y seguimiento — TM-2026-00428 — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-surface h-full flex flex-col antialiased text-on-surface">
+<div data-tumbo-ui="banner" class="tumbo-banner-demo" role="note"><span class="material-symbols-outlined" aria-hidden="true">science</span><span>MODO DEMO — El rastreo proviene de datos simulados, no de un courier real.</span></div>
+<!-- Top Navigation Bar (Shared Component) -->
+<header class="bg-surface dark:bg-surface-container-high border-b border-outline-variant dark:border-outline flat no shadows sticky top-0 z-50 flex items-center justify-between px-lg w-full max-w-container-max mx-auto h-[64px]">
+<div class="flex items-center gap-lg">
+<div class="font-headline-md text-headline-md font-bold text-primary dark:text-on-primary-fixed">Tumbo Market</div>
+<nav class="hidden md:flex items-center gap-md h-full">
+<a class="text-secondary dark:text-secondary-fixed-dim font-bold border-b-2 border-secondary h-[64px] flex items-center px-sm font-label-md text-label-md" href="#">Pedidos</a>
+<a class="text-on-surface-variant dark:text-surface-variant font-medium hover:text-secondary dark:hover:text-secondary-fixed transition-colors duration-200 h-[64px] flex items-center px-sm font-label-md text-label-md" href="#">Inventario</a>
+<a class="text-on-surface-variant dark:text-surface-variant font-medium hover:text-secondary dark:hover:text-secondary-fixed transition-colors duration-200 h-[64px] flex items-center px-sm font-label-md text-label-md" href="#">Mensajes</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<button class="p-sm text-on-surface-variant hover:text-secondary transition-colors rounded-full hover:bg-surface-container-high">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-sm text-on-surface-variant hover:text-secondary transition-colors rounded-full hover:bg-surface-container-high">
+<span class="material-symbols-outlined" data-icon="shopping_cart">shopping_cart</span>
+</button>
+<img loading="lazy" alt="Foto de perfil — imagen de demostración" class="w-[32px] h-[32px] rounded-full object-cover border border-outline-variant ml-sm" data-alt="A professional headshot of a corporate buyer, slightly smiling, wearing a dark navy blazer against a bright, minimalist white background. The lighting is soft and even, suggesting a high-end corporate environment." src="../../assets/img/avatar-02.svg"/>
+</div>
+</header>
+<div class="flex-1 max-w-container-max mx-auto w-full px-lg py-lg md:py-xl grid grid-cols-1 md:grid-cols-12 gap-lg">
+<!-- Main Content Column -->
+<main class="md:col-span-8 flex flex-col gap-lg">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-md mb-md">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Detalle del Pedido TM-2026-00428</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Realizado el 14/05/2026</p>
+</div>
+<div class="inline-flex items-center gap-sm bg-primary/10 text-primary px-md py-sm rounded-full font-label-md text-label-md self-start md:self-auto border border-primary/20">
+<span class="material-symbols-outlined text-[18px]">local_shipping</span>
+                    En Camino
+                </div>
+</div>
+<!-- Tracking Timeline Card -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-lg shadow-[0px_4px_12px_rgba(11,37,69,0.02)]">
+<h2 class="font-headline-sm text-headline-sm text-primary mb-lg">Estado del Envío</h2>
+<div class="relative pl-sm md:pl-0">
+<!-- Desktop horizontal timeline line -->
+<div class="hidden md:block absolute top-[24px] left-[32px] right-[32px] h-[2px] bg-outline-variant"></div>
+<!-- Desktop active timeline line -->
+<div class="hidden md:block absolute top-[24px] left-[32px] w-[50%] h-[2px] bg-secondary transition-all duration-500"></div>
+<!-- Mobile vertical timeline line -->
+<div class="block md:hidden absolute top-[24px] bottom-[24px] left-[24px] w-[2px] bg-outline-variant"></div>
+<!-- Mobile active timeline line -->
+<div class="block md:hidden absolute top-[24px] left-[24px] w-[2px] h-[50%] bg-secondary transition-all duration-500"></div>
+<div class="flex flex-col md:flex-row justify-between gap-lg md:gap-0 relative z-10">
+<!-- Step 1: Pagado -->
+<div class="flex md:flex-col items-center gap-md md:gap-sm flex-1">
+<div class="w-[48px] h-[48px] rounded-full bg-secondary text-on-secondary flex items-center justify-center shrink-0 shadow-sm">
+<span class="material-symbols-outlined">payments</span>
+</div>
+<div class="md:text-center">
+<p class="font-label-md text-label-md text-primary">Pagado</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">14/05/2026, 09:45 AM</p>
+</div>
+</div>
+<!-- Step 2: Procesando -->
+<div class="flex md:flex-col items-center gap-md md:gap-sm flex-1">
+<div class="w-[48px] h-[48px] rounded-full bg-secondary text-on-secondary flex items-center justify-center shrink-0 shadow-sm">
+<span class="material-symbols-outlined">inventory_2</span>
+</div>
+<div class="md:text-center">
+<p class="font-label-md text-label-md text-primary">Procesando</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">14/05/2026, 02:15 PM</p>
+</div>
+</div>
+<!-- Step 3: Despachado (Current) -->
+<div class="flex md:flex-col items-center gap-md md:gap-sm flex-1">
+<div class="w-[48px] h-[48px] rounded-full bg-secondary-container text-secondary border-2 border-secondary flex items-center justify-center shrink-0 shadow-sm relative">
+<span class="absolute -inset-[4px] rounded-full border border-secondary/30 animate-ping opacity-75"></span>
+<span class="material-symbols-outlined">local_shipping</span>
+</div>
+<div class="md:text-center">
+<p class="font-label-md text-label-md text-primary font-bold">Despachado</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">15/05/2026, 10:30 AM</p>
+</div>
+</div>
+<!-- Step 4: Entregado -->
+<div class="flex md:flex-col items-center gap-md md:gap-sm flex-1">
+<div class="w-[48px] h-[48px] rounded-full bg-surface-container text-outline flex items-center justify-center shrink-0 border border-outline-variant">
+<span class="material-symbols-outlined">home</span>
+</div>
+<div class="md:text-center">
+<p class="font-label-md text-label-md text-outline">Entregado</p>
+<p class="font-body-sm text-body-sm text-outline-variant">Pendiente</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Order Items -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-lg shadow-[0px_4px_12px_rgba(11,37,69,0.02)]">
+<h2 class="font-headline-sm text-headline-sm text-primary mb-md">Artículos</h2>
+<div class="flex flex-col sm:flex-row gap-lg items-start sm:items-center p-md border border-outline-variant rounded-lg bg-surface">
+<div class="w-[80px] h-[80px] rounded-lg border border-outline-variant bg-surface-container-low shrink-0 overflow-hidden flex items-center justify-center">
+<img loading="lazy" alt="Foto de perfil — imagen de demostración" class="max-w-full max-h-full object-contain" data-alt="A sleek, high-end smartphone (Motorola Edge 40) presented on a pristine white minimalist pedestal. The device is angled slightly to show its thin profile and curved screen edges. Soft, diffuse studio lighting highlights the premium metallic finish and deep black screen. The overall aesthetic is clean, corporate, and technological." src="../../assets/img/avatar-06.svg"/>
+</div>
+<div class="flex-1">
+<div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-sm">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-primary">Motorola Edge 40</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">SKU-MOT-0832 • Cantidad: 1</p>
+</div>
+<div class="font-headline-md text-headline-md text-primary font-bold">
+                                $399.00
+                            </div>
+</div>
+</div>
+</div>
+</section>
+<!-- Addresses & Info Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-lg">
+<!-- Shipping Info -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-lg shadow-[0px_4px_12px_rgba(11,37,69,0.02)]">
+<div class="flex items-center gap-sm mb-md">
+<span class="material-symbols-outlined text-on-surface-variant">place</span>
+<h2 class="font-headline-sm text-headline-sm text-primary">Información de Envío</h2>
+</div>
+<div class="space-y-sm font-body-md text-body-md text-on-surface">
+<div class="flex justify-between border-b border-surface-container-highest pb-xs">
+<span class="text-on-surface-variant">Courier:</span>
+<span class="font-medium text-primary">MRW</span>
+</div>
+<div class="flex justify-between border-b border-surface-container-highest pb-xs">
+<span class="text-on-surface-variant">Tracking:</span>
+<span class="font-medium text-secondary">MRW-V8234</span>
+</div>
+<div class="pt-xs">
+<span class="text-on-surface-variant block mb-xs">Destino:</span>
+<p class="text-primary bg-surface-container p-sm rounded-lg border border-outline-variant/50">Av. Francisco de Miranda, Centro Seguros Sudamérica, Piso 4, Oficina 41. Chacao, Caracas.</p>
+</div>
+</div>
+</section>
+<!-- Seller Info -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-lg shadow-[0px_4px_12px_rgba(11,37,69,0.02)]">
+<div class="flex items-center gap-sm mb-md">
+<span class="material-symbols-outlined text-on-surface-variant">storefront</span>
+<h2 class="font-headline-sm text-headline-sm text-primary">Vendedor</h2>
+</div>
+<div class="flex items-center gap-md mb-md p-sm border border-outline-variant rounded-lg bg-surface">
+<div class="w-[48px] h-[48px] rounded-full bg-surface-container border border-outline-variant flex items-center justify-center text-primary font-bold">
+                            TV
+                        </div>
+<div>
+<h3 class="font-label-md text-label-md text-primary flex items-center gap-xs">
+                                TecnoVentas C.A.
+                                <span class="material-symbols-outlined text-secondary text-[16px]" title="Verificado">verified</span>
+</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">SEL-014</p>
+</div>
+</div>
+<a class="inline-flex items-center justify-center w-full gap-sm py-sm px-md rounded-lg border border-primary-container text-primary-container font-label-md text-label-md hover:bg-surface-container-high transition-colors duration-200" href="#">
+<span class="material-symbols-outlined text-[18px]">chat</span>
+                        Contactar Vendedor
+                    </a>
+</section>
+</div>
+</main>
+<!-- Sidebar Actions Column -->
+<aside class="md:col-span-4 flex flex-col gap-lg">
+<section class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-lg shadow-[0px_4px_12px_rgba(11,37,69,0.02)] sticky top-[88px]">
+<h2 class="font-headline-sm text-headline-sm text-primary mb-md">Acciones</h2>
+<div class="flex flex-col gap-md">
+<button class="w-full flex items-center justify-center gap-sm bg-secondary text-on-secondary py-md px-lg rounded-[10px] font-label-md text-label-md hover:bg-on-secondary-fixed-variant transition-colors duration-200 shadow-[0px_4px_12px_rgba(11,37,69,0.05)]">
+<span class="material-symbols-outlined">receipt_long</span>
+                        Ver Comprobante
+                    </button>
+<button class="w-full flex items-center justify-center gap-sm bg-transparent border border-primary-container text-primary-container py-md px-lg rounded-[10px] font-label-md text-label-md hover:bg-surface-container-highest transition-colors duration-200">
+<span class="material-symbols-outlined">support_agent</span>
+                        Solicitar Ayuda
+                    </button>
+<button class="w-full flex items-center justify-center gap-sm bg-transparent border border-error text-error py-md px-lg rounded-[10px] font-label-md text-label-md hover:bg-error-container transition-colors duration-200"><span class="material-symbols-outlined">gavel</span>Abrir reclamo o devolución</button>
+<div class="h-[1px] bg-outline-variant my-xs"></div>
+<!-- Disabled button due to 'Shipped' status -->
+<button class="w-full flex items-center justify-center gap-sm bg-surface-container-high text-outline py-md px-lg rounded-[10px] font-label-md text-label-md cursor-not-allowed opacity-70" disabled="" title="No se puede cancelar un pedido en camino">
+<span class="material-symbols-outlined">cancel</span>
+                        Cancelar Pedido
+                    </button>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-center mt-xs">
+                        No disponible para pedidos despachados.
+                    </p>
+</div>
+</section>
+</aside>
+</div>
+<!-- Footer (Shared Component) -->
+<footer class="bg-primary dark:bg-primary-container full-width bottom mt-auto">
+<div class="w-full py-xl px-lg flex flex-col md:flex-row justify-between items-center max-w-container-max mx-auto gap-lg md:gap-0">
+<div class="font-headline-sm text-headline-sm text-on-primary">
+                © 2024 Corporate Modernism Marketplace. All rights reserved.
+            </div>
+<div class="flex flex-wrap justify-center gap-md font-label-sm text-label-sm">
+<a class="text-on-primary opacity-80 hover:opacity-100 hover:text-secondary-fixed-dim transition-opacity" href="#">Políticas de privacidad</a>
+<a class="text-on-primary opacity-80 hover:opacity-100 hover:text-secondary-fixed-dim transition-opacity" href="#">Términos y condiciones</a>
+<a class="text-on-primary opacity-80 hover:opacity-100 hover:text-secondary-fixed-dim transition-opacity" href="#">Información de envío</a>
+<a class="text-on-primary opacity-80 hover:opacity-100 hover:text-secondary-fixed-dim transition-opacity" href="#">Contactar soporte</a>
+</div>
+</div>
+</footer>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_PAGINA={"ruta": "marketplace/pedido-seguimiento.html", "superficie": "marketplace", "rol": "comprador", "titulo": "Detalle y seguimiento — TM-2026-00428"};</script>
+</body></html>

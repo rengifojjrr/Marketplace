@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Detalle de Pedido - Seller Center</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container-highest": "#e3e2e5",
+                      "secondary-container": "#316bf3",
+                      "inverse-on-surface": "#f2f0f3",
+                      "on-background": "#1b1b1e",
+                      "surface-dim": "#dbd9dd",
+                      "outline": "#74777f",
+                      "surface-container": "#efedf0",
+                      "secondary-fixed-dim": "#b4c5ff",
+                      "on-secondary": "#ffffff",
+                      "on-tertiary": "#ffffff",
+                      "surface": "#faf9fc",
+                      "on-tertiary-fixed": "#00201d",
+                      "on-secondary-fixed-variant": "#003ea8",
+                      "secondary": "#0051d5",
+                      "error-container": "#ffdad6",
+                      "error": "#ba1a1a",
+                      "on-surface-variant": "#44474e",
+                      "surface-variant": "#e3e2e5",
+                      "on-primary-fixed-variant": "#314769",
+                      "primary-fixed-dim": "#b1c7f0",
+                      "surface-container-high": "#e9e7eb",
+                      "primary-container": "#0b2545",
+                      "on-error-container": "#93000a",
+                      "surface-container-lowest": "#ffffff",
+                      "on-tertiary-fixed-variant": "#00504a",
+                      "surface-bright": "#faf9fc",
+                      "on-tertiary-container": "#419990",
+                      "on-secondary-fixed": "#00174b",
+                      "surface-container-low": "#f5f3f6",
+                      "background": "#faf9fc",
+                      "primary": "#001026",
+                      "on-error": "#ffffff",
+                      "primary-fixed": "#d5e3ff",
+                      "inverse-primary": "#b1c7f0",
+                      "tertiary-fixed": "#9cf2e8",
+                      "tertiary": "#001311",
+                      "secondary-fixed": "#dbe1ff",
+                      "on-secondary-container": "#fefcff",
+                      "inverse-surface": "#303033",
+                      "on-surface": "#1b1b1e",
+                      "on-primary-container": "#778db2",
+                      "surface-tint": "#495f82",
+                      "tertiary-container": "#002a27",
+                      "outline-variant": "#c4c6cf",
+                      "on-primary-fixed": "#001c3b",
+                      "on-primary": "#ffffff",
+                      "tertiary-fixed-dim": "#80d5cb"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "md": "16px",
+                      "margin-mobile": "16px",
+                      "lg": "24px",
+                      "sm": "8px",
+                      "xl": "32px",
+                      "unit": "4px",
+                      "xxl": "48px",
+                      "container-max": "1280px",
+                      "gutter": "24px",
+                      "xs": "4px"
+              },
+              "fontFamily": {
+                      "headline-lg-mobile": ["Inter"],
+                      "body-sm": ["Inter"],
+                      "label-md": ["Inter"],
+                      "label-sm": ["Inter"],
+                      "headline-lg": ["Inter"],
+                      "headline-sm": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "headline-md": ["Inter"],
+                      "body-md": ["Inter"],
+                      "display-lg": ["Inter"]
+              },
+              "fontSize": {
+                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                      "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                      "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                      "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; }
+        .b2b-card { background-color: #FFFFFF; border: 1px solid #DCE3EC; border-radius: 14px; padding: 24px; }
+        .b2b-input { background-color: #FFFFFF; border: 1px solid #DCE3EC; border-radius: 10px; padding: 8px 12px; }
+        .b2b-input:focus { border-color: #2563EB; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.3); outline: none; }
+    </style>
+</head>
+<body class="bg-background text-on-background flex h-screen overflow-hidden font-body-md text-body-md">
+<!-- TopNavBar (Rendered via JSON rules) -->
+<header class="w-full h-16 fixed top-0 z-40 bg-surface border-b border-outline-variant flex justify-between items-center ml-64 px-lg w-[calc(100%-16rem)]">
+<div class="flex items-center gap-md">
+<span class="font-headline-sm text-headline-sm font-black text-primary">Seller Center</span>
+</div>
+<div class="flex items-center gap-md">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-2 top-2 text-outline">search</span>
+<input class="b2b-input pl-8 w-64 text-sm" placeholder="Buscar pedidos..." type="text"/>
+</div>
+<button class="p-2 rounded-full hover:bg-surface-container-high transition-colors duration-200 text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">notifications</span></button>
+<button class="p-2 rounded-full hover:bg-surface-container-high transition-colors duration-200 text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">storefront</span></button>
+<button class="p-2 rounded-full hover:bg-surface-container-high transition-colors duration-200 text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">account_circle</span></button>
+</div>
+</header>
+<!-- SideNavBar (Rendered via JSON rules) -->
+<nav class="bg-primary text-on-primary h-screen w-64 flex flex-col fixed left-0 top-0 shadow-md">
+<div class="p-lg flex items-center gap-sm">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center font-bold text-on-secondary-container">V</div>
+<div>
+<h1 class="font-headline-sm text-headline-sm font-bold">Seller Center</h1>
+<p class="font-label-sm text-label-sm text-on-primary/70">SEL-014 Marketplace</p>
+</div>
+</div>
+<div class="px-md mb-md">
+<button class="w-full bg-[#2563EB] text-white rounded-[10px] py-2 px-4 font-label-md text-label-md hover:bg-secondary-container transition-colors">Nueva Publicación</button>
+</div>
+<div class="flex flex-col h-full py-lg gap-unit overflow-y-auto">
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md transition-colors duration-200 ease-linear" href="#"><span class="material-symbols-outlined">dashboard</span> <span class="font-label-md text-label-md">Dashboard</span></a>
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md transition-colors duration-200 ease-linear" href="#"><span class="material-symbols-outlined">inventory_2</span> <span class="font-label-md text-label-md">Catálogo</span></a>
+<a class="bg-secondary-container text-on-secondary-container font-semibold rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md scale-95 transition-transform" href="#"><span class="material-symbols-outlined">shopping_cart</span> <span class="font-label-md text-label-md">Pedidos</span></a>
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md transition-colors duration-200 ease-linear" href="#"><span class="material-symbols-outlined">payments</span> <span class="font-label-md text-label-md">Finanzas</span></a>
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md transition-colors duration-200 ease-linear" href="#"><span class="material-symbols-outlined">group</span> <span class="font-label-md text-label-md">Equipo</span></a>
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md transition-colors duration-200 ease-linear" href="#"><span class="material-symbols-outlined">settings</span> <span class="font-label-md text-label-md">Configuración</span></a>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="ml-64 mt-16 p-lg w-[calc(100%-16rem)] h-[calc(100vh-4rem)] overflow-y-auto">
+<!-- Header & Warning -->
+<div class="mb-lg flex justify-between items-end">
+<div>
+<a class="text-secondary flex items-center gap-xs font-label-md text-label-md mb-xs hover:underline" href="#"><span class="material-symbols-outlined text-[16px]">arrow_back</span> Volver a Pedidos</a>
+<h2 class="font-headline-lg text-headline-lg text-primary">Pedido TM-2026-00428</h2>
+</div>
+<div class="bg-[#FFF8E1] border border-[#FFE082] text-[#8D6E00] px-4 py-3 rounded-lg flex items-center gap-sm">
+<span class="material-symbols-outlined text-[#F57F17]">warning</span>
+<span class="font-label-md text-label-md">Recuerda incluir la factura fiscal dentro del paquete.</span>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-lg">
+<!-- Left Panel: Info -->
+<div class="col-span-4 flex flex-col gap-lg">
+<div class="b2b-card">
+<h3 class="font-headline-sm text-headline-sm mb-md flex items-center gap-sm"><span class="material-symbols-outlined">info</span> Información General</h3>
+<div class="grid grid-cols-2 gap-y-sm mb-md text-sm">
+<span class="text-on-surface-variant">Fecha:</span> <span class="font-medium text-right">24 Oct 2024, 10:30</span>
+<span class="text-on-surface-variant">Método Pago:</span> <span class="font-medium text-right">TDC Visa *4567</span>
+<span class="text-on-surface-variant">Total:</span> <span class="font-medium text-right">$450.00</span>
+</div>
+<div class="border-t border-outline-variant pt-md">
+<h4 class="font-label-md text-label-md mb-sm text-on-surface-variant">Estado Actual</h4>
+<div class="flex items-center gap-sm bg-secondary-fixed text-on-secondary-fixed-variant px-3 py-2 rounded-lg font-label-md w-fit">
+<span class="material-symbols-outlined text-[18px]">inventory</span> Pendiente Preparación
+                        </div>
+</div>
+</div>
+<div class="b2b-card">
+<h3 class="font-headline-sm text-headline-sm mb-md flex items-center gap-sm"><span class="material-symbols-outlined">person</span> Datos de Envío</h3>
+<div class="text-sm space-y-sm">
+<p><span class="text-on-surface-variant">Comprador:</span> <span class="font-medium">J. Pérez</span></p>
+<p><span class="text-on-surface-variant">Ciudad:</span> <span class="font-medium">Caracas</span></p>
+<p><span class="text-on-surface-variant">Agencia/Destino:</span> <br/> <span class="font-medium">Agencia Principal MRW, Av. Rómulo Gallegos, Local 4.</span></p>
+</div>
+</div>
+</div>
+<!-- Center/Right Panel: Products & Prep -->
+<div class="col-span-8 flex flex-col gap-lg">
+<!-- Product List -->
+<div class="b2b-card">
+<h3 class="font-headline-sm text-headline-sm mb-md flex items-center gap-sm"><span class="material-symbols-outlined">shopping_bag</span> Productos a Preparar</h3>
+<div class="space-y-md">
+<!-- Item 1 -->
+<div class="flex items-center gap-md p-md border border-outline-variant rounded-lg bg-surface-container-low">
+<img class="w-16 h-16 object-cover rounded-md border border-outline-variant" data-alt="A small, high-tech industrial sensor wrapped in clear anti-static protective film resting on a clean white packing table under bright, clinical studio lighting, conveying precision manufacturing." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCy98IBu_gHvKsXKJ9YjQlg3i1BIMjuJ3mIwrVvKyDSsm3BAi5tqIXZuNwaprYb5hyAqutGze7mXLRlDNhT51B8bmFOvscMaJZd0WAzYePjaU4xJid_EujF-DRTRd5Q_1P6Jv-KCpW551vVG1cGkTKi9xlJEMpLonhOtRhSH8JAc2oaqHbP_w9ZyLudC4A7kOh2Zvd7PMgLNe6LxC6Sl7StKbgKH-Idi8a1_6QAFiu46DZ9qAiXUr81"/>
+<div class="flex-1">
+<h4 class="font-label-md text-label-md">Sensor Industrial Tipo A</h4>
+<p class="text-sm text-on-surface-variant">SKU: SENS-A-001 | Cantidad: <span class="font-bold text-primary">2</span></p>
+</div>
+<div class="flex items-center">
+<label class="flex items-center gap-sm cursor-pointer">
+<input class="w-5 h-5 rounded border-outline text-secondary focus:ring-secondary" type="checkbox"/>
+<span class="font-label-md text-label-md text-on-surface-variant">Listo</span>
+</label>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex items-center gap-md p-md border border-outline-variant rounded-lg bg-surface-container-low">
+<img class="w-16 h-16 object-cover rounded-md border border-outline-variant" data-alt="A roll of specialized blue industrial thermal tape sitting on a modern shipping manifest clipboard. The lighting is crisp and cool, highlighting the texture of the tape in a professional warehouse setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_tMnUBQ9Bvl-4Jq_8ji2i6--QT4jn4dhuqLA9fSZRDZlmJ4eG50Wil-nXcoHrpduNr-BypKNTCfd9-b9izHcPDkYQWHnimfuYUIQYDpfxujFxWZGS-toUrvgCinY2PRfRymhH1DZXII_oFjDCXnkmU7z91xBEXwoHLH44GekluxActhuBNnD-Egx6Yjph10Mrp_pbGy9bN0dn6DBCwnkE5GF9luLhidx5XAZvI4fpmeBMGQfgPurN"/>
+<div class="flex-1">
+<h4 class="font-label-md text-label-md">Cinta Térmica Especializada</h4>
+<p class="text-sm text-on-surface-variant">SKU: TAPE-TH-050 | Cantidad: <span class="font-bold text-primary">1</span></p>
+</div>
+<div class="flex items-center">
+<label class="flex items-center gap-sm cursor-pointer">
+<input class="w-5 h-5 rounded border-outline text-secondary focus:ring-secondary" type="checkbox"/>
+<span class="font-label-md text-label-md text-on-surface-variant">Listo</span>
+</label>
+</div>
+</div>
+</div>
+</div>
+<!-- Prep Actions -->
+<div class="b2b-card bg-surface-bright">
+<h3 class="font-headline-sm text-headline-sm mb-md flex items-center gap-sm"><span class="material-symbols-outlined">box</span> Detalles del Empaque</h3>
+<div class="grid grid-cols-2 gap-lg mb-lg">
+<div>
+<label class="block font-label-md text-label-md mb-xs text-on-surface-variant">Peso Estimado (kg)</label>
+<input class="b2b-input w-full" placeholder="Ej: 1.5" step="0.1" type="number"/>
+</div>
+<div>
+<label class="block font-label-md text-label-md mb-xs text-on-surface-variant">Dimensiones (cm)</label>
+<div class="flex gap-sm">
+<input class="b2b-input w-1/3 text-center" placeholder="L" type="number"/>
+<input class="b2b-input w-1/3 text-center" placeholder="W" type="number"/>
+<input class="b2b-input w-1/3 text-center" placeholder="H" type="number"/>
+</div>
+</div>
+</div>
+<div class="mb-lg">
+<label class="block font-label-md text-label-md mb-xs text-on-surface-variant">Evidencia Fotográfica (Opcional)</label>
+<div class="border-2 border-dashed border-outline-variant rounded-lg p-lg flex flex-col items-center justify-center text-on-surface-variant bg-surface-container-lowest cursor-pointer hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[32px] mb-sm text-outline">cloud_upload</span>
+<span class="font-label-md text-label-md">Arrastra imágenes del paquete cerrado o haz clic aquí</span>
+<span class="text-xs mt-1">Formatos soportados: JPG, PNG (Max 5MB)</span>
+</div>
+</div>
+<div class="flex justify-end gap-md pt-md border-t border-outline-variant">
+<button class="px-6 py-2 rounded-[10px] border border-primary-container text-primary-container font-label-md text-label-md hover:bg-surface-container-highest transition-colors">Cancelar</button>
+<button class="px-6 py-2 rounded-[10px] bg-[#2563EB] text-white font-label-md text-label-md hover:bg-secondary-container transition-colors shadow-sm flex items-center gap-sm">
+<span class="material-symbols-outlined text-[20px]">local_shipping</span> Confirmar Empaque y Generar Guía
+                        </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

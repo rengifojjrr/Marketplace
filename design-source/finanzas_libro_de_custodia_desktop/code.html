@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Libro de Custodia y Retenciones - Tumbo Market</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "tertiary-fixed-dim": "#93ccff",
+                      "inverse-primary": "#b1c7f0",
+                      "primary-fixed": "#d5e3ff",
+                      "on-secondary-fixed-variant": "#38485d",
+                      "surface-container-highest": "#dfe3e7",
+                      "on-tertiary": "#ffffff",
+                      "on-background": "#171c1f",
+                      "tertiary": "#00111f",
+                      "tertiary-container": "#00273f",
+                      "on-error-container": "#93000a",
+                      "secondary-container": "#d0e1fb",
+                      "primary": "#001026",
+                      "inverse-surface": "#2c3134",
+                      "surface-dim": "#d6dade",
+                      "on-tertiary-fixed-variant": "#004b73",
+                      "surface": "#f6fafe",
+                      "on-tertiary-container": "#2993d6",
+                      "surface-variant": "#dfe3e7",
+                      "inverse-on-surface": "#edf1f5",
+                      "danger": "#ef4444",
+                      "on-primary": "#ffffff",
+                      "surface-tint": "#495f82",
+                      "tertiary-fixed": "#cce5ff",
+                      "error": "#ba1a1a",
+                      "primary-container": "#0b2545",
+                      "secondary-fixed-dim": "#b7c8e1",
+                      "on-tertiary-fixed": "#001d31",
+                      "on-surface-variant": "#44474e",
+                      "on-error": "#ffffff",
+                      "outline": "#74777f",
+                      "on-secondary-fixed": "#0b1c30",
+                      "on-primary-fixed": "#001c3b",
+                      "on-primary-fixed-variant": "#314769",
+                      "success": "#10b981",
+                      "surface-container-high": "#e4e9ed",
+                      "secondary": "#505f76",
+                      "primary-fixed-dim": "#b1c7f0",
+                      "on-primary-container": "#778db2",
+                      "on-surface": "#171c1f",
+                      "surface-border": "#e2e8f0",
+                      "secondary-fixed": "#d3e4fe",
+                      "data-row-hover": "#f8fafc",
+                      "surface-container": "#eaeef2",
+                      "surface-container-low": "#f0f4f8",
+                      "surface-container-lowest": "#ffffff",
+                      "on-secondary": "#ffffff",
+                      "warning": "#f59e0b",
+                      "error-container": "#ffdad6",
+                      "surface-bright": "#f6fafe",
+                      "background": "#f6fafe",
+                      "outline-variant": "#c4c6cf",
+                      "info": "#3b82f6",
+                      "on-secondary-container": "#54647a"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "header-height": "56px",
+                      "tight": "8px",
+                      "gutter": "16px",
+                      "base": "4px",
+                      "sidebar-width": "240px",
+                      "compact": "12px",
+                      "standard": "16px"
+              },
+              "fontFamily": {
+                      "headline-md": [
+                              "Inter"
+                      ],
+                      "data-mono": [
+                              "Inter"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "label-sm": [
+                              "Inter"
+                      ],
+                      "headline-lg": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "label-md": [
+                              "Inter"
+                      ],
+                      "headline-sm": [
+                              "Inter"
+                      ],
+                      "body-sm": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "headline-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "data-mono": [
+                              "13px",
+                              {
+                                      "lineHeight": "18px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-lg": [
+                              "15px",
+                              {
+                                      "lineHeight": "22px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-sm": [
+                              "11px",
+                              {
+                                      "lineHeight": "14px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-md": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.02em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-sm": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-sm": [
+                              "13px",
+                              {
+                                      "lineHeight": "18px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+            }
+          }
+        }
+      </script>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="sticky top-0 z-50 flex justify-between items-center w-full px-lg py-md bg-surface dark:bg-primary-container border-b border-outline-variant dark:border-outline">
+<div class="flex items-center gap-gutter">
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">Tumbo Market</span>
+<nav class="hidden md:flex gap-standard ml-standard">
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-secondary dark:hover:text-secondary-fixed transition-colors duration-200" href="#">Marketplace</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-secondary dark:hover:text-secondary-fixed transition-colors duration-200" href="#">Seller Center</a>
+<a class="text-secondary dark:text-secondary-fixed font-bold border-b-2 border-secondary opacity-80 transition-all duration-200" href="#">Backoffice</a>
+</nav>
+</div>
+<div class="flex items-center gap-standard">
+<div class="hidden md:flex relative">
+<span class="material-symbols-outlined absolute left-tight top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="pl-8 pr-3 py-1.5 h-8 border border-surface-border rounded bg-surface focus:outline-none focus:border-primary-container font-body-sm text-body-sm w-64" placeholder="Search..." type="text"/>
+</div>
+<button class="text-on-surface-variant hover:text-secondary transition-colors" data-icon="notifications">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-secondary transition-colors" data-icon="help">
+<span class="material-symbols-outlined">help</span>
+</button>
+<button class="text-on-surface-variant hover:text-secondary transition-colors" data-icon="account_circle">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<!-- SideNavBar -->
+<aside class="hidden lg:flex flex-col h-full p-md gap-sm bg-surface-container-low dark:bg-primary-container border-r border-outline-variant dark:border-outline docked left-0 w-64 flex-shrink-0">
+<div class="flex items-center gap-tight mb-standard px-tight py-base">
+<div class="w-10 h-10 rounded bg-surface-border overflow-hidden flex-shrink-0">
+<img alt="Store Logo" class="w-full h-full object-cover" data-alt="A clean, minimalist abstract logo design suitable for a high-end corporate seller profile, featuring sharp geometric lines in navy and slate tones on a pure white background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3hOXNHZtFPTvW3v6SiTmVtWZ3JDmMzrk0-gzkfW3lf8gq4vui5DdtoveiluyOcLOlfEUKIdV4zhxEzAskw1wl-6DUgt1NYEXO3JFUux3dV3Z-iyIvhP1tdRlSC8vJo8XLuDU8JheUlsIdywoJMgYKAVdY0RmrXEwEIEzlqxEkhEEmJv6FYbpuY92Ut_cYLDIR0zsxbTdWGBmYQhT7pJSzE156OcRpJozDehslzwl8GW1hWV3ZEjLF"/>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-headline-sm font-bold text-primary dark:text-primary-fixed">Seller Center</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Managing: Caracas Central</span>
+</div>
+</div>
+<nav class="flex flex-col gap-base flex-1 overflow-y-auto">
+<a class="flex items-center gap-tight px-tight py-tight text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors duration-200 rounded font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                    Dashboard
+                </a>
+<a class="flex items-center gap-tight px-tight py-tight text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors duration-200 rounded font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+                    Inventory
+                </a>
+<a class="flex items-center gap-tight px-tight py-tight text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors duration-200 rounded font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="shopping_cart">shopping_cart</span>
+                    Orders
+                </a>
+<a class="flex items-center gap-tight px-tight py-tight bg-secondary-fixed dark:bg-secondary-container text-on-secondary-fixed dark:text-on-secondary-container rounded-lg font-bold font-label-md text-label-md scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+                    Payments
+                </a>
+<a class="flex items-center gap-tight px-tight py-tight text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors duration-200 rounded font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="leaderboard">leaderboard</span>
+                    Analytics
+                </a>
+<a class="flex items-center gap-tight px-tight py-tight text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors duration-200 rounded font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                    Settings
+                </a>
+</nav>
+<button class="w-full bg-primary-container text-on-primary font-label-md text-label-md py-tight rounded flex justify-center items-center gap-tight hover:opacity-90 transition-opacity mt-standard">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+                Add Product
+            </button>
+<div class="mt-auto pt-standard border-t border-surface-border flex flex-col gap-base">
+<a class="flex items-center gap-tight px-tight py-tight text-on-surface-variant hover:bg-surface-container-highest transition-colors duration-200 rounded font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="contact_support">contact_support</span>
+                    Support
+                </a>
+<a class="flex items-center gap-tight px-tight py-tight text-danger hover:bg-error-container transition-colors duration-200 rounded font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+                    Logout
+                </a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 overflow-y-auto p-gutter bg-background">
+<div class="max-w-[1600px] mx-auto flex flex-col gap-standard">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-standard mb-tight">
+<div>
+<h1 class="font-headline-lg text-headline-lg font-bold text-primary mb-base">Libro de Custodia y Retenciones</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Vista de transacciones de 'monedero' por pedido. Cada fila representa un evento contable inmutable.</p>
+</div>
+<div class="bg-warning/10 border border-warning/20 px-tight py-base rounded flex items-center gap-tight">
+<span class="material-symbols-outlined text-warning text-sm">gavel</span>
+<span class="font-label-sm text-label-sm text-warning uppercase font-bold tracking-wider">Modelo sujeto a validación legal</span>
+</div>
+</div>
+<!-- Filters & Search Toolbar -->
+<div class="bg-surface border border-surface-border rounded p-compact flex flex-col sm:flex-row gap-standard items-center justify-between">
+<div class="flex flex-1 w-full gap-standard">
+<div class="relative flex-1 max-w-md">
+<span class="material-symbols-outlined absolute left-tight top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full pl-8 pr-3 h-8 border border-surface-border rounded bg-surface focus:outline-none focus:border-primary-container font-body-sm text-body-sm" placeholder="Buscar por ID Pedido o Seller..." type="text"/>
+</div>
+<div class="flex gap-base">
+<span class="inline-flex items-center px-2 py-1 rounded bg-surface-container-low border border-surface-border font-label-sm text-label-sm text-on-surface-variant cursor-pointer hover:bg-surface-container-highest">
+                                Últimos 30 días
+                                <span class="material-symbols-outlined text-[14px] ml-1">close</span>
+</span>
+<span class="inline-flex items-center px-2 py-1 rounded bg-surface-container-low border border-surface-border font-label-sm text-label-sm text-on-surface-variant cursor-pointer hover:bg-surface-container-highest">
+                                Estado: Pendiente
+                                <span class="material-symbols-outlined text-[14px] ml-1">close</span>
+</span>
+</div>
+</div>
+<div class="flex gap-tight">
+<button class="px-3 h-8 border border-surface-border rounded bg-surface font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">filter_list</span>
+                            Filtros
+                        </button>
+<button class="px-3 h-8 border border-surface-border rounded bg-surface font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">download</span>
+                            Exportar
+                        </button>
+</div>
+</div>
+<!-- Ledger Table -->
+<div class="bg-surface border border-surface-border rounded overflow-hidden flex flex-col shadow-sm">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse min-w-[1000px]">
+<thead>
+<tr class="bg-surface-container-lowest border-b border-surface-border">
+<th class="px-compact py-tight font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider whitespace-nowrap">ID Pedido</th>
+<th class="px-compact py-tight font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider whitespace-nowrap">Fecha / Hora (UTC)</th>
+<th class="px-compact py-tight font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-right whitespace-nowrap">Entrada (Pago)</th>
+<th class="px-compact py-tight font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-right whitespace-nowrap">Reserva (Com.)</th>
+<th class="px-compact py-tight font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-right whitespace-nowrap">Congelamiento (Disp.)</th>
+<th class="px-compact py-tight font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-right whitespace-nowrap">Liberación</th>
+<th class="px-compact py-tight font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-right whitespace-nowrap">Reembolso</th>
+<th class="px-compact py-tight font-label-sm text-label-sm text-primary uppercase font-bold tracking-wider text-right whitespace-nowrap">Saldo Neto</th>
+<th class="px-compact py-tight font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-center whitespace-nowrap">Estado</th>
+</tr>
+</thead>
+<tbody class="font-data-mono text-data-mono">
+<tr class="border-b border-surface-border hover:bg-data-row-hover transition-colors">
+<td class="px-compact py-tight whitespace-nowrap">
+<a class="text-info hover:underline" href="#">ORD-2401-A9B2</a>
+<div class="font-label-sm text-label-sm text-on-surface-variant mt-0.5">Seller: TechPro</div>
+</td>
+<td class="px-compact py-tight whitespace-nowrap text-on-surface-variant">2024-05-14 10:23:41</td>
+<td class="px-compact py-tight text-right text-success whitespace-nowrap">+$1,250.00</td>
+<td class="px-compact py-tight text-right text-warning whitespace-nowrap">-$125.00</td>
+<td class="px-compact py-tight text-right text-on-surface-variant whitespace-nowrap">$0.00</td>
+<td class="px-compact py-tight text-right text-on-surface-variant whitespace-nowrap">$0.00</td>
+<td class="px-compact py-tight text-right text-on-surface-variant whitespace-nowrap">$0.00</td>
+<td class="px-compact py-tight text-right font-bold whitespace-nowrap">$1,125.00</td>
+<td class="px-compact py-tight text-center whitespace-nowrap">
+<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-warning/10 text-warning font-label-sm text-[10px] uppercase font-bold">Custodia</span>
+</td>
+</tr>
+<tr class="border-b border-surface-border hover:bg-data-row-hover transition-colors">
+<td class="px-compact py-tight whitespace-nowrap">
+<a class="text-info hover:underline" href="#">ORD-2401-C3D4</a>
+<div class="font-label-sm text-label-sm text-on-surface-variant mt-0.5">Seller: Urban Wear</div>
+</td>
+<td class="px-compact py-tight whitespace-nowrap text-on-surface-variant">2024-05-13 15:45:12</td>
+<td class="px-compact py-tight text-right text-on-surface-variant whitespace-nowrap">$0.00</td>
+<td class="px-compact py-tight text-right text-on-surface-variant whitespace-nowrap">$0.00</td>
+<td class="px-compact py-tight text-right text-danger whitespace-nowrap">-$45.00</td>
+<td class="px-compact py-tight text-right text-on-surface-variant whitespace-nowrap">$0.00</td>
+<td class="px-compact py-tight text-right text-on-surface-variant whitespace-nowrap">$0.00</td>
+<td class="px-compact py-tight text-right font-bold whitespace-nowrap">-$45.00</td>
+<td class="px-compact py-tight text-center whitespace-nowrap">
+<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-danger/10 text-danger font-label-sm text-[10px] uppercase font-bold">Disputa</span>
+</td>
+</tr>
+<tr class="border-b border-surface-border hover:bg-data-row-hover transition-colors">
+<td class="px-compact py-tight whitespace-nowrap">
+<a class="text-info hover:underline" href="#">ORD-2401-E5F6</a>
+<div class="font-label-sm text-label-sm text-on-surface-variant mt-0.5">Seller: Home Goods</div>
+</td>
+<td class="px-compact py-tight whitespace-nowrap text-on-surface-variant">2024-05-12 09:12:05</td>
+<td class="px-compact py-tight text-right text-on-surface-variant whitespace-nowrap">$0.00</td>
+<td class="px-compact py-tight text-right text-on-surface-variant whitespace-nowrap">$0.00</td>
+<td class="px-compact py-tight text-right text-on-surface-variant whitespace-nowrap">$0.00</td>
+<td class="px-compact py-tight text-right text-success whitespace-nowrap">+$320.00</td>
+<td class="px-compact py-tight text-right text-on-surface-variant whitespace-nowrap">$0.00</td>
+<td class="px-compact py-tight text-right font-bold whitespace-nowrap">+$320.00</td>
+<td class="px-compact py-tight text-center whitespace-nowrap">
+<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-success/10 text-success font-label-sm text-[10px] uppercase font-bold">Liberado</span>
+</td>
+</tr>
+<tr class="border-b border-surface-border hover:bg-data-row-hover transition-colors">
+<td class="px-compact py-tight whitespace-nowrap">
+<a class="text-info hover:underline" href="#">ORD-2401-G7H8</a>
+<div class="font-label-sm text-label-sm text-on-surface-variant mt-0.5">Seller: GadgetHub</div>
+</td>
+<td class="px-compact py-tight whitespace-nowrap text-on-surface-variant">2024-05-11 18:30:22</td>
+<td class="px-compact py-tight text-right text-on-surface-variant whitespace-nowrap">$0.00</td>
+<td class="px-compact py-tight text-right text-on-surface-variant whitespace-nowrap">$0.00</td>
+<td class="px-compact py-tight text-right text-on-surface-variant whitespace-nowrap">$0.00</td>
+<td class="px-compact py-tight text-right text-on-surface-variant whitespace-nowrap">$0.00</td>
+<td class="px-compact py-tight text-right text-danger whitespace-nowrap">-$89.50</td>
+<td class="px-compact py-tight text-right font-bold whitespace-nowrap">-$89.50</td>
+<td class="px-compact py-tight text-center whitespace-nowrap">
+<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-secondary/10 text-secondary font-label-sm text-[10px] uppercase font-bold">Reembolsado</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="bg-surface-container-lowest border-t border-surface-border px-compact py-tight flex items-center justify-between">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Mostrando 1-4 de 2,491 registros</span>
+<div class="flex gap-1">
+<button class="w-8 h-8 flex items-center justify-center border border-surface-border rounded bg-surface hover:bg-surface-container-low text-on-surface-variant disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined text-[18px]">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center border border-primary-container rounded bg-primary-container text-on-primary font-label-sm text-label-sm">1</button>
+<button class="w-8 h-8 flex items-center justify-center border border-surface-border rounded bg-surface hover:bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm">2</button>
+<button class="w-8 h-8 flex items-center justify-center border border-surface-border rounded bg-surface hover:bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm">3</button>
+<span class="w-8 h-8 flex items-center justify-center text-on-surface-variant font-label-sm text-label-sm">...</span>
+<button class="w-8 h-8 flex items-center justify-center border border-surface-border rounded bg-surface hover:bg-surface-container-low text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Footer -->
+<footer class="w-full py-xl px-lg flex flex-col md:flex-row justify-between items-center gap-md bg-surface-container-highest dark:bg-primary-container border-t border-outline-variant dark:border-outline">
+<div class="font-headline-sm text-headline-sm font-bold text-primary dark:text-primary-fixed">Tumbo Market</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant dark:text-surface-variant text-center md:text-left">
+            © 2024 Tumbo Market. Todos los derechos reservados.
+        </div>
+<nav class="flex gap-standard font-body-sm text-body-sm">
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Privacidad</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Términos</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Contacto</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Ayuda</a>
+</nav>
+</footer>
+</body></html>

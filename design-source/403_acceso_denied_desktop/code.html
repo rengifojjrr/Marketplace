@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>403 - Acceso Restringido</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#edf0ff",
+                        "surface-dim": "#d1daf4",
+                        "on-primary": "#ffffff",
+                        "on-secondary-fixed": "#00201d",
+                        "on-tertiary-fixed-variant": "#003ea8",
+                        "surface-tint": "#495f82",
+                        "surface-container-high": "#e1e8ff",
+                        "surface": "#f9f9ff",
+                        "outline": "#74777f",
+                        "surface-container-highest": "#d9e2fc",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed": "#dbe1ff",
+                        "secondary-fixed": "#9cf2e8",
+                        "primary-fixed-dim": "#b1c7f0",
+                        "error": "#ba1a1a",
+                        "outline-variant": "#c4c6cf",
+                        "surface-container-low": "#f1f3ff",
+                        "inverse-surface": "#273044",
+                        "on-primary-fixed": "#001c3b",
+                        "on-primary-container": "#778db2",
+                        "surface-container": "#e9edff",
+                        "on-secondary-container": "#006f67",
+                        "secondary": "#006a63",
+                        "on-tertiary-fixed": "#00174b",
+                        "secondary-fixed-dim": "#80d5cb",
+                        "on-tertiary-container": "#5885ff",
+                        "on-error": "#ffffff",
+                        "primary": "#001026",
+                        "on-primary-fixed-variant": "#314769",
+                        "tertiary-container": "#001f5e",
+                        "on-background": "#121b2e",
+                        "surface-variant": "#d9e2fc",
+                        "background": "#f9f9ff",
+                        "primary-container": "#0b2545",
+                        "error-container": "#ffdad6",
+                        "inverse-primary": "#b1c7f0",
+                        "primary-fixed": "#d5e3ff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed-variant": "#00504a",
+                        "on-surface": "#121b2e",
+                        "secondary-container": "#99efe5",
+                        "tertiary": "#000c31",
+                        "on-secondary": "#ffffff",
+                        "on-surface-variant": "#44474e",
+                        "surface-bright": "#f9f9ff",
+                        "tertiary-fixed-dim": "#b4c5ff",
+                        "on-error-container": "#93000a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xl": "48px",
+                        "xs": "4px",
+                        "sm": "8px",
+                        "lg": "24px",
+                        "md": "16px",
+                        "gutter": "20px",
+                        "base": "4px",
+                        "container-max": "1280px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Hanken Grotesk"],
+                        "display-lg": ["Hanken Grotesk"],
+                        "body-md": ["Hanken Grotesk"],
+                        "data-mono": ["JetBrains Mono"],
+                        "label-caps": ["Hanken Grotesk"],
+                        "body-sm": ["Hanken Grotesk"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "headline-lg": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "data-mono": ["13px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "700" }]
+                    }
+                },
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Hanken Grotesk', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex items-center justify-center p-md">
+<!-- Ambient background patterns for depth without clutter -->
+<div class="fixed inset-0 pointer-events-none overflow-hidden z-0 flex items-center justify-center">
+<div class="w-[800px] h-[800px] bg-primary/5 rounded-full blur-3xl opacity-50 translate-x-1/4 translate-y-1/4"></div>
+<div class="w-[600px] h-[600px] bg-error/5 rounded-full blur-3xl opacity-50 -translate-x-1/4 -translate-y-1/4"></div>
+</div>
+<!-- Main Content Container -->
+<main class="relative z-10 w-full max-w-[600px] bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col items-center text-center p-xl">
+<!-- Icon/Illustration -->
+<div class="w-24 h-24 bg-error-container text-on-error-container rounded-full flex items-center justify-center mb-lg shadow-[0_4px_20px_rgba(186,26,26,0.15)] relative">
+<span class="material-symbols-outlined text-[48px]" style="font-variation-settings: 'FILL' 1;">
+                lock
+            </span>
+<!-- Decorative badge -->
+<div class="absolute -bottom-2 -right-2 bg-error text-on-error w-8 h-8 rounded-full flex items-center justify-center border-2 border-surface-container-lowest">
+<span class="material-symbols-outlined text-[16px] font-bold">
+                    warning
+                </span>
+</div>
+</div>
+<!-- Typography -->
+<h1 class="font-headline-lg text-headline-lg text-primary mb-sm">
+            403 - Acceso Restringido
+        </h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-md mb-xl">
+            Su rol de <span class="font-bold text-on-surface">Operador</span> no tiene permisos para acceder a Finanzas, Usuarios o Configuración Sensible.
+        </p>
+<!-- Divider -->
+<div class="w-16 h-px bg-outline-variant mb-xl"></div>
+<!-- Action Area -->
+<div class="w-full flex flex-col sm:flex-row items-center justify-center gap-md">
+<!-- Primary Action -->
+<button class="w-full sm:w-auto bg-primary-container text-on-primary h-11 px-lg rounded-lg font-label-caps text-label-caps flex items-center justify-center gap-sm hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary-container focus:ring-offset-2 focus:ring-offset-background">
+<span class="material-symbols-outlined text-[18px]">
+                    arrow_back
+                </span>
+                Volver al Dashboard Operativo
+            </button>
+<!-- Secondary Action (Help/Support context) -->
+<button class="w-full sm:w-auto bg-transparent border border-outline-variant text-on-surface h-11 px-lg rounded-lg font-label-caps text-label-caps flex items-center justify-center gap-sm hover:bg-surface-container-low transition-colors focus:outline-none focus:ring-2 focus:ring-outline focus:ring-offset-2 focus:ring-offset-background">
+<span class="material-symbols-outlined text-[18px]">
+                    help_outline
+                </span>
+                Solicitar Acceso
+            </button>
+</div>
+<!-- Audit Context (Corporate standard) -->
+<div class="mt-xl pt-lg border-t border-outline-variant w-full text-left bg-surface-container-low p-md rounded-lg flex items-start gap-sm">
+<span class="material-symbols-outlined text-outline text-[20px] mt-0.5">
+                info
+            </span>
+<div class="font-data-mono text-data-mono text-on-surface-variant">
+<div class="text-on-surface mb-xs">Evento de Sistema: <span class="text-error font-bold">ERR-403</span></div>
+<div>ID Sesión: <span class="text-primary">OP-7742-99B</span></div>
+<div>Timestamp: <span class="text-primary">15/11/2023 14:32:01</span></div>
+<div class="text-[11px] mt-sm text-outline">Intento de acceso registrado en log de auditoría.</div>
+</div>
+</div>
+</main>
+</body></html>

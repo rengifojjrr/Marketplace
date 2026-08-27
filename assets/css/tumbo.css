@@ -1,0 +1,424 @@
+/* =========================================================================
+   Tumbo Market — Capa de la beta navegable
+   -------------------------------------------------------------------------
+   Estilos del andamiaje de demostración (dock de rol, avisos, toasts) y unos
+   pocos arreglos transversales sobre la exportación de Stitch. El sistema
+   visual del producto vive en assets/js/tumbo-tokens.js.
+   ========================================================================= */
+
+:root {
+  --tumbo-marca:    #0b2545;
+  --tumbo-accion:   #2563eb;
+  --tumbo-apoyo:    #0f766e;
+  --tumbo-atencion: #f59e0b;
+  --tumbo-peligro:  #dc2626;
+  --tumbo-borde:    #dce3ec;
+  --tumbo-texto:    #172033;
+  --tumbo-dock-alto: 52px;
+}
+
+/* Deja aire bajo el contenido para que el dock no tape la última fila. */
+.tumbo-beta body { padding-bottom: calc(var(--tumbo-dock-alto) + 16px) !important; }
+
+/* Foco visible en toda la beta: requisito de accesibilidad AA. */
+.tumbo-beta :focus-visible {
+  outline: 2px solid var(--tumbo-accion);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Objetivo táctil mínimo de 44 px en la navegación inferior móvil. */
+.tumbo-beta nav a, .tumbo-beta nav button { min-height: 44px; }
+
+/* Controles sin permiso para el rol activo. */
+.tumbo-bloqueado { position: relative; opacity: .55; }
+.tumbo-candado {
+  font-size: 14px !important;
+  margin-left: 4px;
+  vertical-align: -2px;
+  color: var(--tumbo-peligro);
+}
+
+/* =========================================================================
+   Dock de demostración
+   ========================================================================= */
+.tumbo-dock {
+  position: fixed; inset: auto 0 0 0; z-index: 9000;
+  font-family: Inter, system-ui, sans-serif;
+  color: #e8eefb;
+  background: linear-gradient(180deg, #0b2545 0%, #071a33 100%);
+  border-top: 1px solid rgba(255, 255, 255, .12);
+  box-shadow: 0 -6px 24px rgba(11, 37, 69, .28);
+}
+
+.tumbo-dock__tirador {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; min-height: var(--tumbo-dock-alto);
+  padding: 8px 16px; border: 0; cursor: pointer;
+  background: transparent; color: inherit; text-align: left;
+}
+.tumbo-dock__tirador:hover { background: rgba(255, 255, 255, .05); }
+
+.tumbo-dock__chip {
+  flex: none;
+  padding: 4px 10px; border-radius: 9999px;
+  background: var(--tumbo-atencion); color: #172033;
+  font-size: 11px; font-weight: 700; letter-spacing: .06em;
+}
+
+.tumbo-dock__rol {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 600;
+}
+.tumbo-dock__rol::before {
+  content: ''; width: 8px; height: 8px; border-radius: 9999px;
+  background: var(--rol-color, #94a3b8);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, .12);
+}
+
+.tumbo-dock__pedido {
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px; color: #a9bfe0;
+}
+
+.tumbo-dock__flecha { flex: none; font-size: 20px !important; color: #a9bfe0; }
+
+.tumbo-dock__panel {
+  max-height: min(62vh, 520px); overflow-y: auto;
+  border-top: 1px solid rgba(255, 255, 255, .1);
+}
+
+.tumbo-dock__cols {
+  display: grid; gap: 20px; padding: 20px 16px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  max-width: 1400px; margin: 0 auto;
+}
+
+.tumbo-dock__col h3 {
+  margin: 0 0 6px; font-size: 12px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: #8fb0da;
+}
+
+.tumbo-dock__ayuda { margin: 0 0 10px; font-size: 12px; line-height: 1.5; color: #a9bfe0; }
+
+/* --- Selector de rol --- */
+.tumbo-dock__roles { display: flex; flex-direction: column; gap: 4px; }
+
+.tumbo-rol {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border: 1px solid transparent; border-radius: 8px;
+  background: rgba(255, 255, 255, .05); color: #dce7f8;
+  font-size: 13px; text-align: left; cursor: pointer;
+  transition: background .2s ease, border-color .2s ease;
+}
+.tumbo-rol:hover { background: rgba(255, 255, 255, .1); }
+.tumbo-rol.is-activo {
+  background: rgba(37, 99, 235, .22);
+  border-color: var(--rol-color, #2563eb);
+  font-weight: 600; color: #fff;
+}
+.tumbo-rol__punto {
+  flex: none; width: 8px; height: 8px; border-radius: 9999px;
+  background: var(--rol-color, #94a3b8);
+}
+
+/* --- Estados del pedido --- */
+.tumbo-dock__estados { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+
+.tumbo-estado {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 5px 9px; border-radius: 7px; background: rgba(255, 255, 255, .05);
+}
+.tumbo-estado__k { font-size: 12px; color: #a9bfe0; }
+.tumbo-estado__v {
+  padding: 2px 8px; border-radius: 9999px;
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+}
+
+.tumbo-tono--neutro  { background: rgba(148, 163, 184, .22); color: #cbd5e1; }
+.tumbo-tono--info    { background: rgba(37, 99, 235, .26);  color: #bfd4ff; }
+.tumbo-tono--ok      { background: rgba(15, 118, 110, .3);  color: #99efe5; }
+.tumbo-tono--alerta  { background: rgba(245, 158, 11, .26); color: #fde3ab; }
+.tumbo-tono--peligro { background: rgba(220, 38, 38, .26);  color: #ffc7c4; }
+
+/* --- Recorrido --- */
+.tumbo-dock__tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+.tumbo-dock__tab {
+  flex: 1; padding: 6px 8px; border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 7px; background: transparent; color: #a9bfe0;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.tumbo-dock__tab.is-activa { background: rgba(255, 255, 255, .14); color: #fff; }
+
+.tumbo-dock__paso { min-height: 76px; margin-bottom: 10px; }
+.tumbo-dock__contador { margin: 0 0 4px; font-size: 11px; color: #8fb0da; }
+.tumbo-dock__titulo { margin: 0 0 4px; font-size: 13px; font-weight: 600; line-height: 1.4; color: #fff; }
+.tumbo-dock__texto { margin: 0; font-size: 12px; line-height: 1.5; color: #a9bfe0; }
+.tumbo-dock__fin { display: flex; gap: 6px; align-items: center; font-size: 13px; color: #99efe5; }
+
+.tumbo-dock__nav { display: flex; gap: 6px; }
+
+.tumbo-dock__btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  flex: 1; padding: 8px 10px; border: 0; border-radius: 8px;
+  background: var(--tumbo-accion); color: #fff;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: filter .2s ease;
+}
+.tumbo-dock__btn:hover { filter: brightness(1.12); }
+.tumbo-dock__btn--sutil {
+  background: rgba(255, 255, 255, .1); color: #dce7f8;
+}
+.tumbo-dock__btn .material-symbols-outlined { font-size: 16px !important; }
+
+/* --- Auditoría --- */
+.tumbo-dock__col--log { min-width: 0; }
+.tumbo-dock__eventos {
+  margin: 0; padding: 0; list-style: none;
+  max-height: 190px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.tumbo-dock__eventos li {
+  display: grid; gap: 1px;
+  padding: 6px 9px; border-left: 2px solid rgba(37, 99, 235, .6);
+  border-radius: 0 7px 7px 0; background: rgba(255, 255, 255, .05);
+}
+.tumbo-ev__hora {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px; color: #7f9dc6;
+}
+.tumbo-ev__actor { font-size: 11px; font-weight: 700; color: #99efe5; }
+.tumbo-ev__acc   { font-size: 12px; color: #e8eefb; }
+.tumbo-ev__det   { font-size: 11px; color: #a9bfe0; }
+.tumbo-dock__vacio { padding: 8px; font-size: 12px; color: #7f9dc6; }
+
+/* --- Pie del dock --- */
+.tumbo-dock__pie {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+  padding: 10px 16px; border-top: 1px solid rgba(255, 255, 255, .1);
+  background: rgba(0, 0, 0, .18);
+}
+.tumbo-dock__enlace {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: #bfd4ff; font-size: 12px; font-weight: 600; text-decoration: none;
+}
+.tumbo-dock__enlace:hover { text-decoration: underline; }
+.tumbo-dock__enlace .material-symbols-outlined { font-size: 16px !important; }
+.tumbo-dock__nota { margin-left: auto; font-size: 11px; color: #7f9dc6; }
+
+/* =========================================================================
+   Aviso de superficie fuera de rol
+   ========================================================================= */
+.tumbo-aviso {
+  position: fixed; left: 50%; bottom: calc(var(--tumbo-dock-alto) + 12px);
+  transform: translateX(-50%); z-index: 8500;
+  display: flex; align-items: center; gap: 8px;
+  max-width: min(92vw, 640px); padding: 9px 12px;
+  border: 1px solid #fcd34d; border-radius: 10px;
+  background: #fef3c7; color: #78350f;
+  font: 500 12px/1.5 Inter, system-ui, sans-serif;
+  box-shadow: 0 4px 20px rgba(11, 37, 69, .18);
+}
+.tumbo-aviso .material-symbols-outlined { font-size: 18px !important; flex: none; }
+.tumbo-aviso__x {
+  flex: none; margin-left: auto; padding: 2px;
+  border: 0; background: transparent; color: inherit; cursor: pointer;
+}
+
+/* =========================================================================
+   Avisos emergentes (toasts)
+   ========================================================================= */
+.tumbo-toasts {
+  position: fixed; right: 16px; bottom: calc(var(--tumbo-dock-alto) + 16px);
+  z-index: 9500; display: flex; flex-direction: column; gap: 8px;
+  max-width: min(92vw, 380px); pointer-events: none;
+}
+
+.tumbo-toast {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 11px 12px; border: 1px solid var(--tumbo-borde); border-radius: 12px;
+  background: #fff; color: var(--tumbo-texto);
+  box-shadow: 0 4px 20px rgba(11, 37, 69, .14);
+  pointer-events: auto;
+  animation: tumbo-entra .22s ease-out;
+}
+.tumbo-toast.is-saliendo { animation: tumbo-sale .5s ease-in forwards; }
+
+.tumbo-toast__ico { flex: none; font-size: 20px !important; color: var(--tumbo-accion); }
+.tumbo-toast__cuerpo { display: grid; gap: 2px; font-size: 12px; line-height: 1.5; }
+.tumbo-toast__cuerpo strong { font-size: 13px; font-weight: 600; }
+.tumbo-toast__cuerpo span { color: #44506a; }
+.tumbo-toast__x {
+  flex: none; margin-left: auto; padding: 0;
+  border: 0; background: transparent; color: #74829f; cursor: pointer;
+}
+.tumbo-toast__x .material-symbols-outlined { font-size: 18px !important; }
+
+@keyframes tumbo-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes tumbo-sale  { to { opacity: 0; transform: translateY(-6px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tumbo-toast, .tumbo-toast.is-saliendo { animation: none; }
+  .tumbo-dock__btn, .tumbo-rol { transition: none; }
+}
+
+/* Móvil: el dock se vuelve compacto para no comerse la pantalla. */
+@media (max-width: 640px) {
+  .tumbo-dock__pedido { display: none; }
+  .tumbo-dock__cols { padding: 16px 12px; }
+  .tumbo-dock__nota { display: none; }
+  .tumbo-toasts { left: 12px; right: 12px; max-width: none; }
+}
+
+/* =========================================================================
+   Variantes móviles de 390 px
+   -------------------------------------------------------------------------
+   Estas pantallas se diseñaron para el ancho de un teléfono. Abiertas en un
+   escritorio se encuadran en una columna del ancho real del dispositivo, en
+   vez de estirarse (o desaparecer, como ocurría con `md:hidden` en el body).
+   ========================================================================= */
+@media (min-width: 640px) {
+  html[data-tumbo-movil] {
+    background:
+      radial-gradient(1200px 500px at 50% -10%, rgba(37, 99, 235, .07), transparent 70%),
+      #eef2f7;
+  }
+  html[data-tumbo-movil] body {
+    max-width: 390px;
+    margin: 0 auto;
+    min-height: 100vh;
+    border-inline: 1px solid var(--tumbo-borde);
+    box-shadow: 0 0 40px rgba(11, 37, 69, .1);
+  }
+  /* La navegación inferior de estas pantallas es `fixed`: se recentra. */
+  html[data-tumbo-movil] body > nav[class*="fixed"],
+  html[data-tumbo-movil] body > footer[class*="fixed"] {
+    left: 50%;
+    right: auto;
+    width: 390px;
+    transform: translateX(-50%);
+  }
+}
+
+/* =========================================================================
+   Red de seguridad responsive
+   -------------------------------------------------------------------------
+   Algunas cabeceras exportadas mantienen el padding y los espaciados de
+   escritorio a 390 px y desbordan la pantalla horizontalmente, algo que las
+   reglas de revisión de la beta rechazan. Aquí se compactan y se permite que
+   el título ceda espacio en vez de empujar el contenido fuera del viewport.
+   ========================================================================= */
+@media (max-width: 430px) {
+  .tumbo-beta header { padding-left: 12px; padding-right: 12px; }
+
+  /* Un elemento flex no encoge hasta que se le permite explícitamente. */
+  .tumbo-beta header > div { min-width: 0; }
+
+  .tumbo-beta header > div:first-child {
+    overflow: hidden;
+    flex: 1 1 auto;
+  }
+  .tumbo-beta header > div:first-child > span,
+  .tumbo-beta header > div:first-child > p,
+  .tumbo-beta header > div:first-child > h1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* El grupo de acciones nunca cede: solo se aprieta. */
+  .tumbo-beta header > div:last-child { flex: 0 0 auto; gap: 8px; }
+}
+
+/* =========================================================================
+   Pantallas de escritorio en un teléfono
+   -------------------------------------------------------------------------
+   Seller Center y Backoffice se diseñaron a 1440 px con sidebar fija y tablas
+   densas. Forzarlas a 390 px las rompe (columnas superpuestas, cabeceras
+   cortadas). La especificación admite "desplazamiento controlado" para vistas
+   de alta densidad, así que se conserva el lienzo de escritorio y se desplaza
+   en horizontal, con un aviso que ofrece la variante móvil cuando existe.
+   ========================================================================= */
+@media (max-width: 767px) {
+  html[data-tumbo-escritorio] body {
+    min-width: 1024px;
+    overflow-x: visible;
+  }
+}
+
+.tumbo-variante {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--tumbo-dock-alto) + 12px);
+  transform: translateX(-50%);
+  z-index: 8600;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  max-width: 92vw;
+  padding: 9px 12px;
+  border: 1px solid var(--tumbo-borde);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--tumbo-texto);
+  font: 500 12px/1.4 Inter, system-ui, sans-serif;
+  box-shadow: 0 4px 20px rgba(11, 37, 69, .16);
+}
+.tumbo-variante .material-symbols-outlined { font-size: 18px !important; flex: none; color: var(--tumbo-accion); }
+.tumbo-variante a { color: var(--tumbo-accion); font-weight: 600; text-decoration: underline; }
+.tumbo-variante__x { flex: none; padding: 2px; border: 0; background: transparent; color: #74829f; cursor: pointer; }
+
+@media (max-width: 767px) {
+  html[data-tumbo-escritorio] .tumbo-variante { display: flex; }
+}
+
+/* Cabeceras de sección "título + pasos/acciones": en un teléfono se apilan en
+   lugar de empujar el contenido fuera del viewport. */
+@media (max-width: 640px) {
+  .tumbo-beta main div.flex.items-center.justify-between {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .tumbo-beta main div.flex.items-center.justify-between > * { min-width: 0; }
+}
+
+/* =========================================================================
+   Banner "Modo demo"
+   -------------------------------------------------------------------------
+   Obligatorio en pantallas financieras y logísticas. Va fijo sobre el dock:
+   varias pantallas usan el <body> como contenedor flex, así que un aviso en
+   el flujo normal se convertía en una columna y deformaba la página.
+   ========================================================================= */
+.tumbo-banner-demo {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--tumbo-dock-alto);
+  z-index: 8800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 16px;
+  background: var(--tumbo-atencion);
+  color: var(--tumbo-texto);
+  font: 700 13px/1.4 Inter, system-ui, sans-serif;
+  text-align: center;
+  border-top: 1px solid rgba(23, 32, 51, .16);
+}
+.tumbo-banner-demo .material-symbols-outlined { font-size: 20px !important; flex: none; }
+
+/* Con banner, todo lo que se ancla abajo sube 44 px. */
+.tumbo-beta[data-tumbo-banner] body { padding-bottom: calc(var(--tumbo-dock-alto) + 60px) !important; }
+.tumbo-beta[data-tumbo-banner] .tumbo-toasts,
+.tumbo-beta[data-tumbo-banner] .tumbo-aviso,
+.tumbo-beta[data-tumbo-banner] .tumbo-variante {
+  bottom: calc(var(--tumbo-dock-alto) + 56px);
+}
+
+@media (max-width: 640px) {
+  .tumbo-banner-demo { font-size: 11px; padding: 6px 12px; }
+}

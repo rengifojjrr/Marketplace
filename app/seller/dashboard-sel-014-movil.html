@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+
+<html data-tumbo-movil="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Panel SEL-014 (móvil) · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .fill-icon {
+            font-variation-settings: 'FILL' 1;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  <link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Panel SEL-014 (móvil) — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-surface text-on-surface font-body-sm min-h-screen flex flex-col">
+<!-- Top Navigation for Mobile -->
+<header class="bg-surface sticky top-0 w-full border-b border-outline-variant z-40 px-margin-mobile h-[64px] flex items-center justify-between">
+<div class="flex items-center gap-sm">
+<button class="p-xs text-on-surface-variant">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="font-headline-sm text-headline-sm font-bold text-primary">Tumbo Market</h1>
+</div>
+<div class="flex items-center gap-sm">
+<span class="bg-primary-container text-on-primary-container font-label-sm text-label-sm px-sm py-xs rounded-full">Modo demo</span>
+<button class="p-xs text-on-surface-variant relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1 right-1 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-high overflow-hidden border border-outline-variant">
+<img loading="lazy" alt="Foto de perfil — imagen de demostración" class="w-full h-full object-cover" data-alt="A small, professional headshot of a business seller on a white background, wearing a clean collared shirt. The lighting is soft and flattering, suitable for a corporate or marketplace profile avatar in a modern tech interface." src="../../assets/img/avatar-04.svg"/>
+</div>
+</div>
+</header>
+<main class="flex-1 pb-xxl flex flex-col gap-lg px-margin-mobile pt-md">
+<!-- Welcome & Date -->
+<section>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-primary">Hola, SEL-014</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Jueves, 24 de Octubre</p>
+</section>
+<!-- KPI Horizontal Scroll -->
+<section class="-mx-margin-mobile px-margin-mobile">
+<div class="flex gap-md overflow-x-auto hide-scrollbar snap-x pb-sm">
+<!-- Ventas KPI -->
+<div class="snap-center shrink-0 w-64 bg-surface-container-lowest border border-outline-variant rounded-[14px] p-lg flex flex-col gap-sm shadow-[0px_4px_12px_rgba(11,37,69,0.05)]">
+<div class="flex items-center gap-sm text-on-surface-variant">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-label-md text-label-md">Ventas Hoy</span>
+</div>
+<div>
+<p class="font-headline-md text-headline-md text-primary">$1,240.50</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">~ Bs. 43,417.50</p>
+</div>
+<div class="flex items-center gap-xs mt-auto">
+<span class="bg-tertiary-container/10 text-tertiary-container font-label-sm text-label-sm px-xs py-[2px] rounded flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span> 12%
+                        </span>
+<span class="font-body-sm text-body-sm text-on-surface-variant text-[12px]">vs ayer</span>
+</div>
+</div>
+<!-- Pedidos KPI -->
+<div class="snap-center shrink-0 w-64 bg-surface-container-lowest border border-outline-variant rounded-[14px] p-lg flex flex-col gap-sm shadow-[0px_4px_12px_rgba(11,37,69,0.05)]">
+<div class="flex items-center gap-sm text-on-surface-variant">
+<span class="material-symbols-outlined">shopping_bag</span>
+<span class="font-label-md text-label-md">Pedidos Activos</span>
+</div>
+<div>
+<p class="font-headline-md text-headline-md text-primary">18</p>
+</div>
+<div class="mt-auto flex flex-col gap-xs">
+<div class="w-full bg-surface-container h-1 rounded-full overflow-hidden">
+<div class="bg-secondary h-full rounded-full" style="width: 70%"></div>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant text-[12px]">12 por entregar hoy</span>
+</div>
+</div>
+<!-- Alertas KPI -->
+<div class="snap-center shrink-0 w-64 bg-error-container/20 border border-error-container rounded-[14px] p-lg flex flex-col gap-sm shadow-[0px_4px_12px_rgba(11,37,69,0.05)]">
+<div class="flex items-center gap-sm text-error">
+<span class="material-symbols-outlined fill-icon">warning</span>
+<span class="font-label-md text-label-md">Atención</span>
+</div>
+<div>
+<p class="font-headline-md text-headline-md text-error">5</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Acciones requeridas</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Urgent Actions List -->
+<section class="flex flex-col gap-md">
+<div class="flex justify-between items-center">
+<h3 class="font-label-md text-label-md text-primary uppercase">Acciones Urgentes</h3>
+<button class="font-label-sm text-label-sm text-secondary">Ver todas</button>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-[14px] overflow-hidden">
+<div class="p-md border-b border-surface-variant flex items-center justify-between hover:bg-surface-container-low transition-colors duration-200">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded bg-error-container/20 flex items-center justify-center text-error">
+<span class="material-symbols-outlined">local_shipping</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-primary">3 pedidos por despachar</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-[12px]">Retraso inminente en 2 hrs</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</div>
+<div class="p-md flex items-center justify-between hover:bg-surface-container-low transition-colors duration-200">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded bg-tertiary-container/10 flex items-center justify-center text-tertiary-container">
+<span class="material-symbols-outlined">inventory_2</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-primary">2 productos sin stock</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-[12px]">Alta demanda detectada</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</div>
+</div>
+</section>
+<!-- Quick Access Grids -->
+<section class="grid grid-cols-2 gap-sm">
+<button class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-md flex flex-col items-center justify-center gap-sm hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-shadow">
+<span class="material-symbols-outlined text-secondary text-[32px]">add_circle</span>
+<span class="font-label-sm text-label-sm text-primary">Nuevo Producto</span>
+</button>
+<button class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-md flex flex-col items-center justify-center gap-sm hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-shadow">
+<span class="material-symbols-outlined text-secondary text-[32px]">receipt_long</span>
+<span class="font-label-sm text-label-sm text-primary">Facturación</span>
+</button>
+</section>
+</main>
+<!-- Bottom Navigation Bar for Mobile -->
+<nav class="fixed bottom-0 left-0 w-full bg-surface border-t border-outline-variant z-50 px-sm pb-sm pt-xs flex justify-around items-center h-[72px]">
+<button class="flex flex-col items-center justify-center gap-[4px] min-w-[64px]">
+<div class="w-16 h-8 flex items-center justify-center rounded-full bg-secondary-container text-on-secondary-container">
+<span class="material-symbols-outlined fill-icon">dashboard</span>
+</div>
+<span class="font-label-sm text-[12px] font-bold text-on-surface">Panel</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-[4px] min-w-[64px] text-on-surface-variant hover:text-on-surface transition-colors">
+<div class="w-16 h-8 flex items-center justify-center rounded-full">
+<span class="material-symbols-outlined">shopping_cart</span>
+</div>
+<span class="font-label-sm text-[12px]">Pedidos</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-[4px] min-w-[64px] text-on-surface-variant hover:text-on-surface transition-colors">
+<div class="w-16 h-8 flex items-center justify-center rounded-full">
+<span class="material-symbols-outlined">inventory_2</span>
+</div>
+<span class="font-label-sm text-[12px]">Catálogo</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-[4px] min-w-[64px] text-on-surface-variant hover:text-on-surface transition-colors">
+<div class="w-16 h-8 flex items-center justify-center rounded-full">
+<span class="material-symbols-outlined">settings</span>
+</div>
+<span class="font-label-sm text-[12px]">Config</span>
+</button>
+</nav>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_PAGINA={"ruta": "seller/dashboard-sel-014-movil.html", "superficie": "seller", "rol": "seller", "titulo": "Panel SEL-014 (móvil)"};</script>
+</body></html>

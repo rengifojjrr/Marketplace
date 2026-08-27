@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Seller Center Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                            "surface-container-high": "#e9e7eb",
+                            "secondary-container": "#316bf3",
+                            "on-surface-variant": "#44474e",
+                            "on-tertiary-fixed": "#00201d",
+                            "on-secondary-fixed-variant": "#003ea8",
+                            "inverse-primary": "#b1c7f0",
+                            "primary-fixed": "#d5e3ff",
+                            "surface-dim": "#dbd9dd",
+                            "on-surface": "#1b1b1e",
+                            "tertiary-container": "#002a27",
+                            "surface-container-lowest": "#ffffff",
+                            "secondary": "#0051d5",
+                            "on-primary": "#ffffff",
+                            "surface-variant": "#e3e2e5",
+                            "on-background": "#1b1b1e",
+                            "surface-container-highest": "#e3e2e5",
+                            "on-primary-fixed-variant": "#314769",
+                            "on-secondary-container": "#fefcff",
+                            "on-tertiary": "#ffffff",
+                            "on-error": "#ffffff",
+                            "surface-container": "#efedf0",
+                            "outline-variant": "#c4c6cf",
+                            "primary-fixed-dim": "#b1c7f0",
+                            "primary": "#001026",
+                            "on-secondary": "#ffffff",
+                            "tertiary": "#001311",
+                            "on-error-container": "#93000a",
+                            "background": "#faf9fc",
+                            "tertiary-fixed": "#9cf2e8",
+                            "tertiary-fixed-dim": "#80d5cb",
+                            "surface": "#faf9fc",
+                            "primary-container": "#0b2545",
+                            "secondary-fixed": "#dbe1ff",
+                            "on-primary-container": "#778db2",
+                            "inverse-surface": "#303033",
+                            "secondary-fixed-dim": "#b4c5ff",
+                            "inverse-on-surface": "#f2f0f3",
+                            "error-container": "#ffdad6",
+                            "on-tertiary-fixed-variant": "#00504a",
+                            "outline": "#74777f",
+                            "on-primary-fixed": "#001c3b",
+                            "error": "#ba1a1a",
+                            "on-tertiary-container": "#419990",
+                            "surface-bright": "#faf9fc",
+                            "surface-tint": "#495f82",
+                            "on-secondary-fixed": "#00174b",
+                            "surface-container-low": "#f5f3f6"
+                    },
+                    "borderRadius": {
+                            "DEFAULT": "0.25rem",
+                            "lg": "0.5rem",
+                            "xl": "0.75rem",
+                            "full": "9999px"
+                    },
+                    "spacing": {
+                            "container-max": "1280px",
+                            "gutter": "24px",
+                            "sm": "8px",
+                            "lg": "24px",
+                            "unit": "4px",
+                            "xl": "32px",
+                            "xs": "4px",
+                            "md": "16px",
+                            "margin-mobile": "16px",
+                            "xxl": "48px"
+                    },
+                    "fontFamily": {
+                            "headline-sm": ["Inter"],
+                            "headline-lg": ["Inter"],
+                            "body-sm": ["Inter"],
+                            "body-lg": ["Inter"],
+                            "headline-lg-mobile": ["Inter"],
+                            "body-md": ["Inter"],
+                            "headline-md": ["Inter"],
+                            "display-lg": ["Inter"],
+                            "label-sm": ["Inter"],
+                            "label-md": ["Inter"]
+                    },
+                    "fontSize": {
+                            "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                            "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                            "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                            "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                            "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                            "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                            "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                            "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                            "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                            "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .fill-icon {
+            font-variation-settings: 'FILL' 1;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body-sm min-h-screen flex flex-col md:hidden">
+<!-- Top Navigation for Mobile -->
+<header class="bg-surface sticky top-0 w-full border-b border-outline-variant z-40 px-margin-mobile h-[64px] flex items-center justify-between">
+<div class="flex items-center gap-sm">
+<button class="p-xs text-on-surface-variant">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="font-headline-sm text-headline-sm font-bold text-primary">Tumbo Market</h1>
+</div>
+<div class="flex items-center gap-sm">
+<span class="bg-primary-container text-on-primary-container font-label-sm text-label-sm px-sm py-xs rounded-full">Demo Mode</span>
+<button class="p-xs text-on-surface-variant relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1 right-1 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-high overflow-hidden border border-outline-variant">
+<img alt="Seller Profile Avatar" class="w-full h-full object-cover" data-alt="A small, professional headshot of a business seller on a white background, wearing a clean collared shirt. The lighting is soft and flattering, suitable for a corporate or marketplace profile avatar in a modern tech interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBsEserpErsl4YDP7syjcDrk8FjtKQk8i9dJNFmm55yXmZOBviuumiNlbkAXFPDykJ-hQY9j03JhmyYzUVsUJuynSOZQ06Ij8BhsqsvUL6ZGj3l2cRZcg2Pi97gxrEcLBXGjIZ64Ny3S-H31x1z0jEAGRqVRw1-ow5K8uKuiwgsT8_aBCJjuzCETPjH8CyRXzJ4kAWF5Wy_be4nIhxSqDWvtVl_jmBUiHnS3Cq1YDjPn4Ta1PVU2zRF"/>
+</div>
+</div>
+</header>
+<main class="flex-1 pb-xxl flex flex-col gap-lg px-margin-mobile pt-md">
+<!-- Welcome & Date -->
+<section>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-primary">Hola, SEL-014</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Jueves, 24 de Octubre</p>
+</section>
+<!-- KPI Horizontal Scroll -->
+<section class="-mx-margin-mobile px-margin-mobile">
+<div class="flex gap-md overflow-x-auto hide-scrollbar snap-x pb-sm">
+<!-- Ventas KPI -->
+<div class="snap-center shrink-0 w-64 bg-surface-container-lowest border border-outline-variant rounded-[14px] p-lg flex flex-col gap-sm shadow-[0px_4px_12px_rgba(11,37,69,0.05)]">
+<div class="flex items-center gap-sm text-on-surface-variant">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-label-md text-label-md">Ventas Hoy</span>
+</div>
+<div>
+<p class="font-headline-md text-headline-md text-primary">$1,240.50</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">~ Bs. 43,417.50</p>
+</div>
+<div class="flex items-center gap-xs mt-auto">
+<span class="bg-tertiary-container/10 text-tertiary-container font-label-sm text-label-sm px-xs py-[2px] rounded flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span> 12%
+                        </span>
+<span class="font-body-sm text-body-sm text-on-surface-variant text-[12px]">vs ayer</span>
+</div>
+</div>
+<!-- Pedidos KPI -->
+<div class="snap-center shrink-0 w-64 bg-surface-container-lowest border border-outline-variant rounded-[14px] p-lg flex flex-col gap-sm shadow-[0px_4px_12px_rgba(11,37,69,0.05)]">
+<div class="flex items-center gap-sm text-on-surface-variant">
+<span class="material-symbols-outlined">shopping_bag</span>
+<span class="font-label-md text-label-md">Pedidos Activos</span>
+</div>
+<div>
+<p class="font-headline-md text-headline-md text-primary">18</p>
+</div>
+<div class="mt-auto flex flex-col gap-xs">
+<div class="w-full bg-surface-container h-1 rounded-full overflow-hidden">
+<div class="bg-secondary h-full rounded-full" style="width: 70%"></div>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant text-[12px]">12 por entregar hoy</span>
+</div>
+</div>
+<!-- Alertas KPI -->
+<div class="snap-center shrink-0 w-64 bg-error-container/20 border border-error-container rounded-[14px] p-lg flex flex-col gap-sm shadow-[0px_4px_12px_rgba(11,37,69,0.05)]">
+<div class="flex items-center gap-sm text-error">
+<span class="material-symbols-outlined fill-icon">warning</span>
+<span class="font-label-md text-label-md">Atención</span>
+</div>
+<div>
+<p class="font-headline-md text-headline-md text-error">5</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Acciones requeridas</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Urgent Actions List -->
+<section class="flex flex-col gap-md">
+<div class="flex justify-between items-center">
+<h3 class="font-label-md text-label-md text-primary uppercase">Acciones Urgentes</h3>
+<button class="font-label-sm text-label-sm text-secondary">Ver todas</button>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-[14px] overflow-hidden">
+<div class="p-md border-b border-surface-variant flex items-center justify-between hover:bg-surface-container-low transition-colors duration-200">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded bg-error-container/20 flex items-center justify-center text-error">
+<span class="material-symbols-outlined">local_shipping</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-primary">3 pedidos por despachar</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-[12px]">Retraso inminente en 2 hrs</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</div>
+<div class="p-md flex items-center justify-between hover:bg-surface-container-low transition-colors duration-200">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded bg-tertiary-container/10 flex items-center justify-center text-tertiary-container">
+<span class="material-symbols-outlined">inventory_2</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-primary">2 productos sin stock</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-[12px]">Alta demanda detectada</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</div>
+</div>
+</section>
+<!-- Quick Access Grids -->
+<section class="grid grid-cols-2 gap-sm">
+<button class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-md flex flex-col items-center justify-center gap-sm hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-shadow">
+<span class="material-symbols-outlined text-secondary text-[32px]">add_circle</span>
+<span class="font-label-sm text-label-sm text-primary">Nuevo Producto</span>
+</button>
+<button class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-md flex flex-col items-center justify-center gap-sm hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-shadow">
+<span class="material-symbols-outlined text-secondary text-[32px]">receipt_long</span>
+<span class="font-label-sm text-label-sm text-primary">Facturación</span>
+</button>
+</section>
+</main>
+<!-- Bottom Navigation Bar for Mobile -->
+<nav class="fixed bottom-0 left-0 w-full bg-surface border-t border-outline-variant z-50 px-sm pb-sm pt-xs flex justify-around items-center h-[72px]">
+<button class="flex flex-col items-center justify-center gap-[4px] min-w-[64px]">
+<div class="w-16 h-8 flex items-center justify-center rounded-full bg-secondary-container text-on-secondary-container">
+<span class="material-symbols-outlined fill-icon">dashboard</span>
+</div>
+<span class="font-label-sm text-[12px] font-bold text-on-surface">Dashboard</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-[4px] min-w-[64px] text-on-surface-variant hover:text-on-surface transition-colors">
+<div class="w-16 h-8 flex items-center justify-center rounded-full">
+<span class="material-symbols-outlined">shopping_cart</span>
+</div>
+<span class="font-label-sm text-[12px]">Pedidos</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-[4px] min-w-[64px] text-on-surface-variant hover:text-on-surface transition-colors">
+<div class="w-16 h-8 flex items-center justify-center rounded-full">
+<span class="material-symbols-outlined">inventory_2</span>
+</div>
+<span class="font-label-sm text-[12px]">Catálogo</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-[4px] min-w-[64px] text-on-surface-variant hover:text-on-surface transition-colors">
+<div class="w-16 h-8 flex items-center justify-center rounded-full">
+<span class="material-symbols-outlined">settings</span>
+</div>
+<span class="font-label-sm text-[12px]">Config</span>
+</button>
+</nav>
+</body></html>
