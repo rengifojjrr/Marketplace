@@ -83,12 +83,20 @@ PANTALLAS = [
     ('demo_seller_dashboard_contexto_transversal',  'demo/seller.html',                         DM, 'demo',        'Recorrido',      'Recorrido transversal — vista seller',              True),
     ('demo_backoffice_kyc_contexto_transversal',    'demo/backoffice.html',                     DM, 'demo',        'Recorrido',      'Recorrido transversal — vista backoffice',          True),
 
+    # Pantalla escrita para la beta: la especificación la pide (Prompt 1,
+    # pantalla 7) pero Stitch nunca la generó. Vive en `paginas/`, no en
+    # `design-source/`, y el compilador la trata con una pasada más ligera.
+    ('paginas/acceso.html',                         'sistema/acceso.html',                      SY, 'todos',       'Sistema',        'Acceso, registro y verificación',                   True),
+
     ('mapa_de_interfaces_tumbo_market',             'sistema/mapa-interfaces.html',             SY, 'todos',       'Sistema',        'Mapa de interfaces',                                True),
     ('ndice_maestro_beta_tumbo_market',             'sistema/indice-maestro.html',              SY, 'todos',       'Sistema',        'Índice maestro (versión Stitch)',                   True),
     ('403_acceso_denied_desktop',                   'sistema/403.html',                         SY, 'todos',       'Sistema',        'Acceso denegado (403)',                             True),
 ]
 
 # Pantalla de aterrizaje por rol: a dónde va el selector de rol del dock.
+# Pantallas escritas para la beta, no exportadas por Stitch.
+PROPIAS = {'paginas/acceso.html'}
+
 INICIO_POR_ROL = {
     'visitante':  'marketplace/inicio.html',
     'comprador':  'marketplace/mi-cuenta.html',

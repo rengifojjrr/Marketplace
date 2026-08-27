@@ -142,6 +142,47 @@ El dock ejecuta los dos recorridos del Prompt 9 — nueve pasos del camino norma
 y seis del de disputa. Cada paso fija el rol, mueve el estado que le toca y
 navega a la pantalla donde ese cambio se ve.
 
+## Interacción real de las listas
+
+Medido en el navegador, **218 de los 1.152 controles** no hacían nada más que
+mostrar un aviso: pestañas de estado, chips de filtro, buscadores y cabeceras
+de tabla que Stitch dibujó como marcado sin comportamiento.
+
+En vez de mapear esos 218 uno a uno, `assets/js/tumbo-listas.js` reconoce los
+**patrones** y les da comportamiento sobre los datos que ya están en la página:
+
+- **Pestañas de estado.** Se detectan por estructura (varios hermanos que
+  comparten clase, más uno distinto que es el activo) o por vocabulario
+  («Todos», «Por preparar», «Sin leer», «7D»). Al pulsarlas filtran la tabla de
+  abajo de verdad y muestran el estado vacío cuando no hay coincidencias.
+- **Buscadores** que filtran la lista mientras se escribe, en lugar de navegar.
+- **Cabeceras de tabla** que ordenan, comparando como número los montos.
+- **Identificadores** (`TM-…`, `DSP-…`, `SKU-…`) que abren su expediente en la
+  superficie que corresponde al rol activo.
+- **Paginación honesta**: los datos de demostración caben en una página, así
+  que los controles se muestran deshabilitados y explican por qué, en vez de
+  fingir que paginan.
+
+Cada control queda marcado con `data-tumbo-tipo` (`ruta`, `accion`, `pestana`,
+`buscador`, `filtro`, `identificador`, `paginacion`, `interfaz` o `aviso`), lo
+que permite auditar la cobertura y depurar una pantalla de un vistazo. El
+resultado: los avisos genéricos bajaron de 218 a 77, y una prueba impide que
+ningún control quede sin clasificar.
+
+## Acceso a la plataforma
+
+La especificación pide una pantalla de «Registro/inicio» (Prompt 1, pantalla 7)
+que Stitch nunca generó, y exige 2FA en el Backoffice, en el gestor de precios y
+en el seller principal. `paginas/acceso.html` la cubre: credenciales con sus
+errores, verificación en dos pasos, registro con aceptación de términos y
+entrada como invitado.
+
+Es la primera pantalla escrita para la beta y no exportada por Stitch, así que
+el compilador la trata con una pasada más ligera (`transformar_propia`). Va
+marcada con `data-tumbo-propio`: el cableado genérico no la toca, porque
+interceptar sus botones con un `preventDefault` rompería el envío de sus
+formularios.
+
 ## Responsive
 
 | Tipo de pantalla | Cuántas | Comportamiento a 390 px |

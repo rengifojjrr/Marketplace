@@ -65,7 +65,7 @@
 </head>
 <body class="flex h-screen overflow-hidden text-on-surface">
 <!-- SideNavBar (Shared Component) -->
-<aside class="fixed left-0 top-0 h-full w-[sidebar-width] bg-surface border-r border-surface-border flex flex-col z-20">
+<aside class="fixed left-0 top-0 h-full w-sidebar-width bg-surface border-r border-surface-border flex flex-col z-20">
 <!-- Brand Header -->
 <div class="h-header-height flex items-center px-standard border-b border-surface-border">
 <div class="flex items-center gap-3">
@@ -124,7 +124,7 @@
 <!-- Main Content Area -->
 <div class="flex-1 ml-[sidebar-width] flex flex-col h-full bg-[#f1f5f9]">
 <!-- TopNavBar (Shared Component) -->
-<header class="flex justify-between items-center w-full px-gutter bg-surface-container-lowest h-[header-height] border-b border-surface-border z-10 sticky top-0 shadow-sm">
+<header class="flex justify-between items-center w-full px-gutter bg-surface-container-lowest h-header-height border-b border-surface-border z-10 sticky top-0 shadow-sm">
 <!-- Context Title -->
 <div class="flex items-center">
 <span class="font-headline-sm text-headline-sm font-bold text-primary">Panel ejecutivo</span>
@@ -393,6 +393,7 @@
 <script src="../../assets/js/tumbo-pantallas.js"></script>
 <script src="../../assets/js/tumbo-traducciones.js"></script>
 <script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
 <script src="../../assets/js/tumbo-app.js"></script>
 <script>window.TUMBO_PAGINA={"ruta": "backoffice/dashboard-ejecutivo.html", "superficie": "backoffice", "rol": "superadmin", "titulo": "Panel ejecutivo"};</script>
 </body></html>

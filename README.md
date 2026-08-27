@@ -27,8 +27,9 @@ que se abre en cualquier navegador y se puede enviar por correo. Se regenera con
 
 | Quiero… | Ir a |
 | --- | --- |
+| Iniciar sesión como un rol | `app/sistema/acceso.html` — contraseña `demo1234`, código MFA `123456` |
 | Ver todo el catálogo de pantallas | `index.html` |
-| Entrar como un rol concreto | Índice → **Entrar por rol** |
+| Saltar el formulario y entrar directo | Índice → **Entrar por rol** |
 | Seguir un pedido de punta a punta | Índice → **Iniciar recorrido guiado** (9 pasos) |
 | Ver cómo se resuelve una disputa | Índice → **Iniciar recorrido de disputa** (6 pasos) |
 | Entender la navegación general | `app/sistema/mapa-interfaces.html` |
@@ -49,6 +50,26 @@ Ocho roles no significan ocho aplicaciones: cada uno reutiliza las mismas
 superficies con permisos distintos. Abrir una ruta fuera de su alcance lleva a la
 pantalla 403, con el motivo del bloqueo y el intento registrado.
 
+## Cuentas de prueba
+
+Contraseña `demo1234` en todas. Los perfiles con verificación en dos pasos piden
+después el código `123456`.
+
+| Superficie | Rol | Correo | MFA |
+| --- | --- | --- | --- |
+| Marketplace | Comprador | `comprador@demo.ve` | — |
+| Seller Center | Seller principal | `propietario@sel-014.demo` | Sí |
+| Seller Center | Gestor de precios | `precios@sel-014.demo` | Sí |
+| Seller Center | Operador | `operador@sel-014.demo` | — |
+| Backoffice | Superadministrador | `superadmin@tumbomarket.demo` | Sí |
+| Backoffice | Operaciones | `operaciones@tumbomarket.demo` | Sí |
+| Backoffice | Finanzas | `finanzas@tumbomarket.demo` | Sí |
+
+La pantalla de acceso también permite entrar como visitante y registrarse como
+comprador, con sus estados de error. El segundo factor es obligatorio donde la
+especificación lo exige: todo el Backoffice, el gestor de precios y el seller
+principal.
+
 ## Datos demo
 
 Se mantienen constantes en todas las pantallas: pedido `TM-2026-00428`, seller
@@ -63,14 +84,16 @@ app/
   seller/               21 pantallas — Seller Center
   backoffice/           23 pantallas — Backoffice
   demo/                  4 pantallas — recorrido transversal
-  sistema/               3 pantallas — mapa, índice Stitch y 403
+  sistema/               4 pantallas — acceso, mapa, índice Stitch y 403
 assets/
   css/tumbo-tailwind.css  Sistema visual compilado
   css/tumbo.css           Andamiaje de la demo (dock, avisos, banner)
   js/tumbo-app.js         Runtime: estado, RBAC, recorrido, cableado
   js/tumbo-rutas.js       Roles, permisos, rutas y acciones
+  js/tumbo-listas.js      Pestañas, filtros, orden y paginación reales
   fuentes/                Inter, JetBrains Mono y Material Symbols locales
   img/                    Marcadores SVG del sistema de diseño
+paginas/                Pantallas escritas para la beta (acceso)
 tokens/                 Tema y traducciones — fuente de verdad
 tools/                  Compilador, verificación y utilidades
 dist/                   Archivo único, autocontenido, para enseñar la beta
@@ -97,9 +120,14 @@ falta si cambia el inventario de iconos, y requiere red.
 
 ## Estado de la verificación
 
-`npm test` recorre las 68 pantallas en Chromium — 15 pruebas de comportamiento:
+`npm test` recorre las 69 pantallas en Chromium — 20 pruebas de comportamiento:
 
-- **1.152 controles**, todos cableados; ningún enlace apunta a `#`.
+- **1.152 controles**, todos cableados y clasificados; ninguno queda sin
+  comportamiento. El 93 % navega, ejecuta una acción, filtra, ordena o abre un
+  expediente; el 7 % restante avisa de que su lógica llega con el backend.
+- El acceso valida credenciales, exige MFA donde toca y muestra sus errores.
+- Las pestañas de estado filtran la tabla, los buscadores filtran mientras se
+  escribe y las cabeceras ordenan.
 - Sin errores de consola y sin `lorem ipsum`.
 - Interfaz íntegramente en español, incluidos placeholders y etiquetas de
   accesibilidad; fechas en `dd/mm/aaaa` y horas de 12 h.

@@ -8,6 +8,7 @@ module.exports = {
   content: [
     './index.html',
     './app/**/*.html',
+    './paginas/**/*.html',
     './assets/js/**/*.js'
   ],
   theme: { extend: theme },

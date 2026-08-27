@@ -56,8 +56,13 @@
       </p>
 
       <div class="flex flex-wrap gap-3 mb-8">
-        <button data-entrar="visitante"
+        <a data-ruta="sistema/acceso.html" href="app/sistema/acceso.html"
           class="inline-flex items-center gap-2 h-11 px-5 rounded-btn bg-secondary text-on-secondary font-semibold text-body-sm hover:brightness-110 transition">
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">login</span>
+          Iniciar sesión
+        </a>
+        <button data-entrar="visitante"
+          class="inline-flex items-center gap-2 h-11 px-5 rounded-btn border border-primary-container text-primary-container font-semibold text-body-sm hover:bg-surface-container transition">
           <span class="material-symbols-outlined text-[18px]" aria-hidden="true">play_arrow</span>
           Entrar al Marketplace
         </button>
@@ -240,6 +245,7 @@
 <script src="assets/js/tumbo-pantallas.js"></script>
 <script src="assets/js/tumbo-traducciones.js"></script>
 <script src="assets/js/tumbo-rutas.js"></script>
+<script src="assets/js/tumbo-listas.js"></script>
 <script src="assets/js/tumbo-app.js"></script>
 <script>
 /* --- Lógica propia del índice ---------------------------------------- */
@@ -299,13 +305,26 @@
     gridRoles.appendChild(b);
   });
 
-  document.addEventListener('click', function (ev) {
-    var btn = ev.target.closest('[data-entrar]');
-    if (btn) { ev.preventDefault(); window.tumboEntrarComo(btn.getAttribute('data-entrar')); return; }
-
-    var rec = ev.target.closest('[data-recorrido]');
-    if (rec) { ev.preventDefault(); window.tumboIniciarRecorrido(rec.getAttribute('data-recorrido')); }
-  });
+  /* En el archivo único este script se ejecuta cada vez que se pinta el
+     índice, así que el listener se registra una sola vez y solo actúa sobre
+     valores que reconoce: un `data-entrar` ajeno no debe recibir un
+     preventDefault que rompa su formulario. */
+  if (!window.__tumboIndiceListo) {
+    window.__tumboIndiceListo = true;
+    document.addEventListener('click', function (ev) {
+      var btn = ev.target.closest('[data-entrar]');
+      if (btn && ROLES[btn.getAttribute('data-entrar')]) {
+        ev.preventDefault();
+        window.tumboEntrarComo(btn.getAttribute('data-entrar'));
+        return;
+      }
+      var rec = ev.target.closest('[data-recorrido]');
+      if (rec && /^(normal|excepcion)$/.test(rec.getAttribute('data-recorrido'))) {
+        ev.preventDefault();
+        window.tumboIniciarRecorrido(rec.getAttribute('data-recorrido'));
+      }
+    });
+  }
 
   /* --- Índice filtrable ------------------------------------------------- */
   var contGrupos = document.querySelector('[data-grupos]');

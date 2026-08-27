@@ -651,6 +651,16 @@ window.TUMBO_PANTALLAS = [
     "demo": false
   },
   {
+    "ruta": "sistema/acceso.html",
+    "superficie": "sistema",
+    "rol": "todos",
+    "grupo": "Sistema",
+    "titulo": "Acceso, registro y verificación",
+    "canonica": true,
+    "origen": "paginas/acceso.html",
+    "demo": false
+  },
+  {
     "ruta": "sistema/mapa-interfaces.html",
     "superficie": "sistema",
     "rol": "todos",

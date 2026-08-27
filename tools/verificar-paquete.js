@@ -48,7 +48,8 @@ const rojo = (s) => `\x1b[31m${s}\x1b[0m`;
 
     const m = await pagina.evaluate(() => {
       const raiz = document.getElementById('tumbo-raiz');
-      const fuera = (el) => !el.closest('[data-tumbo-ui]');
+      // Una pantalla con `data-tumbo-propio` gestiona sus propios controles.
+      const fuera = (el) => !el.closest('[data-tumbo-ui]') && !el.closest('[data-tumbo-propio]');
       const todos = [...raiz.querySelectorAll('a, button, [role="button"]')].filter(fuera);
       return {
         nodos: raiz.children.length,
@@ -77,7 +78,7 @@ const rojo = (s) => `\x1b[31m${s}\x1b[0m`;
   };
   const hash = () => pagina.evaluate(() => location.hash);
 
-  await prueba('el índice lista las 68 pantallas', async () => {
+  await prueba('el índice lista todas las pantallas', async () => {
     await pagina.evaluate(() => { location.hash = '#/'; });
     await pagina.waitForTimeout(300);
     const n = await pagina.locator('[data-grupos] a').count();
@@ -110,6 +111,29 @@ const rojo = (s) => `\x1b[31m${s}\x1b[0m`;
     }
     const e = await pagina.evaluate(() => JSON.parse(localStorage.getItem('tumbo.beta.estado.v1')));
     if (e.pedido.liquidacion !== 'liquidada') throw new Error('liquidación: ' + e.pedido.liquidacion);
+  });
+
+  await prueba('el acceso funciona dentro del archivo único', async () => {
+    /* El dock persiste entre vistas y la prueba anterior lo dejó abierto:
+       cubriría el formulario. */
+    await pagina.evaluate(() => {
+      const d = document.querySelector('.tumbo-dock.is-abierto');
+      if (d) d.querySelector('.tumbo-dock__tirador').click();
+    });
+    await pagina.waitForTimeout(200);
+    await pagina.evaluate(() => { location.hash = '#/sistema/acceso.html'; });
+    await pagina.waitForTimeout(400);
+    await pagina.waitForSelector('[data-lista-cuentas] button', { timeout: 8000 });
+    /* Se acota a la lista de cuentas: el dock también tiene un botón con ese
+       nombre y elegiría el rol saltándose el formulario. */
+    await pagina.locator('[data-lista-cuentas] button', { hasText: 'Superadministrador' }).first().click();
+    await pagina.locator('[data-acceso-enviar]').click();
+    await pagina.waitForSelector('#acceso-codigo', { state: 'visible', timeout: 5000 });
+    await pagina.fill('#acceso-codigo', '123456');
+    await pagina.locator('[data-paso="mfa"] button[type=submit]').click();
+    await pagina.waitForTimeout(500);
+    const h = await pagina.evaluate(() => location.hash);
+    if (!h.includes('dashboard-ejecutivo')) throw new Error('no entró: ' + h);
   });
 
   await prueba('las imágenes van incrustadas en el archivo', async () => {

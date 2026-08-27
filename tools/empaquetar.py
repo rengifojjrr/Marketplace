@@ -207,6 +207,9 @@ def main():
                 estilos_pagina.append(e)
 
     partes = []
+    # Sin charset explícito, un navegador que abra el archivo desde disco puede
+    # interpretarlo como Latin-1 y romper las expresiones regulares con acentos.
+    partes.append('<meta charset="utf-8"/>')
     partes.append('<title>Tumbo Market</title>')
     partes.append('<style>\n' + leer('assets', 'css', 'tumbo-tailwind.css') + '\n</style>')
     partes.append('<style>\n' + fuentes_incrustadas() + '\n</style>')
@@ -220,6 +223,7 @@ def main():
     partes.append('<script>\n' + leer('assets', 'js', 'tumbo-pantallas.js') + '\n</script>')
     partes.append('<script>\n' + leer('assets', 'js', 'tumbo-traducciones.js') + '\n</script>')
     partes.append('<script>\n' + leer('assets', 'js', 'tumbo-rutas.js') + '\n</script>')
+    partes.append('<script>\n' + leer('assets', 'js', 'tumbo-listas.js') + '\n</script>')
     partes.append('<script>' + ROUTER + '</script>')
     partes.append('<script>\n' + leer('assets', 'js', 'tumbo-app.js') + '\n</script>')
     # El arranque va el último: la primera pantalla se pinta cuando el runtime

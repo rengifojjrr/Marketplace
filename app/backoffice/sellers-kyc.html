@@ -63,7 +63,7 @@
 </head>
 <body class="font-body-md text-body-md min-h-screen flex flex-col antialiased">
 <!-- TopNavBar Component -->
-<header class="bg-surface-container-lowest dark:bg-surface-container-high docked full-width top-0 h-[header-height] border-b border-surface-border dark:border-outline-variant flat no shadows transition-all duration-200 flex justify-between items-center w-full px-gutter ml-[sidebar-width] max-w-[calc(100%-240px)] fixed z-50">
+<header class="bg-surface-container-lowest dark:bg-surface-container-high docked full-width top-0 h-header-height border-b border-surface-border dark:border-outline-variant flat no shadows transition-all duration-200 flex justify-between items-center w-full px-gutter ml-[sidebar-width] max-w-[calc(100%-240px)] fixed z-50">
 <div class="flex items-center gap-standard">
 <!-- Search Bar (on_left configuration) -->
 <div class="relative w-64 hidden md:block">
@@ -84,9 +84,9 @@
 </div>
 </header>
 <!-- SideNavBar Component -->
-<aside class="bg-surface dark:bg-surface-container text-primary dark:text-primary-fixed font-body-sm text-body-sm fixed left-0 top-0 h-full w-[sidebar-width] border-r border-surface-border dark:border-outline-variant flat no shadows transition-colors duration-150 ease-in-out flex flex-col h-full border-r border-surface-border z-50 hidden md:flex">
+<aside class="bg-surface dark:bg-surface-container text-primary dark:text-primary-fixed font-body-sm text-body-sm fixed left-0 top-0 h-full w-sidebar-width border-r border-surface-border dark:border-outline-variant flat no shadows transition-colors duration-150 ease-in-out flex flex-col h-full border-r border-surface-border z-50 hidden md:flex">
 <!-- Header -->
-<div class="p-standard border-b border-surface-border flex items-center gap-tight h-[header-height]">
+<div class="p-standard border-b border-surface-border flex items-center gap-tight h-header-height">
 <div class="w-8 h-8 rounded bg-primary-container flex items-center justify-center text-on-primary">
 <span class="font-bold text-lg">T</span>
 </div>
@@ -416,6 +416,7 @@
 <script src="../../assets/js/tumbo-pantallas.js"></script>
 <script src="../../assets/js/tumbo-traducciones.js"></script>
 <script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
 <script src="../../assets/js/tumbo-app.js"></script>
 <script>window.TUMBO_PAGINA={"ruta": "backoffice/sellers-kyc.html", "superficie": "backoffice", "rol": "superadmin", "titulo": "Cola de sellers y KYC"};</script>
 </body></html>

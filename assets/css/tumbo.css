@@ -433,3 +433,12 @@
 @media (max-width: 640px) {
   .tumbo-banner-demo { font-size: 11px; padding: 6px 12px; }
 }
+
+/* Chip de filtro seleccionado cuando el tablero original no traía un estado
+   visual propio: se usa el azul de acción del sistema, sin inventar otro. */
+.tumbo-chip-activo {
+  background: var(--tumbo-accion) !important;
+  border-color: var(--tumbo-accion) !important;
+  color: #fff !important;
+}
+.tumbo-chip-activo .material-symbols-outlined { color: inherit !important; }

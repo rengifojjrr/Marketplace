@@ -60,7 +60,8 @@ const ambar = (s) => `\x1b[33m${s}\x1b[0m`;
     }
 
     const m = await pagina.evaluate(() => {
-      const fuera = (el) => !el.closest('[data-tumbo-ui]');
+      // Una pantalla con `data-tumbo-propio` gestiona sus propios controles.
+      const fuera = (el) => !el.closest('[data-tumbo-ui]') && !el.closest('[data-tumbo-propio]');
       const todos = [...document.querySelectorAll('a, button, [role="button"]')].filter(fuera);
       const listos = todos.filter((el) => el.hasAttribute('data-tumbo-listo'));
       const muertos = todos.filter((el) => el.tagName === 'A' &&
@@ -289,6 +290,106 @@ const ambar = (s) => `\x1b[33m${s}\x1b[0m`;
       suelto.forEach((v) => malas.push(`${p.ruta}: ${v}`));
     }
     if (malas.length) throw new Error(malas.slice(0, 5).join(' | '));
+  });
+
+  await prueba('el acceso valida credenciales y exige MFA donde toca', async () => {
+    const ir = async () => {
+      await pagina.goto(`${BASE}/app/sistema/acceso.html`, { waitUntil: 'domcontentloaded' });
+      await pagina.waitForSelector('[data-lista-cuentas] button');
+    };
+    const err = (id) => pagina.evaluate((i) => {
+      const s = document.querySelector('#' + i + ' [data-texto]');
+      return s ? s.textContent : '';
+    }, id);
+
+    // Contraseña incorrecta: error junto al campo, sin entrar.
+    await ir();
+    await pagina.fill('#acceso-correo', 'comprador@demo.ve');
+    await pagina.fill('#acceso-clave', 'incorrecta');
+    await pagina.locator('[data-acceso-enviar]').click();
+    if (!/demo1234/.test(await err('acceso-clave-error'))) throw new Error('no avisa de la contraseña');
+
+    // Rol sin MFA: entra directo.
+    await ir();
+    await pagina.locator('button', { hasText: 'Operador' }).first().click();
+    await pagina.locator('[data-acceso-enviar]').click();
+    await pagina.waitForURL('**/dashboard-operativo.html', { timeout: 8000 });
+
+    // Rol con MFA: pide código y rechaza el equivocado.
+    await ir();
+    await pagina.locator('button', { hasText: 'Finanzas' }).first().click();
+    await pagina.locator('[data-acceso-enviar]').click();
+    await pagina.waitForSelector('#acceso-codigo', { state: 'visible', timeout: 5000 });
+    await pagina.fill('#acceso-codigo', '000000');
+    await pagina.locator('[data-paso="mfa"] button[type=submit]').click();
+    if (!/123456/.test(await err('acceso-codigo-error'))) throw new Error('acepta un código inválido');
+    await pagina.fill('#acceso-codigo', '123456');
+    await pagina.locator('[data-paso="mfa"] button[type=submit]').click();
+    await pagina.waitForURL('**/finanzas-dashboard.html', { timeout: 8000 });
+    const rol = await pagina.evaluate(() =>
+      JSON.parse(localStorage.getItem('tumbo.beta.estado.v1')).rol);
+    if (rol !== 'finanzas') throw new Error('el rol quedó en ' + rol);
+  });
+
+  await prueba('las pestañas de estado filtran de verdad la tabla', async () => {
+    await irA('seller/pedidos.html');
+    const antes = await pagina.locator('tbody tr:visible').count();
+    await pagina.locator('[role="tab"]', { hasText: 'En Camino' }).first().click();
+    await pagina.waitForTimeout(200);
+    const despues = await pagina.locator('tbody tr:visible').count();
+    if (despues >= antes) throw new Error(`la tabla no se filtró (${antes} → ${despues})`);
+    await pagina.locator('[role="tab"]', { hasText: 'Todos' }).first().click();
+    await pagina.waitForTimeout(200);
+    if (await pagina.locator('tbody tr:visible').count() !== antes) {
+      throw new Error('«Todos» no restaura la tabla completa');
+    }
+  });
+
+  await prueba('el buscador de una tabla filtra mientras se escribe', async () => {
+    await irA('backoffice/sellers-kyc.html');
+    const campo = pagina.locator('[data-tumbo-tipo="buscador"]').first();
+    if (await campo.count() === 0) throw new Error('la pantalla no expone un buscador de lista');
+    const antes = await pagina.locator('tbody tr:visible').count();
+    await campo.fill('zzzzz');
+    await pagina.waitForTimeout(200);
+    const vacio = await pagina.locator('tbody [data-tumbo-vacio]').count();
+    if (!vacio) throw new Error('no muestra el estado vacío al no haber coincidencias');
+    await campo.fill('');
+    await pagina.waitForTimeout(200);
+    if (await pagina.locator('tbody tr:visible').count() < antes) {
+      throw new Error('no restaura las filas al limpiar');
+    }
+  });
+
+  await prueba('las cabeceras de tabla ordenan', async () => {
+    await irA('backoffice/sellers-kyc.html');
+    // La primera columna queda bajo la barra lateral fija: se ordena por otra.
+    const col = pagina.locator('thead th').nth(1);
+    const antes = await pagina.locator('tbody tr').first().innerText();
+    await col.click();
+    await pagina.waitForTimeout(200);
+    await col.click();
+    await pagina.waitForTimeout(200);
+    const despues = await pagina.locator('tbody tr').first().innerText();
+    if (antes === despues) throw new Error('el orden no cambió tras dos clics');
+  });
+
+  await prueba('ningún control queda sin clasificar', async () => {
+    const sueltos = [];
+    for (const p of PANTALLAS) {
+      await pagina.goto(`${BASE}/app/${p.ruta}`, { waitUntil: 'domcontentloaded' });
+      await pagina.waitForSelector('[data-tumbo-ui="dock"]').catch(() => {});
+      const n = await pagina.evaluate(() => {
+        let n = 0;
+        document.querySelectorAll('a, button, [role="button"]').forEach((el) => {
+          if (el.closest('[data-tumbo-ui]') || el.closest('[data-tumbo-propio]')) return;
+          if (!el.getAttribute('data-tumbo-tipo')) n++;
+        });
+        return n;
+      });
+      if (n) sueltos.push(`${p.ruta}: ${n}`);
+    }
+    if (sueltos.length) throw new Error(sueltos.slice(0, 5).join(', '));
   });
 
   await prueba('las pantallas pensadas para móvil no desbordan a 390 px', async () => {

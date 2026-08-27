@@ -20,7 +20,7 @@ import shutil
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from rutas import PANTALLAS, INICIO_POR_ROL  # noqa: E402
+from rutas import PANTALLAS, INICIO_POR_ROL, PROPIAS  # noqa: E402
 import imagenes  # noqa: E402
 
 with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..',
@@ -241,6 +241,26 @@ def traducir(html):
                   _atributo, ''.join(partes))
 
 
+# Stitch escribió algunos tamaños como valor arbitrario con el NOMBRE del
+# token dentro: `w-[sidebar-width]` genera `width: sidebar-width`, que no es
+# CSS válido, y el elemento acaba con el ancho que le da el contenido. Se
+# reescriben a la clase del token, que sí existe en el tema.
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..',
+                       'tokens', 'tumbo-theme.json'), encoding='utf-8') as _f:
+    _TOKENS_ESPACIO = set(json.load(_f).get('spacing', {}))
+
+
+def corregir_tokens(html):
+    def cambiar(m):
+        prefijo, token = m.group(1), m.group(2)
+        if token not in _TOKENS_ESPACIO:
+            return m.group(0)
+        return prefijo + '-' + token
+
+    return re.sub(r'\b(w|h|min-w|min-h|max-w|max-h|p|px|py|m|mx|my|gap|top|left|right|bottom)'
+                  r'-\[([a-z][a-z0-9-]*)\]', cambiar, html)
+
+
 def es_movil(ruta):
     """Las variantes de 390 px se encuadran para no parecer una página rota."""
     return ruta.endswith('-movil.html') or 'seguridad-sesion' in ruta
@@ -337,6 +357,40 @@ def localizar_imagenes(html, base):
     return html, restantes[0]
 
 
+def transformar_propia(html, ruta, titulo, superficie, rol):
+    """Pasada ligera para las pantallas escritas a mano.
+
+    Ya vienen limpias (sin configuración de Tailwind embebida ni CDN), así que
+    solo necesitan la hoja compilada, las fuentes, el runtime y los metadatos.
+    """
+    base = '../../'
+    html = html.replace('</head>',
+                        '<link rel="stylesheet" href="' + base + 'assets/css/tumbo-tailwind.css"/>\n'
+                        + FUENTES.format(base=base)
+                        + '<link rel="stylesheet" href="' + base + 'assets/css/tumbo.css"/>\n'
+                        + '<meta name="robots" content="noindex, nofollow"/>\n'
+                        '</head>', 1)
+    html = re.sub(r'<title>.*?</title>',
+                  '<title>' + titulo + ' · Tumbo Market beta</title>', html, count=1, flags=re.S)
+    html = html.replace('</body>', runtime_para(ruta, superficie, rol, titulo) + '</body>', 1)
+    return html, []
+
+
+def runtime_para(ruta, superficie, rol, titulo):
+    base = '../../'
+    return (
+        '\n<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->\n'
+        '<script src="' + base + 'assets/js/tumbo-pantallas.js"></script>\n'
+        '<script src="' + base + 'assets/js/tumbo-traducciones.js"></script>\n'
+        '<script src="' + base + 'assets/js/tumbo-rutas.js"></script>\n'
+        '<script src="' + base + 'assets/js/tumbo-listas.js"></script>\n'
+        '<script src="' + base + 'assets/js/tumbo-app.js"></script>\n'
+        '<script>window.TUMBO_PAGINA=' + json.dumps(
+            {'ruta': ruta, 'superficie': superficie, 'rol': rol, 'titulo': titulo},
+            ensure_ascii=False) + ';</script>\n'
+    )
+
+
 def transformar(html, ruta, titulo, superficie, rol):
     base = '../../'
     avisos = []
@@ -413,6 +467,9 @@ def transformar(html, ruta, titulo, superficie, rol):
         # que la especificación permite para vistas densas de datos.
         html = html.replace('<html', '<html data-tumbo-escritorio="1"', 1)
 
+    # --- tamaños con token mal escrito -------------------------------------
+    html = corregir_tokens(html)
+
     # --- iconos del set vigente -------------------------------------------
     html, _ = corregir_iconos(html)
 
@@ -433,6 +490,7 @@ def transformar(html, ruta, titulo, superficie, rol):
         '<script src="' + base + 'assets/js/tumbo-pantallas.js"></script>\n'
         '<script src="' + base + 'assets/js/tumbo-traducciones.js"></script>\n'
         '<script src="' + base + 'assets/js/tumbo-rutas.js"></script>\n'
+        '<script src="' + base + 'assets/js/tumbo-listas.js"></script>\n'
         '<script src="' + base + 'assets/js/tumbo-app.js"></script>\n'
         '<script>window.TUMBO_PAGINA=' + json.dumps(
             {'ruta': ruta, 'superficie': superficie, 'rol': rol, 'titulo': titulo},
@@ -458,7 +516,9 @@ def main():
     escritas = 0
 
     for origen, ruta, sup, rol, grupo, titulo, canon in PANTALLAS:
-        entrada = os.path.join(ORIGEN, origen, 'code.html')
+        propia = origen in PROPIAS
+        entrada = (os.path.join(RAIZ, origen) if propia
+                   else os.path.join(ORIGEN, origen, 'code.html'))
         if not os.path.isfile(entrada):
             problemas.append('FALTA ' + origen)
             continue
@@ -466,7 +526,10 @@ def main():
         with open(entrada, encoding='utf-8') as f:
             html = f.read()
 
-        html, avisos = transformar(html, ruta, titulo, sup, rol)
+        if propia:
+            html, avisos = transformar_propia(html, ruta, titulo, sup, rol)
+        else:
+            html, avisos = transformar(html, ruta, titulo, sup, rol)
         for a in avisos:
             problemas.append(origen + ': ' + a)
 

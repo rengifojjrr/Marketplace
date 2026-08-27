@@ -231,9 +231,12 @@
     if (ic) icono = norm(ic.textContent);
     var clon = el.cloneNode(true);
     Array.prototype.forEach.call(clon.querySelectorAll('.material-symbols-outlined'), function (n) { n.remove(); });
-    var texto = norm(clon.textContent).slice(0, 120);
-    if (!texto) texto = norm(el.getAttribute('aria-label') || el.getAttribute('title') || '');
-    return { texto: texto, icono: icono };
+    var visible = norm(clon.textContent).slice(0, 120);
+    var texto = visible || norm(el.getAttribute('aria-label') || el.getAttribute('title') || '');
+    /* `visible` es lo que el usuario lee; `texto` incluye el respaldo por
+       aria-label. Un botón que solo muestra un icono se reconoce por el
+       primero, aunque tenga etiqueta accesible. */
+    return { texto: texto, visible: visible, icono: icono };
   }
 
   /* Coincidencia por prefijo: Stitch concatena título y descripción dentro
@@ -442,6 +445,62 @@
       auditar('Comprador', 'Aceptó la solución', DEMO.caso);
       toast('Caso cerrado', 'El resultado queda visible para las tres superficies.', 'task_alt');
     },
+    generarReporte: function () {
+      auditar(window.TUMBO_ROLES[estado.rol].nombre, 'Generó un reporte', 'periodo actual');
+      toast('Reporte generado (demo)', 'En producción se descargaría el archivo.', 'receipt_long');
+    },
+    guardarBorrador: function () {
+      auditar(window.TUMBO_ROLES[estado.rol].nombre, 'Guardó un borrador', '');
+      toast('Borrador guardado', 'Queda en tu sesión; no se envió a validación.', 'save');
+    },
+    reintentar: function () {
+      auditar(window.TUMBO_ROLES[estado.rol].nombre, 'Solicitó un reintento', '');
+      toast('Reintento enviado', 'La integración vuelve a intentarlo en la cola.', 'replay');
+    },
+    reasignar: function () {
+      auditar(window.TUMBO_ROLES[estado.rol].nombre, 'Reasignó el caso', DEMO.caso);
+      toast('Caso reasignado', 'El nuevo responsable recibe la notificación.', 'swap_horiz');
+    },
+    asignarme: function () {
+      auditar(window.TUMBO_ROLES[estado.rol].nombre, 'Se asignó el caso', DEMO.caso);
+      toast('Caso asignado', 'Aparece en «Mis asignados» con su SLA en marcha.', 'assignment_ind');
+    },
+    aprobar: function () {
+      auditar(window.TUMBO_ROLES[estado.rol].nombre, 'Aprobó elementos', 'requiere doble confirmación en producción');
+      toast('Aprobado (demo)', 'En producción esta acción pide doble confirmación.', 'check_circle');
+    },
+    eliminar: function () {
+      auditar(window.TUMBO_ROLES[estado.rol].nombre, 'Eliminó un elemento', 'sin borrado duro');
+      toast('Eliminado (demo)', 'El sistema no borra en duro: se marca como inactivo.', 'delete');
+    },
+    editar: function () {
+      toast('Modo edición', 'Los formularios de edición son de demostración.', 'edit');
+    },
+    explicarDemo: function () {
+      toast('Modo demo', 'Nada aquí mueve dinero, envía mensajes ni crea guías reales.', 'science');
+    },
+    rastrear: function () {
+      auditar('Courier', 'Consulta de rastreo', DEMO.pedido);
+      toast('Rastreo (demo)', 'El courier no está conectado: los eventos son simulados.', 'local_shipping');
+    },
+    subirArchivo: function () {
+      auditar(window.TUMBO_ROLES[estado.rol].nombre, 'Adjuntó un archivo', '');
+      toast('Archivo adjuntado', 'Queda en la sesión; no se envía a ningún servicio.', 'upload_file');
+    },
+    verDocumento: function () {
+      toast('Documento (demo)', 'El visor de evidencia usa archivos ficticios.', 'description');
+    },
+    notificar: function () {
+      auditar(window.TUMBO_ROLES[estado.rol].nombre, 'Notificó al courier', DEMO.pedido);
+      toast('Courier notificado (demo)', 'WhatsApp y correo no están conectados.', 'campaign');
+    },
+    verTodo: function () {
+      var n = 0;
+      Array.prototype.forEach.call(document.querySelectorAll('tbody tr, ul > li'), function (f) {
+        if (f.hidden) { f.hidden = false; n++; }
+      });
+      toast('Mostrando todo', n ? n + ' registros ocultos vuelven a la vista.' : 'Ya se veía todo.', 'visibility');
+    },
     reiniciar: function () {
       estado = clonar(ESTADO_INICIAL); guardar();
       pintarTodo();
@@ -450,7 +509,7 @@
     cerrarSesion: function () {
       estado.rol = 'visitante'; guardar();
       auditar('Sistema', 'Cierre de sesión', '');
-      ir('marketplace/inicio.html');
+      navegarA('sistema/acceso.html');
     },
     abrirDock: function () { abrirDock(true); },
     exportar: function (etiqueta) {
@@ -512,22 +571,39 @@
     edit: 'editar', edit_note: 'editar', delete: 'eliminar',
     check: 'confirmar', check_circle: 'confirmar', flag: 'marcar',
     sentiment_satisfied: 'emoji', view_list: 'vista', grid_view: 'vista',
-    search: 'buscar_inline', open_in_new: 'abrir'
+    search: 'buscar_inline', open_in_new: 'abrir',
+    /* Vistos en los tableros y que antes caían al aviso genérico. */
+    pause: 'pausar', play_arrow: 'reanudar', qr_code_scanner: 'escanear',
+    photo_camera: 'capturar', call: 'llamar', move_up: 'reordenar',
+    handshake: 'acuerdo', assignment: 'expediente', assignment_add: 'asignar',
+    arrow_forward: 'avanzar', bookmark: 'guardar', star: 'destacar'
   };
+
+  /* Stitch dejó algunos botones con el NOMBRE del icono como texto plano, sin
+     la clase de la fuente: se leen igual que si fueran el icono. */
+  function iconoDesdeTexto(t) {
+    return Object.prototype.hasOwnProperty.call(ICONOS_UI, t) ? t : '';
+  }
 
   function cablear(raiz) {
     var nodos = (raiz || document).querySelectorAll('a, button, [role="button"]');
     Array.prototype.forEach.call(nodos, function (el) {
       if (el.closest('[data-tumbo-ui]')) return;          // el dock es nuestro
+      // Una pantalla escrita para la beta declara que gestiona sus propios
+      // controles: cablearlos aquí les añadiría un preventDefault que rompe
+      // el envío de sus formularios.
+      if (el.closest('[data-tumbo-propio]')) return;
       if (el.hasAttribute('data-tumbo-listo')) return;
       el.setAttribute('data-tumbo-listo', '1');
 
       var info = leerControl(el);
+      if (!info.icono) info.icono = iconoDesdeTexto(info.visible);
       var esNumero = /^[\d.,]+$|^\d+d$/.test(info.texto);
 
       /* 1. Acciones que mueven el estado simulado. */
       var acc = resolverAccion(info.texto);
       if (acc) {
+        el.setAttribute('data-tumbo-tipo', 'accion');
         activar(el, function (ev) {
           ev.preventDefault();
           (ACC[acc.accion] || function () { toast(acc.etiqueta, '', 'info'); })(info.texto);
@@ -539,8 +615,9 @@
       var ruta = esNumero ? null : resolverEtiqueta(info.texto);
 
       /* 3. Afordancias de interfaz antes de caer al icono de navegación. */
-      if (!ruta && ICONOS_UI[info.icono] && (!info.texto || info.texto.length < 3 || esNumero)) {
+      if (!ruta && ICONOS_UI[info.icono] && (!info.visible || info.visible.length < 3 || esNumero)) {
         var tipo = ICONOS_UI[info.icono];
+        el.setAttribute('data-tumbo-tipo', 'interfaz');
         activar(el, function (ev) { ev.preventDefault(); afordancia(tipo, el); });
         return;
       }
@@ -549,6 +626,7 @@
       if (!ruta && info.icono && !esNumero) ruta = window.TUMBO_NAV_ICONOS[info.icono] || null;
 
       if (ruta) {
+        el.setAttribute('data-tumbo-tipo', 'ruta');
         var destino = permitida(ruta, estado.rol);
         if (el.tagName === 'A') el.setAttribute('href', enlaceA(ruta));
         if (!destino) marcarBloqueado(el, ruta);
@@ -557,6 +635,7 @@
       }
 
       /* 5. Nada resolvió: el control responde igual, con aviso honesto. */
+      el.setAttribute('data-tumbo-tipo', 'aviso');
       activar(el, function (ev) {
         ev.preventDefault();
         var nombre = info.texto ? info.texto.charAt(0).toUpperCase() + info.texto.slice(1) : 'Acción';
@@ -625,6 +704,33 @@
         auditar(rolNombre, 'Solicitó sincronización', ''); break;
       case 'buscar_inline':
         ir('marketplace/resultados.html'); break;
+      case 'pausar':
+        auditar(rolNombre, 'Pausó la publicación', '');
+        toast('Pausado', 'La publicación deja de verse en el Marketplace.', 'pause'); break;
+      case 'reanudar':
+        auditar(rolNombre, 'Reanudó la publicación', '');
+        toast('Reanudado', 'La publicación vuelve a los resultados.', 'play_arrow'); break;
+      case 'escanear':
+        auditar(rolNombre, 'Escaneó un artículo', DEMO.sku);
+        toast('Artículo escaneado', DEMO.sku + ' verificado contra el picking.', 'qr_code_scanner'); break;
+      case 'capturar':
+        auditar(rolNombre, 'Adjuntó evidencia fotográfica', '');
+        toast('Foto adjuntada', 'Queda en el expediente como evidencia demo.', 'photo_camera'); break;
+      case 'llamar':
+        toast('Llamada (demo)', 'La telefonía no está conectada en el prototipo.', 'call'); break;
+      case 'asignar': case 'expediente':
+        auditar(rolNombre, 'Se asignó el caso', DEMO.caso);
+        toast('Caso asignado', 'Aparece en «Mis asignados» con su SLA.', 'assignment_ind'); break;
+      case 'acuerdo':
+        auditar(rolNombre, 'Registró un acuerdo', DEMO.caso);
+        toast('Acuerdo registrado', 'Queda visible para ambas partes.', 'handshake'); break;
+      case 'reordenar':
+        toast('Reordenado', 'El orden de la lista se actualizó.', 'move_up'); break;
+      case 'avanzar':
+        toast('Siguiente', 'Continúa con el siguiente elemento.', 'arrow_forward'); break;
+      case 'guardar': case 'destacar':
+        auditar(rolNombre, 'Marcó un elemento', '');
+        toast('Marcado', 'Guardado en tus elementos destacados.', 'bookmark'); break;
       default:
         auditar(rolNombre, 'Acción de interfaz', tipo);
         toast(tipo.charAt(0).toUpperCase() + tipo.slice(1), 'Acción demo registrada en la auditoría.', 'science');
@@ -745,6 +851,8 @@
             '<span class="material-symbols-outlined">grid_view</span>Índice de pantallas</a>',
           '<a class="tumbo-dock__enlace" href="' + enlaceA('sistema/mapa-interfaces.html') + '">',
             '<span class="material-symbols-outlined">account_tree</span>Mapa de interfaces</a>',
+          '<a class="tumbo-dock__enlace" href="' + enlaceA('sistema/acceso.html') + '">',
+            '<span class="material-symbols-outlined">login</span>Pantalla de acceso</a>',
           '<span class="tumbo-dock__nota">Prototipo de interfaz. No mueve dinero, no envía mensajes ni crea guías reales.</span>',
         '</div>',
       '</div>'
@@ -979,6 +1087,7 @@
       volver.appendChild(ico);
       volver.appendChild(document.createTextNode(' Volver a ' + rol.nombre));
       volver.setAttribute('data-tumbo-listo', '1');   /* que cablear() no lo toque */
+      volver.setAttribute('data-tumbo-tipo', 'ruta');
       volver.addEventListener('click', function (ev) { ev.preventDefault(); ir(rol.inicio); });
     }
 
@@ -1014,6 +1123,10 @@
   function prepararPagina() {
     traducir();
     personalizar403();
+    /* Antes del cableado general: la capa de listas reclama las pestañas, los
+       buscadores y los identificadores que sabe manejar de verdad, y así el
+       cableado genérico no los intercepta con un aviso. */
+    if (window.tumboInteraccion) window.tumboInteraccion(document);
     cablear(document);
     cablearBuscadores();
     pintarTodo();
