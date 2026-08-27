@@ -45,11 +45,13 @@ beta navegable con estado, permisos y recorrido
 Por cada pantalla, en orden:
 
 1. **Traduce** la interfaz al español de Venezuela con
-   `tokens/traducciones.json` (181 términos). La exportación mezclaba
+   `tokens/traducciones.json` (214 términos). La exportación mezclaba
    «Dashboard», «Settings», «Awaiting seller response» o «Here is your account
    overview for today.» con texto en español; la especificación exige un único
    idioma. Se traduce en compilación, no en el navegador, para que el archivo
-   entregado ya esté en español aunque se abra sin JavaScript.
+   entregado ya esté en español aunque se abra sin JavaScript. Alcanza también
+   a los `placeholder`, `aria-label` y `title`, que son texto visible o
+   audible.
 2. **Normaliza fechas y horas.** Los tableros mezclaban `24 Oct 2023`,
    `Oct 24, 2023`, `2023-11-14 09:05:11`, `14:32 UTC` y `01:10 PM`, con los años
    2023, 2024 y 2025 conviviendo. Todo pasa a `dd/mm/aaaa` y 12 h, y el año se

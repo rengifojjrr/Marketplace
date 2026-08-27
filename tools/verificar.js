@@ -266,6 +266,31 @@ const ambar = (s) => `\x1b[33m${s}\x1b[0m`;
     if (malas.length) throw new Error(malas.slice(0, 5).join(' | '));
   });
 
+  await prueba('placeholders y etiquetas de accesibilidad en español', async () => {
+    /* Son texto visible (el placeholder) o audible (aria-label): la
+       especificación los exige en español igual que el resto. */
+    const EN = /\b(search|type a|attach|go back|more options|send message|scan item|advanced filters|account circle)\b/i;
+    const malas = [];
+    for (const p of PANTALLAS) {
+      await pagina.goto(`${BASE}/app/${p.ruta}`, { waitUntil: 'domcontentloaded' });
+      await pagina.waitForSelector('[data-tumbo-ui="dock"]').catch(() => {});
+      const suelto = await pagina.evaluate((re) => {
+        const rx = new RegExp(re, 'i');
+        const out = [];
+        document.querySelectorAll('[placeholder], [aria-label], [title]').forEach((el) => {
+          if (el.closest('[data-tumbo-ui]')) return;
+          ['placeholder', 'aria-label', 'title'].forEach((a) => {
+            const v = el.getAttribute(a);
+            if (v && rx.test(v)) out.push(`${a}="${v}"`);
+          });
+        });
+        return out.slice(0, 2);
+      }, EN.source);
+      suelto.forEach((v) => malas.push(`${p.ruta}: ${v}`));
+    }
+    if (malas.length) throw new Error(malas.slice(0, 5).join(' | '));
+  });
+
   await prueba('las pantallas pensadas para móvil no desbordan a 390 px', async () => {
     const movil = await ctx.newPage();
     await movil.setViewportSize({ width: 390, height: 844 });

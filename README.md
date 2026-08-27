@@ -89,11 +89,12 @@ falta si cambia el inventario de iconos, y requiere red.
 
 ## Estado de la verificación
 
-`npm test` recorre las 68 pantallas en Chromium — 14 pruebas de comportamiento:
+`npm test` recorre las 68 pantallas en Chromium — 15 pruebas de comportamiento:
 
 - **1.152 controles**, todos cableados; ningún enlace apunta a `#`.
 - Sin errores de consola y sin `lorem ipsum`.
-- Interfaz íntegramente en español; fechas en `dd/mm/aaaa` y horas de 12 h.
+- Interfaz íntegramente en español, incluidos placeholders y etiquetas de
+  accesibilidad; fechas en `dd/mm/aaaa` y horas de 12 h.
 - 24 pantallas financieras y logísticas con su banner «Modo demo».
 - RBAC verificado en ambos sentidos: bloquea lo ajeno y permite lo propio.
 - Los recorridos normal (9 pasos) y de disputa (6 pasos) llegan hasta el final.

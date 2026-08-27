@@ -231,7 +231,14 @@ def traducir(html):
         partes[i] = re.sub(r'(>)([^<>]{1,200})(<)',
                            lambda m: m.group(1) + normalizar_fechas(m.group(2)) + m.group(3),
                            partes[i])
-    return ''.join(partes)
+    # Los placeholders y las etiquetas de accesibilidad también son texto
+    # visible: se traducen igual que el contenido.
+    def _atributo(m):
+        valor = m.group(2)
+        return m.group(1) + TRADUCCIONES.get(valor, valor) + m.group(3)
+
+    return re.sub(r'((?:placeholder|aria-label|title)=")([^"]+)(")',
+                  _atributo, ''.join(partes))
 
 
 def es_movil(ruta):
