@@ -13,9 +13,20 @@
   --tumbo-atencion: #f59e0b;
   --tumbo-peligro:  #dc2626;
   --tumbo-borde:    #dce3ec;
+  --tumbo-fondo:    #f8fafc;
   --tumbo-texto:    #172033;
   --tumbo-dock-alto: 52px;
 }
+
+/* La beta es un sistema visual claro y deliberado (Corporate Modernism, ver
+   docs/DESIGN.md): no tiene tema oscuro. Para que se sostenga sobre cualquier
+   fondo del contenedor —un visor en modo oscuro, por ejemplo— pinta su propio
+   fondo en la raíz y declara el esquema de color de sus controles. */
+.tumbo-beta {
+  background: var(--tumbo-fondo, #f8fafc);
+  color-scheme: light;
+}
+.tumbo-beta body { min-height: 100vh; }
 
 /* Deja aire bajo el contenido para que el dock no tape la última fila. */
 .tumbo-beta body { padding-bottom: calc(var(--tumbo-dock-alto) + 16px) !important; }

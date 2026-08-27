@@ -5,11 +5,13 @@
   "description": "Beta navegable del marketplace curado de Venezuela: 68 pantallas, 8 roles, 3 superficies. Modo demo, sin dependencias externas.",
   "scripts": {
     "start": "python3 serve.py 8000",
-    "build": "npm run build:css && npm run build:html",
+    "build": "npm run build:css && npm run build:html && npm run empaquetar",
     "build:css": "tailwindcss -c tailwind.config.js -i tools/tumbo-entrada.css -o assets/css/tumbo-tailwind.css --minify",
     "build:html": "python3 tools/build.py",
     "build:fuentes": "python3 tools/fuentes.py",
-    "test": "node tools/verificar.js"
+    "test": "node tools/verificar.js",
+    "empaquetar": "python3 tools/empaquetar.py",
+    "test:paquete": "node tools/verificar-paquete.js"
   },
   "devDependencies": {
     "@tailwindcss/container-queries": "^0.1.1",

@@ -18,6 +18,11 @@ python3 serve.py          # http://localhost:8000
 O abre `index.html` con doble clic: la beta no hace ninguna petición de red, así
 que funciona igual desde `file://`.
 
+**Para enseñarla sin instalar nada** está `dist/tumbo-market-beta.html`: las 68
+pantallas, los estilos, las fuentes y las imágenes en un único archivo de 2,2 MB
+que se abre en cualquier navegador y se puede enviar por correo. Se regenera con
+`npm run empaquetar` y se verifica con `npm run test:paquete`.
+
 ## Por dónde empezar
 
 | Quiero… | Ir a |
@@ -68,6 +73,7 @@ assets/
   img/                    Marcadores SVG del sistema de diseño
 tokens/                 Tema y traducciones — fuente de verdad
 tools/                  Compilador, verificación y utilidades
+dist/                   Archivo único, autocontenido, para enseñar la beta
 design-source/          Tableros originales de Google Stitch, intactos
 docs/                   Especificación, prompts, diseño y arquitectura
 ```
@@ -77,7 +83,9 @@ docs/                   Especificación, prompts, diseño y arquitectura
 ```bash
 npm install          # solo para recompilar los estilos
 npm run build        # estilos + páginas
-npm test             # verificación en navegador real (Chromium)
+npm test             # verificación del sitio en navegador real (Chromium)
+npm run empaquetar   # genera dist/tumbo-market-beta.html (archivo único)
+npm run test:paquete # verifica el archivo único
 ```
 
 `tools/build.py` regenera `app/` desde `design-source/`. **No edites `app/` a

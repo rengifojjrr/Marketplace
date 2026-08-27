@@ -24,8 +24,38 @@
     var s = document.getElementsByTagName('script');
     return s[s.length - 1];
   })();
-  var BASE = self.src.replace(/assets\/js\/tumbo-app\.js.*$/, '');
+
+  /* La beta corre en dos modos con el mismo código: servida como sitio (una
+     página por archivo) o empaquetada en un único HTML, donde la navegación
+     va por el hash. `TUMBO_PAQUETE` lo define el empaquetador. */
+  var PAQUETE = !!window.TUMBO_PAQUETE;
+  var BASE = PAQUETE ? '' : (self.src || '').replace(/assets\/js\/tumbo-app\.js.*$/, '');
   var CLAVE = 'tumbo.beta.estado.v1';
+
+  /* Dirección de una ruta, en la forma que entienda el modo activo. */
+  function enlaceA(ruta, consulta) {
+    var q = consulta ? '?' + consulta : '';
+    return PAQUETE ? '#/' + ruta + q : BASE + 'app/' + ruta + q;
+  }
+  window.tumboHref = enlaceA;
+
+  function navegarA(ruta, consulta) {
+    if (PAQUETE) {
+      window.TUMBO_PAQUETE.mostrar(ruta, consulta || '');
+    } else {
+      location.href = enlaceA(ruta, consulta);
+    }
+  }
+
+  /* Parámetros de la ruta actual (el 403 los usa para explicar el bloqueo). */
+  function parametros() {
+    var busq = location.search;
+    if (PAQUETE) {
+      var i = location.hash.indexOf('?');
+      busq = i >= 0 ? location.hash.slice(i) : '';
+    }
+    return new URLSearchParams(busq);
+  }
 
   /* --- IDs demo fijados por la especificación --------------------------- */
   var DEMO = {
@@ -239,7 +269,8 @@
      4. PERMISOS (RBAC)
      ===================================================================== */
   function rutaActual() {
-    var m = location.pathname.match(/(marketplace|seller|backoffice|demo|sistema)\/([^/]+\.html)/);
+    var donde = PAQUETE ? location.hash : location.pathname;
+    var m = donde.match(/(marketplace|seller|backoffice|demo|sistema)\/([^/?#]+\.html)/);
     return m ? m[1] + '/' + m[2] : '';
   }
 
@@ -273,14 +304,47 @@
 
     if (!permitida(ruta, estado.rol)) {
       auditar(window.TUMBO_ROLES[estado.rol].nombre, 'Acceso denegado', ruta);
-      location.href = BASE + 'app/sistema/403.html?ruta=' + encodeURIComponent(ruta) +
-        '&motivo=' + encodeURIComponent(motivo403(ruta)) + '&rol=' + encodeURIComponent(estado.rol);
+      navegarA('sistema/403.html', 'ruta=' + encodeURIComponent(ruta) +
+        '&motivo=' + encodeURIComponent(motivo403(ruta)) +
+        '&rol=' + encodeURIComponent(estado.rol));
       return;
     }
-    location.href = BASE + 'app/' + ruta;
+    navegarA(ruta);
   }
   /* Expuesto para el índice y las páginas propias del proyecto. */
   window.tumboIr = ir;
+
+  /* El índice no debe tocar localStorage por su cuenta: el runtime ya tiene el
+     estado en memoria y escribirlo por fuera lo deja desincronizado. */
+  window.tumboEntrarComo = function (rolId) {
+    var rol = window.TUMBO_ROLES[rolId];
+    if (!rol) return;
+    estado.rol = rolId;
+    guardar();
+    pintarRoles();
+    auditar('Prototipo', 'Cambio de rol demo', rol.nombre);
+    navegarA(rol.inicio);
+  };
+
+  window.tumboIniciarRecorrido = function (flujo) {
+    var normal = flujo !== 'excepcion';
+    estado.paso = 0;
+    estado.rol = 'comprador';
+    /* El camino de excepción arranca con el pedido ya entregado: la disputa
+       solo tiene sentido después de recibir el producto. */
+    estado.pedido = {
+      id: DEMO.pedido,
+      orden: normal ? 'borrador' : 'cerrado',
+      pago: normal ? 'sin_pago' : 'conciliado',
+      envio: normal ? 'sin_envio' : 'entregado',
+      disputa: 'sin_disputa',
+      liquidacion: normal ? 'no_elegible' : 'elegible'
+    };
+    guardar();
+    pintarTodo();
+    auditar('Prototipo', 'Inicio del recorrido ' + (normal ? 'normal' : 'de disputa'), DEMO.pedido);
+    navegarA(normal ? 'marketplace/checkout-pago.html' : 'marketplace/reclamo.html');
+  };
 
   /* =====================================================================
      5. ACCIONES DEMO
@@ -486,7 +550,7 @@
 
       if (ruta) {
         var destino = permitida(ruta, estado.rol);
-        if (el.tagName === 'A') el.setAttribute('href', BASE + 'app/' + ruta);
+        if (el.tagName === 'A') el.setAttribute('href', enlaceA(ruta));
         if (!destino) marcarBloqueado(el, ruta);
         activar(el, function (ev) { ev.preventDefault(); ir(ruta); });
         return;
@@ -677,9 +741,9 @@
           '</section>',
         '</div>',
         '<div class="tumbo-dock__pie">',
-          '<a class="tumbo-dock__enlace" href="' + BASE + 'index.html">',
+          '<a class="tumbo-dock__enlace" href="' + (PAQUETE ? '#/' : BASE + 'index.html') + '" data-inicio>',
             '<span class="material-symbols-outlined">grid_view</span>Índice de pantallas</a>',
-          '<a class="tumbo-dock__enlace" href="' + BASE + 'app/sistema/mapa-interfaces.html">',
+          '<a class="tumbo-dock__enlace" href="' + enlaceA('sistema/mapa-interfaces.html') + '">',
             '<span class="material-symbols-outlined">account_tree</span>Mapa de interfaces</a>',
           '<span class="tumbo-dock__nota">Prototipo de interfaz. No mueve dinero, no envía mensajes ni crea guías reales.</span>',
         '</div>',
@@ -824,6 +888,8 @@
      Entrar por el índice a una pantalla ajena al rol no bloquea: avisa.
      ===================================================================== */
   function avisarSuperficie() {
+    var previo = document.querySelector('[data-tumbo-ui="aviso"]');
+    if (previo) previo.remove();
     var r = rutaActual();
     if (!r || permitida(r, estado.rol)) return;
     var b = document.createElement('div');
@@ -846,6 +912,8 @@
      pantalla, se ofrece aquí en vez de dejar al usuario desplazándose.
      ===================================================================== */
   function ofrecerVarianteMovil() {
+    var previo = document.querySelector('[data-tumbo-ui="variante"]');
+    if (previo) previo.remove();
     if (!document.documentElement.hasAttribute('data-tumbo-escritorio')) return;
 
     var actual = rutaActual();
@@ -860,7 +928,7 @@
       '<span class="material-symbols-outlined" aria-hidden="true">desktop_windows</span>' +
       '<span>Pantalla diseñada para escritorio (1440 px). ' +
       (existe
-        ? 'Hay una <a href="' + BASE + 'app/' + movil + '">versión móvil</a> de esta vista.'
+        ? 'Hay una <a href="' + enlaceA(movil) + '">versión móvil</a> de esta vista.'
         : 'Desplázate en horizontal o ábrela en una pantalla más ancha.') +
       '</span>' +
       '<button class="tumbo-variante__x" aria-label="Ocultar aviso">' +
@@ -877,7 +945,7 @@
   function personalizar403() {
     if (rutaActual() !== 'sistema/403.html') return;
 
-    var q = new URLSearchParams(location.search);
+    var q = parametros();
     var ruta = q.get('ruta') || '';
     var motivoTxt = q.get('motivo') || '';
     var rolId = q.get('rol') || '';
@@ -923,27 +991,40 @@
   /* =====================================================================
      12. ARRANQUE
      ===================================================================== */
-  function iniciar() {
+  /* El arranque se divide en dos: lo que existe una sola vez por sesión (el
+     dock, el observador) y lo que hay que rehacer en cada pantalla. En el
+     sitio servido, cada carga ejecuta ambos; empaquetado, el router repite
+     solo el segundo al cambiar de ruta. */
+  function iniciarUnaVez() {
     document.documentElement.classList.add('tumbo-beta');
-    traducir();
     construirDock();
-    personalizar403();
-    cablear(document);
-    cablearBuscadores();
-    pintarTodo();
-    ofrecerVarianteMovil();
-    avisarSuperficie();
 
     /* Contenido inyectado después (modales, drawers) también queda cableado. */
     if (window.MutationObserver) {
       new MutationObserver(function (muts) {
         muts.forEach(function (m) {
           Array.prototype.forEach.call(m.addedNodes, function (n) {
-            if (n.nodeType === 1 && !n.closest('[data-tumbo-ui]')) cablear(n);
+            if (n.nodeType === 1 && n.closest && !n.closest('[data-tumbo-ui]')) cablear(n);
           });
         });
       }).observe(document.body, { childList: true, subtree: true });
     }
+  }
+
+  function prepararPagina() {
+    traducir();
+    personalizar403();
+    cablear(document);
+    cablearBuscadores();
+    pintarTodo();
+    ofrecerVarianteMovil();
+    avisarSuperficie();
+  }
+  window.tumboPrepararPagina = prepararPagina;
+
+  function iniciar() {
+    iniciarUnaVez();
+    prepararPagina();
   }
 
   if (document.readyState === 'loading') {

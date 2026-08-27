@@ -171,6 +171,30 @@ responda, y las URLs de imagen de Stitch caducan.
 Como consecuencia, `index.html` funciona con doble clic desde `file://`: no usa
 `fetch()` ni módulos ES.
 
+## Archivo único
+
+`npm run empaquetar` produce `dist/tumbo-market-beta.html`: las 69 vistas —las
+68 pantallas más el índice— con los estilos, las fuentes en base64 y las
+imágenes incrustadas, en 2,2 MB. Sirve para enseñar la beta sin servidor ni
+repositorio: se abre en cualquier navegador o se publica como enlace.
+
+El runtime es **el mismo archivo**. `tools/empaquetar.py` declara
+`window.TUMBO_PAQUETE` y eso basta para que `assets/js/tumbo-app.js` navegue por
+el hash (`#/seller/dashboard.html`) en vez de por rutas de archivo. Mantener una
+sola implementación evita que las dos versiones se separen con el tiempo.
+
+El arranque se separó en dos: lo que existe una vez por sesión (el dock, el
+observador de mutaciones) y lo que hay que rehacer en cada pantalla (traducir,
+cablear, permisos). Servido, cada carga ejecuta ambos; empaquetado, el router
+repite solo el segundo al cambiar de ruta.
+
+Los `<script>` propios de cada pantalla no se ejecutan al inyectar HTML con
+`innerHTML`, así que viajan aparte y el router los vuelve a crear.
+
+`npm run test:paquete` recorre las 69 vistas dentro del archivo y comprueba,
+entre otras cosas, que **no se dispare ninguna petición de red**: si algo
+quedara sin incrustar, la prueba lo delata.
+
 ## Huecos del diseño original
 
 Cosas que la especificación pide y la exportación no generó. Se documentan en
