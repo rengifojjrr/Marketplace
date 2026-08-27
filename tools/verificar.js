@@ -225,6 +225,47 @@ const ambar = (s) => `\x1b[33m${s}\x1b[0m`;
     if (ingles.length) throw new Error('quedó en inglés: ' + ingles.join(', '));
   });
 
+  await prueba('fechas en dd/mm/aaaa y horas de 12 h en todas las pantallas', async () => {
+    /* El mes debe terminar en frontera de palabra y estar en la misma línea:
+       si no, "Maracaibo" y "Aprobaciones" cuentan como meses en inglés. */
+    const MESES = /\b\d{1,2}[ \t]+(Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)\b|\b(Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)\b[ \t]+\d{1,2},/;
+    const H24 = /\b(1[3-9]|2[0-3]):[0-5]\d|\b\d{1,2}:[0-5]\d[ \t]*(UTC|PM|AM)\b/;
+    const malas = [];
+    for (const p of PANTALLAS) {
+      await pagina.goto(`${BASE}/app/${p.ruta}`, { waitUntil: 'domcontentloaded' });
+      await pagina.waitForSelector('[data-tumbo-ui="dock"]').catch(() => {});
+      const txt = await pagina.evaluate(() => {
+        const c = document.body.cloneNode(true);
+        c.querySelectorAll('[data-tumbo-ui], script, style').forEach((n) => n.remove());
+        return c.innerText;
+      });
+      if (MESES.test(txt)) malas.push(`${p.ruta}: fecha en formato inglés`);
+      if (H24.test(txt)) malas.push(`${p.ruta}: hora fuera del formato de 12 h`);
+    }
+    if (malas.length) throw new Error(malas.slice(0, 5).join(', '));
+  });
+
+  await prueba('no queda texto de interfaz sin traducir', async () => {
+    /* Frases delatoras: palabras funcionales inglesas que ningún texto en
+       español de Venezuela usaría. */
+    const EN = /\b(the|and|for|with|your|awaiting|fallback|degraded|verified|onboarded|overview|pending|shell)\b/i;
+    const malas = [];
+    for (const p of PANTALLAS) {
+      await pagina.goto(`${BASE}/app/${p.ruta}`, { waitUntil: 'domcontentloaded' });
+      await pagina.waitForSelector('[data-tumbo-ui="dock"]').catch(() => {});
+      const suelto = await pagina.evaluate((re) => {
+        const c = document.body.cloneNode(true);
+        c.querySelectorAll('[data-tumbo-ui], .material-symbols-outlined, script, style').forEach((n) => n.remove());
+        return c.innerText.split('\n')
+          .map((l) => l.trim())
+          .filter((l) => l && l.length < 80 && new RegExp(re, 'i').test(l) && !/[áéíóúñ¿¡]/i.test(l))
+          .slice(0, 2);
+      }, EN.source);
+      suelto.forEach((l) => malas.push(`${p.ruta}: "${l}"`));
+    }
+    if (malas.length) throw new Error(malas.slice(0, 5).join(' | '));
+  });
+
   await prueba('las pantallas pensadas para móvil no desbordan a 390 px', async () => {
     const movil = await ctx.newPage();
     await movil.setViewportSize({ width: 390, height: 844 });

@@ -102,6 +102,97 @@ def anadir_reclamo(html, ruta):
     return html.replace('</body>', BOTON_RECLAMO_MOVIL + '\n</body>', 1)
 
 
+MESES = {
+    'ene': 1, 'enero': 1, 'jan': 1, 'january': 1,
+    'feb': 2, 'febrero': 2, 'february': 2,
+    'mar': 3, 'marzo': 3, 'march': 3,
+    'abr': 4, 'abril': 4, 'apr': 4, 'april': 4,
+    'may': 5, 'mayo': 5,
+    'jun': 6, 'junio': 6, 'june': 6,
+    'jul': 7, 'julio': 7, 'july': 7,
+    'ago': 8, 'agosto': 8, 'aug': 8, 'august': 8,
+    'sep': 9, 'sept': 9, 'septiembre': 9, 'september': 9,
+    'oct': 10, 'octubre': 10, 'october': 10,
+    'nov': 11, 'noviembre': 11, 'november': 11,
+    'dic': 12, 'diciembre': 12, 'dec': 12, 'december': 12,
+}
+
+# La beta transcurre en 2026 (pedido TM-2026-00428). Los tableros traían 2023,
+# 2024 y 2025 mezclados, lo que rompe la coherencia que exige la revisión final.
+ANIO_DEMO = '2026'
+
+_MES = '|'.join(sorted(MESES, key=len, reverse=True))
+
+
+def _hora12(h, m, sufijo=None):
+    """Las horas se muestran en formato de 12 h con am/pm en minúscula."""
+    h = int(h)
+    if sufijo:
+        ap = sufijo.lower()
+        if ap == 'pm' and h < 12:
+            h += 12
+        elif ap == 'am' and h == 12:
+            h = 0
+    ap = 'am' if h < 12 else 'pm'
+    return '%02d:%s %s' % (h % 12 or 12, m, ap)
+
+
+def normalizar_fechas(texto):
+    """Pasa las fechas a dd/mm/aaaa y las horas a 12 h, como pide la guía.
+
+    Los tableros mezclaban `24 Oct 2023`, `Oct 24, 2023`, `14:32 UTC` y
+    `01:10 PM` en la misma beta.
+    """
+    # Las marcas ISO se normalizan primero: si no, la regla de horas de 24 h
+    # las parte por la mitad y deja restos como "09:32 am pm:00".
+    # Marcas de tiempo ISO ("2023-11-14 09:05:11") del registro de auditoría.
+    texto = re.sub(
+        r'\b(20\d{2})-([01]\d)-([0-3]\d)[ T]([0-2]?\d):([0-5]\d)(?::[0-5]\d)?\b',
+        lambda m: '%s/%s/%s %s' % (m.group(3), m.group(2), ANIO_DEMO,
+                                   _hora12(m.group(4), m.group(5))),
+        texto)
+    # Fechas ISO sin hora ("2024-10-24").
+    texto = re.sub(r'\b20\d{2}-([01]\d)-([0-3]\d)\b',
+                   lambda m: '%s/%s/%s' % (m.group(2), m.group(1), ANIO_DEMO), texto)
+
+
+    def dmy(m):
+        dia, mes, anio = m.group(1), m.group(2).lower().rstrip('.'), m.group(3)
+        if mes not in MESES:
+            return m.group(0)
+        return '%02d/%02d/%s' % (int(dia), MESES[mes], ANIO_DEMO if anio else ANIO_DEMO)
+
+    # "24 Oct 2023", "24 Octubre", "01 Oct"
+    texto = re.sub(r'\b(\d{1,2})\s+(' + _MES + r')\.?(?:\s*,)?(?:\s+(\d{4}))?\b',
+                   dmy, texto, flags=re.I)
+    # "Oct 24, 2023"
+    texto = re.sub(r'\b(' + _MES + r')\.?\s+(\d{1,2}),\s*(\d{4})\b',
+                   lambda m: '%02d/%02d/%s' % (int(m.group(2)), MESES[m.group(1).lower()], ANIO_DEMO),
+                   texto, flags=re.I)
+    # Horas de 24 h, con o sin UTC (la beta usa hora de Venezuela)
+    texto = re.sub(r'\b([01]?\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?\s*UTC\b',
+                   lambda m: _hora12(m.group(1), m.group(2)), texto)
+    # "01:10 PM" -> "01:10 pm"
+    texto = re.sub(r'\b(1[0-2]|0?\d):([0-5]\d)\s*([AaPp])\.?[Mm]\.?\b',
+                   lambda m: _hora12(m.group(1), m.group(2), m.group(3) + 'm'), texto)
+    # Los tableros traían horas de 24 h con sufijo PM ("14:05 PM"): el sufijo
+    # sobra y la hora hay que convertirla.
+    texto = re.sub(r'\b(1[3-9]|2[0-3]):([0-5]\d)(?:\s*[AaPp]\.?[Mm]\.?)?\b',
+                   lambda m: _hora12(m.group(1), m.group(2)), texto)
+    # Años sueltos de la demo anterior dentro de un contexto de fecha
+    texto = re.sub(r'(\d{2}/\d{2}/)(202[0-5])\b', r'\g<1>' + ANIO_DEMO, texto)
+    return texto
+
+
+# Frases de más de 60 caracteres o con un `<` literal en medio.
+LARGAS = sorted(((k, v) for k, v in TRADUCCIONES.items() if len(k) > 55 or '<' in k),
+                key=lambda kv: -len(kv[0]))
+
+# Etiquetas que aparecen como prefijo de un texto mayor ("Estado: operativo").
+PREFIJOS = sorted(((k, v) for k, v in TRADUCCIONES.items() if k.endswith(':')),
+                  key=lambda kv: -len(kv[0]))
+
+
 def traducir(html):
     """Pasa la navegación a español de Venezuela en el HTML entregado.
 
@@ -119,7 +210,27 @@ def traducir(html):
     # Solo texto entre etiquetas: nunca dentro de <script>, <style> o atributos.
     partes = re.split(r'(<(?:script|style)\b.*?</(?:script|style)>)', html, flags=re.S)
     for i in range(0, len(partes), 2):
-        partes[i] = re.sub(r'(>)([^<>]{1,60})(<)', en_texto, partes[i])
+        partes[i] = re.sub(r'(>)([^<>]{1,200})(<)', en_texto, partes[i])
+
+        # Frases largas y las que contienen un `<` literal ("(< 800px)") no
+        # caben en la ventana anterior: se sustituyen como cadena completa.
+        for clave, valor in LARGAS:
+            if clave in partes[i]:
+                partes[i] = partes[i].replace(clave, valor)
+
+        # Etiquetas con prefijo ("Created: 24/09/2026") dentro de un texto mayor.
+        # Se sustituyen solo dentro de la ventana de texto, nunca en atributos.
+        def _prefijos(m):
+            txt = m.group(2)
+            for clave, valor in PREFIJOS:
+                txt = re.sub(r'(?<!\w)' + re.escape(clave), valor, txt)
+            return m.group(1) + txt + m.group(3)
+
+        partes[i] = re.sub(r'(>)([^<>]{1,200})(<)', _prefijos, partes[i])
+
+        partes[i] = re.sub(r'(>)([^<>]{1,200})(<)',
+                           lambda m: m.group(1) + normalizar_fechas(m.group(2)) + m.group(3),
+                           partes[i])
     return ''.join(partes)
 
 

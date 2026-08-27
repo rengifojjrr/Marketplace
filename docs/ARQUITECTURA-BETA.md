@@ -45,30 +45,36 @@ beta navegable con estado, permisos y recorrido
 Por cada pantalla, en orden:
 
 1. **Traduce** la interfaz al español de Venezuela con
-   `tokens/traducciones.json`. La exportación mezclaba «Dashboard», «Settings»,
-   «Logout» con texto en español; la especificación exige un único idioma. Se
-   traduce en compilación, no en el navegador, para que el archivo entregado ya
-   esté en español aunque se abra sin JavaScript.
-2. **Normaliza la marca.** Los tableros se bautizaban a sí mismos «B2B
+   `tokens/traducciones.json` (181 términos). La exportación mezclaba
+   «Dashboard», «Settings», «Awaiting seller response» o «Here is your account
+   overview for today.» con texto en español; la especificación exige un único
+   idioma. Se traduce en compilación, no en el navegador, para que el archivo
+   entregado ya esté en español aunque se abra sin JavaScript.
+2. **Normaliza fechas y horas.** Los tableros mezclaban `24 Oct 2023`,
+   `Oct 24, 2023`, `2023-11-14 09:05:11`, `14:32 UTC` y `01:10 PM`, con los años
+   2023, 2024 y 2025 conviviendo. Todo pasa a `dd/mm/aaaa` y 12 h, y el año se
+   alinea con la línea temporal de la demo (2026, la del pedido
+   `TM-2026-00428`).
+3. **Normaliza la marca.** Los tableros se bautizaban a sí mismos «B2B
    Marketplace», «OpsCentral», «Marketplace Hub», «Tumbo Seller Center»… Ahora
    hay tres rótulos y solo tres: Tumbo Market, Seller Center y Backoffice.
-3. **Sustituye el sistema visual** por una sola hoja compilada desde
+4. **Sustituye el sistema visual** por una sola hoja compilada desde
    `tokens/tumbo-theme.json`, eliminando las tres paletas y el CDN de Tailwind.
-4. **Corrige los iconos heredados.** Diez nombres del antiguo Material Icons
+5. **Corrige los iconos heredados.** Diez nombres del antiguo Material Icons
    (`email`, `help_outline`, `report_problem`, `smartphone`…) no existen en
    Material Symbols y se dibujaban como texto literal. Se traducen a su
    equivalente vigente.
-5. **Localiza las imágenes**: las 103 URLs temporales pasan a marcadores SVG
+6. **Localiza las imágenes**: las 103 URLs temporales pasan a marcadores SVG
    propios, clasificados por el `data-alt` que la propia exportación dejó
    escrito (retrato, producto, documento, logística, tienda).
-6. **Rescata las pantallas móviles.** Cuatro tableros traían `md:hidden` en el
+7. **Rescata las pantallas móviles.** Cuatro tableros traían `md:hidden` en el
    propio `<body>`: abiertos en un portátil se veían **completamente en blanco**.
    Se retira la clase y la pantalla se encuadra en un marco de 390 px.
-7. **Añade el acceso al reclamo** que faltaba en el seguimiento del pedido
+8. **Añade el acceso al reclamo** que faltaba en el seguimiento del pedido
    (ver «Huecos del diseño original»).
-8. **Inserta el banner «Modo demo»** en las 24 pantallas financieras y
+9. **Inserta el banner «Modo demo»** en las 24 pantallas financieras y
    logísticas que lo exigen.
-9. **Inyecta el runtime** y escribe el manifiesto `screens.json`.
+10. **Inyecta el runtime** y escribe el manifiesto `screens.json`.
 
 Ejecuta `npm run build` para rehacerlo todo (estilos + páginas).
 
@@ -189,7 +195,8 @@ vez de disimularse:
 
 - ningún enlace quede apuntando a `#` y ningún control quede sin cablear;
 - no haya errores de consola ni `lorem ipsum`;
-- el idioma sea `es-VE` y la navegación esté en español;
+- el idioma sea `es-VE`, la interfaz esté en español y las fechas y horas
+  sigan el formato local;
 - las pantallas financieras y logísticas lleven su banner;
 - el RBAC bloquee y permita lo que debe;
 - los recorridos normal y de disputa lleguen hasta el final moviendo el estado;
