@@ -35,9 +35,15 @@ def bajar(url, salida, agente=True):
 
 
 def iconos_usados():
-    """Recorre app/ y recoge cada nombre de icono realmente presente."""
+    """Recorre las páginas y los módulos JS y recoge cada icono presente.
+
+    Los módulos de la beta construyen los iconos con `ic('nombre')` o con
+    propiedades `icono:`/`i:`; además se recogen los tokens entrecomillados de
+    los tm-*.js y se intersectan luego con los glifos reales de la fuente, de
+    modo que un icono usado dentro de un ternario tampoco se pierda."""
     usados = set()
-    for base in (os.path.join(RAIZ, 'app'), os.path.join(RAIZ, 'assets', 'js')):
+    for base in (os.path.join(RAIZ, 'app'), os.path.join(RAIZ, 'prototipo'),
+                 os.path.join(RAIZ, 'assets', 'js')):
         for carpeta, _, ficheros in os.walk(base):
             for f in ficheros:
                 if not f.endswith(('.html', '.js')):
@@ -46,7 +52,10 @@ def iconos_usados():
                     txt = fh.read()
                 usados |= set(re.findall(
                     r'material-symbols-outlined[^>]*>\s*([a-z0-9_]+)\s*<', txt))
-                usados |= set(re.findall(r"material-symbols-outlined\">'\s*\+?\s*", txt)) and set()
+                usados |= set(re.findall(r"\bic\(\s*'([a-z0-9_]+)'", txt))
+                usados |= set(re.findall(r"\b(?:icono|i)\s*:\s*'([a-z0-9_]+)'", txt))
+                if os.path.basename(f).startswith('tm-'):
+                    usados |= set(re.findall(r"'([a-z][a-z0-9_]{2,28})'", txt))
     with open(os.path.join(RAIZ, 'index.html'), encoding='utf-8') as fh:
         txt = fh.read()
     usados |= set(re.findall(r'material-symbols-outlined[^>]*>\s*([a-z0-9_]+)\s*<', txt))
@@ -118,10 +127,11 @@ def subset_material(iconos):
     faltan = sorted(iconos - disponibles)
     presentes = sorted(iconos & disponibles)
 
-    # Las letras y el guion bajo deben sobrevivir: la ligadura del nombre
-    # ("h"+"o"+"m"+"e" -> icono) es la que dibuja cada símbolo.
+    # Las letras, los dígitos y el guion bajo deben sobrevivir: la ligadura
+    # del nombre ("h"+"o"+"m"+"e" -> icono) es la que dibuja cada símbolo, y
+    # sin dígitos los iconos como `inventory_2` quedan rotos en «__2».
     cmap = fuente.getBestCmap()
-    letras = [cmap[ord(c)] for c in 'abcdefghijklmnopqrstuvwxyz_' if ord(c) in cmap]
+    letras = [cmap[ord(c)] for c in 'abcdefghijklmnopqrstuvwxyz0123456789_' if ord(c) in cmap]
 
     salida = os.path.join(DESTINO, 'material-symbols-subset.woff2')
     subprocess.run([

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+
+<html data-tumbo-banner="1" data-tumbo-escritorio="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Detalle de pedido e incidencias · Tumbo Market beta</title>
+<!-- Material Symbols -->
+<!-- Google Fonts -->
+<!-- Tailwind CSS -->
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<!-- Tailwind Config injected from Design System -->
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined[data-weight="fill"] {
+            font-variation-settings: 'FILL' 1;
+        }
+        /* Custom Utilities for the specific design specs */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .b2b-card {
+            background-color: #FFFFFF;
+            border: 1px solid #DCE3EC;
+            border-radius: 14px;
+            padding: 24px;
+        }
+        .notes-card {
+            background-color: #FFF9C4; /* Yellow pale */
+            border: 1px solid #FBC02D;
+            border-radius: 14px;
+            padding: 24px;
+        }
+        .timeline-line {
+            position: absolute;
+            left: 20px;
+            top: 24px;
+            bottom: 0;
+            width: 2px;
+            background-color: #DCE3EC;
+            z-index: 0;
+        }
+    </style>
+<link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Detalle de pedido e incidencias — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-surface-container-low text-on-surface font-body-md min-h-screen flex flex-col md:flex-row antialiased selection:bg-secondary-container selection:text-on-secondary-container">
+<div data-tumbo-ui="banner" class="tumbo-banner-demo" role="note"><span class="material-symbols-outlined" aria-hidden="true">science</span><span>MODO DEMO — Mensajería y logística simuladas. WhatsApp y couriers no están conectados.</span></div>
+<!-- TopNavBar (Web) / Hidden on md to let SideNav take over layout, but used as header if needed. Adjusting based on standard pattern -->
+<header class="sticky top-0 z-50 flex items-center justify-between px-lg w-full h-16 bg-surface-container-lowest border-b border-outline-variant md:hidden">
+<div class="flex items-center gap-md">
+<span class="font-headline-md text-headline-md font-bold text-primary">Backoffice</span>
+</div>
+<div class="flex items-center gap-md text-primary">
+<button class="p-2 hover:bg-surface-container-high transition-colors duration-200 rounded-full scale-95 duration-150 ease-in-out">
+<span class="material-symbols-outlined" data-icon="monitor_heart">monitor_heart</span>
+</button>
+<button class="p-2 hover:bg-surface-container-high transition-colors duration-200 rounded-full scale-95 duration-150 ease-in-out">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 hover:bg-surface-container-high transition-colors duration-200 rounded-full scale-95 duration-150 ease-in-out">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<img loading="lazy" alt="Foto de perfil — imagen de demostración" class="w-8 h-8 rounded-full object-cover border border-outline-variant" data-alt="A detailed headshot of a professional support agent in a well-lit corporate office setting. The agent is wearing a sleek headset and smiling warmly, communicating trust and efficiency. Soft, natural lighting from a nearby window creates a bright, modern light-mode aesthetic, fitting a high-end B2B SaaS platform avatar." src="../../assets/img/avatar-02.svg"/>
+</div>
+</header>
+<!-- SideNavBar (Desktop) -->
+<nav class="hidden md:flex flex-col fixed left-0 top-0 h-screen w-64 p-md gap-sm bg-surface-container border-r border-outline-variant z-40">
+<div class="flex items-center gap-sm mb-lg px-sm">
+<div class="w-10 h-10 rounded bg-primary-container text-on-primary-container flex items-center justify-center font-bold font-headline-sm">
+                O
+            </div>
+<div>
+<h1 class="font-headline-sm text-headline-sm font-black text-on-surface">Backoffice</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Consola de Operaciones</p>
+</div>
+</div>
+<button class="w-full bg-secondary text-on-secondary font-label-md text-label-md py-sm rounded-lg mb-md hover:bg-secondary/90 transition-colors">
+            Nuevo reporte
+        </button>
+<div class="flex-1 flex flex-col gap-xs overflow-y-auto">
+<!-- Navigation Items -->
+<a class="flex items-center gap-sm px-sm py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all duration-200 translate-x-1 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                Panel
+            </a>
+<!-- Active State: Orders because we are in Order Details -->
+<a class="flex items-center gap-sm px-sm py-sm rounded-lg text-secondary font-bold bg-secondary-container font-label-md text-label-md translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="package_2" data-weight="fill">package_2</span>
+                Pedidos
+            </a>
+<a class="flex items-center gap-sm px-sm py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all duration-200 translate-x-1 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="warning">warning</span>
+                Incidencias
+            </a>
+<a class="flex items-center gap-sm px-sm py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all duration-200 translate-x-1 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="gavel">gavel</span>
+                Disputas
+            </a>
+<a class="flex items-center gap-sm px-sm py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all duration-200 translate-x-1 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="chat">chat</span>
+                Mensajería
+            </a>
+<a class="flex items-center gap-sm px-sm py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all duration-200 translate-x-1 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="storefront">storefront</span>
+                Sellers
+            </a>
+</div>
+<div class="mt-auto pt-md border-t border-outline-variant flex flex-col gap-xs">
+<a class="flex items-center gap-sm px-sm py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all duration-200 translate-x-1 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+                Salud del sistema
+            </a>
+<a class="flex items-center gap-sm px-sm py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all duration-200 translate-x-1 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                Configuración
+            </a>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-1 md:ml-64 p-md md:p-lg pb-xxl flex flex-col gap-gutter max-w-container-max mx-auto w-full">
+<!-- Header -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-md mb-sm">
+<div>
+<div class="flex items-center gap-sm mb-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Detalle de Pedido</span>
+<span class="px-2 py-1 bg-surface-container-highest text-on-surface font-label-sm rounded flex items-center gap-1 border border-outline-variant">
+<span class="material-symbols-outlined text-[14px]" data-icon="schedule">schedule</span>
+                        En Tránsito
+                    </span>
+</div>
+<h2 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary flex items-center gap-sm">
+                    ORD-9982-A4F 
+                    <button class="text-on-surface-variant hover:text-secondary transition-colors" title="Copiar ID">
+<span class="material-symbols-outlined" data-icon="content_copy">content_copy</span>
+</button>
+</h2>
+<p class="font-body-sm text-on-surface-variant mt-1">Creado: 12/10/2026, 02:32 pm</p>
+</div>
+<div class="flex gap-sm">
+<button class="px-md py-sm bg-surface-container-lowest border border-primary-container text-primary-container font-label-md rounded-[10px] hover:bg-surface-container transition-colors">
+                    Imprimir Recibo
+                </button>
+<!-- Ghost Button equivalent -->
+<button class="px-md py-sm text-primary-container font-label-md hover:bg-surface-container-high transition-colors rounded-[10px]">
+                    Ver Log
+                </button>
+</div>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+<!-- Left Column: Timeline & Items (Takes 7 cols) -->
+<div class="lg:col-span-7 flex flex-col gap-gutter">
+<!-- Items Box -->
+<section class="b2b-card flex flex-col gap-md">
+<h3 class="font-headline-sm text-headline-sm text-primary border-b border-outline-variant pb-sm">Artículos del Pedido (2)</h3>
+<div class="flex flex-col gap-sm">
+<!-- Item 1 -->
+<div class="flex items-center gap-md p-sm hover:bg-surface-container-low rounded-lg transition-colors border border-transparent hover:border-outline-variant">
+<img loading="lazy" alt="Imagen del producto — demostración" class="w-16 h-16 object-cover rounded border border-outline-variant" data-alt="A highly detailed, professional studio shot of a sleek, modern ergonomic office chair in deep navy blue. The chair is placed against a stark, high-key white background, illuminated by soft, diffused lighting that highlights its premium fabric and metallic accents, fitting a corporate B2B catalog aesthetic." src="../../assets/img/producto-04.svg"/>
+<div class="flex-1">
+<h4 class="font-label-md text-label-md text-on-surface">Silla Ergonómica Pro - Azul Marino</h4>
+<p class="font-body-sm text-on-surface-variant">SKU: CHR-992-BLU • Lote: 44A</p>
+</div>
+<div class="text-right">
+<p class="font-body-md text-on-surface font-semibold">$345.00</p>
+<p class="font-label-sm text-on-surface-variant">Cant: 1</p>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex items-center gap-md p-sm hover:bg-surface-container-low rounded-lg transition-colors border border-transparent hover:border-outline-variant">
+<img loading="lazy" alt="Imagen de la tienda — demostración" class="w-16 h-16 object-cover rounded border border-outline-variant" data-alt="A crisp, high-resolution product photography shot of a minimalist, brushed aluminum laptop stand. The stand is shown at a dynamic angle on a pure white background with subtle shadow layering beneath it, reflecting a premium, modern technological design language suitable for an enterprise marketplace." src="../../assets/img/tienda-06.svg"/>
+<div class="flex-1">
+<h4 class="font-label-md text-label-md text-on-surface">Soporte Aluminio Ajustable</h4>
+<p class="font-body-sm text-on-surface-variant">SKU: LST-100-ALU • Lote: 12B</p>
+</div>
+<div class="text-right">
+<p class="font-body-md text-on-surface font-semibold">$45.00</p>
+<p class="font-label-sm text-on-surface-variant">Cant: 2</p>
+</div>
+</div>
+</div>
+<div class="flex justify-between border-t border-outline-variant pt-md mt-sm">
+<span class="font-label-md text-label-md text-on-surface-variant">Total Pedido (Solo Lectura)</span>
+<span class="font-headline-sm text-headline-sm text-primary">$435.00 USD</span>
+</div>
+</section>
+<!-- Unified Timeline -->
+<section class="b2b-card flex flex-col gap-md relative overflow-hidden">
+<h3 class="font-headline-sm text-headline-sm text-primary border-b border-outline-variant pb-sm mb-sm">Línea de Tiempo Unificada</h3>
+<div class="relative pl-xl pb-md">
+<div class="timeline-line"></div>
+<!-- Event 1: Payment -->
+<div class="relative mb-lg">
+<div class="absolute -left-[30px] w-8 h-8 rounded-full bg-[#E8F5E9] border-2 border-[#4CAF50] flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-[#4CAF50] text-[16px]" data-icon="check_circle" data-weight="fill">check_circle</span>
+</div>
+<div class="flex justify-between items-start mb-xs">
+<h4 class="font-label-md text-label-md text-on-surface">Pago Confirmado</h4>
+<span class="font-label-sm text-on-surface-variant">12/10/2026, 02:35 pm</span>
+</div>
+<p class="font-body-sm text-on-surface-variant">Transacción #TXN-8821. Método: Tarjeta de Crédito ****4242.</p>
+</div>
+<!-- Event 2: Preparation -->
+<div class="relative mb-lg">
+<div class="absolute -left-[30px] w-8 h-8 rounded-full bg-[#E8F5E9] border-2 border-[#4CAF50] flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-[#4CAF50] text-[16px]" data-icon="inventory_2" data-weight="fill">inventory_2</span>
+</div>
+<div class="flex justify-between items-start mb-xs">
+<h4 class="font-label-md text-label-md text-on-surface">Preparación de Seller</h4>
+<span class="font-label-sm text-on-surface-variant">13/10/2026, 09:00 am</span>
+</div>
+<p class="font-body-sm text-on-surface-variant">Seller marcó como 'Listo para despachar'. Guía generada: TRK-551.</p>
+</div>
+<!-- Event 3: Transit (Current) -->
+<div class="relative mb-lg">
+<div class="absolute -left-[30px] w-8 h-8 rounded-full bg-[#E3F2FD] border-2 border-secondary flex items-center justify-center z-10 shadow-[0_0_0_4px_rgba(37,99,235,0.1)]">
+<span class="material-symbols-outlined text-secondary text-[16px]" data-icon="local_shipping" data-weight="fill">local_shipping</span>
+</div>
+<div class="flex justify-between items-start mb-xs">
+<h4 class="font-label-md text-label-md text-secondary">En Tránsito</h4>
+<span class="font-label-sm text-secondary">14/10/2026, 11:20 am</span>
+</div>
+<p class="font-body-sm text-on-surface">Paquete recogido por operador logístico. Última ubicación: Centro Distribución Norte.</p>
+</div>
+<!-- Event 4: Incident (Warning) -->
+<div class="relative">
+<div class="absolute -left-[30px] w-8 h-8 rounded-full bg-[#FFF3E0] border-2 border-[#FF9800] flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-[#FF9800] text-[16px]" data-icon="warning" data-weight="fill">warning</span>
+</div>
+<div class="flex justify-between items-start mb-xs">
+<h4 class="font-label-md text-label-md text-on-surface">Alerta Logística</h4>
+<span class="font-label-sm text-on-surface-variant">14/10/2026, 03:45 pm</span>
+</div>
+<p class="font-body-sm text-on-surface-variant">Retraso reportado por clima. ETA actualizado +24h.</p>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column: People, Actions, Notes (Takes 5 cols) -->
+<div class="lg:col-span-5 flex flex-col gap-gutter">
+<!-- Action Panel (Sticky-ish) -->
+<section class="b2b-card bg-surface-container-lowest border-secondary-container/30 shadow-[0_4px_12px_rgba(11,37,69,0.05)] flex flex-col gap-sm relative z-20">
+<h3 class="font-headline-sm text-headline-sm text-primary mb-xs">Panel de Acciones</h3>
+<button class="w-full py-sm px-md bg-white border border-[#DCE3EC] text-on-surface font-label-md rounded-[10px] hover:bg-surface-container-low transition-colors flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="support_agent">support_agent</span>
+                        Abrir Incidencia
+                    </button>
+<button class="w-full py-sm px-md bg-white border border-[#DCE3EC] text-on-surface font-label-md rounded-[10px] hover:bg-surface-container-low transition-colors flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="escalator_warning">escalator_warning</span>
+                        Escalar Caso
+                    </button>
+<div class="h-px bg-outline-variant my-xs w-full"></div>
+<button class="w-full py-sm px-md bg-[#FFF5F5] border border-[#FFCDD2] text-[#C62828] font-label-md rounded-[10px] hover:bg-[#FFEBEE] transition-colors flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="cancel">cancel</span>
+                        Cancelar Pedido
+                    </button>
+<button class="w-full py-sm px-md bg-[#FFF5F5] border border-[#FFCDD2] text-[#C62828] font-label-md rounded-[10px] hover:bg-[#FFEBEE] transition-colors flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="ac_unit">ac_unit</span>
+                        Congelar Fondos
+                    </button>
+<p class="font-label-sm text-on-surface-variant text-center mt-xs flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="info">info</span>
+                        Elegibilidad verificada
+                    </p>
+</section>
+<!-- Users Card -->
+<section class="b2b-card flex flex-col gap-md">
+<h3 class="font-headline-sm text-headline-sm text-primary border-b border-outline-variant pb-sm">Participantes</h3>
+<!-- Buyer -->
+<div class="flex flex-col gap-xs">
+<span class="font-label-sm text-on-surface-variant uppercase tracking-wide">Comprador</span>
+<div class="flex items-center gap-sm bg-surface p-sm rounded-lg border border-outline-variant/50">
+<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold">
+                                MC
+                            </div>
+<div class="flex-1">
+<h4 class="font-label-md text-on-surface">Mariah Carey Corp.</h4>
+<p class="font-body-sm text-on-surface-variant">m.carey@example.com</p>
+</div>
+<button class="text-on-surface-variant hover:text-secondary p-1">
+<span class="material-symbols-outlined text-[20px]" data-icon="mail">mail</span>
+</button>
+</div>
+</div>
+<!-- Seller -->
+<div class="flex flex-col gap-xs mt-sm">
+<span class="font-label-sm text-on-surface-variant uppercase tracking-wide">Seller</span>
+<div class="flex items-center gap-sm bg-surface p-sm rounded-lg border border-outline-variant/50">
+<div class="w-10 h-10 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold">
+                                TS
+                            </div>
+<div class="flex-1">
+<h4 class="font-label-md text-on-surface">TechSupplies Inc.</h4>
+<p class="font-body-sm text-on-surface-variant">+1 (555) 019-2831</p>
+</div>
+<button class="text-on-surface-variant hover:text-secondary p-1">
+<span class="material-symbols-outlined text-[20px]" data-icon="call">call</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Internal Notes -->
+<section class="notes-card shadow-[0_4px_12px_rgba(251,192,45,0.15)] flex flex-col gap-sm">
+<div class="flex items-center justify-between mb-xs">
+<h3 class="font-headline-sm text-headline-sm text-[#F57F17] flex items-center gap-sm">
+<span class="material-symbols-outlined" data-icon="edit_note" data-weight="fill">edit_note</span>
+                            Notas Internas
+                        </h3>
+<span class="bg-[#FFF59D] text-[#F57F17] font-label-sm px-2 py-1 rounded">Solo Staff</span>
+</div>
+<div class="bg-white/60 p-sm rounded border border-[#FFF59D] font-body-sm text-[#424242]">
+<p><strong>14/10/2026, OpsAgent:</strong> El seller indica que el retraso climático podría afectar el SLA. Monitorear en 24h. No escalar a menos que pase de 48h de retraso en nodo.</p>
+</div>
+<div class="mt-xs">
+<textarea class="w-full bg-white border border-[#FBC02D] rounded-[10px] p-sm font-body-sm focus:border-secondary focus:ring-2 focus:ring-secondary/30 transition-shadow outline-none resize-none placeholder:text-[#9E9E9E]" placeholder="Agregar nota operativa..." rows="2"></textarea>
+<div class="flex justify-end mt-xs">
+<button class="px-md py-xs bg-[#FBC02D] text-[#FFF9C4] font-label-md rounded-[10px] hover:bg-[#F9A825] transition-colors shadow-sm text-shadow-sm text-black">
+                                Guardar
+                            </button>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-sm py-unit bg-surface-container-highest shadow-lg rounded-t-xl border-t border-outline-variant">
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-surface-variant transition-colors rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label-sm text-label-sm mt-1">Panel</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl p-2 px-4 shadow-sm scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="package_2" data-weight="fill">package_2</span>
+<span class="font-label-sm text-label-sm mt-1">Pedidos</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-surface-variant transition-colors rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="warning">warning</span>
+<span class="font-label-sm text-label-sm mt-1">Incidencias</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-surface-variant transition-colors rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="gavel">gavel</span>
+<span class="font-label-sm text-label-sm mt-1">Disputas</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-surface-variant transition-colors rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-label-sm text-label-sm mt-1">Perfil</span>
+</a>
+</nav>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA={"ruta": "backoffice/ops-pedido-detalle.html", "superficie": "backoffice", "rol": "ops", "titulo": "Detalle de pedido e incidencias"};</script>
+</body></html>

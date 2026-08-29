@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+
+<html data-tumbo-escritorio="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Moderación de productos · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        [data-weight="fill"] {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+<link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Moderación de productos — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen overflow-hidden flex">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-sidebar-width bg-surface flex flex-col h-full border-r border-surface-border">
+<div class="p-gutter border-b border-surface-border flex items-center gap-tight">
+<img loading="lazy" alt="Imagen de la tienda — demostración" class="w-8 h-8 object-contain" data-alt="A clean, minimalist logo for a digital marketplace backoffice, featuring abstract geometric shapes in shades of navy blue and gray, set against a pristine white background. The design is highly professional and corporate." src="../../assets/img/tienda-03.svg"/>
+<div>
+<h1 class="font-headline-sm text-headline-sm font-bold text-primary">Tumbo Market</h1>
+<p class="font-label-sm text-label-sm text-secondary">Backoffice</p>
+</div>
+</div>
+<nav class="flex-1 overflow-y-auto py-tight flex flex-col gap-base px-tight">
+<a class="flex items-center gap-tight px-compact py-tight rounded text-secondary hover:bg-data-row-hover transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-body-sm text-body-sm">Panel</span>
+</a>
+<a class="flex items-center gap-tight px-compact py-tight rounded text-secondary hover:bg-data-row-hover transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="verified_user">verified_user</span>
+<span class="font-body-sm text-body-sm">Sellers (KYC)</span>
+</a>
+<a class="flex items-center gap-tight px-compact py-tight rounded text-secondary hover:bg-data-row-hover transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="category">category</span>
+<span class="font-body-sm text-body-sm">Catálogo</span>
+</a>
+<a class="flex items-center gap-tight px-compact py-tight rounded bg-secondary-container text-on-secondary-container font-semibold transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="gavel" data-weight="fill">gavel</span>
+<span class="font-body-sm text-body-sm">Moderación</span>
+</a>
+<a class="flex items-center gap-tight px-compact py-tight rounded text-secondary hover:bg-data-row-hover transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="rule">rule</span>
+<span class="font-body-sm text-body-sm">Reglas</span>
+</a>
+<a class="flex items-center gap-tight px-compact py-tight rounded text-secondary hover:bg-data-row-hover transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="admin_panel_settings">admin_panel_settings</span>
+<span class="font-body-sm text-body-sm">Users &amp; Roles</span>
+</a>
+<a class="flex items-center gap-tight px-compact py-tight rounded text-secondary hover:bg-data-row-hover transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+<span class="font-body-sm text-body-sm">Pedidos globales</span>
+</a>
+</nav>
+<div class="p-tight border-t border-surface-border flex flex-col gap-base">
+<a class="flex items-center gap-tight px-compact py-tight rounded text-secondary hover:bg-data-row-hover transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="lock">lock</span>
+<span class="font-body-sm text-body-sm">Seguridad</span>
+</a>
+<a class="flex items-center gap-tight px-compact py-tight rounded text-danger hover:bg-error-container transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="font-body-sm text-body-sm">Cerrar sesión</span>
+</a>
+</div>
+</aside>
+<!-- Main Layout -->
+<div class="ml-[sidebar-width] w-full flex flex-col h-screen">
+<!-- TopNavBar -->
+<header class="bg-surface-container-lowest docked full-width top-0 h-header-height border-b border-surface-border flex justify-between items-center w-full px-gutter max-w-[calc(100%-240px)] flex-shrink-0 z-10">
+<div class="flex items-center gap-standard">
+<span class="font-headline-sm text-headline-sm font-bold text-primary">Tumbo Market Backoffice</span>
+</div>
+<div class="flex items-center bg-surface-container rounded px-compact py-tight h-[32px] w-[300px] border border-surface-border focus-within:border-primary">
+<span class="material-symbols-outlined text-secondary text-[18px] mr-tight" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 p-0 text-body-sm w-full outline-none text-on-surface placeholder-secondary" placeholder="Buscar productos o sellers…" type="text"/>
+</div>
+<div class="flex items-center gap-compact">
+<button class="text-on-surface-variant hover:bg-surface-container p-tight rounded-full transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container p-tight rounded-full transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="security">security</span>
+</button>
+<img loading="lazy" alt="Foto de perfil — imagen de demostración" class="w-8 h-8 rounded-full border border-surface-border cursor-pointer object-cover" data-alt="A small circular avatar of an administrative user, featuring a professional headshot in a modern office setting. The lighting is bright and clear, reflecting a trustworthy and competent corporate persona." src="../../assets/img/avatar-03.svg"/>
+</div>
+</header>
+<!-- Canvas -->
+<main class="flex-1 overflow-auto bg-background p-standard flex flex-col gap-standard">
+<!-- Header & Actions -->
+<div class="flex justify-between items-end">
+<div>
+<h2 class="font-headline-md text-headline-md text-primary mb-base">Product Moderation</h2>
+<p class="font-body-sm text-body-sm text-secondary">Revisa y aprueba las publicaciones pendientes del catálogo global.</p>
+</div>
+<div class="flex gap-compact">
+<button class="bg-surface text-secondary border border-surface-border font-label-md text-label-md px-standard py-tight rounded hover:bg-data-row-hover flex items-center gap-tight">
+<span class="material-symbols-outlined text-[16px]" data-icon="filter_list">filter_list</span>
+                        Filtrar
+                    </button>
+<button class="bg-primary-container text-on-primary font-label-md text-label-md px-standard py-tight rounded hover:bg-primary transition-colors flex items-center gap-tight">
+<span class="material-symbols-outlined text-[16px]" data-icon="check_circle">check_circle</span>
+                        Aprobar selección
+                    </button>
+</div>
+</div>
+<!-- Filters Area -->
+<div class="bg-surface border border-surface-border rounded p-compact flex gap-compact items-center">
+<div class="flex items-center gap-tight bg-background border border-surface-border rounded px-compact py-tight">
+<span class="font-label-sm text-label-sm text-secondary uppercase">Seller</span>
+<select class="bg-transparent border-none text-body-sm p-0 focus:ring-0 outline-none text-primary cursor-pointer w-[120px]">
+<option>Todos los sellers</option>
+<option>TechCorp Inc.</option>
+<option>Global Traders</option>
+</select>
+</div>
+<div class="flex items-center gap-tight bg-background border border-surface-border rounded px-compact py-tight">
+<span class="font-label-sm text-label-sm text-secondary uppercase">Category</span>
+<select class="bg-transparent border-none text-body-sm p-0 focus:ring-0 outline-none text-primary cursor-pointer w-[120px]">
+<option>Electronics</option>
+<option>Apparel</option>
+<option>Home &amp; Garden</option>
+</select>
+</div>
+<div class="h-6 w-px bg-surface-border mx-tight"></div>
+<div class="flex gap-tight">
+<span class="bg-surface-variant text-on-surface-variant font-label-sm text-label-sm px-tight py-base rounded flex items-center gap-base">
+                        Riesgo alto <span class="material-symbols-outlined text-[12px] cursor-pointer" data-icon="close">close</span>
+</span>
+<span class="bg-surface-variant text-on-surface-variant font-label-sm text-label-sm px-tight py-base rounded flex items-center gap-base">
+                        Pendiente (más de 48 h) <span class="material-symbols-outlined text-[12px] cursor-pointer" data-icon="close">close</span>
+</span>
+</div>
+</div>
+<!-- Data Table Grid -->
+<div class="bg-surface border border-surface-border rounded overflow-hidden flex-1 flex flex-col">
+<div class="grid grid-cols-[40px_minmax(300px,_1fr)_200px_minmax(200px,_1fr)_150px] bg-surface-container-lowest border-b border-surface-border p-compact items-center">
+<div class="flex justify-center"><input class="rounded border-surface-border text-primary focus:ring-primary w-4 h-4 cursor-pointer" type="checkbox"/></div>
+<div class="font-label-sm text-label-sm text-secondary uppercase tracking-wider">Product Match</div>
+<div class="font-label-sm text-label-sm text-secondary uppercase tracking-wider">Datos del seller</div>
+<div class="font-label-sm text-label-sm text-secondary uppercase tracking-wider">Alerts &amp; Status</div>
+<div class="font-label-sm text-label-sm text-secondary uppercase tracking-wider text-right">Acciones</div>
+</div>
+<div class="overflow-y-auto flex-1">
+<!-- Row 1: High Risk -->
+<div class="grid grid-cols-[40px_minmax(300px,_1fr)_200px_minmax(200px,_1fr)_150px] border-b border-surface-border p-compact items-start hover:bg-data-row-hover transition-colors group">
+<div class="flex justify-center pt-tight"><input class="rounded border-surface-border text-primary focus:ring-primary w-4 h-4 cursor-pointer" type="checkbox"/></div>
+<!-- Product Match -->
+<div class="flex gap-standard">
+<img loading="lazy" alt="Imagen del producto — demostración" class="w-16 h-16 object-cover border border-surface-border rounded bg-white flex-shrink-0" data-alt="A clear, high-resolution product shot of a sleek modern smartphone with a glass back and multiple camera lenses, positioned on a stark white background. The image is typical of an e-commerce listing." src="../../assets/img/producto-01.svg"/>
+<div class="flex flex-col gap-base">
+<span class="font-label-md text-label-md text-primary">Quantum X Pro Smartphone 256GB</span>
+<span class="font-data-mono text-data-mono text-secondary">Electronics &gt; Mobile Phones</span>
+<p class="font-body-sm text-body-sm text-secondary line-clamp-2 mt-base">Latest model featuring advanced AI camera system, 6.7" OLED display, and all-day battery life. Unlocked for all carriers.</p>
+</div>
+</div>
+<!-- Seller Info -->
+<div class="flex flex-col gap-base pt-tight">
+<span class="font-label-md text-label-md text-primary">TechCorp Inc.</span>
+<span class="font-data-mono text-data-mono text-secondary">ID: SL-4921-A</span>
+<span class="font-label-sm text-label-sm text-warning bg-warning/10 px-tight py-base rounded w-fit mt-base border border-warning/20">Trust Score: 68/100</span>
+</div>
+<!-- Alerts -->
+<div class="flex flex-col gap-tight pt-tight">
+<div class="flex items-start gap-tight">
+<span class="material-symbols-outlined text-danger text-[16px] mt-px" data-icon="policy">policy</span>
+<span class="font-body-sm text-body-sm text-danger">Possible IP Infringement detected in title keywords.</span>
+</div>
+<div class="flex items-start gap-tight">
+<span class="material-symbols-outlined text-warning text-[16px] mt-px" data-icon="image">image</span>
+<span class="font-body-sm text-body-sm text-warning">Las imágenes secundarias tienen baja resolución (menos de 800 px).</span>
+</div>
+</div>
+<!-- Actions -->
+<div class="flex flex-col gap-tight items-end pt-tight">
+<button class="bg-surface border border-surface-border text-secondary font-label-md text-label-md px-tight py-base rounded hover:bg-data-row-hover w-full text-left flex justify-between items-center group-hover:border-primary-container/30 transition-colors">
+                                Ver detalle
+                                <span class="material-symbols-outlined text-[16px]" data-icon="chevron_right">chevron_right</span>
+</button>
+<div class="flex gap-tight w-full mt-tight">
+<button class="flex-1 bg-surface border border-surface-border text-danger font-label-md text-label-md px-tight py-base rounded hover:bg-error-container hover:border-danger transition-colors flex justify-center items-center" title="Rechazar">
+<span class="material-symbols-outlined text-[16px]" data-icon="close">close</span>
+</button>
+<button class="flex-1 bg-surface border border-surface-border text-warning font-label-md text-label-md px-tight py-base rounded hover:bg-warning/10 hover:border-warning transition-colors flex justify-center items-center" title="Marcar para edición">
+<span class="material-symbols-outlined text-[16px]" data-icon="flag">flag</span>
+</button>
+<button class="flex-1 bg-surface border border-surface-border text-success font-label-md text-label-md px-tight py-base rounded hover:bg-success/10 hover:border-success transition-colors flex justify-center items-center" title="Aprobar">
+<span class="material-symbols-outlined text-[16px]" data-icon="check">check</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Row 2: Standard Review -->
+<div class="grid grid-cols-[40px_minmax(300px,_1fr)_200px_minmax(200px,_1fr)_150px] border-b border-surface-border p-compact items-start hover:bg-data-row-hover transition-colors group">
+<div class="flex justify-center pt-tight"><input class="rounded border-surface-border text-primary focus:ring-primary w-4 h-4 cursor-pointer" type="checkbox"/></div>
+<div class="flex gap-standard">
+<img loading="lazy" alt="Imagen del producto — demostración" class="w-16 h-16 object-cover border border-surface-border rounded bg-white flex-shrink-0" data-alt="A high-quality product photo of a set of ergonomic kitchen knives displayed on a natural wooden block. The setting is bright and clean, typical for home goods marketing." src="../../assets/img/producto-01.svg"/>
+<div class="flex flex-col gap-base">
+<span class="font-label-md text-label-md text-primary">Chef's Master 5-Piece Knife Set</span>
+<span class="font-data-mono text-data-mono text-secondary">Home &gt; Kitchenware</span>
+<p class="font-body-sm text-body-sm text-secondary line-clamp-2 mt-base">High-carbon stainless steel blades with ergonomic handles. Includes bamboo storage block.</p>
+</div>
+</div>
+<div class="flex flex-col gap-base pt-tight">
+<span class="font-label-md text-label-md text-primary">Global Traders</span>
+<span class="font-data-mono text-data-mono text-secondary">ID: SL-8832-B</span>
+<span class="font-label-sm text-label-sm text-success bg-success/10 px-tight py-base rounded w-fit mt-base border border-success/20">Trust Score: 95/100</span>
+</div>
+<div class="flex flex-col gap-tight pt-tight">
+<div class="flex items-start gap-tight">
+<span class="material-symbols-outlined text-info text-[16px] mt-px" data-icon="info">info</span>
+<span class="font-body-sm text-body-sm text-secondary">Análisis automático de texto aprobado. Listo para revisión visual manual.</span>
+</div>
+</div>
+<div class="flex flex-col gap-tight items-end pt-tight">
+<button class="bg-surface border border-surface-border text-secondary font-label-md text-label-md px-tight py-base rounded hover:bg-data-row-hover w-full text-left flex justify-between items-center group-hover:border-primary-container/30 transition-colors">
+                                Ver detalle
+                                <span class="material-symbols-outlined text-[16px]" data-icon="chevron_right">chevron_right</span>
+</button>
+<div class="flex gap-tight w-full mt-tight">
+<button class="flex-1 bg-surface border border-surface-border text-danger font-label-md text-label-md px-tight py-base rounded hover:bg-error-container hover:border-danger transition-colors flex justify-center items-center" title="Rechazar">
+<span class="material-symbols-outlined text-[16px]" data-icon="close">close</span>
+</button>
+<button class="flex-1 bg-surface border border-surface-border text-warning font-label-md text-label-md px-tight py-base rounded hover:bg-warning/10 hover:border-warning transition-colors flex justify-center items-center" title="Marcar para edición">
+<span class="material-symbols-outlined text-[16px]" data-icon="flag">flag</span>
+</button>
+<button class="flex-1 bg-surface border border-surface-border text-success font-label-md text-label-md px-tight py-base rounded hover:bg-success/10 hover:border-success transition-colors flex justify-center items-center" title="Aprobar">
+<span class="material-symbols-outlined text-[16px]" data-icon="check">check</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Pagination Footer -->
+<div class="border-t border-surface-border p-compact flex justify-between items-center bg-surface-container-lowest">
+<span class="font-body-sm text-body-sm text-secondary">Mostrando 1-10 de 245 pendientes</span>
+<div class="flex gap-base">
+<button class="p-tight rounded border border-surface-border text-secondary hover:bg-surface-container disabled:opacity-50"><span class="material-symbols-outlined text-[16px]" data-icon="chevron_left">chevron_left</span></button>
+<button class="p-tight rounded border border-surface-border bg-primary-container text-on-primary font-label-sm text-label-sm min-w-[32px]">1</button>
+<button class="p-tight rounded border border-surface-border text-secondary hover:bg-surface-container font-label-sm text-label-sm min-w-[32px]">2</button>
+<button class="p-tight rounded border border-surface-border text-secondary hover:bg-surface-container font-label-sm text-label-sm min-w-[32px]">3</button>
+<button class="p-tight rounded border border-surface-border text-secondary hover:bg-surface-container"><span class="material-symbols-outlined text-[16px]" data-icon="chevron_right">chevron_right</span></button>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA={"ruta": "backoffice/moderacion.html", "superficie": "backoffice", "rol": "superadmin", "titulo": "Moderación de productos"};</script>
+</body></html>

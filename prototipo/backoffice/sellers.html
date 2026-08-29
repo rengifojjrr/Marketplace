@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+
+<html data-tumbo-escritorio="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Gestión de sellers · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+        .material-symbols-outlined {
+          font-variation-settings:
+          'FILL' 0,
+          'wght' 400,
+          'GRAD' 0,
+          'opsz' 24
+        }
+        .material-symbols-outlined[style*="'FILL' 1"] {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+      </style>
+<link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Gestión de sellers — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-surface text-on-surface flex min-h-screen">
+<!-- TopNavBar (Mobile Only) -->
+<nav class="md:hidden sticky top-0 z-50 flex justify-between items-center w-full px-lg py-md bg-surface dark:bg-primary-container">
+<div class="flex items-center gap-sm">
+<button class="text-on-surface-variant hover:text-secondary transition-colors duration-200">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">Tumbo Market</span>
+</div>
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-secondary dark:text-secondary-fixed">notifications</span>
+<span class="material-symbols-outlined text-secondary dark:text-secondary-fixed">help</span>
+<span class="material-symbols-outlined text-secondary dark:text-secondary-fixed">account_circle</span>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="hidden md:flex lg:flex flex-col h-full p-md gap-sm bg-surface-container-low dark:bg-primary-container border-r border-outline-variant dark:border-outline w-64 docked left-0 fixed">
+<div class="flex items-center gap-md p-md mb-md">
+<div class="w-10 h-10 rounded-full bg-secondary-fixed-dim flex items-center justify-center text-primary-container font-headline-sm font-bold">TM</div>
+<div>
+<h1 class="font-headline-sm text-headline-sm font-bold text-primary dark:text-primary-fixed">Seller Center</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Gestionando: Backoffice</p>
+</div>
+</div>
+<nav class="flex-1 flex flex-col gap-xs">
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Panel</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg bg-secondary-fixed dark:bg-secondary-container text-on-secondary-fixed dark:text-on-secondary-container font-bold Active: scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">storefront</span>
+<span class="font-label-md text-label-md">Sellers</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">shopping_cart</span>
+<span class="font-label-md text-label-md">Pedidos</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-label-md text-label-md">Pagos</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="font-label-md text-label-md">Analítica</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-variant transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">Configuración</span>
+</a>
+</nav>
+<div class="mt-auto flex flex-col gap-xs pt-md border-t border-outline-variant">
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">contact_support</span>
+<span class="font-label-md text-label-md">Soporte</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-label-md text-label-md">Cerrar sesión</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 w-full md:ml-64 p-lg lg:p-xl flex flex-col gap-lg bg-surface">
+<!-- Header Section -->
+<header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-md">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-primary">Gestión de Sellers</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Administración y homologación de vendedores en la plataforma.</p>
+</div>
+<button class="bg-[#2563EB] text-white px-lg py-sm rounded-[10px] font-label-md flex items-center gap-sm hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined">person_add</span>
+                Invitar Nuevo Seller
+            </button>
+</header>
+<!-- Metrics Overview Bento -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-md">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-lg flex flex-col gap-sm shadow-sm">
+<div class="flex justify-between items-center text-on-surface-variant">
+<span class="font-label-md">Sellers en Proceso</span>
+<span class="material-symbols-outlined text-secondary">pending_actions</span>
+</div>
+<div class="font-display-lg text-display-lg text-primary">24</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">+3 desde ayer</p>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-lg flex flex-col gap-sm shadow-sm">
+<div class="flex justify-between items-center text-on-surface-variant">
+<span class="font-label-md">Homologados (Activos)</span>
+<span class="material-symbols-outlined text-[#00504a]">check_circle</span>
+</div>
+<div class="font-display-lg text-display-lg text-primary">1,432</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">98% tasa de aprobación</p>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-lg flex flex-col gap-sm shadow-sm">
+<div class="flex justify-between items-center text-on-surface-variant">
+<span class="font-label-md">Rechazados / Pausados</span>
+<span class="material-symbols-outlined text-error">cancel</span>
+</div>
+<div class="font-display-lg text-display-lg text-primary">12</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Requieren revisión</p>
+</div>
+</section>
+<!-- Filters & Table Container -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-[14px] flex flex-col shadow-sm">
+<!-- Filter Bar -->
+<div class="p-lg border-b border-outline-variant flex flex-col md:flex-row gap-md justify-between items-center bg-surface-container-lowest rounded-t-[14px]">
+<div class="flex flex-wrap gap-md w-full md:w-auto">
+<div class="relative flex-1 md:w-64">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full pl-xl pr-md py-sm bg-surface-container-lowest border border-outline-variant rounded-[10px] font-body-sm text-on-surface focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/30 transition-all outline-none" placeholder="Buscar por Nombre o RIF..." type="text"/>
+</div>
+<select class="bg-surface-container-lowest border border-outline-variant rounded-[10px] px-md py-sm font-body-sm text-on-surface focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/30 outline-none">
+<option value="">Estado: Todos</option>
+<option value="pending">Pendiente</option>
+<option value="active">Activo</option>
+<option value="rejected">Rechazado</option>
+</select>
+<select class="bg-surface-container-lowest border border-outline-variant rounded-[10px] px-md py-sm font-body-sm text-on-surface focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/30 outline-none">
+<option value="">Región: Todas</option>
+<option value="ccs">Caracas</option>
+<option value="val">Valencia</option>
+<option value="mcbo">Maracaibo</option>
+<option value="bqto">Barquisimeto</option>
+</select>
+</div>
+<button class="hidden md:flex border border-[#0B2545] text-[#0B2545] px-md py-sm rounded-[10px] font-label-md items-center gap-xs hover:bg-[#0B2545]/5 transition-colors">
+<span class="material-symbols-outlined">tune</span> Filtros Avanzados
+                </button>
+</div>
+<!-- Data Table -->
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low border-b border-outline-variant">
+<tr>
+<th class="p-md font-label-md text-on-surface-variant">Empresa</th>
+<th class="p-md font-label-md text-on-surface-variant">RIF</th>
+<th class="p-md font-label-md text-on-surface-variant">Región</th>
+<th class="p-md font-label-md text-on-surface-variant">Solicitud</th>
+<th class="p-md font-label-md text-on-surface-variant">Estado</th>
+<th class="p-md font-label-md text-on-surface-variant text-right">Acciones</th>
+</tr>
+</thead>
+<tbody class="font-body-sm">
+<!-- Row 1: Pending -->
+<tr class="border-b border-outline-variant hover:bg-surface-container-highest transition-colors">
+<td class="p-md">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary font-label-sm">DE</div>
+<span class="font-bold text-primary">Distribuidora Eléctrica C.A.</span>
+</div>
+</td>
+<td class="p-md text-on-surface-variant">J-40123456-7</td>
+<td class="p-md text-on-surface-variant">Caracas</td>
+<td class="p-md text-on-surface-variant">12/10/2026</td>
+<td class="p-md">
+<span class="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-[#fef08a]/20 text-[#854d0e] font-label-sm border border-[#fef08a]">
+<span class="material-symbols-outlined" style="font-size: 16px;">pending</span> Pendiente
+                                </span>
+</td>
+<td class="p-md text-right flex justify-end gap-sm">
+<button class="text-on-surface-variant hover:text-[#2563EB] transition-colors" title="Revisar">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+<button class="text-on-surface-variant hover:text-[#00504a] transition-colors" title="Aprobar">
+<span class="material-symbols-outlined">check</span>
+</button>
+</td>
+</tr>
+<!-- Row 2: Active -->
+<tr class="border-b border-outline-variant hover:bg-surface-container-highest transition-colors">
+<td class="p-md">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary font-label-sm">MI</div>
+<span class="font-bold text-primary">Market Importaciones S.R.L.</span>
+</div>
+</td>
+<td class="p-md text-on-surface-variant">J-31098765-4</td>
+<td class="p-md text-on-surface-variant">Valencia</td>
+<td class="p-md text-on-surface-variant">05/10/2026</td>
+<td class="p-md">
+<span class="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-[#dcfce7]/30 text-[#00504a] font-label-sm border border-[#dcfce7]">
+<span class="material-symbols-outlined" style="font-size: 16px;">check_circle</span> Activo
+                                </span>
+</td>
+<td class="p-md text-right flex justify-end gap-sm">
+<button class="text-on-surface-variant hover:text-[#2563EB] transition-colors" title="Ver Perfil">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+<button class="text-on-surface-variant hover:text-[#0B2545] transition-colors" title="Opciones">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 3: Rejected -->
+<tr class="border-b border-outline-variant hover:bg-surface-container-highest transition-colors">
+<td class="p-md">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary font-label-sm">TA</div>
+<span class="font-bold text-primary">Tecnología Avanzada 2020 C.A.</span>
+</div>
+</td>
+<td class="p-md text-on-surface-variant">J-50223344-1</td>
+<td class="p-md text-on-surface-variant">Maracaibo</td>
+<td class="p-md text-on-surface-variant">10/10/2026</td>
+<td class="p-md">
+<span class="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-[#fee2e2]/30 text-error font-label-sm border border-[#fee2e2]">
+<span class="material-symbols-outlined" style="font-size: 16px;">cancel</span> Rechazado
+                                </span>
+</td>
+<td class="p-md text-right flex justify-end gap-sm">
+<button class="text-on-surface-variant hover:text-[#2563EB] transition-colors" title="Revisar">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+<button class="text-on-surface-variant hover:text-[#0B2545] transition-colors" title="Historial">
+<span class="material-symbols-outlined">history</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="p-md flex justify-between items-center bg-surface-container-lowest rounded-b-[14px]">
+<span class="font-body-sm text-on-surface-variant">Mostrando 1 a 3 de 1,468 sellers</span>
+<div class="flex gap-xs">
+<button class="p-xs text-on-surface-variant hover:bg-surface-container-high rounded border border-outline-variant disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="p-xs text-on-surface-variant hover:bg-surface-container-high rounded border border-outline-variant">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</section>
+</main>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA={"ruta": "backoffice/sellers.html", "superficie": "backoffice", "rol": "superadmin", "titulo": "Gestión de sellers"};</script>
+</body></html>

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+
+<html data-tumbo-banner="1" data-tumbo-movil="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Cola de pedidos (móvil) · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  <link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Cola de pedidos (móvil) — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen pb-[80px]">
+<div data-tumbo-ui="banner" class="tumbo-banner-demo" role="note"><span class="material-symbols-outlined" aria-hidden="true">science</span><span>MODO DEMO — Mensajería y logística simuladas. WhatsApp y couriers no están conectados.</span></div>
+<!-- TopNavBar -->
+<header class="sticky top-0 z-50 flex items-center justify-between px-lg w-full h-16 bg-surface-container-lowest border-b border-outline-variant">
+<div class="flex items-center gap-sm">
+<span class="font-headline-md text-headline-md font-bold text-primary">Backoffice</span>
+</div>
+<div class="flex items-center gap-md">
+<button class="text-primary hover:bg-surface-container-high transition-colors duration-200 rounded-full p-unit scale-95 duration-150 ease-in-out">
+<span class="material-symbols-outlined" data-icon="monitor_heart">monitor_heart</span>
+</button>
+<button class="text-primary hover:bg-surface-container-high transition-colors duration-200 rounded-full p-unit scale-95 duration-150 ease-in-out">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-primary hover:bg-surface-container-high transition-colors duration-200 rounded-full p-unit scale-95 duration-150 ease-in-out">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<img loading="lazy" alt="Foto de perfil — imagen de demostración" class="w-8 h-8 rounded-full object-cover" data-alt="A detailed headshot of a professional support agent in a well-lit modern office environment. The lighting is soft and bright, emphasizing a clean and corporate look. The background is slightly blurred to focus on the person. The overall tone is approachable and reliable." src="../../assets/img/avatar-01.svg"/>
+</div>
+</header>
+<main class="p-margin-mobile flex flex-col gap-md">
+<!-- Header & Search -->
+<div class="flex flex-col gap-sm">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-on-background">Cola de Pedidos</h1>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-[10px] focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/30 transition-all font-body-sm text-body-sm" placeholder="Buscar ID o seller…" type="text"/>
+</div>
+<!-- Quick Filters -->
+<div class="flex gap-sm overflow-x-auto pb-unit hide-scrollbar">
+<button class="whitespace-nowrap px-md py-unit bg-error-container text-on-error-container border border-error/20 rounded-full font-label-sm text-label-sm flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]" data-weight="fill" style="font-variation-settings: 'FILL' 1;">warning</span>
+                    Críticos
+                </button>
+<button class="whitespace-nowrap px-md py-unit bg-secondary-container text-on-secondary-container border border-secondary/20 rounded-full font-label-sm text-label-sm flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]" data-weight="fill" style="font-variation-settings: 'FILL' 1;">calendar_today</span>
+                    Hoy
+                </button>
+<button class="whitespace-nowrap px-md py-unit bg-surface-container text-on-surface-variant border border-outline-variant rounded-full font-label-sm text-label-sm">
+                    Todos
+                </button>
+</div>
+</div>
+<!-- Order List (Bento-ish Vertical Stack) -->
+<div class="flex flex-col gap-sm">
+<!-- Critical Card -->
+<div class="bg-surface-container-lowest border border-error/30 rounded-[14px] p-md flex flex-col gap-sm shadow-sm relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-error"></div>
+<div class="flex justify-between items-start">
+<div class="flex flex-col gap-xs">
+<div class="flex items-center gap-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant">#ORD-99231</span>
+<span class="px-2 py-0.5 bg-error/10 text-error rounded-full font-label-sm text-label-sm flex items-center gap-xs">
+<span class="material-symbols-outlined text-[12px]">timer</span> 45m retraso
+                            </span>
+</div>
+<h3 class="font-headline-sm text-headline-sm">TechStore Inc.</h3>
+</div>
+<span class="font-label-md text-label-md text-error font-bold">Crítico</span>
+</div>
+<div class="flex items-center gap-sm font-body-sm text-body-sm text-on-surface-variant">
+<span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[16px]">local_shipping</span> Courier Asignado</span>
+<span>•</span>
+<span>Hace 2h</span>
+</div>
+<div class="flex gap-sm mt-xs">
+<button class="flex-1 bg-secondary text-on-primary rounded-[10px] py-2 font-label-md text-label-md flex justify-center items-center gap-xs hover:bg-secondary/90 transition-colors">
+<span class="material-symbols-outlined text-[18px]">swap_horiz</span> Reasignar
+                    </button>
+<button class="flex-1 border border-primary-container text-primary-container rounded-[10px] py-2 font-label-md text-label-md flex justify-center items-center gap-xs hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[18px]">call</span> Llamar
+                    </button>
+</div>
+</div>
+<!-- Warning Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-md flex flex-col gap-sm hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-shadow">
+<div class="flex justify-between items-start">
+<div class="flex flex-col gap-xs">
+<div class="flex items-center gap-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant">#ORD-99230</span>
+<span class="px-2 py-0.5 bg-tertiary-container/10 text-tertiary-container rounded-full font-label-sm text-label-sm flex items-center gap-xs">
+<span class="material-symbols-outlined text-[12px]">pending</span> Preparando
+                            </span>
+</div>
+<h3 class="font-headline-sm text-headline-sm">Electro Mundo</h3>
+</div>
+<span class="font-label-md text-label-md text-on-surface-variant">Normal</span>
+</div>
+<div class="flex items-center gap-sm font-body-sm text-body-sm text-on-surface-variant">
+<span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[16px]">storefront</span> En Tienda</span>
+<span>•</span>
+<span>Hace 15m</span>
+</div>
+<div class="flex gap-sm mt-xs">
+<button class="flex-1 border border-primary-container text-primary-container rounded-[10px] py-2 font-label-md text-label-md flex justify-center items-center gap-xs hover:bg-surface-container transition-colors">
+                        Ver Detalles
+                    </button>
+</div>
+</div>
+<!-- Normal Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-[14px] p-md flex flex-col gap-sm hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-shadow">
+<div class="flex justify-between items-start">
+<div class="flex flex-col gap-xs">
+<div class="flex items-center gap-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant">#ORD-99229</span>
+<span class="px-2 py-0.5 bg-primary/10 text-primary rounded-full font-label-sm text-label-sm flex items-center gap-xs">
+<span class="material-symbols-outlined text-[12px]">check_circle</span> Recolectado
+                            </span>
+</div>
+<h3 class="font-headline-sm text-headline-sm">Librería Central</h3>
+</div>
+<span class="font-label-md text-label-md text-on-surface-variant">Normal</span>
+</div>
+<div class="flex items-center gap-sm font-body-sm text-body-sm text-on-surface-variant">
+<span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[16px]">directions_bike</span> En tránsito</span>
+<span>•</span>
+<span>Hace 5m</span>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-sm py-unit bg-surface-container-highest shadow-lg rounded-t-xl border-t border-outline-variant">
+<button class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant transition-colors rounded-xl p-unit scale-90 duration-200">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label-sm text-label-sm mt-1">Panel</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl p-unit scale-90 duration-200">
+<span class="material-symbols-outlined" data-icon="package_2" data-weight="fill" style="font-variation-settings: 'FILL' 1;">package_2</span>
+<span class="font-label-sm text-label-sm mt-1">Pedidos</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant transition-colors rounded-xl p-unit scale-90 duration-200">
+<span class="material-symbols-outlined" data-icon="warning">warning</span>
+<span class="font-label-sm text-label-sm mt-1">Incidencias</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant transition-colors rounded-xl p-unit scale-90 duration-200">
+<span class="material-symbols-outlined" data-icon="gavel">gavel</span>
+<span class="font-label-sm text-label-sm mt-1">Disputas</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant transition-colors rounded-xl p-unit scale-90 duration-200">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-label-sm text-label-sm mt-1">Perfil</span>
+</button>
+</nav>
+<style>
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA={"ruta": "backoffice/ops-cola-pedidos-movil.html", "superficie": "backoffice", "rol": "ops", "titulo": "Cola de pedidos (móvil)"};</script>
+</body></html>

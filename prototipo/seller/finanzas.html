@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+
+<html data-tumbo-banner="1" data-tumbo-escritorio="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Finanzas y liquidaciones del seller · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+<link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Finanzas y liquidaciones del seller — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-background text-on-background min-h-screen">
+<div data-tumbo-ui="banner" class="tumbo-banner-demo" role="note"><span class="material-symbols-outlined" aria-hidden="true">science</span><span>MODO DEMO — Saldos y liquidaciones simulados. Modelo de custodia sujeto a validación legal.</span></div>
+<!-- SideNavBar -->
+<aside class="bg-primary dark:bg-primary-container h-screen w-64 flex flex-col fixed left-0 top-0 shadow-md flex flex-col h-full py-lg z-50 hidden md:flex">
+<div class="px-lg mb-xl flex items-center gap-sm">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden">
+<img loading="lazy" alt="Imagen de la tienda — demostración" class="w-full h-full object-cover" data-alt="A modern, abstract logo for a marketplace seller, featuring geometric shapes in deep navy and bright blue, conveying trust and technology on a white background." src="../../assets/img/tienda-01.svg"/>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-on-primary">Seller Center</h1>
+<p class="font-body-sm text-body-sm text-on-primary/70">SEL-014 Marketplace</p>
+</div>
+</div>
+<nav class="flex-1 flex flex-col gap-unit">
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 transition-colors duration-200 ease-linear rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md scale-100 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined font-headline-sm text-headline-sm" data-icon="dashboard">dashboard</span>
+<span class="font-label-md text-label-md">Panel</span>
+</a>
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 transition-colors duration-200 ease-linear rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md scale-100 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined font-headline-sm text-headline-sm" data-icon="inventory_2">inventory_2</span>
+<span class="font-label-md text-label-md">Catálogo</span>
+</a>
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 transition-colors duration-200 ease-linear rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md scale-100 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined font-headline-sm text-headline-sm" data-icon="shopping_cart">shopping_cart</span>
+<span class="font-label-md text-label-md">Pedidos</span>
+</a>
+<a class="bg-secondary-container text-on-secondary-container font-semibold transition-colors duration-200 ease-linear rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined font-headline-sm text-headline-sm" data-icon="payments" style="font-variation-settings: 'FILL' 1;">payments</span>
+<span class="font-label-md text-label-md">Finanzas</span>
+</a>
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 transition-colors duration-200 ease-linear rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md scale-100 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined font-headline-sm text-headline-sm" data-icon="group">group</span>
+<span class="font-label-md text-label-md">Equipo</span>
+</a>
+<a class="text-on-primary/70 hover:text-on-primary hover:bg-on-primary/10 transition-colors duration-200 ease-linear rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-md scale-100 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined font-headline-sm text-headline-sm" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">Configuración</span>
+</a>
+</nav>
+<div class="px-md mt-auto">
+<button class="w-full bg-[#2563EB] text-white font-label-md text-label-md py-3 rounded-lg flex items-center justify-center gap-sm hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+                Nueva Publicación
+            </button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<div class="md:ml-64 flex flex-col min-h-screen">
+<!-- TopNavBar -->
+<header class="bg-surface dark:bg-surface-dim text-on-surface dark:text-on-surface-variant w-full h-16 fixed top-0 z-40 border-b border-outline-variant dark:border-outline flat no shadows flex justify-between items-center ml-64 px-lg w-[calc(100%-16rem)] hidden md:flex">
+<div class="flex items-center gap-xl h-full">
+<span class="font-headline-sm text-headline-sm font-black text-primary">Seller Center</span>
+</div>
+<div class="flex-1 max-w-md px-lg">
+<!-- Search bar placeholder -->
+</div>
+<div class="flex items-center gap-sm">
+<button class="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors duration-200 rounded-full scale-100 active:scale-95">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors duration-200 rounded-full scale-100 active:scale-95">
+<span class="material-symbols-outlined" data-icon="storefront">storefront</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors duration-200 rounded-full scale-100 active:scale-95">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+</div>
+</header>
+<!-- Canvas -->
+<main class="flex-1 mt-16 p-lg bg-background">
+<div class="max-w-container-max mx-auto space-y-lg">
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-md">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-primary">Finanzas y Liquidaciones</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Gestiona tus ingresos, retiros y visualiza el historial de transacciones.</p>
+</div>
+<button class="bg-surface text-primary-container border border-primary-container px-md py-sm rounded-[10px] font-label-md text-label-md flex items-center gap-sm hover:bg-surface-container-low transition-colors shadow-sm">
+<span class="material-symbols-outlined" data-icon="request_quote">request_quote</span>
+                        Solicitar Adelanto de Saldo (Modo Demo)
+                    </button>
+</div>
+<!-- Resumen de Saldos (Bento Grid) -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-lg">
+<!-- Retenido -->
+<div class="bg-[#FFFFFF] border border-[#DCE3EC] rounded-card p-lg flex flex-col justify-between hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-shadow duration-200">
+<div class="flex items-center gap-sm text-on-surface-variant mb-sm">
+<span class="material-symbols-outlined text-outline" data-icon="lock">lock</span>
+<span class="font-label-md text-label-md">Retenido (Disputas/Garantía)</span>
+</div>
+<div>
+<span class="font-display-lg text-display-lg text-on-surface">$1,240.00</span>
+</div>
+</div>
+<!-- Disponible -->
+<div class="bg-[#FFFFFF] border border-[#DCE3EC] rounded-card p-lg flex flex-col justify-between hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-shadow duration-200">
+<div class="flex items-center gap-sm text-on-surface-variant mb-sm">
+<span class="material-symbols-outlined text-secondary" data-icon="account_balance_wallet">account_balance_wallet</span>
+<span class="font-label-md text-label-md">Disponible para retiro</span>
+</div>
+<div>
+<span class="font-display-lg text-display-lg text-secondary">$14,580.50</span>
+</div>
+<button class="mt-md w-full bg-[#2563EB] text-white font-label-md text-label-md py-sm rounded-[10px] hover:opacity-90 transition-opacity">
+                            Retirar Fondos
+                        </button>
+</div>
+<!-- Próxima Liquidación -->
+<div class="bg-[#FFFFFF] border border-[#DCE3EC] rounded-card p-lg flex flex-col justify-between hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-shadow duration-200">
+<div class="flex items-center gap-sm text-on-surface-variant mb-sm">
+<span class="material-symbols-outlined text-outline" data-icon="event">event</span>
+<span class="font-label-md text-label-md">Próxima liquidación</span>
+</div>
+<div>
+<span class="font-display-lg text-display-lg text-on-surface">$5,320.00</span>
+</div>
+<div class="mt-md flex items-center gap-unit text-on-surface-variant">
+<span class="material-symbols-outlined text-sm" data-icon="schedule">schedule</span>
+<span class="font-body-sm text-body-sm">Previsto: 15/05/2026</span>
+</div>
+</div>
+</div>
+<!-- Gráfico y Tabla Container -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-lg">
+<!-- Historial de Liquidaciones -->
+<div class="lg:col-span-2 bg-[#FFFFFF] border border-[#DCE3EC] rounded-card overflow-hidden flex flex-col">
+<div class="p-lg border-b border-[#DCE3EC] flex justify-between items-center">
+<h3 class="font-headline-sm text-headline-sm text-primary">Historial de Liquidaciones</h3>
+<button class="text-secondary font-label-sm text-label-sm flex items-center gap-unit hover:underline">
+<span class="material-symbols-outlined text-sm" data-icon="filter_list">filter_list</span> Filtrar
+                            </button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low font-label-sm text-label-sm text-on-surface-variant">
+<tr>
+<th class="p-sm pl-md border-b border-[#DCE3EC]">Fecha</th>
+<th class="p-sm border-b border-[#DCE3EC]">ID Trans.</th>
+<th class="p-sm border-b border-[#DCE3EC] text-right">Bruto</th>
+<th class="p-sm border-b border-[#DCE3EC] text-right">Comisión (-10%)</th>
+<th class="p-sm border-b border-[#DCE3EC] text-right">Retenciones</th>
+<th class="p-sm border-b border-[#DCE3EC] text-right">Neto</th>
+<th class="p-sm border-b border-[#DCE3EC] text-center">Estado</th>
+<th class="p-sm pr-md border-b border-[#DCE3EC] text-right">Recibo</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-lowest transition-colors border-b border-[#DCE3EC]/50 last:border-0">
+<td class="p-sm pl-md">01/05/2026</td>
+<td class="p-sm text-on-surface-variant font-mono text-xs">TRX-98234</td>
+<td class="p-sm text-right">$2,000.00</td>
+<td class="p-sm text-right text-error">-$200.00</td>
+<td class="p-sm text-right text-error">-$50.00</td>
+<td class="p-sm text-right font-semibold">$1,750.00</td>
+<td class="p-sm text-center">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded bg-[#22c55e]/10 text-[#166534] font-label-sm">
+<span class="material-symbols-outlined text-[14px]" data-icon="check_circle">check_circle</span> Pagado
+                                            </span>
+</td>
+<td class="p-sm pr-md text-right">
+<button class="text-secondary hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="download">download</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-lowest transition-colors border-b border-[#DCE3EC]/50 last:border-0">
+<td class="p-sm pl-md">24/04/2026</td>
+<td class="p-sm text-on-surface-variant font-mono text-xs">TRX-98102</td>
+<td class="p-sm text-right">$1,500.00</td>
+<td class="p-sm text-right text-error">-$150.00</td>
+<td class="p-sm text-right text-error">-$35.00</td>
+<td class="p-sm text-right font-semibold">$1,315.00</td>
+<td class="p-sm text-center">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded bg-[#22c55e]/10 text-[#166534] font-label-sm">
+<span class="material-symbols-outlined text-[14px]" data-icon="check_circle">check_circle</span> Pagado
+                                            </span>
+</td>
+<td class="p-sm pr-md text-right">
+<button class="text-secondary hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="download">download</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-lowest transition-colors border-b border-[#DCE3EC]/50 last:border-0">
+<td class="p-sm pl-md">15/05/2026</td>
+<td class="p-sm text-on-surface-variant font-mono text-xs">TRX-98455</td>
+<td class="p-sm text-right">$5,911.11</td>
+<td class="p-sm text-right text-error">-$591.11</td>
+<td class="p-sm text-right text-error">-$0.00</td>
+<td class="p-sm text-right font-semibold">$5,320.00</td>
+<td class="p-sm text-center">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded bg-secondary/10 text-secondary font-label-sm">
+<span class="material-symbols-outlined text-[14px]" data-icon="pending">pending</span> Pendiente
+                                            </span>
+</td>
+<td class="p-sm pr-md text-right">
+<button class="text-outline hover:text-primary transition-colors" disabled="">
+<span class="material-symbols-outlined" data-icon="download">download</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Gráfico de Ingresos -->
+<div class="bg-[#FFFFFF] border border-[#DCE3EC] rounded-card p-lg flex flex-col h-full">
+<h3 class="font-headline-sm text-headline-sm text-primary mb-md">Ingresos Mensuales</h3>
+<div class="flex-1 relative flex items-end justify-between gap-unit pt-xl border-b border-[#DCE3EC] pb-sm">
+<!-- Y-axis labels -->
+<div class="absolute left-0 top-0 h-full flex flex-col justify-between text-xs text-on-surface-variant pb-md">
+<span>$20k</span>
+<span>$15k</span>
+<span>$10k</span>
+<span>$5k</span>
+</div>
+<!-- Bars (Mockup) -->
+<div class="w-1/6 h-[30%] bg-surface-container-high rounded-t-sm relative group ml-8">
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-primary text-white text-xs py-1 px-2 rounded">$6k</div>
+</div>
+<div class="w-1/6 h-[45%] bg-surface-container-high rounded-t-sm relative group">
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-primary text-white text-xs py-1 px-2 rounded">$9k</div>
+</div>
+<div class="w-1/6 h-[75%] bg-surface-container-high rounded-t-sm relative group">
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-primary text-white text-xs py-1 px-2 rounded">$15k</div>
+</div>
+<div class="w-1/6 h-[60%] bg-[#2563EB] rounded-t-sm relative group shadow-sm">
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 opacity-100 bg-primary text-white text-xs py-1 px-2 rounded">$12k</div>
+</div>
+<div class="w-1/6 h-[20%] bg-surface-container-high rounded-t-sm relative group">
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-primary text-white text-xs py-1 px-2 rounded">$4k</div>
+</div>
+</div>
+<div class="flex justify-between mt-sm text-xs text-on-surface-variant font-label-sm ml-8">
+<span>Ene</span>
+<span>Feb</span>
+<span>Mar</span>
+<span class="font-bold text-primary">Abr</span>
+<span>May</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-container-low dark:bg-surface-container-lowest text-on-surface-variant w-full py-md border-t border-outline-variant flat no shadows flex justify-between items-center px-lg">
+<span class="font-label-sm text-label-sm">© 2026 Tumbo Market. Panel administrativo.</span>
+<div class="flex gap-md">
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-secondary hover:underline opacity-100 hover:opacity-80" href="#">Soporte</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-secondary hover:underline opacity-100 hover:opacity-80" href="#">Documentación API</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-secondary hover:underline opacity-100 hover:opacity-80" href="#">Privacidad</a>
+</div>
+</footer>
+</div>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA={"ruta": "seller/finanzas.html", "superficie": "seller", "rol": "seller", "titulo": "Finanzas y liquidaciones del seller"};</script>
+</body></html>

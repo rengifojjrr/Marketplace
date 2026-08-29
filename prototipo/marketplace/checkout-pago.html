@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+
+<html data-tumbo-banner="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Checkout — pago demo · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined[data-weight="fill"] {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+<link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Checkout — pago demo — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col antialiased">
+<div data-tumbo-ui="banner" class="tumbo-banner-demo" role="note"><span class="material-symbols-outlined" aria-hidden="true">science</span><span>MODO DEMO — Pago Móvil y transferencia son simulados. No se solicitan ni almacenan credenciales bancarias.</span></div>
+<!-- Demo Banner -->
+<div class="bg-primary-container text-on-primary-container py-sm px-lg flex items-center justify-center space-x-sm">
+<span class="material-symbols-outlined text-[20px]">info</span>
+<span class="font-label-md text-label-md uppercase tracking-wider">Modo Demo - Solo Prueba</span>
+</div>
+<!-- Header (Simplified for Checkout) -->
+<header class="bg-surface sticky top-0 z-50 border-b border-outline-variant px-lg w-full max-w-container-max mx-auto py-md flex items-center justify-between">
+<div class="flex items-center space-x-sm">
+<span class="material-symbols-outlined text-primary text-[32px]" data-weight="fill">storefront</span>
+<span class="font-headline-md text-headline-md font-bold text-primary">Tumbo Market</span>
+</div>
+<div class="flex items-center space-x-md text-on-surface-variant">
+<span class="font-body-sm text-body-sm flex items-center"><span class="material-symbols-outlined mr-xs text-[18px]">lock</span> Pago Seguro</span>
+</div>
+</header>
+<!-- Main Checkout Container -->
+<main class="flex-grow w-full max-w-container-max mx-auto px-lg py-xl grid grid-cols-1 lg:grid-cols-12 gap-lg">
+<!-- Left Column: Payment Details -->
+<div class="lg:col-span-8 space-y-lg">
+<!-- Checkout Progress Steps -->
+<div class="flex items-center justify-between mb-xl">
+<h1 class="font-headline-lg text-headline-lg text-primary">Pago del Pedido</h1>
+<div class="flex items-center space-x-sm text-on-surface-variant font-label-md text-label-md">
+<span class="flex items-center justify-center w-6 h-6 rounded-full bg-surface-container-highest">1</span>
+<span>Envío</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<span class="flex items-center justify-center w-6 h-6 rounded-full bg-surface-container-highest">2</span>
+<span>Revisión</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<span class="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-on-primary font-bold">3</span>
+<span class="text-primary font-bold">Pago</span>
+</div>
+</div>
+<!-- Payment Methods Card -->
+<div class="bg-surface-container-lowest rounded-card border border-outline-variant p-lg shadow-sm">
+<h2 class="font-headline-sm text-headline-sm text-primary mb-md">Selecciona un método de pago</h2>
+<div class="space-y-md">
+<!-- Option 1: Pago Móvil (Selected) -->
+<div class="border-2 border-secondary rounded-lg p-md bg-surface-bright relative transition-colors duration-200">
+<div class="flex items-center justify-between mb-md cursor-pointer">
+<div class="flex items-center space-x-sm">
+<input checked="" class="text-secondary focus:ring-secondary w-5 h-5" id="pago_movil" name="payment_method" type="radio"/>
+<label class="font-headline-md text-headline-md text-primary ml-xs" for="pago_movil">Pago Móvil</label>
+</div>
+<span class="material-symbols-outlined text-secondary" data-weight="fill">mobile</span>
+</div>
+<!-- Pago Móvil Form Details -->
+<div class="mt-md pl-xl border-l-2 border-surface-container-high space-y-md">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<div>
+<label class="block font-label-md text-label-md text-on-surface-variant mb-xs">Banco Destino</label>
+<select class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-sm font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none">
+<option>Banco de Venezuela (0102)</option>
+<option>Banesco (0134)</option>
+<option>Mercantil (0105)</option>
+<option>Provincial (0108)</option>
+</select>
+</div>
+<div>
+<label class="block font-label-md text-label-md text-on-surface-variant mb-xs">Teléfono Destino</label>
+<div class="w-full bg-surface-container-low border border-outline-variant rounded-lg p-sm font-body-md text-body-md text-on-surface-variant">0414-1234567</div>
+</div>
+<div>
+<label class="block font-label-md text-label-md text-on-surface-variant mb-xs">Cédula / RIF</label>
+<div class="w-full bg-surface-container-low border border-outline-variant rounded-lg p-sm font-body-md text-body-md text-on-surface-variant">V-12345678</div>
+</div>
+<div>
+<label class="block font-label-md text-label-md text-on-surface-variant mb-xs">Monto a Transferir</label>
+<div class="w-full bg-surface-container-low border border-outline-variant rounded-lg p-sm font-body-md text-body-md font-bold text-primary">5.420,50 Bs.</div>
+</div>
+</div>
+<hr class="border-outline-variant my-md"/>
+<!-- Input for User's Payment Reference -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<div>
+<label class="block font-label-md text-label-md text-on-surface-variant mb-xs">Número de Referencia <span class="text-error">*</span></label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-sm font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none" placeholder="Ej: 1234567890" type="text"/>
+</div>
+<div>
+<label class="block font-label-md text-label-md text-on-surface-variant mb-xs">Fecha del Pago <span class="text-error">*</span></label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-sm font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none" type="date"/>
+</div>
+</div>
+</div>
+</div>
+<!-- Option 2: Bank Transfer (Unselected) -->
+<div class="border border-outline-variant rounded-lg p-md hover:border-outline transition-colors duration-200 cursor-pointer">
+<div class="flex items-center justify-between">
+<div class="flex items-center space-x-sm">
+<input class="text-secondary focus:ring-secondary w-5 h-5" id="bank_transfer" name="payment_method" type="radio"/>
+<label class="font-headline-sm text-headline-sm text-primary ml-xs cursor-pointer" for="bank_transfer">Transferencia Bancaria</label>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">account_balance</span>
+</div>
+</div>
+<!-- Option 3: Zelle (Unselected) -->
+<div class="border border-outline-variant rounded-lg p-md hover:border-outline transition-colors duration-200 cursor-pointer">
+<div class="flex items-center justify-between">
+<div class="flex items-center space-x-sm">
+<input class="text-secondary focus:ring-secondary w-5 h-5" id="zelle" name="payment_method" type="radio"/>
+<label class="font-headline-sm text-headline-sm text-primary ml-xs cursor-pointer" for="zelle">Zelle</label>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">attach_money</span>
+</div>
+</div>
+</div>
+</div>
+<!-- File Uploader for Screenshot -->
+<div class="bg-surface-container-lowest rounded-card border border-outline-variant p-lg shadow-sm">
+<h3 class="font-headline-sm text-headline-sm text-primary mb-xs">Comprobante de Pago</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-md">Sube una captura de pantalla o foto del recibo de la transferencia para agilizar la verificación.</p>
+<div class="border-2 border-dashed border-outline-variant rounded-lg p-xl flex flex-col items-center justify-center bg-surface-container-low hover:bg-surface-container transition-colors duration-200 cursor-pointer">
+<span class="material-symbols-outlined text-primary-container text-[48px] mb-sm">cloud_upload</span>
+<span class="font-label-md text-label-md text-primary">Haz clic para subir un archivo</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant mt-xs">PNG, JPG o PDF (Máx. 5MB)</span>
+</div>
+</div>
+</div>
+<!-- Right Column: Order Summary Sidebar -->
+<div class="lg:col-span-4">
+<div class="bg-surface-container-lowest rounded-card border border-outline-variant p-lg shadow-sm sticky top-24">
+<h3 class="font-headline-md text-headline-md text-primary mb-md pb-sm border-b border-outline-variant">Resumen del Pedido</h3>
+<div class="space-y-sm mb-md">
+<div class="flex justify-between font-body-md text-body-md text-on-surface">
+<span>Subtotal (3 artículos)</span>
+<span>$ 135.00</span>
+</div>
+<div class="flex justify-between font-body-md text-body-md text-on-surface">
+<span>Costo de Envío</span>
+<span>$ 10.50</span>
+</div>
+<div class="flex justify-between font-body-sm text-body-sm text-on-surface-variant italic">
+<span>Tasa de Cambio BCV</span>
+<span>37.25 Bs/$</span>
+</div>
+</div>
+<hr class="border-outline-variant my-md"/>
+<div class="space-y-xs mb-lg">
+<div class="flex justify-between font-headline-md text-headline-md text-primary">
+<span>Total (USD)</span>
+<span>$ 145.50</span>
+</div>
+<div class="flex justify-between font-headline-sm text-headline-sm text-secondary">
+<span>Total a Pagar (Bs.)</span>
+<span>5.420,50 Bs.</span>
+</div>
+</div>
+<button class="w-full bg-[#2563EB] text-[#ffffff] font-label-md text-label-md py-md rounded-button hover:bg-secondary/90 transition-colors duration-200 flex items-center justify-center shadow-[0px_4px_12px_rgba(11,37,69,0.05)]">
+<span class="material-symbols-outlined mr-xs text-[20px]">check_circle</span>
+                    Confirmar Pago
+                </button>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-center mt-md flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px] mr-xs">lock</span> Transacción encriptada y segura
+                </p>
+</div>
+</div>
+</main>
+<!-- Simple Footer -->
+<footer class="bg-primary-container py-md mt-auto">
+<div class="w-full max-w-container-max mx-auto px-lg text-center">
+<p class="font-body-sm text-body-sm text-on-primary-container">© 2026 Tumbo Market. Todos los derechos reservados.</p>
+</div>
+</footer>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA={"ruta": "marketplace/checkout-pago.html", "superficie": "marketplace", "rol": "comprador", "titulo": "Checkout — pago demo"};</script>
+</body></html>

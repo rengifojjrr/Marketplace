@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+
+<html lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Inicio — variante de maquetación · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+        body {
+            background-color: #F8FAFC; /* Base level 0 as per instructions */
+        }
+    </style>
+<link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Inicio — variante de maquetación — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="text-on-background bg-[#F8FAFC] flex flex-col min-h-screen font-body-md antialiased">
+<!-- TopNavBar -->
+<header class="sticky top-0 z-50 flex justify-between items-center w-full px-lg py-md bg-surface dark:bg-primary-container border-b border-outline-variant dark:border-outline">
+<div class="flex items-center gap-lg">
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">Tumbo Market</span>
+<div class="hidden md:flex gap-md">
+<a class="text-secondary dark:text-secondary-fixed font-bold border-b-2 border-secondary px-xs py-xs" href="#">Marketplace</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-secondary dark:hover:text-secondary-fixed transition-colors duration-200 px-xs py-xs" href="#">Seller Center</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-secondary dark:hover:text-secondary-fixed transition-colors duration-200 px-xs py-xs" href="#">Backoffice</a>
+</div>
+</div>
+<div class="flex-1 max-w-md mx-lg hidden md:block">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-[10px] pl-xl pr-md py-sm font-body-sm text-body-sm focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/30 transition-all text-on-surface placeholder-on-surface-variant" placeholder="Buscar productos, sellers..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-sm">
+<button class="p-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<button class="p-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+<img loading="lazy" alt="Foto de perfil — imagen de demostración" class="w-8 h-8 rounded-full ml-sm object-cover hidden" data-alt="A clean, professional portrait of a business person on a neutral background, suitable for a corporate SaaS avatar, well-lit, soft shadows, modern aesthetic, high resolution." src="../../assets/img/avatar-04.svg"/>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-1 w-full max-w-container-max mx-auto px-margin-mobile md:px-lg py-xl flex flex-col gap-xxl">
+<!-- Hero Section -->
+<section class="relative w-full h-[400px] rounded-[14px] overflow-hidden bg-primary-container flex items-center p-xl">
+<div class="absolute inset-0 z-0">
+<div class="w-full h-full bg-cover bg-center opacity-30 mix-blend-overlay" data-alt="A wide panoramic shot of an upscale Venezuelan artisanal market, featuring elegant stalls displaying gourmet coffee and fine cacao, bathed in warm, sophisticated lighting that creates a premium, high-trust corporate modernism mood. Subtle textures and deep navy tones dominate the background." style="background-image: url('../../assets/img/tienda-05.svg')"></div>
+</div>
+<div class="relative z-10 max-w-2xl text-on-primary">
+<h1 class="font-display-lg text-display-lg mb-md text-surface-container-lowest">Curaduría de Excelencia Local</h1>
+<p class="font-body-lg text-body-lg text-surface-container-lowest/80 mb-lg">Descubre productos excepcionales de sellers venezolanos homologados. Calidad garantizada, transacciones seguras y el respaldo de Tumbo Market para tu tranquilidad.</p>
+<div class="flex gap-md">
+<button class="bg-[#2563EB] text-surface-container-lowest font-label-md text-label-md px-lg py-sm rounded-[10px] hover:bg-[#1D4ED8] transition-colors shadow-sm">Explorar Catálogo</button>
+<button class="bg-transparent border border-surface-container-lowest text-surface-container-lowest font-label-md text-label-md px-lg py-sm rounded-[10px] hover:bg-surface-container-lowest/10 transition-colors">Ver Sellers Destacados</button>
+</div>
+</div>
+</section>
+<!-- Novedades Curadas (Bento Grid Style) -->
+<section class="flex flex-col gap-lg">
+<div class="flex justify-between items-end">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-primary">Novedades Curadas</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Selección exclusiva de ingresos recientes.</p>
+</div>
+<a class="font-label-md text-label-md text-[#2563EB] hover:underline flex items-center gap-xs" href="#">Ver todo <span class="material-symbols-outlined text-[16px]">arrow_forward</span></a>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-lg">
+<!-- Large Featured Item -->
+<article class="col-span-1 md:col-span-2 row-span-2 bg-surface-container-lowest border border-outline-variant rounded-[14px] overflow-hidden hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-all duration-200 flex flex-col group cursor-pointer">
+<div class="relative h-64 w-full bg-surface-container overflow-hidden">
+<img loading="lazy" alt="Imagen logística — demostración" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A beautifully packaged bag of premium artisanal coffee beans from Boconó, Venezuela, sitting on a clean, modern white marble surface with a subtle reflection. Soft, sophisticated studio lighting highlights the elegant, minimalist label design, creating a high-trust, premium aesthetic." src="../../assets/img/logistica-04.svg"/>
+<div class="absolute top-sm right-sm bg-surface-container-lowest/90 backdrop-blur-sm px-sm py-xs rounded-full flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px] text-tertiary-container" data-weight="fill">verified</span>
+<span class="font-label-sm text-label-sm text-tertiary-container">Seller Homologado</span>
+</div>
+</div>
+<div class="p-lg flex flex-col flex-1 justify-between gap-md">
+<div>
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-xs block">Café Gourmet</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-xs">Café Tostado de Origen Boconó - Edición Especial</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">Granos seleccionados a mano de la hacienda La Victoria, notas a chocolate negro y frutos rojos.</p>
+</div>
+<div class="pt-sm border-t border-outline-variant/30 flex justify-between items-center">
+<div class="flex flex-col">
+<span class="font-headline-md text-headline-md font-bold text-primary">Bs. 1.450,00</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Ref: $39,50</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-[#2563EB] transition-colors">add_shopping_cart</span>
+</div>
+</div>
+</article>
+<!-- Smaller Items -->
+<article class="col-span-1 bg-surface-container-lowest border border-outline-variant rounded-[14px] overflow-hidden hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-all duration-200 flex flex-col group cursor-pointer">
+<div class="relative h-40 w-full bg-surface-container overflow-hidden">
+<img loading="lazy" alt="Imagen de la tienda — demostración" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A premium bar of 70% dark chocolate from Carenero, elegantly unwrapped to show its glossy texture. The chocolate rests on a sleek, dark slate board against a minimalist, high-key white background, evoking a modern, sophisticated artisanal brand." src="../../assets/img/tienda-04.svg"/>
+</div>
+<div class="p-md flex flex-col flex-1 justify-between gap-sm">
+<div>
+<h3 class="font-body-md text-body-md font-medium text-on-surface line-clamp-2 mb-xs">Cacao 70% Carenero Superior - Tableta 100g</h3>
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-[12px] text-tertiary-container" data-weight="fill">verified</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant text-[10px]">Cacao Real Vzla</span>
+</div>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md font-bold text-primary">Bs. 220,00</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant text-[12px]">Ref: $6,00</span>
+</div>
+</div>
+</article>
+<article class="col-span-1 bg-surface-container-lowest border border-outline-variant rounded-[14px] overflow-hidden hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-all duration-200 flex flex-col group cursor-pointer">
+<div class="relative h-40 w-full bg-surface-container overflow-hidden">
+<img loading="lazy" alt="Imagen del producto — demostración" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A modern, high-end artisanal bottle of aged Venezuelan rum with a minimalist label. The bottle is presented in a bright, clean, sterile studio environment with precise reflections, emphasizing a premium corporate B2B product aesthetic, starkly contrasting deep amber liquid with pristine white surroundings." src="../../assets/img/producto-06.svg"/>
+</div>
+<div class="p-md flex flex-col flex-1 justify-between gap-sm">
+<div>
+<h3 class="font-body-md text-body-md font-medium text-on-surface line-clamp-2 mb-xs">Ron Añejo Reserva Especial 8 Años</h3>
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-[12px] text-tertiary-container" data-weight="fill">verified</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant text-[10px]">Destilerías unidas</span>
+</div>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md font-bold text-primary">Bs. 1.100,00</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant text-[12px]">Ref: $30,00</span>
+</div>
+</div>
+</article>
+<article class="col-span-1 bg-surface-container-lowest border border-outline-variant rounded-[14px] overflow-hidden hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-all duration-200 flex flex-col group cursor-pointer">
+<div class="relative h-40 w-full bg-surface-container overflow-hidden">
+<img loading="lazy" alt="Imagen de la tienda — demostración" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A beautifully crafted artisanal ceramic bowl, filled with high-quality Venezuelan sea salt. The bowl sits on a stark, bright, minimalist surface. The lighting is pristine and shadowless, highlighting the texture of the salt and the sleek modern design of the bowl, fitting a high-trust marketplace." src="../../assets/img/tienda-02.svg"/>
+</div>
+<div class="p-md flex flex-col flex-1 justify-between gap-sm">
+<div>
+<h3 class="font-body-md text-body-md font-medium text-on-surface line-clamp-2 mb-xs">Sal Marina de Araya Orgánica</h3>
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-[12px] text-tertiary-container" data-weight="fill">verified</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant text-[10px]">Salinas de Araya</span>
+</div>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md font-bold text-primary">Bs. 145,00</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant text-[12px]">Ref: $4,00</span>
+</div>
+</div>
+</article>
+<article class="col-span-1 bg-surface-container-lowest border border-outline-variant rounded-[14px] overflow-hidden hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] transition-all duration-200 flex flex-col group cursor-pointer">
+<div class="relative h-40 w-full bg-surface-container overflow-hidden">
+<img loading="lazy" alt="Imagen de la tienda — demostración" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A jar of premium, golden Venezuelan honey, with a clean, modern, typographically elegant label. The jar is set against a flawless white backdrop, brightly lit to emphasize the clarity and quality of the honey, embodying a professional, B2B2C trusted marketplace aesthetic." src="../../assets/img/tienda-05.svg"/>
+</div>
+<div class="p-md flex flex-col flex-1 justify-between gap-sm">
+<div>
+<h3 class="font-body-md text-body-md font-medium text-on-surface line-clamp-2 mb-xs">Miel de Abeja Pura Floración Sabana</h3>
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-[12px] text-tertiary-container" data-weight="fill">verified</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant text-[10px]">Apicultura Los Andes</span>
+</div>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md font-bold text-primary">Bs. 330,00</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant text-[12px]">Ref: $9,00</span>
+</div>
+</div>
+</article>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full py-xl px-lg flex flex-col md:flex-row justify-between items-center gap-md bg-surface-container-highest dark:bg-primary-container border-t border-outline-variant dark:border-outline mt-xxl">
+<div class="font-headline-sm text-headline-sm font-bold text-primary dark:text-primary-fixed">Tumbo Market</div>
+<div class="flex flex-wrap gap-md justify-center">
+<a class="font-body-sm text-body-sm text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Privacidad</a>
+<a class="font-body-sm text-body-sm text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Términos</a>
+<a class="font-body-sm text-body-sm text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Contacto</a>
+<a class="font-body-sm text-body-sm text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Ayuda</a>
+</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant dark:text-surface-variant text-center md:text-right">
+            © 2026 Tumbo Market. Todos los derechos reservados.
+        </div>
+</footer>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA={"ruta": "marketplace/inicio-variante.html", "superficie": "marketplace", "rol": "visitante", "titulo": "Inicio — variante de maquetación"};</script>
+</body></html>

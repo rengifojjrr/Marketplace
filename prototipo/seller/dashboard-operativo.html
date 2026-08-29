@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+
+<html data-tumbo-escritorio="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Panel operativo del seller · Tumbo Market beta</title>
+<!-- Material Symbols -->
+<!-- Google Fonts: 'Inter' & JetBrains Mono -->
+<!-- Tailwind CSS -->
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<!-- Tailwind Config -->
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Panel operativo del seller — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased min-h-screen flex">
+<!-- SideNavBar (Shared Component) -->
+<nav class="bg-surface-container-low dark:bg-inverse-surface fixed left-0 top-0 h-screen w-64 flex flex-col py-md px-sm border-r border-outline-variant">
+<!-- Header -->
+<div class="flex items-center gap-sm px-sm mb-lg">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-high flex items-center justify-center">
+<img loading="lazy" alt="Foto de perfil — imagen de demostración" class="w-full h-full object-cover" data-alt="A highly detailed close-up portrait of a professional logistics operator wearing a clean, modern uniform. The lighting is crisp and even, suitable for a corporate ID badge. The background is a neutral light blue, creating a sense of professional reliability and clean modern aesthetics." src="../../assets/img/avatar-05.svg"/>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">Seller Center</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Operations Hub</p>
+</div>
+</div>
+<!-- Navigation Tabs -->
+<ul class="flex flex-col gap-xs flex-1">
+<!-- Active Tab: Dashboard -->
+<li>
+<a class="flex items-center gap-md px-md py-sm rounded-lg hover:bg-surface-container-high transition-colors font-body-sm text-body-sm text-primary dark:text-primary-fixed font-bold border-r-4 border-primary dark:border-primary-fixed opacity-80 duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+                    Panel
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-md px-md py-sm rounded-lg hover:bg-surface-container-high transition-colors font-body-sm text-body-sm text-on-surface-variant dark:text-outline-variant" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+                    Catálogo
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-md px-md py-sm rounded-lg hover:bg-surface-container-high transition-colors font-body-sm text-body-sm text-on-surface-variant dark:text-outline-variant" href="#">
+<span class="material-symbols-outlined">warehouse</span>
+                    Inventario
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-md px-md py-sm rounded-lg hover:bg-surface-container-high transition-colors font-body-sm text-body-sm text-on-surface-variant dark:text-outline-variant" href="#">
+<span class="material-symbols-outlined">local_shipping</span>
+                    Pedidos
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-md px-md py-sm rounded-lg hover:bg-surface-container-high transition-colors font-body-sm text-body-sm text-on-surface-variant dark:text-outline-variant" href="#">
+<span class="material-symbols-outlined">notifications_active</span>
+                    Alertas operativas
+                </a>
+</li>
+</ul>
+<!-- CTA -->
+<div class="mt-auto px-xs">
+<button class="w-full bg-primary-container text-on-primary-container font-label-caps text-label-caps py-sm px-md rounded-lg flex items-center justify-center gap-sm hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined">upload_file</span>
+                Carga masiva
+            </button>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 ml-64 flex flex-col min-h-screen">
+<!-- TopNavBar (Shared Component) -->
+<header class="bg-surface dark:bg-background shadow-sm flex justify-between items-center h-16 px-lg sticky top-0 z-50 border-b border-surface-container">
+<div class="flex items-center gap-lg">
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">Seller Center</span>
+<nav class="hidden md:flex gap-md">
+<!-- Assuming non-active state for sub-nav based on intent -->
+<a class="font-label-caps text-label-caps text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed transition-all duration-200 ease-in-out py-md" href="#">Picking</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed transition-all duration-200 ease-in-out py-md" href="#">Empaque</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed transition-all duration-200 ease-in-out py-md" href="#">Despacho</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<span class="font-label-caps text-label-caps text-on-surface-variant bg-surface-container-low px-sm py-xs rounded-full flex items-center gap-xs">
+<span class="w-2 h-2 rounded-full bg-secondary inline-block"></span>
+                    Estado del sistema: correcto
+                </span>
+<div class="flex gap-sm">
+<button class="text-on-surface-variant hover:text-primary transition-colors p-xs"><span class="material-symbols-outlined">notifications</span></button>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-xs"><span class="material-symbols-outlined">help</span></button>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-xs"><span class="material-symbols-outlined">account_circle</span></button>
+</div>
+</div>
+</header>
+<!-- Modo Demo Banner (Guidance strict requirement) -->
+<div class="h-12 flex items-center justify-center font-bold font-body-sm text-body-sm px-lg sticky top-16 z-40" style="background-color: #F59E0B; color: #172033;">
+<span class="material-symbols-outlined mr-sm">warning</span>
+            MODO DEMO - CONTEXTO DE OPERADOR: SEL-014 — carga masiva en proceso…
+        </div>
+<!-- Canvas -->
+<main class="p-lg flex flex-col gap-lg flex-1">
+<!-- Page Header -->
+<div class="flex justify-between items-end">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-primary">Panel operativo</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-xs">Gestión integral para <span class="font-data-mono text-data-mono bg-surface-container px-xs py-1 rounded">SEL-014</span></p>
+</div>
+<div class="text-right font-body-sm text-body-sm text-on-surface-variant">
+                    Última actualización: 10:45 am
+                </div>
+</div>
+<!-- Summary Cards (Bento Grid Style) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-16 h-16 bg-error-container rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+<div class="flex justify-between items-start relative z-10">
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant">SLA &lt; 2H</p>
+<h3 class="font-display-lg text-display-lg text-error mt-xs">12</h3>
+</div>
+<span class="material-symbols-outlined text-error">timer</span>
+</div>
+<div class="mt-md flex gap-xs items-center relative z-10">
+<span class="material-symbols-outlined text-error text-[16px]">arrow_upward</span>
+<span class="font-body-sm text-body-sm text-error font-semibold">+3 desde ayer</span>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md shadow-sm hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant">Catálogo con Errores</p>
+<h3 class="font-display-lg text-display-lg text-primary mt-xs">4</h3>
+</div>
+<span class="material-symbols-outlined text-outline">error</span>
+</div>
+<div class="mt-md">
+<a class="font-body-sm text-body-sm text-primary hover:underline" href="#">Revisar SKUs →</a>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md shadow-sm hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant">SKUs Bajo Stock</p>
+<h3 class="font-display-lg text-display-lg text-primary mt-xs">28</h3>
+</div>
+<span class="material-symbols-outlined text-outline">trending_down</span>
+</div>
+<div class="mt-md">
+<a class="font-body-sm text-body-sm text-primary hover:underline" href="#">Ver Inventario →</a>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md shadow-sm hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant">Pickups Hoy</p>
+<h3 class="font-display-lg text-display-lg text-secondary mt-xs">5</h3>
+</div>
+<span class="material-symbols-outlined text-secondary">local_shipping</span>
+</div>
+<div class="mt-md flex gap-xs items-center">
+<span class="font-body-sm text-body-sm text-on-surface-variant">2 completados</span>
+</div>
+</div>
+</div>
+<!-- Main Section: Tareas Críticas -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg flex flex-col mt-sm overflow-hidden shadow-sm flex-1">
+<div class="border-b border-surface-variant p-md flex justify-between items-center bg-surface">
+<h3 class="font-headline-md text-headline-md font-bold text-primary">Tareas Críticas</h3>
+<span class="bg-error-container text-on-error-container font-label-caps text-label-caps px-sm py-xs rounded-full">Acción Requerida (Pagados)</span>
+</div>
+<!-- Data Table (Compact spacing as per guidelines) -->
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-surface-variant bg-surface-container-low font-label-caps text-label-caps text-on-surface-variant">
+<th class="p-sm pl-md font-normal w-48">Orden ID</th>
+<th class="p-sm font-normal">Cliente / Destino</th>
+<th class="p-sm font-normal">Monto (Bs.)</th>
+<th class="p-sm font-normal">SLA Restante</th>
+<th class="p-sm pr-md font-normal text-right">Acción</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm">
+<!-- Row 1 -->
+<tr class="border-b border-surface-variant hover:bg-surface-container-low transition-colors">
+<td class="p-sm pl-md font-data-mono text-data-mono text-primary">ORD-202311-8842</td>
+<td class="p-sm">
+<div class="font-semibold text-primary">Juan Pérez</div>
+<div class="text-on-surface-variant text-xs mt-xs">Caracas, Zona Norte</div>
+</td>
+<td class="p-sm font-data-mono text-data-mono font-semibold">Bs. 4,520.00</td>
+<td class="p-sm text-error font-semibold flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">timer</span> 0h 45m
+                                </td>
+<td class="p-sm pr-md text-right">
+<button class="bg-primary-container text-on-primary-container rounded-lg px-md py-sm font-body-sm text-body-sm hover:opacity-90 transition-opacity">Aceptar Orden</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="border-b border-surface-variant hover:bg-surface-container-low transition-colors">
+<td class="p-sm pl-md font-data-mono text-data-mono text-primary">ORD-202311-8843</td>
+<td class="p-sm">
+<div class="font-semibold text-primary">María García</div>
+<div class="text-on-surface-variant text-xs mt-xs">Valencia, Centro</div>
+</td>
+<td class="p-sm font-data-mono text-data-mono font-semibold">Bs. 1,250.50</td>
+<td class="p-sm text-on-surface-variant flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">schedule</span> 1h 20m
+                                </td>
+<td class="p-sm pr-md text-right">
+<button class="bg-primary-container text-on-primary-container rounded-lg px-md py-sm font-body-sm text-body-sm hover:opacity-90 transition-opacity">Aceptar Orden</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</main>
+</div>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA={"ruta": "seller/dashboard-operativo.html", "superficie": "seller", "rol": "operador", "titulo": "Panel operativo del seller"};</script>
+</body></html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+
+<html data-tumbo-movil="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mi cuenta (móvil) · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  <link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Mi cuenta (móvil) — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-24 font-body-md antialiased md:max-w-md md:mx-auto md:border-x md:border-outline-variant md:shadow-lg md:relative">
+<!-- Top Header -->
+<header class="sticky top-0 z-50 bg-surface border-b border-outline-variant px-md py-md flex items-center justify-between">
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Perfil</h1>
+<div class="w-10 h-10 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</div>
+</header>
+<main class="p-md flex flex-col gap-lg">
+<!-- Profile Header Card -->
+<section class="bg-surface rounded-xl p-lg border border-outline-variant shadow-[0px_4px_12px_rgba(11,37,69,0.02)] flex items-center gap-md">
+<div class="w-16 h-16 rounded-full overflow-hidden bg-surface-variant flex-shrink-0 border border-outline-variant">
+<img loading="lazy" alt="Foto de perfil — imagen de demostración" class="w-full h-full object-cover" data-alt="Close-up portrait of a professional corporate buyer in a well-lit, modern office setting. The lighting is soft and bright, emphasizing a clean, trustworthy B2B corporate aesthetic with subtle navy blue undertones." src="../../assets/img/avatar-03.svg"/>
+</div>
+<div class="flex flex-col justify-center">
+<h2 class="font-headline-sm text-headline-sm font-semibold text-primary">Juan Perez</h2>
+<div class="inline-flex items-center gap-xs mt-xs px-sm py-xs bg-secondary-fixed text-on-secondary-fixed rounded-full w-max">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">verified</span>
+<span class="font-label-sm text-label-sm">Verificado</span>
+</div>
+</div>
+</section>
+<!-- Bento Grid Actions -->
+<section class="grid grid-cols-2 gap-md">
+<button class="bg-surface rounded-xl p-md border border-outline-variant flex flex-col items-center justify-center gap-sm hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] hover:border-secondary transition-all active:scale-95 group">
+<div class="w-12 h-12 rounded-full bg-secondary-fixed-dim text-on-secondary-fixed flex items-center justify-center group-hover:bg-secondary group-hover:text-on-secondary transition-colors">
+<span class="material-symbols-outlined">shopping_bag</span>
+</div>
+<span class="font-label-md text-label-md text-primary">Mis Pedidos</span>
+</button>
+<button class="bg-surface rounded-xl p-md border border-outline-variant flex flex-col items-center justify-center gap-sm hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] hover:border-secondary transition-all active:scale-95 group">
+<div class="w-12 h-12 rounded-full bg-error-container text-on-error-container flex items-center justify-center group-hover:bg-error group-hover:text-on-error transition-colors">
+<span class="material-symbols-outlined">gavel</span>
+</div>
+<span class="font-label-md text-label-md text-primary">Mis Reclamos</span>
+</button>
+<button class="bg-surface rounded-xl p-md border border-outline-variant flex flex-col items-center justify-center gap-sm hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] hover:border-secondary transition-all active:scale-95 group">
+<div class="w-12 h-12 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center group-hover:bg-tertiary-container group-hover:text-on-tertiary-container transition-colors">
+<span class="material-symbols-outlined">place</span>
+</div>
+<span class="font-label-md text-label-md text-primary">Direcciones</span>
+</button>
+<button class="bg-surface rounded-xl p-md border border-outline-variant flex flex-col items-center justify-center gap-sm hover:shadow-[0px_4px_12px_rgba(11,37,69,0.05)] hover:border-secondary transition-all active:scale-95 group">
+<div class="w-12 h-12 rounded-full bg-primary-fixed-dim text-on-primary-fixed flex items-center justify-center group-hover:bg-primary-container group-hover:text-on-primary-container transition-colors">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+</div>
+<span class="font-label-md text-label-md text-primary">Pagos</span>
+</button>
+</section>
+<!-- Recent Orders List -->
+<section class="bg-surface rounded-xl p-md border border-outline-variant shadow-[0px_4px_12px_rgba(11,37,69,0.02)]">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase mb-md tracking-wider">Actividad Reciente</h3>
+<div class="flex flex-col">
+<div class="flex items-center justify-between py-sm border-b border-outline-variant last:border-0 hover:bg-surface-container-low transition-colors rounded-md -mx-sm px-sm">
+<div class="flex items-center gap-sm">
+<div class="w-2 h-2 rounded-full bg-tertiary"></div>
+<div>
+<p class="font-label-md text-label-md text-on-surface">ORD-2024-8991</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Entregado • Hoy</p>
+</div>
+</div>
+<span class="font-label-md text-label-md text-primary">$4,250.00</span>
+</div>
+<div class="flex items-center justify-between py-sm border-b border-outline-variant last:border-0 hover:bg-surface-container-low transition-colors rounded-md -mx-sm px-sm">
+<div class="flex items-center gap-sm">
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<div>
+<p class="font-label-md text-label-md text-on-surface">ORD-2024-8990</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">En tránsito • Ayer</p>
+</div>
+</div>
+<span class="font-label-md text-label-md text-primary">$1,120.50</span>
+</div>
+<div class="flex items-center justify-between py-sm border-b border-outline-variant last:border-0 hover:bg-surface-container-low transition-colors rounded-md -mx-sm px-sm">
+<div class="flex items-center gap-sm">
+<div class="w-2 h-2 rounded-full bg-outline"></div>
+<div>
+<p class="font-label-md text-label-md text-on-surface">ORD-2024-8975</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Cancelado • 12/10/2026</p>
+</div>
+</div>
+<span class="font-label-md text-label-md text-primary">$850.00</span>
+</div>
+</div>
+<button class="w-full mt-md py-sm font-label-sm text-label-sm text-secondary hover:text-secondary-fixed-dim transition-colors text-center">
+                Ver todos los pedidos
+            </button>
+</section>
+<!-- Logout Button -->
+<button class="w-full bg-transparent border border-outline-variant text-on-surface-variant font-label-md text-label-md py-md rounded-[10px] flex items-center justify-center gap-sm hover:bg-surface-container-high hover:text-error hover:border-error transition-all active:scale-95 mt-sm">
+<span class="material-symbols-outlined">logout</span>
+            Cerrar Sesión
+        </button>
+</main>
+<!-- Bottom Nav Shell -->
+<nav class="fixed bottom-0 w-full md:w-[448px] bg-surface flex justify-around items-center h-[72px] pb-safe z-50 shadow-[0_-4px_12px_rgba(0,0,0,0.04)] pt-sm">
+<button class="flex flex-col items-center gap-xs text-on-surface-variant p-sm w-16 hover:text-secondary transition-colors group">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">home</span>
+<span class="font-label-sm text-label-sm text-[10px]">Inicio</span>
+</button>
+<button class="flex flex-col items-center gap-xs text-on-surface-variant p-sm w-16 hover:text-secondary transition-colors group">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">category</span>
+<span class="font-label-sm text-label-sm text-[10px]">Categorías</span>
+</button>
+<button class="flex flex-col items-center gap-xs text-on-surface-variant p-sm w-16 hover:text-secondary transition-colors group">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">receipt_long</span>
+<span class="font-label-sm text-label-sm text-[10px]">Pedidos</span>
+</button>
+<button class="flex flex-col items-center gap-xs text-secondary p-sm w-16 relative">
+<div class="absolute -top-[10px] w-12 h-[3px] bg-secondary rounded-full"></div>
+<span class="material-symbols-outlined scale-110" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="font-label-sm text-label-sm text-[10px] font-bold">Perfil</span>
+</button>
+</nav>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA={"ruta": "marketplace/mi-cuenta-movil.html", "superficie": "marketplace", "rol": "comprador", "titulo": "Mi cuenta (móvil)"};</script>
+</body></html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+
+<html data-tumbo-banner="1" data-tumbo-movil="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Checkout — pago demo (móvil) · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  <link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Checkout — pago demo (móvil) — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col">
+<div data-tumbo-ui="banner" class="tumbo-banner-demo" role="note"><span class="material-symbols-outlined" aria-hidden="true">science</span><span>MODO DEMO — Pago Móvil y transferencia son simulados. No se solicitan ni almacenan credenciales bancarias.</span></div>
+<!-- Header -->
+<header class="sticky top-0 z-50 bg-surface border-b border-outline-variant flex items-center px-margin-mobile h-16 w-full">
+<button aria-label="Volver a Revisión" class="text-primary hover:bg-surface-container-highest p-xs rounded-full transition-colors mr-sm">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-primary font-semibold flex-grow text-center pr-[32px]">Pagar</h1>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow pb-[100px] flex flex-col w-full max-w-container-max mx-auto px-margin-mobile pt-lg gap-lg">
+<!-- Total Amount Prominent -->
+<section class="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant flex flex-col items-center justify-center gap-xs shadow-[0_4px_12px_rgba(11,37,69,0.02)]">
+<p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Total a Pagar</p>
+<h2 class="font-display-lg text-display-lg text-primary-container font-bold">$1,250.00</h2>
+<p class="font-body-sm text-body-sm text-outline mt-sm flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]" data-icon="info">info</span>
+                Operación de prueba
+            </p>
+</section>
+<!-- Payment Methods Accordion -->
+<section class="flex flex-col gap-sm w-full">
+<h3 class="font-headline-sm text-headline-sm text-primary-container mb-xs">Método de Pago</h3>
+<!-- Pago Móvil (Expanded) -->
+<div class="bg-surface-container-lowest rounded-xl border-2 border-secondary overflow-hidden shadow-[0_4px_12px_rgba(11,37,69,0.05)] transition-all">
+<div class="p-md flex items-center gap-md bg-secondary-fixed bg-opacity-10 cursor-pointer">
+<div class="w-10 h-10 rounded-full bg-secondary text-on-secondary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined" data-icon="mobile">mobile</span>
+</div>
+<div class="flex-grow">
+<h4 class="font-label-md text-label-md text-on-background font-semibold">Pago Móvil</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Transferencia instantánea</p>
+</div>
+<span class="material-symbols-outlined text-secondary" data-icon="radio_button_checked">radio_button_checked</span>
+</div>
+<!-- Expanded Content (Inputs) -->
+<div class="p-md border-t border-outline-variant bg-surface flex flex-col gap-md">
+<div class="bg-surface-container-low p-sm rounded-lg border border-outline-variant text-body-sm text-on-surface-variant mb-xs">
+<p class="font-medium">Datos del receptor:</p>
+<p>Banco: Mercantil (0105)</p>
+<p>Teléfono: 0414-1234567</p>
+<p>Cédula: V-12345678</p>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="font-label-sm text-label-sm text-on-surface-variant" for="phone">Teléfono Origen</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-sm text-body-md text-on-background focus:border-secondary focus:ring-2 focus:ring-secondary focus:ring-opacity-30 transition-all outline-none" id="phone" placeholder="04xx-xxxxxxx" type="tel"/>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="font-label-sm text-label-sm text-on-surface-variant" for="id_doc">Cédula Origen</label>
+<div class="flex gap-sm">
+<select class="bg-surface-container-lowest border border-outline-variant rounded-lg p-sm text-body-md text-on-background focus:border-secondary outline-none w-[80px]">
+<option>V-</option>
+<option>J-</option>
+<option>E-</option>
+</select>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-sm text-body-md text-on-background focus:border-secondary focus:ring-2 focus:ring-secondary focus:ring-opacity-30 transition-all outline-none" id="id_doc" placeholder="Número de cédula" type="text"/>
+</div>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="font-label-sm text-label-sm text-on-surface-variant" for="reference">Número de Referencia (Últimos 4 dígitos)</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-sm text-body-md text-on-background focus:border-secondary focus:ring-2 focus:ring-secondary focus:ring-opacity-30 transition-all outline-none" id="reference" maxlength="4" placeholder="Ej: 4567" type="text"/>
+</div>
+</div>
+</div>
+<!-- Transferencia Bancaria (Collapsed) -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="p-md flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined" data-icon="account_balance">account_balance</span>
+</div>
+<div class="flex-grow">
+<h4 class="font-label-md text-label-md text-on-background font-medium">Transferencia Bancaria</h4>
+<p class="font-body-sm text-body-sm text-outline">Bancos Nacionales</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant" data-icon="radio_button_unchecked">radio_button_unchecked</span>
+</div>
+</div>
+<!-- Zelle (Collapsed) -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="p-md flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+</div>
+<div class="flex-grow">
+<h4 class="font-label-md text-label-md text-on-background font-medium">Zelle</h4>
+<p class="font-body-sm text-body-sm text-outline">USD USD</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant" data-icon="radio_button_unchecked">radio_button_unchecked</span>
+</div>
+</div>
+</section>
+</main>
+<!-- Floating Bottom Button Area -->
+<div class="fixed bottom-0 left-0 w-full bg-surface border-t border-outline-variant p-margin-mobile shadow-[0_-4px_12px_rgba(11,37,69,0.05)] z-40">
+<button class="w-full bg-secondary text-on-secondary font-label-md text-label-md py-md rounded-[10px] flex items-center justify-center gap-sm hover:bg-on-secondary-fixed-variant transition-colors active:scale-[0.98]">
+<span class="material-symbols-outlined" data-icon="check_circle">check_circle</span>
+            Confirmar Pago
+        </button>
+</div>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA={"ruta": "marketplace/checkout-pago-movil.html", "superficie": "marketplace", "rol": "comprador", "titulo": "Checkout — pago demo (móvil)"};</script>
+</body></html>

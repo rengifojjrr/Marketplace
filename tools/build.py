@@ -29,7 +29,7 @@ with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..',
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ORIGEN = os.path.join(RAIZ, 'design-source')
-DESTINO = os.path.join(RAIZ, 'app')
+DESTINO = os.path.join(RAIZ, 'prototipo')
 
 # Pantallas donde DESIGN.md exige el banner "Modo demo" visible.
 PREFIJOS_DEMO = (
@@ -385,7 +385,7 @@ def runtime_para(ruta, superficie, rol, titulo):
         '<script src="' + base + 'assets/js/tumbo-rutas.js"></script>\n'
         '<script src="' + base + 'assets/js/tumbo-listas.js"></script>\n'
         '<script src="' + base + 'assets/js/tumbo-app.js"></script>\n'
-        '<script>window.TUMBO_PAGINA=' + json.dumps(
+        '<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA=' + json.dumps(
             {'ruta': ruta, 'superficie': superficie, 'rol': rol, 'titulo': titulo},
             ensure_ascii=False) + ';</script>\n'
     )
@@ -492,7 +492,7 @@ def transformar(html, ruta, titulo, superficie, rol):
         '<script src="' + base + 'assets/js/tumbo-rutas.js"></script>\n'
         '<script src="' + base + 'assets/js/tumbo-listas.js"></script>\n'
         '<script src="' + base + 'assets/js/tumbo-app.js"></script>\n'
-        '<script>window.TUMBO_PAGINA=' + json.dumps(
+        '<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA=' + json.dumps(
             {'ruta': ruta, 'superficie': superficie, 'rol': rol, 'titulo': titulo},
             ensure_ascii=False) + ';</script>\n'
     )

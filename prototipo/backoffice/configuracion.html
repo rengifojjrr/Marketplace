@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+
+<html data-tumbo-escritorio="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Configuración global y reglas · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for high density */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f3ff; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c4c6cf; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #74777f; 
+        }
+    </style>
+<link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Configuración global y reglas — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased overflow-hidden h-screen flex">
+<!-- SideNavBar -->
+<nav class="bg-primary dark:bg-primary-container text-primary-fixed dark:text-primary-fixed-dim font-body-sm text-body-sm h-screen w-64 fixed left-0 top-0 shadow-md flex flex-col py-md overflow-y-auto hidden md:flex z-50">
+<div class="px-md mb-lg flex items-center gap-sm">
+<span class="material-symbols-outlined text-headline-md text-on-primary">admin_panel_settings</span>
+<div>
+<h1 class="font-headline-md text-headline-md text-on-primary font-bold leading-tight">Backoffice</h1>
+<p class="text-on-primary/60 text-xs">Tumbo Market</p>
+</div>
+</div>
+<ul class="flex flex-col gap-xs px-sm flex-1">
+<li>
+<a class="flex items-center gap-3 px-4 py-2 text-on-primary/80 hover:text-on-primary hover:bg-primary-fixed-dim/10 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                    Panel
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-2 text-on-primary/80 hover:text-on-primary hover:bg-primary-fixed-dim/10 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="storefront">storefront</span>
+                    Sellers
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-2 text-on-primary/80 hover:text-on-primary hover:bg-primary-fixed-dim/10 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+                    Productos
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-2 text-on-primary/80 hover:text-on-primary hover:bg-primary-fixed-dim/10 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+                    Logística
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-2 text-on-primary/80 hover:text-on-primary hover:bg-primary-fixed-dim/10 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="hub">hub</span>
+                    Integraciones
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-2 text-on-primary/80 hover:text-on-primary hover:bg-primary-fixed-dim/10 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+                    Analítica
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-2 bg-secondary-container text-on-secondary-container rounded-lg font-bold" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                    Configuración
+                </a>
+</li>
+</ul>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col md:ml-64 h-screen">
+<!-- TopNavBar -->
+<header class="bg-surface dark:bg-inverse-surface text-primary dark:text-primary-fixed font-label-caps text-label-caps h-16 w-full md:w-[calc(100%-16rem)] fixed top-0 right-0 border-b border-outline-variant dark:border-outline flex justify-between items-center px-lg z-40">
+<div class="flex items-center gap-md">
+<h2 class="font-headline-md text-headline-md font-bold text-on-surface dark:text-inverse-on-surface">Admin Console</h2>
+<nav class="hidden sm:flex gap-md ml-lg">
+<a class="text-on-surface-variant font-medium hover:bg-surface-container-low dark:hover:bg-surface-container-high px-sm py-xs rounded transition-colors" href="#">Breadcrumb</a>
+<a class="text-on-surface-variant font-medium hover:bg-surface-container-low dark:hover:bg-surface-container-high px-sm py-xs rounded transition-colors" href="#">Herramientas</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<button class="text-on-surface-variant hover:bg-surface-container-low p-xs rounded-full transition-colors relative group">
+<span class="material-symbols-outlined" data-icon="health_and_safety">health_and_safety</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container-low p-xs rounded-full transition-colors relative group">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container-low p-xs rounded-full transition-colors relative group">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-primary-container overflow-hidden border border-outline-variant ml-sm cursor-pointer">
+<img loading="lazy" alt="Foto de perfil — imagen de demostración" class="w-full h-full object-cover" data-alt="A small square profile image of a professional administrator in a modern office setting. The lighting is bright and corporate, matching the light-mode UI aesthetic." src="../../assets/img/avatar-04.svg"/>
+</div>
+</div>
+</header>
+<!-- Scrollable Content Canvas -->
+<main class="flex-1 overflow-y-auto mt-16 p-md lg:p-lg bg-surface-container-lowest">
+<div class="max-w-container-max mx-auto flex flex-col gap-lg">
+<!-- Page Header & Global Actions -->
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-md border-b border-outline-variant pb-md">
+<div>
+<h1 class="font-display-lg text-display-lg text-on-surface mb-xs">Configuración Global</h1>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-2xl">Gestión de parámetros operativos críticos del marketplace B2B. Los cambios realizados aquí afectan a todos los vendedores y transacciones.</p>
+</div>
+<div class="flex gap-sm w-full sm:w-auto">
+<button class="flex-1 sm:flex-none px-md py-sm border border-outline text-on-surface rounded-lg font-body-sm font-semibold hover:bg-surface-container-low transition-colors flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">history</span>
+                            Ver Historial
+                        </button>
+<button class="flex-1 sm:flex-none px-md py-sm bg-primary-container text-on-primary rounded-lg font-body-sm font-semibold hover:bg-primary-container/90 transition-colors shadow-sm flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">save</span>
+                            Guardar Cambios
+                        </button>
+</div>
+</div>
+<!-- Bento Grid Layout for Settings -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-md items-start">
+<!-- Main Settings Column (Left 8 cols) -->
+<div class="lg:col-span-8 flex flex-col gap-md">
+<!-- Reglas SLA (SLA Rules) -->
+<section class="bg-surface border border-outline-variant rounded-xl p-md shadow-sm">
+<div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
+<span class="material-symbols-outlined text-primary-container">timer</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Reglas SLA (Tiempos de Procesamiento)</h3>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-md">
+<div class="flex flex-col gap-xs">
+<label class="font-label-caps text-label-caps text-on-surface-variant">Preparación de Pedido (Horas)</label>
+<div class="relative">
+<input class="w-full border border-outline-variant rounded bg-surface px-sm py-2 text-on-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] font-data-mono" type="number" value="24"/>
+</div>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="font-label-caps text-label-caps text-on-surface-variant">Despacho Logístico (Días)</label>
+<div class="relative">
+<input class="w-full border border-outline-variant rounded bg-surface px-sm py-2 text-on-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] font-data-mono" type="number" value="2"/>
+</div>
+</div>
+</div>
+<div class="mt-md">
+<label class="font-label-caps text-label-caps text-on-surface-variant block mb-xs">Motivo del cambio *</label>
+<textarea class="w-full border border-outline-variant rounded bg-surface p-sm text-on-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] text-body-sm resize-none" placeholder="Justifique el ajuste en los SLAs..." rows="2"></textarea>
+</div>
+</section>
+<!-- Ventanas de Disputa (Dispute Windows) -->
+<section class="bg-surface border border-outline-variant rounded-xl p-md shadow-sm relative overflow-hidden">
+<!-- High Risk Indicator Banner -->
+<div class="absolute top-0 right-0 bg-error-container text-on-error-container px-sm py-xs rounded-bl-lg font-label-caps text-label-caps flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+                                Alto Riesgo
+                            </div>
+<div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
+<span class="material-symbols-outlined text-error">gavel</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Ventanas de Disputa</h3>
+</div>
+<div class="flex flex-col sm:flex-row gap-md items-end">
+<div class="flex-1 flex flex-col gap-xs w-full">
+<label class="font-label-caps text-label-caps text-on-surface-variant">Días para iniciar disputa (Post-entrega)</label>
+<select class="w-full border border-outline-variant rounded bg-surface px-sm py-2 text-on-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] font-data-mono">
+<option value="7">7 Días (Estándar)</option>
+<option selected="" value="14">14 Días (Extendido)</option>
+<option value="30">30 Días (Premium)</option>
+</select>
+</div>
+<button class="px-md py-2 bg-error text-on-error rounded font-body-sm font-semibold hover:bg-error/90 transition-colors flex items-center gap-xs w-full sm:w-auto justify-center whitespace-nowrap">
+<span class="material-symbols-outlined text-[18px]">lock_reset</span>
+                                    Re-autenticar
+                                </button>
+</div>
+<div class="mt-md bg-surface-container-low p-sm rounded-lg border border-outline-variant/50">
+<label class="font-label-caps text-label-caps text-on-surface-variant block mb-xs">Motivo del cambio (Obligatorio para Alto Riesgo) *</label>
+<input class="w-full border border-outline-variant rounded bg-surface px-sm py-2 text-on-surface focus:outline-none focus:border-error focus:ring-1 focus:ring-error text-body-sm" placeholder="Ej: Ticket de soporte DSP-4421..." type="text"/>
+</div>
+</section>
+<!-- Límites Operativos (Operational Limits) -->
+<section class="bg-surface border border-outline-variant rounded-xl p-md shadow-sm">
+<div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
+<span class="material-symbols-outlined text-primary-container">scale</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Límites Operativos</h3>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-md mb-md">
+<div class="flex flex-col gap-xs">
+<label class="font-label-caps text-label-caps text-on-surface-variant">Peso Máximo por Orden (Kg)</label>
+<div class="relative flex items-center">
+<span class="absolute left-sm text-on-surface-variant material-symbols-outlined text-[16px]">weight</span>
+<input class="w-full border border-outline-variant rounded bg-surface pl-8 pr-sm py-2 text-on-surface focus:outline-none focus:border-[#2563EB] font-data-mono" type="number" value="5000"/>
+</div>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="font-label-caps text-label-caps text-on-surface-variant">Valor Máximo de Transacción (Bs.)</label>
+<div class="relative flex items-center">
+<span class="absolute left-sm text-on-surface-variant font-data-mono font-bold text-[14px]">Bs</span>
+<input class="w-full border border-outline-variant rounded bg-surface pl-8 pr-sm py-2 text-on-surface focus:outline-none focus:border-[#2563EB] font-data-mono" step="0.01" type="number" value="150000.00"/>
+</div>
+</div>
+</div>
+<div>
+<label class="font-label-caps text-label-caps text-on-surface-variant block mb-xs">Motivo del cambio *</label>
+<input class="w-full border border-outline-variant rounded bg-surface px-sm py-2 text-on-surface focus:outline-none focus:border-[#2563EB] text-body-sm" placeholder="..." type="text"/>
+</div>
+</section>
+</div>
+<!-- Secondary Settings Column (Right 4 cols) -->
+<div class="lg:col-span-4 flex flex-col gap-md">
+<!-- Feature Flags -->
+<section class="bg-surface border border-outline-variant rounded-xl p-md shadow-sm">
+<div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
+<span class="material-symbols-outlined text-tertiary-container">toggle_on</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Feature Flags</h3>
+</div>
+<div class="flex flex-col gap-sm">
+<!-- Toggle 1 -->
+<div class="flex items-center justify-between p-sm border border-outline-variant/50 rounded bg-surface-container-lowest">
+<div>
+<p class="font-body-sm font-semibold text-on-surface">Billetera Digital B2B</p>
+<p class="text-[11px] text-on-surface-variant">Solo vendedores V-VIP</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value=""/>
+<div class="w-9 h-5 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#2563EB]"></div>
+</label>
+</div>
+<!-- Toggle 2 -->
+<div class="flex items-center justify-between p-sm border border-outline-variant/50 rounded bg-surface-container-lowest">
+<div>
+<p class="font-body-sm font-semibold text-on-surface">API Logística V2</p>
+<p class="text-[11px] text-on-surface-variant">Fase Beta Pública</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox" value=""/>
+<div class="w-9 h-5 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#2563EB]"></div>
+</label>
+</div>
+</div>
+<div class="mt-sm">
+<input class="w-full border border-outline-variant rounded bg-surface px-sm py-1.5 text-on-surface focus:outline-none focus:border-[#2563EB] text-body-sm text-xs" placeholder="Razón del toggle..." type="text"/>
+</div>
+</section>
+<!-- Notification Templates -->
+<section class="bg-surface border border-outline-variant rounded-xl p-md shadow-sm">
+<div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
+<span class="material-symbols-outlined text-secondary-container-variant text-[#006f67]">mark_email_unread</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Plantillas</h3>
+</div>
+<div class="flex flex-col gap-xs">
+<a class="flex items-center justify-between p-sm hover:bg-surface-container-low rounded border border-transparent hover:border-outline-variant/50 transition-colors group" href="#">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">mail</span>
+<span class="font-body-sm text-on-surface">Emails de Sistema</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors text-[18px]">chevron_right</span>
+</a>
+<a class="flex items-center justify-between p-sm hover:bg-surface-container-low rounded border border-transparent hover:border-outline-variant/50 transition-colors group" href="#">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-[#25D366] text-[20px]">forum</span>
+<span class="font-body-sm text-on-surface">Alertas WhatsApp</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors text-[18px]">chevron_right</span>
+</a>
+<a class="flex items-center justify-between p-sm hover:bg-surface-container-low rounded border border-transparent hover:border-outline-variant/50 transition-colors group" href="#">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">description</span>
+<span class="font-body-sm text-on-surface">Políticas (TOS V3.1)</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors text-[18px]">chevron_right</span>
+</a>
+</div>
+</section>
+<!-- Recent Audit Log (Mini) -->
+<section class="bg-surface border border-outline-variant rounded-xl p-sm shadow-sm">
+<div class="flex items-center justify-between mb-sm px-xs pt-xs">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant">Últimos Cambios</h4>
+</div>
+<div class="flex flex-col gap-xs text-[11px] font-data-mono">
+<div class="flex items-start gap-xs p-xs rounded bg-surface-container-low">
+<span class="material-symbols-outlined text-[14px] text-primary-container mt-[2px]">edit</span>
+<div>
+<p class="text-on-surface">SLA Despacho -&gt; 2 días</p>
+<p class="text-on-surface-variant">Por Admin • 10:42 am</p>
+</div>
+</div>
+<div class="flex items-start gap-xs p-xs rounded bg-surface-container-low">
+<span class="material-symbols-outlined text-[14px] text-error mt-[2px]">lock_reset</span>
+<div>
+<p class="text-on-surface">Disputa -&gt; 14 días</p>
+<p class="text-on-surface-variant">Por Admin • Ayer</p>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA={"ruta": "backoffice/configuracion.html", "superficie": "backoffice", "rol": "superadmin", "titulo": "Configuración global y reglas"};</script>
+</body></html>

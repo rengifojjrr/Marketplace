@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+
+<html data-tumbo-banner="1" data-tumbo-movil="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Preparación de pedido (móvil) · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  <link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Preparación de pedido (móvil) — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-background text-on-background font-body-md h-full flex flex-col">
+<div data-tumbo-ui="banner" class="tumbo-banner-demo" role="note"><span class="material-symbols-outlined" aria-hidden="true">science</span><span>MODO DEMO — Guías y recogidas simuladas. No se crea ningún envío real.</span></div>
+<!-- Top Navigation App Bar -->
+<header class="bg-surface sticky top-0 z-50 flex justify-between items-center h-16 px-md shadow-sm border-b border-outline-variant">
+<div class="flex items-center gap-sm">
+<button aria-label="Atrás" class="p-2 -ml-2 text-primary">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md font-bold text-primary truncate">Picking móvil</h1>
+</div>
+<div class="flex gap-xs">
+<button aria-label="Escanear artículo" class="p-2 text-primary rounded-full hover:bg-surface-container">
+<span class="material-symbols-outlined">qr_code_scanner</span>
+</button>
+<button aria-label="Ayuda" class="p-2 text-primary rounded-full hover:bg-surface-container">
+<span class="material-symbols-outlined">help</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 overflow-y-auto pb-xl">
+<!-- Order Context Header -->
+<div class="bg-surface-container-low px-md py-sm border-b border-outline-variant flex justify-between items-center">
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant block mb-xs">ORDEN EN PROCESO</span>
+<span class="font-data-mono text-data-mono text-primary font-bold">TM-2026-00428</span>
+</div>
+<div class="text-right">
+<span class="font-label-caps text-label-caps text-on-surface-variant block mb-xs">PROGRESO</span>
+<span class="font-body-md text-body-md font-bold text-secondary">2/5 Items</span>
+</div>
+</div>
+<!-- Progress Bar -->
+<div class="w-full bg-surface-variant h-1">
+<div class="bg-secondary h-1" style="width: 40%;"></div>
+</div>
+<!-- Picking List -->
+<div class="p-md space-y-md">
+<!-- Item 1 (Completed) -->
+<div class="bg-surface-container-lowest rounded-lg border border-outline-variant p-md flex gap-md opacity-60">
+<div class="flex-shrink-0 mt-1">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex-1">
+<span class="font-data-mono text-data-mono text-on-surface-variant block mb-xs">SKU-492-10A</span>
+<h3 class="font-body-md text-body-md font-bold mb-xs line-through text-on-surface-variant">Laptop Stand Aluminum PRO</h3>
+<div class="flex justify-between items-end mt-sm">
+<span class="text-on-surface-variant font-body-sm text-body-sm">Pasillo 4, Estante B2</span>
+<span class="font-body-md text-body-md font-bold text-on-surface-variant">1 un.</span>
+</div>
+</div>
+</div>
+<!-- Item 2 (Completed) -->
+<div class="bg-surface-container-lowest rounded-lg border border-outline-variant p-md flex gap-md opacity-60">
+<div class="flex-shrink-0 mt-1">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex-1">
+<span class="font-data-mono text-data-mono text-on-surface-variant block mb-xs">SKU-811-99C</span>
+<h3 class="font-body-md text-body-md font-bold mb-xs line-through text-on-surface-variant">Wireless Mouse Ergonomic</h3>
+<div class="flex justify-between items-end mt-sm">
+<span class="text-on-surface-variant font-body-sm text-body-sm">Pasillo 4, Estante B3</span>
+<span class="font-body-md text-body-md font-bold text-on-surface-variant">2 un.</span>
+</div>
+</div>
+</div>
+<!-- Item 3 (Current/Active) -->
+<div class="bg-surface-container-lowest rounded-lg border-2 border-[#2563EB] shadow-[0px_4px_20px_rgba(11,37,69,0.08)] p-md flex gap-md relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-[#2563EB]"></div>
+<div class="flex-shrink-0 mt-1">
+<button class="w-6 h-6 rounded border-2 border-outline flex items-center justify-center hover:border-[#2563EB]">
+<!-- Empty checkbox -->
+</button>
+</div>
+<div class="flex-1">
+<span class="font-data-mono text-data-mono text-on-surface-variant block mb-xs">SKU-102-4452</span>
+<h3 class="font-body-lg text-body-lg font-bold mb-xs text-primary">Mechanical Keyboard MX Red</h3>
+<div class="bg-surface-container-low rounded p-sm mt-sm mb-sm border border-outline-variant">
+<span class="font-label-caps text-label-caps text-on-surface-variant block mb-xs">UBICACIÓN</span>
+<span class="font-body-md text-body-md font-bold">Pasillo 7, Nivel 3, Cajón A</span>
+</div>
+<div class="flex justify-between items-center mt-sm">
+<button class="bg-surface-container-high text-primary rounded px-sm py-1 font-body-sm text-body-sm font-bold flex items-center gap-xs">
+<span class="material-symbols-outlined text-sm">photo_camera</span>
+                             Foto Evidencia
+                         </button>
+<span class="font-headline-md text-headline-md font-bold text-primary">1 <span class="text-on-surface-variant font-body-sm">un.</span></span>
+</div>
+</div>
+</div>
+<!-- Item 4 (Pending) -->
+<div class="bg-surface-container-lowest rounded-lg border border-outline-variant p-md flex gap-md">
+<div class="flex-shrink-0 mt-1">
+<button class="w-6 h-6 rounded border-2 border-outline flex items-center justify-center">
+</button>
+</div>
+<div class="flex-1">
+<span class="font-data-mono text-data-mono text-on-surface-variant block mb-xs">SKU-334-00X</span>
+<h3 class="font-body-md text-body-md font-bold mb-xs text-primary">USB-C Hub Multiport</h3>
+<div class="flex justify-between items-end mt-sm">
+<span class="text-on-surface-variant font-body-sm text-body-sm">Pasillo 12, Estante A1</span>
+<span class="font-body-md text-body-md font-bold text-primary">3 un.</span>
+</div>
+</div>
+</div>
+<!-- Item 5 (Pending) -->
+<div class="bg-surface-container-lowest rounded-lg border border-outline-variant p-md flex gap-md">
+<div class="flex-shrink-0 mt-1">
+<button class="w-6 h-6 rounded border-2 border-outline flex items-center justify-center">
+</button>
+</div>
+<div class="flex-1">
+<span class="font-data-mono text-data-mono text-on-surface-variant block mb-xs">SKU-990-11Y</span>
+<h3 class="font-body-md text-body-md font-bold mb-xs text-primary">Monitor Arm Dual VESA</h3>
+<div class="flex justify-between items-end mt-sm">
+<span class="text-on-surface-variant font-body-sm text-body-sm">Zona Carga Pesada, Rack 2</span>
+<span class="font-body-md text-body-md font-bold text-primary">1 un.</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Action Button (Camera for package) -->
+<div class="fixed bottom-lg right-md z-40">
+<button aria-label="Take package photo" class="bg-primary-container text-on-primary rounded-full p-4 shadow-lg flex items-center justify-center hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 28px;">photo_camera</span>
+</button>
+</div>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA={"ruta": "seller/preparacion-movil.html", "superficie": "seller", "rol": "operador", "titulo": "Preparación de pedido (móvil)"};</script>
+</body></html>

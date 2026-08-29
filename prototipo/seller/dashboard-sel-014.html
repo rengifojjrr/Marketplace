@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+
+<html data-tumbo-escritorio="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Panel SEL-014 · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #faf9fc; color: #1b1b1e; }
+        .b2b-card { background-color: #ffffff; border: 1px solid #DCE3EC; border-radius: 14px; padding: 24px; transition: all 0.2s linear; }
+        .b2b-card:hover { box-shadow: 0px 4px 12px rgba(11, 37, 69, 0.05); }
+    </style>
+<link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Panel SEL-014 — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="flex flex-col md:flex-row min-h-screen bg-background">
+<!-- SideNavBar (Desktop Only) -->
+<nav class="hidden md:flex flex-col h-screen fixed left-0 top-0 py-lg px-md w-64 bg-primary dark:bg-surface-container-highest text-on-primary dark:text-inverse-primary font-body-md text-body-md z-50">
+<div class="flex items-center gap-md mb-xl">
+<div class="w-12 h-12 rounded-full overflow-hidden bg-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">store</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-on-primary">Tumbo Market</h1>
+<p class="text-on-primary/70 font-label-sm text-label-sm">Seller SEL-014</p>
+</div>
+</div>
+<ul class="flex flex-col gap-sm flex-1 mt-md">
+<!-- Active Tab -->
+<li>
+<a class="flex items-center gap-md py-sm px-md text-on-secondary-container bg-secondary-container rounded-lg font-bold" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                    Panel
+                </a>
+</li>
+<!-- Inactive Tabs -->
+<li>
+<a class="flex items-center gap-md py-sm px-md text-on-primary-container hover:bg-on-primary/10 transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+                    Catálogo
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-md py-sm px-md text-on-primary-container hover:bg-on-primary/10 transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="shopping_cart">shopping_cart</span>
+                    Pedidos
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-md py-sm px-md text-on-primary-container hover:bg-on-primary/10 transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="insights">insights</span>
+                    Ventas
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-md py-sm px-md text-on-primary-container hover:bg-on-primary/10 transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+                    Equipo
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-md py-sm px-md text-on-primary-container hover:bg-on-primary/10 transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="campaign">campaign</span>
+                    Publicidad
+                </a>
+</li>
+</ul>
+<div class="mt-auto pt-xl border-t border-on-primary/20">
+<a class="flex items-center gap-md py-sm px-md text-on-primary-container hover:bg-on-primary/10 transition-colors duration-200 rounded-lg mb-md" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                Configuración
+            </a>
+<button class="w-full py-sm px-md bg-secondary text-on-secondary font-label-md text-label-md rounded-lg flex items-center justify-center gap-sm hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
+                Nuevo producto
+            </button>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col md:ml-64 w-full min-h-screen">
+<!-- TopNavBar -->
+<header class="flex justify-between items-center h-16 px-lg sticky top-0 z-40 bg-surface dark:bg-surface-dim border-b border-outline-variant">
+<div class="flex items-center gap-md">
+<!-- Mobile Menu Button (Visible only on mobile) -->
+<button class="md:hidden text-on-surface">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div class="font-headline-sm text-headline-sm font-bold text-primary">Seller Center</div>
+</div>
+<div class="flex items-center gap-lg">
+<a class="hidden md:block font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors" href="#">Modo demo</a>
+<div class="flex items-center gap-md">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-variant overflow-hidden border border-outline-variant ml-sm">
+<img loading="lazy" alt="Foto de perfil — imagen de demostración" class="w-full h-full object-cover" data-alt="A professional headshot of a business seller in a modern office environment. High-key lighting, corporate modern aesthetic, sharp focus, natural colors. White shirt, confident expression." src="../../assets/img/avatar-06.svg"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<div class="p-md md:p-lg flex flex-col gap-lg max-w-container-max mx-auto w-full">
+<!-- Dashboard Header -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-md">
+<div>
+<h2 class="font-headline-lg text-headline-lg font-bold text-on-surface">Panel</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-xs">Resumen de actividad para SEL-014 - Hoy, 24/10/2026</p>
+</div>
+<div class="flex gap-sm">
+<button class="px-md py-sm bg-surface-container border border-outline-variant rounded-lg font-label-md text-label-md text-on-surface flex items-center gap-sm hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[18px]">calendar_today</span>
+                        Hoy
+                    </button>
+<button class="px-md py-sm bg-secondary text-on-secondary rounded-lg font-label-md text-label-md flex items-center gap-sm hover:bg-secondary/90 transition-colors">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                        Reporte
+                    </button>
+</div>
+</div>
+<!-- KPIs Section (Bento Grid Style) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md">
+<!-- Ventas Brutas -->
+<div class="b2b-card flex flex-col justify-between">
+<div class="flex justify-between items-start mb-md">
+<div class="font-label-md text-label-md text-on-surface-variant">Ventas Brutas (Hoy)</div>
+<div class="p-xs bg-primary-fixed/20 rounded-md text-primary">
+<span class="material-symbols-outlined text-[20px]">payments</span>
+</div>
+</div>
+<div>
+<div class="font-headline-lg text-headline-lg font-bold text-on-surface">Bs. 45,280.50</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant mt-xs flex items-center gap-xs">
+                            ≈ $1,250.00 USD <span class="text-[10px] bg-surface-variant px-1 rounded">Tasa: 36.22</span>
+</div>
+<div class="flex items-center gap-xs mt-sm text-on-tertiary-container font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+                            +12% vs ayer
+                        </div>
+</div>
+</div>
+<!-- Pedidos Pendientes -->
+<div class="b2b-card flex flex-col justify-between">
+<div class="flex justify-between items-start mb-md">
+<div class="font-label-md text-label-md text-on-surface-variant">Pedidos Pendientes</div>
+<div class="p-xs bg-secondary-fixed/50 rounded-md text-secondary">
+<span class="material-symbols-outlined text-[20px]">local_shipping</span>
+</div>
+</div>
+<div>
+<div class="font-headline-lg text-headline-lg font-bold text-on-surface">24</div>
+<div class="flex items-center gap-xs mt-sm text-error font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+                            5 requieren atención urgente
+                        </div>
+</div>
+</div>
+<!-- Productos Agotados -->
+<div class="b2b-card flex flex-col justify-between">
+<div class="flex justify-between items-start mb-md">
+<div class="font-label-md text-label-md text-on-surface-variant">Productos Agotados</div>
+<div class="p-xs bg-error-container/50 rounded-md text-error">
+<span class="material-symbols-outlined text-[20px]">inventory_2</span>
+</div>
+</div>
+<div>
+<div class="font-headline-lg text-headline-lg font-bold text-on-surface">12</div>
+<div class="flex items-center gap-xs mt-sm text-on-surface-variant font-label-sm text-label-sm">
+                            SKUs con stock &lt; 5
+                        </div>
+</div>
+</div>
+<!-- Disputas Abiertas -->
+<div class="b2b-card flex flex-col justify-between">
+<div class="flex justify-between items-start mb-md">
+<div class="font-label-md text-label-md text-on-surface-variant">Disputas Abiertas</div>
+<div class="p-xs bg-surface-variant rounded-md text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">gavel</span>
+</div>
+</div>
+<div>
+<div class="font-headline-lg text-headline-lg font-bold text-on-surface">2</div>
+<div class="flex items-center gap-xs mt-sm text-error font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[14px]">error</span>
+                            1 esperando respuesta
+                        </div>
+</div>
+</div>
+</div>
+<!-- Main Content Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-lg mt-md">
+<!-- Left Column (Wider) -->
+<div class="lg:col-span-2 flex flex-col gap-lg">
+<!-- Pedidos Críticos List -->
+<div class="b2b-card h-full flex flex-col">
+<div class="flex justify-between items-center mb-lg pb-md border-b border-outline-variant">
+<h3 class="font-headline-sm text-headline-sm font-semibold text-on-surface flex items-center gap-sm">
+<span class="material-symbols-outlined text-error">timer</span>
+                                Pedidos Críticos (SLA)
+                            </h3>
+<a class="font-label-md text-label-md text-secondary hover:underline" href="#">Ver todos</a>
+</div>
+<div class="flex flex-col gap-sm flex-1">
+<!-- Critical Order Item -->
+<div class="flex items-center justify-between p-sm hover:bg-surface-container-low rounded-lg transition-colors border border-transparent hover:border-outline-variant">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded bg-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant">package</span>
+</div>
+<div>
+<div class="font-label-md text-label-md text-on-surface">ORD-2023-9942</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">Laptop Lenovo ThinkPad</div>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<div class="flex flex-col items-end">
+<div class="font-label-md text-label-md text-on-surface">Bs. 12,500.00</div>
+<div class="font-body-sm text-body-sm text-error font-semibold flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">schedule</span> Despachar en 1h 45m
+                                        </div>
+</div>
+<button class="p-sm text-secondary hover:bg-secondary/10 rounded-full transition-colors">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Critical Order Item -->
+<div class="flex items-center justify-between p-sm hover:bg-surface-container-low rounded-lg transition-colors border border-transparent hover:border-outline-variant">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded bg-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant">package</span>
+</div>
+<div>
+<div class="font-label-md text-label-md text-on-surface">ORD-2023-9945</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">Monitor Dell 24"</div>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<div class="flex flex-col items-end">
+<div class="font-label-md text-label-md text-on-surface">Bs. 4,200.00</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant font-semibold flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">schedule</span> Despachar hoy
+                                        </div>
+</div>
+<button class="p-sm text-secondary hover:bg-secondary/10 rounded-full transition-colors">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column (Narrower) -->
+<div class="flex flex-col gap-lg">
+<!-- Estado de Liquidación -->
+<div class="b2b-card bg-primary-container text-on-primary-container border-none relative overflow-hidden">
+<!-- Decorative element -->
+<div class="absolute -right-8 -top-8 w-32 h-32 bg-on-primary/5 rounded-full blur-2xl"></div>
+<h3 class="font-headline-sm text-headline-sm font-semibold text-on-primary mb-md">Estado de Liquidación</h3>
+<div class="mb-md">
+<div class="font-label-sm text-label-sm opacity-80 uppercase tracking-wider mb-xs">Saldo Disponible</div>
+<div class="font-headline-lg text-headline-lg font-bold text-on-primary">Bs. 125,400.00</div>
+<div class="font-body-sm text-body-sm opacity-70">≈ $3,462.17 USD</div>
+</div>
+<div class="p-sm bg-on-primary/10 rounded-lg flex justify-between items-center mb-md">
+<div class="font-label-sm text-label-sm">Saldo Retenido (Garantías)</div>
+<div class="font-label-md text-label-md text-on-primary">Bs. 18,200.00</div>
+</div>
+<button class="w-full py-sm bg-on-primary text-primary-container font-label-md text-label-md rounded-lg flex items-center justify-center gap-sm hover:opacity-90 transition-opacity">
+                            Solicitar Retiro
+                        </button>
+</div>
+<!-- Alertas de Calidad -->
+<div class="b2b-card">
+<h3 class="font-headline-sm text-headline-sm font-semibold text-on-surface mb-md pb-sm border-b border-outline-variant flex items-center gap-sm">
+<span class="material-symbols-outlined text-error">campaign</span>
+                            Alertas de Calidad
+                        </h3>
+<ul class="flex flex-col gap-sm">
+<li class="flex items-start gap-sm bg-error-container/20 p-sm rounded-lg border border-error-container">
+<span class="material-symbols-outlined text-error mt-xs text-[18px]">cancel</span>
+<div>
+<div class="font-label-sm text-label-sm text-on-surface font-semibold">Producto Rechazado</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">SKU: TEL-S24 - "Imágenes no cumplen política de fondo blanco."</div>
+</div>
+</li>
+<li class="flex items-start gap-sm bg-surface-container p-sm rounded-lg border border-outline-variant">
+<span class="material-symbols-outlined text-on-surface-variant mt-xs text-[18px]">inventory_2</span>
+<div>
+<div class="font-label-sm text-label-sm text-on-surface font-semibold">Stock Bajo Crítico</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">SKU: ACC-CBL-01 (2 unidades restantes)</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<!-- Bottom Section: Próximos Pasos -->
+<div class="b2b-card bg-surface-container-low border-dashed border-2 border-outline-variant flex flex-col md:flex-row items-center justify-between gap-md p-lg">
+<div class="flex items-center gap-md">
+<div class="w-12 h-12 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[24px]">fact_check</span>
+</div>
+<div>
+<h4 class="font-headline-sm text-headline-sm font-semibold text-on-surface">Completa tu verificación KYC</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">Sube tu RIF actualizado para levantar los límites de retiro diarios.</p>
+</div>
+</div>
+<button class="whitespace-nowrap px-lg py-sm bg-secondary text-on-secondary rounded-lg font-label-md text-label-md hover:bg-secondary/90 transition-colors">
+                    Completar Ahora
+                </button>
+</div>
+</div>
+</main>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA={"ruta": "seller/dashboard-sel-014.html", "superficie": "seller", "rol": "seller", "titulo": "Panel SEL-014"};</script>
+</body></html>

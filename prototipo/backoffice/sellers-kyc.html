@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+
+<html data-tumbo-escritorio="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Cola de sellers y KYC · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+        /* Base styles derived from brand guidance */
+        body {
+            background-color: #f1f5f9; /* Canvas Layer 0 */
+            color: #171c1f;
+        }
+        
+        /* Custom scrollbar for data tables */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+
+        /* Status Badge Utilities */
+        .status-badge-pending {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: #d97706; /* Darker warning for text readability */
+        }
+        .status-badge-reviewing {
+            background-color: rgba(59, 130, 246, 0.1);
+            color: #2563eb; /* Darker info for text readability */
+        }
+        .status-badge-observed {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: #dc2626; /* Darker danger for text readability */
+        }
+        
+        /* Risk Badge Utilities */
+        .risk-low {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: #059669; /* Darker success */
+        }
+        .risk-medium {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: #d97706; /* Darker warning */
+        }
+        .risk-high {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: #dc2626; /* Darker danger */
+        }
+    </style>
+<link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Cola de sellers y KYC — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="font-body-md text-body-md min-h-screen flex flex-col antialiased">
+<!-- TopNavBar Component -->
+<header class="bg-surface-container-lowest dark:bg-surface-container-high docked full-width top-0 h-header-height border-b border-surface-border dark:border-outline-variant flat no shadows transition-all duration-200 flex justify-between items-center w-full px-gutter ml-[sidebar-width] max-w-[calc(100%-240px)] fixed z-50">
+<div class="flex items-center gap-standard">
+<!-- Search Bar (on_left configuration) -->
+<div class="relative w-64 hidden md:block">
+<span class="material-symbols-outlined absolute left-2.5 top-2 text-outline text-label-md">search</span>
+<input class="w-full h-8 pl-8 pr-3 bg-surface-container-low border border-surface-border rounded text-body-sm focus:outline-none focus:border-primary-container focus:ring-0 transition-colors" placeholder="Buscar sellers o ID…" type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-standard">
+<button class="text-on-surface-variant hover:bg-surface-container p-1 rounded transition-colors" title="Notifications">
+<span class="material-symbols-outlined font-label-md text-label-md">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container p-1 rounded transition-colors" title="Security">
+<span class="material-symbols-outlined font-label-md text-label-md">security</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container p-1 rounded transition-colors" title="Perfil">
+<img loading="lazy" alt="Foto de perfil — imagen de demostración" class="w-8 h-8 rounded-full border border-surface-border object-cover" data-alt="A small, professional corporate headshot of an administrator in a well-lit office setting. The lighting is bright and modern, creating a clean, high-key corporate aesthetic with soft shadows. The color palette features neutral grays and professional navy blues." src="../../assets/img/avatar-06.svg"/>
+</button>
+</div>
+</header>
+<!-- SideNavBar Component -->
+<aside class="bg-surface dark:bg-surface-container text-primary dark:text-primary-fixed font-body-sm text-body-sm fixed left-0 top-0 h-full w-sidebar-width border-r border-surface-border dark:border-outline-variant flat no shadows transition-colors duration-150 ease-in-out flex flex-col h-full border-r border-surface-border z-50 hidden md:flex">
+<!-- Header -->
+<div class="p-standard border-b border-surface-border flex items-center gap-tight h-header-height">
+<div class="w-8 h-8 rounded bg-primary-container flex items-center justify-center text-on-primary">
+<span class="font-bold text-lg">T</span>
+</div>
+<div>
+<h1 class="font-headline-sm text-headline-sm font-bold text-primary dark:text-primary-fixed leading-tight">Tumbo Market</h1>
+<p class="font-label-sm text-label-sm text-outline">Backoffice</p>
+</div>
+</div>
+<!-- Navigation Tabs -->
+<nav class="flex-1 overflow-y-auto py-tight px-base flex flex-col gap-base">
+<a class="flex items-center gap-tight px-tight py-2 rounded text-secondary dark:text-on-surface-variant hover:bg-data-row-hover dark:hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Panel</span>
+</a>
+<!-- Active Tab: Sellers (KYC) based on intent -->
+<a class="flex items-center gap-tight px-tight py-2 rounded bg-secondary-container dark:bg-primary-container text-on-secondary-container dark:text-on-primary-container font-semibold transition-colors" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+<span>Sellers (KYC)</span>
+</a>
+<a class="flex items-center gap-tight px-tight py-2 rounded text-secondary dark:text-on-surface-variant hover:bg-data-row-hover dark:hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined">category</span>
+<span>Catálogo</span>
+</a>
+<a class="flex items-center gap-tight px-tight py-2 rounded text-secondary dark:text-on-surface-variant hover:bg-data-row-hover dark:hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined">gavel</span>
+<span>Moderación</span>
+</a>
+<a class="flex items-center gap-tight px-tight py-2 rounded text-secondary dark:text-on-surface-variant hover:bg-data-row-hover dark:hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined">rule</span>
+<span>Reglas</span>
+</a>
+<a class="flex items-center gap-tight px-tight py-2 rounded text-secondary dark:text-on-surface-variant hover:bg-data-row-hover dark:hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined">admin_panel_settings</span>
+<span>Users &amp; Roles</span>
+</a>
+<a class="flex items-center gap-tight px-tight py-2 rounded text-secondary dark:text-on-surface-variant hover:bg-data-row-hover dark:hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span>Pedidos globales</span>
+</a>
+</nav>
+<!-- Footer -->
+<div class="p-tight border-t border-surface-border flex flex-col gap-base">
+<a class="flex items-center gap-tight px-tight py-2 rounded text-secondary dark:text-on-surface-variant hover:bg-data-row-hover dark:hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined">lock</span>
+<span>Seguridad</span>
+</a>
+<a class="flex items-center gap-tight px-tight py-2 rounded text-danger hover:bg-error-container transition-colors" href="#">
+<span class="material-symbols-outlined text-danger">logout</span>
+<span>Cerrar sesión</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-0 md:ml-[sidebar-width] mt-[header-height] p-standard md:p-gutter flex-1 w-full max-w-[1600px] mx-auto box-border">
+<!-- Page Header & Actions -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-standard mb-standard">
+<div>
+<h2 class="font-headline-lg text-headline-lg font-bold text-primary">Cola de Gestión Sellers / KYC</h2>
+<p class="font-body-md text-body-md text-secondary mt-1">Gestión y verificación de identidad de nuevos comercios.</p>
+</div>
+<div class="flex items-center gap-tight">
+<button class="bg-surface border border-surface-border text-secondary px-3 py-1.5 rounded flex items-center gap-1 hover:bg-data-row-hover transition-colors font-label-md text-label-md">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                    Exportar
+                </button>
+<button class="bg-primary-container text-on-primary px-3 py-1.5 rounded flex items-center gap-1 hover:bg-primary transition-colors font-label-md text-label-md">
+<span class="material-symbols-outlined text-[18px]">refresh</span>
+                    Actualizar
+                </button>
+</div>
+</div>
+<!-- Filters Surface -->
+<div class="bg-surface border border-surface-border rounded-lg p-compact mb-standard">
+<div class="flex flex-wrap items-end gap-standard">
+<!-- Search Filter -->
+<div class="flex-1 min-w-[200px]">
+<label class="block font-label-sm text-label-sm text-secondary uppercase tracking-wider mb-1">Buscar Comercio</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-2 top-1.5 text-outline text-[18px]">search</span>
+<input class="w-full h-8 pl-8 pr-3 border border-surface-border rounded font-body-sm text-body-sm focus:outline-none focus:border-primary-container" placeholder="Nombre, RIF o correo…" type="text"/>
+</div>
+</div>
+<!-- Risk Filter -->
+<div class="w-40">
+<label class="block font-label-sm text-label-sm text-secondary uppercase tracking-wider mb-1">Nivel de Riesgo</label>
+<select class="w-full h-8 border border-surface-border rounded font-body-sm text-body-sm px-2 focus:outline-none focus:border-primary-container bg-surface">
+<option value="">Todos</option>
+<option value="high">Alto Riesgo</option>
+<option value="medium">Riesgo Medio</option>
+<option value="low">Bajo Riesgo</option>
+</select>
+</div>
+<!-- Status Filter -->
+<div class="w-40">
+<label class="block font-label-sm text-label-sm text-secondary uppercase tracking-wider mb-1">Estado</label>
+<select class="w-full h-8 border border-surface-border rounded font-body-sm text-body-sm px-2 focus:outline-none focus:border-primary-container bg-surface">
+<option value="">Todos</option>
+<option value="pending">Pendiente</option>
+<option value="reviewing">En Revisión</option>
+<option value="observed">Observado</option>
+</select>
+</div>
+<!-- Date Filter -->
+<div class="w-48">
+<label class="block font-label-sm text-label-sm text-secondary uppercase tracking-wider mb-1">Fecha Registro</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-2 top-1.5 text-outline text-[18px]">calendar_today</span>
+<input class="w-full h-8 pl-8 pr-2 border border-surface-border rounded font-body-sm text-body-sm focus:outline-none focus:border-primary-container bg-surface text-secondary" type="date"/>
+</div>
+</div>
+<!-- Filter Actions -->
+<div class="flex gap-tight">
+<button class="h-8 px-3 border border-surface-border rounded bg-surface hover:bg-data-row-hover text-secondary font-label-md text-label-md transition-colors flex items-center justify-center">
+                        Limpiar
+                    </button>
+<button class="h-8 px-3 bg-surface-container-high text-primary rounded font-label-md text-label-md hover:bg-surface-variant transition-colors flex items-center justify-center">
+                        Aplicar Filtros
+                    </button>
+</div>
+</div>
+<!-- Active Filter Chips -->
+<div class="flex gap-tight mt-compact pt-compact border-t border-surface-border">
+<span class="inline-flex items-center gap-1 bg-[#f1f5f9] px-2 py-1 rounded text-secondary font-label-sm text-label-sm">
+                    Riesgo: Alto
+                    <span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-primary">close</span>
+</span>
+<span class="inline-flex items-center gap-1 bg-[#f1f5f9] px-2 py-1 rounded text-secondary font-label-sm text-label-sm">
+                    Estado: Pendiente
+                    <span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-primary">close</span>
+</span>
+</div>
+</div>
+<!-- Data Table Surface -->
+<div class="bg-surface border border-surface-border rounded-lg overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse min-w-[900px]">
+<thead>
+<tr class="bg-slate-50 border-b border-surface-border">
+<th class="px-compact py-tight font-label-sm text-label-sm text-secondary uppercase tracking-wider w-10 text-center">
+<input class="rounded border-surface-border text-primary-container focus:ring-0 w-4 h-4" type="checkbox"/>
+</th>
+<th class="px-compact py-tight font-label-sm text-label-sm text-secondary uppercase tracking-wider">Nombre / Comercio</th>
+<th class="px-compact py-tight font-label-sm text-label-sm text-secondary uppercase tracking-wider">Fecha Registro</th>
+<th class="px-compact py-tight font-label-sm text-label-sm text-secondary uppercase tracking-wider">Nivel de Riesgo</th>
+<th class="px-compact py-tight font-label-sm text-label-sm text-secondary uppercase tracking-wider">Estado</th>
+<th class="px-compact py-tight font-label-sm text-label-sm text-secondary uppercase tracking-wider text-right">SLA</th>
+<th class="px-compact py-tight font-label-sm text-label-sm text-secondary uppercase tracking-wider text-right">Acciones</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm divide-y divide-surface-border">
+<!-- Row 1: High Risk, Pending, SLA Critical -->
+<tr class="hover:bg-data-row-hover transition-colors group">
+<td class="px-compact py-tight text-center align-middle">
+<input class="rounded border-surface-border text-primary-container focus:ring-0 w-4 h-4" type="checkbox"/>
+</td>
+<td class="px-compact py-tight">
+<div class="font-medium text-primary">TechNova Electronics LATAM</div>
+<div class="text-secondary font-data-mono text-data-mono mt-0.5">RUC: 20123456789</div>
+</td>
+<td class="px-compact py-tight text-secondary">
+                                24/10/2026<br/>
+<span class="text-xs text-outline">02:30 pm EST</span>
+</td>
+<td class="px-compact py-tight">
+<span class="inline-flex items-center px-2 py-0.5 rounded risk-high font-label-md text-label-md">
+                                    Alto
+                                </span>
+</td>
+<td class="px-compact py-tight">
+<span class="inline-flex items-center px-2 py-0.5 rounded status-badge-pending font-label-md text-label-md">
+                                    Pendiente
+                                </span>
+</td>
+<td class="px-compact py-tight text-right">
+<div class="flex items-center justify-end gap-1 text-danger font-medium">
+<span class="material-symbols-outlined text-[16px]">timer</span>
+                                    0h 45m
+                                </div>
+</td>
+<td class="px-compact py-tight text-right">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="bg-primary-container text-on-primary px-3 py-1.5 rounded font-label-md text-label-md hover:bg-primary transition-colors whitespace-nowrap">
+                                        Asignar a mí
+                                    </button>
+</div>
+</td>
+</tr>
+<!-- Row 2: Medium Risk, Reviewing -->
+<tr class="hover:bg-data-row-hover transition-colors group">
+<td class="px-compact py-tight text-center align-middle">
+<input class="rounded border-surface-border text-primary-container focus:ring-0 w-4 h-4" type="checkbox"/>
+</td>
+<td class="px-compact py-tight">
+<div class="font-medium text-primary">Moda Express S.A.C.</div>
+<div class="text-secondary font-data-mono text-data-mono mt-0.5">RUC: 20987654321</div>
+</td>
+<td class="px-compact py-tight text-secondary">
+                                24/10/2026<br/>
+<span class="text-xs text-outline">09:15 EST</span>
+</td>
+<td class="px-compact py-tight">
+<span class="inline-flex items-center px-2 py-0.5 rounded risk-medium font-label-md text-label-md">
+                                    Medio
+                                </span>
+</td>
+<td class="px-compact py-tight">
+<span class="inline-flex items-center px-2 py-0.5 rounded status-badge-reviewing font-label-md text-label-md gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+                                    En Revisión
+                                </span>
+<div class="text-xs text-outline mt-0.5">Por: J. Doe</div>
+</td>
+<td class="px-compact py-tight text-right">
+<div class="flex items-center justify-end gap-1 text-warning font-medium">
+<span class="material-symbols-outlined text-[16px]">timer</span>
+                                    4h 20m
+                                </div>
+</td>
+<td class="px-compact py-tight text-right">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="bg-surface border border-surface-border text-secondary px-3 py-1.5 rounded font-label-md text-label-md hover:bg-surface-container transition-colors whitespace-nowrap">
+                                        Ver Detalle
+                                    </button>
+</div>
+</td>
+</tr>
+<!-- Row 3: Low Risk, Observed -->
+<tr class="hover:bg-data-row-hover transition-colors group">
+<td class="px-compact py-tight text-center align-middle">
+<input class="rounded border-surface-border text-primary-container focus:ring-0 w-4 h-4" type="checkbox"/>
+</td>
+<td class="px-compact py-tight">
+<div class="font-medium text-primary">Eco Natural Foods</div>
+<div class="text-secondary font-data-mono text-data-mono mt-0.5">RUC: 10456789123</div>
+</td>
+<td class="px-compact py-tight text-secondary">
+                                23/10/2026<br/>
+<span class="text-xs text-outline">04:45 pm EST</span>
+</td>
+<td class="px-compact py-tight">
+<span class="inline-flex items-center px-2 py-0.5 rounded risk-low font-label-md text-label-md">
+                                    Bajo
+                                </span>
+</td>
+<td class="px-compact py-tight">
+<span class="inline-flex items-center px-2 py-0.5 rounded status-badge-observed font-label-md text-label-md">
+                                    Observado
+                                </span>
+</td>
+<td class="px-compact py-tight text-right">
+<div class="flex items-center justify-end gap-1 text-secondary">
+<span class="material-symbols-outlined text-[16px]">pause_circle</span>
+                                    Pausado
+                                </div>
+</td>
+<td class="px-compact py-tight text-right">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="bg-surface border border-surface-border text-secondary px-3 py-1.5 rounded font-label-md text-label-md hover:bg-surface-container transition-colors whitespace-nowrap">
+                                        Ver Detalle
+                                    </button>
+</div>
+</td>
+</tr>
+<!-- Row 4: High Risk, Pending -->
+<tr class="hover:bg-data-row-hover transition-colors group">
+<td class="px-compact py-tight text-center align-middle">
+<input class="rounded border-surface-border text-primary-container focus:ring-0 w-4 h-4" type="checkbox"/>
+</td>
+<td class="px-compact py-tight">
+<div class="font-medium text-primary">Importaciones Globales, C.A.</div>
+<div class="text-secondary font-data-mono text-data-mono mt-0.5">RUC: 20555555555</div>
+</td>
+<td class="px-compact py-tight text-secondary">
+                                24/10/2026<br/>
+<span class="text-xs text-outline">10:00 EST</span>
+</td>
+<td class="px-compact py-tight">
+<span class="inline-flex items-center px-2 py-0.5 rounded risk-high font-label-md text-label-md">
+                                    Alto
+                                </span>
+</td>
+<td class="px-compact py-tight">
+<span class="inline-flex items-center px-2 py-0.5 rounded status-badge-pending font-label-md text-label-md">
+                                    Pendiente
+                                </span>
+</td>
+<td class="px-compact py-tight text-right">
+<div class="flex items-center justify-end gap-1 text-warning font-medium">
+<span class="material-symbols-outlined text-[16px]">timer</span>
+                                    2h 15m
+                                </div>
+</td>
+<td class="px-compact py-tight text-right">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="bg-primary-container text-on-primary px-3 py-1.5 rounded font-label-md text-label-md hover:bg-primary transition-colors whitespace-nowrap">
+                                        Asignar a mí
+                                    </button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="px-standard py-compact border-t border-surface-border bg-surface-container-low flex items-center justify-between">
+<div class="font-body-sm text-body-sm text-secondary">
+                    Mostrando <span class="font-medium text-primary">1</span> a <span class="font-medium text-primary">4</span> de <span class="font-medium text-primary">128</span> registros
+                </div>
+<div class="flex items-center gap-1">
+<button class="p-1 rounded text-secondary hover:bg-surface-container disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="w-8 h-8 rounded bg-primary-container text-on-primary font-label-md text-label-md flex items-center justify-center">1</button>
+<button class="w-8 h-8 rounded text-secondary hover:bg-surface-container font-label-md text-label-md flex items-center justify-center">2</button>
+<button class="w-8 h-8 rounded text-secondary hover:bg-surface-container font-label-md text-label-md flex items-center justify-center">3</button>
+<span class="text-outline mx-1">...</span>
+<button class="w-8 h-8 rounded text-secondary hover:bg-surface-container font-label-md text-label-md flex items-center justify-center">12</button>
+<button class="p-1 rounded text-secondary hover:bg-surface-container">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA={"ruta": "backoffice/sellers-kyc.html", "superficie": "backoffice", "rol": "superadmin", "titulo": "Cola de sellers y KYC"};</script>
+</body></html>

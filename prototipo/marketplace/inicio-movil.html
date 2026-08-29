@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+
+<html data-tumbo-movil="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Inicio (móvil 390 px) · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  <link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Inicio (móvil 390 px) — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-background text-on-background font-body-sm pb-xxl">
+<!-- TopNavBar (Mobile Adaptation) -->
+<header class="sticky top-0 z-50 flex items-center justify-between px-margin-mobile py-md w-full bg-surface/95 backdrop-blur-md">
+<div class="flex items-center gap-sm">
+<span class="text-headline-sm font-headline-sm font-bold text-primary">Tumbo Market</span>
+</div>
+<div class="flex items-center gap-md text-primary">
+<span class="material-symbols-outlined text-[24px]">payments</span>
+<span class="material-symbols-outlined text-[24px]">shopping_cart</span>
+<span class="material-symbols-outlined text-[24px]">account_circle</span>
+</div>
+</header>
+<!-- Search Bar -->
+<div class="px-margin-mobile py-sm">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full pl-xl pr-sm py-sm rounded-lg border border-outline-variant bg-surface text-body-sm text-on-surface focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none transition-all" placeholder="Buscar en Tumbo..." type="text"/>
+</div>
+</div>
+<!-- Value Proposition Banner -->
+<div class="px-margin-mobile py-md">
+<div class="bg-primary-container rounded-xl p-md text-on-primary-container relative overflow-hidden flex items-center justify-between">
+<div class="z-10 w-2/3">
+<h2 class="text-headline-sm font-headline-sm text-on-primary font-bold mb-xs">Todo lo que necesitas, en un solo lugar.</h2>
+<p class="text-body-sm font-body-sm text-on-primary/80">Compra rápido, seguro y al mejor precio.</p>
+</div>
+<div class="z-10 w-1/3 flex justify-end">
+<img loading="lazy" alt="Imagen del producto — demostración" class="w-24 h-24 object-contain" data-alt="A clean, minimalist 3D rendering of a shopping cart filled with colorful, abstract geometric shapes representing various products. The background is a soft, light corporate blue gradient. High quality, soft lighting, modern e-commerce aesthetic." src="../../assets/img/producto-02.svg"/>
+</div>
+<div class="absolute inset-0 bg-gradient-to-r from-primary-container to-secondary-container/50 opacity-50 z-0"></div>
+</div>
+</div>
+<!-- Horizontal Categories -->
+<div class="py-sm">
+<div class="px-margin-mobile mb-xs flex justify-between items-center">
+<h3 class="text-label-md font-label-md text-on-surface">Categorías Destacadas</h3>
+<span class="text-secondary text-label-sm font-label-sm">Ver todas</span>
+</div>
+<div class="flex overflow-x-auto no-scrollbar gap-sm px-margin-mobile pb-sm snap-x">
+<!-- Category 1 -->
+<div class="flex flex-col items-center gap-xs min-w-[72px] snap-start">
+<div class="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center border border-outline-variant shadow-sm shrink-0 overflow-hidden">
+<img loading="lazy" alt="Imagen del producto — demostración" class="w-10 h-10 object-contain" data-alt="A small, stylized icon-style illustration of a modern smartphone, representing the electronics category. Clean lines, soft blue and gray tones, placed on a pure white background. Minimalist corporate aesthetic." src="../../assets/img/producto-05.svg"/>
+</div>
+<span class="text-label-sm font-label-sm text-on-surface-variant text-center leading-tight">Electrónica</span>
+</div>
+<!-- Category 2 -->
+<div class="flex flex-col items-center gap-xs min-w-[72px] snap-start">
+<div class="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center border border-outline-variant shadow-sm shrink-0 overflow-hidden">
+<img loading="lazy" alt="Imagen del producto — demostración" class="w-10 h-10 object-contain" data-alt="A small, stylized icon-style illustration of a folded t-shirt and jeans, representing the clothing category. Clean lines, soft blue and gray tones, placed on a pure white background. Minimalist corporate aesthetic." src="../../assets/img/producto-01.svg"/>
+</div>
+<span class="text-label-sm font-label-sm text-on-surface-variant text-center leading-tight">Ropa</span>
+</div>
+<!-- Category 3 -->
+<div class="flex flex-col items-center gap-xs min-w-[72px] snap-start">
+<div class="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center border border-outline-variant shadow-sm shrink-0 overflow-hidden">
+<img loading="lazy" alt="Imagen del producto — demostración" class="w-10 h-10 object-contain" data-alt="A small, stylized icon-style illustration of a modern sofa and lamp, representing the home category. Clean lines, soft blue and gray tones, placed on a pure white background. Minimalist corporate aesthetic." src="../../assets/img/producto-06.svg"/>
+</div>
+<span class="text-label-sm font-label-sm text-on-surface-variant text-center leading-tight">Hogar</span>
+</div>
+<!-- Category 4 -->
+<div class="flex flex-col items-center gap-xs min-w-[72px] snap-start">
+<div class="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center border border-outline-variant shadow-sm shrink-0 overflow-hidden">
+<img loading="lazy" alt="Imagen del producto — demostración" class="w-10 h-10 object-contain" data-alt="A small, stylized icon-style illustration of fresh groceries in a paper bag, representing the supermarket category. Clean lines, soft blue and gray tones, placed on a pure white background. Minimalist corporate aesthetic." src="../../assets/img/producto-05.svg"/>
+</div>
+<span class="text-label-sm font-label-sm text-on-surface-variant text-center leading-tight">Super</span>
+</div>
+<!-- Category 5 -->
+<div class="flex flex-col items-center gap-xs min-w-[72px] snap-start">
+<div class="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center border border-outline-variant shadow-sm shrink-0 overflow-hidden">
+<span class="material-symbols-outlined text-outline">more_horiz</span>
+</div>
+<span class="text-label-sm font-label-sm text-on-surface-variant text-center leading-tight">Más</span>
+</div>
+</div>
+</div>
+<!-- Featured Products Bento Grid -->
+<div class="px-margin-mobile py-md">
+<h3 class="text-label-md font-label-md text-on-surface mb-sm">Ofertas del Día</h3>
+<div class="grid grid-cols-2 gap-sm">
+<!-- Product Card 1 (Large) -->
+<div class="col-span-2 bg-surface rounded-xl border border-outline-variant p-sm flex gap-sm items-center shadow-sm relative">
+<div class="absolute top-sm right-sm bg-error-container text-on-error-container text-label-sm font-label-sm px-2 py-0.5 rounded-full z-10 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">local_fire_department</span> -20%
+                </div>
+<img loading="lazy" alt="Imagen del producto — demostración" class="w-24 h-24 object-cover rounded-lg bg-surface-container-low shrink-0" data-alt="A high-end, sleek black wireless headphone sitting on a minimalist white pedestal. Soft studio lighting creating gentle shadows. The background is a clean, corporate light gray. High resolution, professional product photography style." src="../../assets/img/producto-04.svg"/>
+<div class="flex flex-col justify-between h-full py-1">
+<div>
+<h4 class="text-label-md font-label-md text-on-surface line-clamp-2">Auriculares Inalámbricos Premium Pro Max</h4>
+<span class="text-label-sm text-on-surface-variant line-through text-xs mt-1">Ref 120.00</span>
+</div>
+<div>
+<div class="text-headline-sm font-headline-sm font-bold text-primary">Ref 96.00</div>
+<div class="text-label-sm font-label-sm text-secondary">Bs. 3,552.00</div>
+</div>
+</div>
+</div>
+<!-- Product Card 2 (Small) -->
+<div class="bg-surface rounded-xl border border-outline-variant p-sm flex flex-col gap-sm shadow-sm relative">
+<img loading="lazy" alt="Imagen del producto — demostración" class="w-full h-24 object-cover rounded-lg bg-surface-container-low" data-alt="A modern smartwatch with a dark silicone band displayed against a pristine white background. Crisp details, bright lighting, emphasizing the screen interface. Minimalist e-commerce product shot." src="../../assets/img/producto-06.svg"/>
+<div class="flex flex-col flex-grow justify-between">
+<h4 class="text-label-sm font-label-sm text-on-surface line-clamp-2 mb-1">Smartwatch Serie 8 Fitness Tracker</h4>
+<div>
+<div class="text-body-md font-body-md font-bold text-primary">Ref 45.00</div>
+<div class="text-[10px] text-secondary">Bs. 1,665.00</div>
+</div>
+</div>
+</div>
+<!-- Product Card 3 (Small) -->
+<div class="bg-surface rounded-xl border border-outline-variant p-sm flex flex-col gap-sm shadow-sm relative">
+<img loading="lazy" alt="Imagen de la tienda — demostración" class="w-full h-24 object-cover rounded-lg bg-surface-container-low" data-alt="A sleek, silver laptop slightly open, viewed from an angle against a solid white background. Clean, modern, professional product photography suited for a premium B2B2C marketplace." src="../../assets/img/tienda-03.svg"/>
+<div class="flex flex-col flex-grow justify-between">
+<h4 class="text-label-sm font-label-sm text-on-surface line-clamp-2 mb-1">Laptop Ultra Slim 14" 8GB RAM</h4>
+<div>
+<div class="text-body-md font-body-md font-bold text-primary">Ref 299.99</div>
+<div class="text-[10px] text-secondary">Bs. 11,099.63</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Top Sellers Horizontal Scroll -->
+<div class="py-md bg-surface-container-low mt-sm border-y border-outline-variant">
+<div class="px-margin-mobile mb-sm flex justify-between items-center">
+<h3 class="text-label-md font-label-md text-on-surface">Tiendas Oficiales</h3>
+</div>
+<div class="flex overflow-x-auto no-scrollbar gap-sm px-margin-mobile snap-x pb-2">
+<!-- Seller 1 -->
+<div class="bg-surface border border-outline-variant rounded-lg p-sm min-w-[140px] snap-start flex flex-col items-center justify-center text-center shadow-sm">
+<img loading="lazy" alt="Imagen de la tienda — demostración" class="w-12 h-12 rounded-full border border-outline-variant mb-2 object-cover" data-alt="A minimalist logo for a tech brand, featuring a stylized blue letter 'T' inside a geometric shape. Rendered in a clean, corporate style against a white background." src="../../assets/img/tienda-01.svg"/>
+<span class="text-label-sm font-label-sm text-on-surface font-semibold">TechCorp C.A.</span>
+<span class="text-[10px] text-on-surface-variant flex items-center gap-1 justify-center mt-1"><span class="material-symbols-outlined text-[12px] text-tertiary-container" style="font-variation-settings: 'FILL' 1;">verified</span> Oficial</span>
+</div>
+<!-- Seller 2 -->
+<div class="bg-surface border border-outline-variant rounded-lg p-sm min-w-[140px] snap-start flex flex-col items-center justify-center text-center shadow-sm">
+<img loading="lazy" alt="Imagen de la tienda — demostración" class="w-12 h-12 rounded-full border border-outline-variant mb-2 object-cover" data-alt="A sleek, modern logo for a home goods store, showing an abstract line-art house in dark navy blue. Professional, clean, and minimalist aesthetic on a white background." src="../../assets/img/tienda-05.svg"/>
+<span class="text-label-sm font-label-sm text-on-surface font-semibold">HogarPlus</span>
+<span class="text-[10px] text-on-surface-variant flex items-center gap-1 justify-center mt-1"><span class="material-symbols-outlined text-[12px] text-tertiary-container" style="font-variation-settings: 'FILL' 1;">verified</span> Oficial</span>
+</div>
+<!-- Seller 3 -->
+<div class="bg-surface border border-outline-variant rounded-lg p-sm min-w-[140px] snap-start flex flex-col items-center justify-center text-center shadow-sm">
+<img loading="lazy" alt="Imagen de la tienda — demostración" class="w-12 h-12 rounded-full border border-outline-variant mb-2 object-cover" data-alt="A minimalist fashion logo featuring a stylized 'M' in an elegant, thin sans-serif font. Dark blue on a white background, projecting a high-end corporate marketplace feel." src="../../assets/img/tienda-01.svg"/>
+<span class="text-label-sm font-label-sm text-on-surface font-semibold">ModaStore</span>
+<span class="text-[10px] text-on-surface-variant flex items-center gap-1 justify-center mt-1"><span class="material-symbols-outlined text-[12px] text-tertiary-container" style="font-variation-settings: 'FILL' 1;">verified</span> Oficial</span>
+</div>
+</div>
+</div>
+<!-- BottomNavBar (Shared Component) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center bg-surface px-4 py-2 lg:hidden rounded-t-xl border-t border-outline-variant shadow-[0_-4px_12px_rgba(11,37,69,0.08)]">
+<!-- Inicio (Active) -->
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed font-bold active:bg-surface-container-high transition-transform duration-200 active:scale-90 p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="text-label-sm font-label-sm-mobile">Inicio</span>
+</a>
+<!-- Buscar -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline active:bg-surface-container-high transition-transform duration-200 active:scale-90 p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined">search</span>
+<span class="text-label-sm font-label-sm-mobile">Buscar</span>
+</a>
+<!-- Carrito -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline active:bg-surface-container-high transition-transform duration-200 active:scale-90 p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined">shopping_bag</span>
+<span class="text-label-sm font-label-sm-mobile">Carrito</span>
+</a>
+<!-- Perfil -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline active:bg-surface-container-high transition-transform duration-200 active:scale-90 p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="text-label-sm font-label-sm-mobile">Perfil</span>
+</a>
+</nav>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA={"ruta": "marketplace/inicio-movil.html", "superficie": "marketplace", "rol": "visitante", "titulo": "Inicio (móvil 390 px)"};</script>
+</body></html>

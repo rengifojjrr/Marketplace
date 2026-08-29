@@ -1,82 +1,28 @@
-# Tumbo Market — beta navegable
+# Tumbo Market — beta funcional
 
-Prototipo beta del **marketplace curado de Venezuela**: 68 pantallas, 8 roles y
-3 superficies que comparten componentes, datos y estados. Está pensado para
-enseñarse: se recorre entero, todos los botones responden y un mismo pedido
-atraviesa Marketplace, Seller Center y Backoffice sin contradecirse.
+Marketplace curado de Venezuela: **tienda**, **Seller Center** y **Backoffice**
+funcionando como una sola aplicación. Sin backend todavía, pero con datos que
+fluyen de verdad: lo que el comprador compra llega a la cola del seller, lo que
+Finanzas concilia habilita la preparación, lo que Moderación aprueba aparece en
+la tienda.
 
-> **Modo demo.** No mueve dinero, no envía WhatsApp ni correos y no crea guías de
-> courier. Pagos, KYC, custodia y liquidaciones son representaciones de interfaz.
-> El estado vive en tu navegador y se reinicia desde el dock inferior.
+> **Beta de demostración.** Datos ficticios, pagos y envíos simulados. El
+> estado vive en tu navegador y se reinicia desde el menú de usuario.
 
-## Enlace público
-
-La beta se publica con **GitHub Pages** desde la rama `main`:
+## Enlace
 
 **https://rengifojjrr.github.io/Marketplace/**
 
-### Activarlo (una sola vez)
-
-GitHub no permite encender Pages desde fuera del repositorio, así que hace falta
-un paso manual la primera vez:
-
-1. Abre **Settings → Pages** en el repositorio.
-2. En *Build and deployment · Source* elige **Deploy from a branch**.
-3. Rama **`main`**, carpeta **`/ (root)`**, y pulsa **Save**.
-
-En un minuto el sitio queda en línea. A partir de ahí, cada `git push` a `main`
-lo actualiza solo. El repositorio incluye un `.nojekyll` para que Pages sirva
-los archivos tal cual, sin procesarlos con Jekyll.
-
-## Cómo verlo
-
-```bash
-python3 serve.py          # http://localhost:8000
-```
-
-O abre `index.html` con doble clic: la beta no hace ninguna petición de red, así
-que funciona igual desde `file://`.
-
-**Para enseñarla sin instalar nada** está `dist/tumbo-market-beta.html`: las 68
-pantallas, los estilos, las fuentes y las imágenes en un único archivo de 2,2 MB
-que se abre en cualquier navegador y se puede enviar por correo. Se regenera con
-`npm run empaquetar` y se verifica con `npm run test:paquete`.
-
-## Por dónde empezar
-
-| Quiero… | Ir a |
-| --- | --- |
-| Iniciar sesión como un rol | `app/sistema/acceso.html` — contraseña `demo1234`, código MFA `123456` |
-| Ver todo el catálogo de pantallas | `index.html` |
-| Saltar el formulario y entrar directo | Índice → **Entrar por rol** |
-| Seguir un pedido de punta a punta | Índice → **Iniciar recorrido guiado** (9 pasos) |
-| Ver cómo se resuelve una disputa | Índice → **Iniciar recorrido de disputa** (6 pasos) |
-| Entender la navegación general | `app/sistema/mapa-interfaces.html` |
-
-En cualquier pantalla, el **dock inferior** permite cambiar de rol, ver los cinco
-estados del pedido `TM-2026-00428`, avanzar el recorrido y leer la auditoría de
-la sesión.
-
-## Las tres superficies
-
-| Superficie | Roles | Qué contiene |
-| --- | --- | --- |
-| **Marketplace** | Visitante, Comprador | Descubrimiento, compra, pago demo, seguimiento y reclamos |
-| **Seller Center** | Seller principal, Gestor de precios, Operador | Homologación, catálogo, inventario, pedidos, preparación y liquidaciones |
-| **Backoffice** | Superadministrador, Operaciones, Finanzas | Gobierno, KYC, moderación, disputas, conciliación y liquidaciones |
-
-Ocho roles no significan ocho aplicaciones: cada uno reutiliza las mismas
-superficies con permisos distintos. Abrir una ruta fuera de su alcance lleva a la
-pantalla 403, con el motivo del bloqueo y el intento registrado.
+La raíz es el acceso: eliges una cuenta de prueba y entras. Publicado con
+GitHub Pages desde `main`; cada `git push` lo actualiza.
 
 ## Cuentas de prueba
 
-Contraseña `demo1234` en todas. Los perfiles con verificación en dos pasos piden
-después el código `123456`.
+Contraseña `demo1234`. Los perfiles **MFA** piden después el código `123456`.
 
 | Superficie | Rol | Correo | MFA |
 | --- | --- | --- | --- |
-| Marketplace | Comprador | `comprador@demo.ve` | — |
+| Tienda | Comprador | `comprador@demo.ve` | — |
 | Seller Center | Seller principal | `propietario@sel-014.demo` | Sí |
 | Seller Center | Gestor de precios | `precios@sel-014.demo` | Sí |
 | Seller Center | Operador | `operador@sel-014.demo` | — |
@@ -84,95 +30,77 @@ después el código `123456`.
 | Backoffice | Operaciones | `operaciones@tumbomarket.demo` | Sí |
 | Backoffice | Finanzas | `finanzas@tumbomarket.demo` | Sí |
 
-La pantalla de acceso también permite entrar como visitante y registrarse como
-comprador, con sus estados de error. El segundo factor es obligatorio donde la
-especificación lo exige: todo el Backoffice, el gestor de precios y el seller
-principal.
+También puedes entrar **como invitado** (navegas la tienda y armas carrito) o
+**registrarte** como comprador.
 
-## Datos demo
+## Un recorrido que puedes probar completo
 
-Se mantienen constantes en todas las pantallas: pedido `TM-2026-00428`, seller
-`SEL-014`, producto `SKU-MOT-0832`, caso `DSP-0098`.
+1. **Comprador**: agrega un producto al carrito → checkout → registra la
+   referencia de pago. El pedido nace «pago por verificar».
+2. **Finanzas**: concílialo en la cola de conciliación.
+3. **Seller principal u Operador**: acéptalo, marca el picking, genera la guía
+   y despáchalo.
+4. **Comprador**: ve el tracking y confirma la recepción → los fondos quedan
+   retenidos por la ventana de reclamo.
+5. **Finanzas**: cierra la ventana y ejecuta la liquidación (2FA) → el seller
+   ve su comprobante en Finanzas.
+6. ¿Problema? El comprador abre un **reclamo** (asistente de 3 pasos): congela
+   los fondos, el seller responde y **Operaciones** decide; el reembolso se
+   refleja en las tres superficies.
+
+Todo deja rastro en **Auditoría** (Backoffice) y genera notificaciones en la
+campanita de cada rol.
+
+## Decisiones de producto
+
+- **Patrones de Amazon adaptados** (ver
+  [docs/INVESTIGACION-AMAZON.md](docs/INVESTIGACION-AMAZON.md)): buscador
+  dominante, PDP con caja de compra, pedidos como tarjetas con acciones,
+  Seller Central orientado a tareas con edición en línea, custodia visible por
+  pedido.
+- **Doble moneda**: Bs. como presentación, USD como referencia, tasa demo fija
+  por pedido.
+- **Permisos por ocultación**: lo que tu rol no puede usar no aparece en el
+  menú; la URL directa devuelve un 403 explicado.
+- **Honestidad de demo**: toda operación financiera o logística declara que es
+  simulada.
 
 ## Estructura
 
 ```
-index.html              Índice maestro navegable
+index.html            Acceso (única puerta de entrada)
 app/
-  marketplace/          17 pantallas — visitante y comprador
-  seller/               21 pantallas — Seller Center
-  backoffice/           23 pantallas — Backoffice
-  demo/                  4 pantallas — recorrido transversal
-  sistema/               4 pantallas — acceso, mapa, índice Stitch y 403
-assets/
-  css/tumbo-tailwind.css  Sistema visual compilado
-  css/tumbo.css           Andamiaje de la demo (dock, avisos, banner)
-  js/tumbo-app.js         Runtime: estado, RBAC, recorrido, cableado
-  js/tumbo-rutas.js       Roles, permisos, rutas y acciones
-  js/tumbo-listas.js      Pestañas, filtros, orden y paginación reales
-  fuentes/                Inter, JetBrains Mono y Material Symbols locales
-  img/                    Marcadores SVG del sistema de diseño
-paginas/                Pantallas escritas para la beta (acceso)
-tokens/                 Tema y traducciones — fuente de verdad
-tools/                  Compilador, verificación y utilidades
-dist/                   Archivo único, autocontenido, para enseñar la beta
-design-source/          Tableros originales de Google Stitch, intactos
-docs/                   Especificación, prompts, diseño y arquitectura
+  tienda/             11 vistas — visitante y comprador
+  seller/              7 vistas — Seller Center
+  admin/               8 vistas — Backoffice
+assets/js/
+  tm-datos.js         Datos semilla
+  tm-store.js         Almacén de estado y mutaciones del negocio
+  tm-ui.js            Componentes compartidos
+  tm-app.js           Armazones, navegación por rol y RBAC
+  tm-vistas-*.js      Las vistas de cada superficie
+prototipo/            El prototipo original de Google Stitch (referencia)
+docs/                 Investigación, especificación y arquitectura
+tools/                Generadores, subset de fuentes y verificación E2E
 ```
 
 ## Desarrollo
 
 ```bash
-npm install          # solo para recompilar los estilos
-npm run build        # estilos + páginas
-npm test             # verificación del sitio en navegador real (Chromium)
-npm run empaquetar   # genera dist/tumbo-market-beta.html (archivo único)
-npm run test:paquete # verifica el archivo único
+python3 serve.py      # http://localhost:8000
+npm run build         # recompila estilos y regenera las páginas
+npm test              # 16 pruebas E2E en Chromium (flujos interconectados)
 ```
 
-`tools/build.py` regenera `app/` desde `design-source/`. **No edites `app/` a
-mano**: se sobrescribe en cada compilación. Los cambios van en
-`design-source/`, en `tokens/` o en el propio compilador.
-
-`npm run build:fuentes` vuelve a descargar y subsetear las fuentes; solo hace
-falta si cambia el inventario de iconos, y requiere red.
-
-## Estado de la verificación
-
-`npm test` recorre las 69 pantallas en Chromium — 20 pruebas de comportamiento:
-
-- **1.152 controles**, todos cableados y clasificados; ninguno queda sin
-  comportamiento. El 93 % navega, ejecuta una acción, filtra, ordena o abre un
-  expediente; el 7 % restante avisa de que su lógica llega con el backend.
-- El acceso valida credenciales, exige MFA donde toca y muestra sus errores.
-- Las pestañas de estado filtran la tabla, los buscadores filtran mientras se
-  escribe y las cabeceras ordenan.
-- Sin errores de consola y sin `lorem ipsum`.
-- Interfaz íntegramente en español, incluidos placeholders y etiquetas de
-  accesibilidad; fechas en `dd/mm/aaaa` y horas de 12 h.
-- 24 pantallas financieras y logísticas con su banner «Modo demo».
-- RBAC verificado en ambos sentidos: bloquea lo ajeno y permite lo propio.
-- Los recorridos normal (9 pasos) y de disputa (6 pasos) llegan hasta el final.
-- Las 27 pantallas pensadas para móvil no desbordan a 390 px.
-
-## Qué falta
-
-La beta es una demostración de **interfaz**. No hay backend, y hay pantallas de
-la especificación que Stitch no llegó a generar — entre ellas el asistente de
-reclamo por pasos y las diez pantallas del gestor de precios. Están listadas en
-[`docs/ARQUITECTURA-BETA.md`](docs/ARQUITECTURA-BETA.md#huecos-del-diseño-original).
-
-Antes de escribir código productivo siguen abiertas las decisiones de
-[`docs/ESPECIFICACION-FUNCIONAL.md`](docs/ESPECIFICACION-FUNCIONAL.md), en
-particular la **bloqueante financiera**: no implementar custodia real,
-conversión automática ni saldos tipo wallet hasta definir entidad operadora,
-contratos y responsabilidad sobre los fondos.
+Las páginas de `app/` son cascarones generados: **no se editan a mano**. El
+contenido vive en `assets/js/tm-vistas-*.js`; los datos, en `tm-datos.js`.
 
 ## Documentación
 
-- [Arquitectura de la beta](docs/ARQUITECTURA-BETA.md) — cómo se compila y qué hace el runtime
-- [Sistema de diseño](docs/DESIGN.md) — tokens, tipografía, componentes y accesibilidad
-- [Especificación funcional](docs/ESPECIFICACION-FUNCIONAL.md) — roles, permisos e integraciones
-- [Prompts de Google Stitch](docs/PROMPTS-STITCH.md) — cómo se generaron las pantallas
+- [Arquitectura de la beta funcional](docs/BETA-FUNCIONAL.md)
+- [Estudio de Amazon y adaptaciones](docs/INVESTIGACION-AMAZON.md)
+- [Especificación funcional](docs/ESPECIFICACION-FUNCIONAL.md)
+- [Sistema de diseño](docs/DESIGN.md)
+- Prototipo Stitch de referencia: [`prototipo/`](prototipo/) · [su arquitectura](docs/ARQUITECTURA-BETA.md)
 
 El nombre **Tumbo Market** y su identidad visual son provisionales.

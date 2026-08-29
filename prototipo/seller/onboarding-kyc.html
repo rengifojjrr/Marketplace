@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+
+<html data-tumbo-escritorio="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Onboarding y KYC — SEL-014 · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<style>
+        .material-symbols-outlined {
+          font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill-icon {
+          font-variation-settings: 'FILL' 1;
+        }
+        
+        .upload-dashed {
+            background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='14' ry='14' stroke='%23C4C6CF' stroke-width='2' stroke-dasharray='8%2c 8' stroke-dashoffset='0' stroke-linecap='square'/%3e%3c/svg%3e");
+            border-radius: 14px;
+        }
+      </style>
+<link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Onboarding y KYC — SEL-014 — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-background text-on-surface font-body-md h-screen flex flex-col overflow-hidden">
+<!-- Top Navigation (Onboarding - Minimal) -->
+<header class="w-full h-16 fixed top-0 z-40 bg-surface border-b border-outline-variant flex justify-between items-center px-lg">
+<div class="flex items-center gap-sm">
+<span class="font-headline-sm text-headline-sm font-black text-primary">Seller Center</span>
+<span class="bg-surface-container-high px-sm py-xs rounded-full font-label-sm text-label-sm text-on-surface-variant ml-md">SEL-014</span>
+</div>
+<div class="flex items-center gap-md">
+<button class="text-on-surface-variant hover:text-primary transition-colors duration-200">
+<span class="material-symbols-outlined">help</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-label-md text-label-md font-bold">
+                SC
+            </div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 mt-16 overflow-y-auto bg-background pb-32">
+<div class="max-w-4xl mx-auto px-lg py-xl">
+<!-- Header -->
+<div class="mb-xl">
+<h1 class="font-headline-lg text-headline-lg text-primary mb-sm">Verificación de Identidad</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Completa tu perfil comercial para comenzar a vender en el marketplace.</p>
+</div>
+<!-- Stepper -->
+<div class="mb-xxl relative">
+<div class="absolute top-1/2 left-0 w-full h-0.5 bg-surface-variant -z-10 -translate-y-1/2"></div>
+<!-- Progress Line -->
+<div class="absolute top-1/2 left-0 w-1/3 h-0.5 bg-secondary -z-10 -translate-y-1/2 transition-all duration-500"></div>
+<div class="flex justify-between">
+<!-- Step 1: Completed -->
+<div class="flex flex-col items-center gap-sm bg-background px-xs">
+<div class="w-8 h-8 rounded-full bg-secondary text-on-secondary flex items-center justify-center shadow-md">
+<span class="material-symbols-outlined fill-icon text-sm">check</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary font-semibold">Información Básica</span>
+</div>
+<!-- Step 2: Active -->
+<div class="flex flex-col items-center gap-sm bg-background px-xs">
+<div class="w-8 h-8 rounded-full bg-secondary text-on-secondary flex items-center justify-center shadow-md border-2 border-secondary ring-4 ring-secondary/20">
+<span class="font-label-md text-label-md">2</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface font-semibold">Documentación Legal</span>
+</div>
+<!-- Step 3: Pending -->
+<div class="flex flex-col items-center gap-sm bg-background px-xs opacity-50">
+<div class="w-8 h-8 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center">
+<span class="font-label-md text-label-md">3</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Datos Bancarios</span>
+</div>
+<!-- Step 4: Pending -->
+<div class="flex flex-col items-center gap-sm bg-background px-xs opacity-50">
+<div class="w-8 h-8 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center">
+<span class="font-label-md text-label-md">4</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Contrato Comercial</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-lg">
+<!-- Main Form Area -->
+<div class="md:col-span-2 flex flex-col gap-lg">
+<!-- RIF Document Card - Error State -->
+<div class="bg-surface rounded-card p-lg border border-error-container relative shadow-[0px_4px_12px_rgba(11,37,69,0.02)]">
+<div class="absolute top-0 left-0 w-1 h-full bg-error rounded-l-card"></div>
+<div class="flex justify-between items-start mb-md pl-sm">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Registro de Información Fiscal (RIF)</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Formato PDF o JPG, máx 5MB.</p>
+</div>
+<div class="flex items-center gap-xs bg-error-container/30 px-sm py-xs rounded-full">
+<span class="material-symbols-outlined fill-icon text-error text-sm">warning</span>
+<span class="font-label-sm text-label-sm text-error">Observado (Vencido)</span>
+</div>
+</div>
+<!-- Upload Area -->
+<div class="upload-dashed p-xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-surface-container-low transition-colors duration-200">
+<span class="material-symbols-outlined text-outline text-3xl mb-sm">cloud_upload</span>
+<p class="font-label-md text-label-md text-primary mb-xs">Haz clic para subir o arrastra el archivo</p>
+<p class="font-body-sm text-body-sm text-outline">PDF, JPG, PNG (Max 5MB)</p>
+</div>
+</div>
+<!-- Registro Mercantil - Success State -->
+<div class="bg-surface rounded-card p-lg border border-outline-variant shadow-[0px_4px_12px_rgba(11,37,69,0.02)]">
+<div class="flex justify-between items-start mb-md">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Registro Mercantil</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Acta constitutiva y últimas asambleas.</p>
+</div>
+<div class="flex items-center gap-xs bg-[#e8f5e9] px-sm py-xs rounded-full">
+<span class="material-symbols-outlined fill-icon text-[#2e7d32] text-sm">check_circle</span>
+<span class="font-label-sm text-label-sm text-[#2e7d32]">Aprobado</span>
+</div>
+</div>
+<!-- File Attached View -->
+<div class="flex items-center justify-between p-md bg-surface-container-low rounded-btn border border-outline-variant">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 bg-primary/10 rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">description</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface">registro_mercantil_2023.pdf</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">2.4 MB</p>
+</div>
+</div>
+<button class="text-on-surface-variant hover:text-error transition-colors p-sm rounded-full hover:bg-error-container/20">
+<span class="material-symbols-outlined">delete</span>
+</button>
+</div>
+</div>
+<!-- Cédula Representante - Pending State -->
+<div class="bg-surface rounded-card p-lg border border-outline-variant shadow-[0px_4px_12px_rgba(11,37,69,0.02)]">
+<div class="flex justify-between items-start mb-md">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Cédula del Representante Legal</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Copia legible y vigente.</p>
+</div>
+<div class="flex items-center gap-xs bg-surface-container-highest px-sm py-xs rounded-full">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">schedule</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">En Revisión</span>
+</div>
+</div>
+<!-- File Attached View -->
+<div class="flex items-center justify-between p-md bg-surface-container-low rounded-btn border border-outline-variant">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 bg-primary/10 rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">image</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface">cedula_representante_frente.jpg</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">1.1 MB</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline">more_vert</span>
+</div>
+</div>
+</div>
+<!-- Sidebar / Help Panel -->
+<div class="md:col-span-1">
+<div class="bg-surface-container-low rounded-card p-lg border border-outline-variant sticky top-24">
+<div class="flex items-center gap-sm mb-md">
+<span class="material-symbols-outlined text-secondary">info</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Notas del Revisor</h3>
+</div>
+<div class="bg-surface p-md rounded-btn border-l-4 border-error mb-md shadow-sm">
+<p class="font-body-sm text-body-sm text-on-surface mb-sm"><strong>Acción Requerida (RIF):</strong></p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                                Por favor sube el RIF actualizado con fecha no mayor a 3 meses. El documento actual indica que expiró en Noviembre 2023.
+                            </p>
+</div>
+<div class="pt-md border-t border-outline-variant mt-md">
+<h4 class="font-label-md text-label-md text-on-surface mb-sm">¿Necesitas ayuda?</h4>
+<a class="flex items-center gap-sm text-secondary hover:underline font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined text-sm">support_agent</span>
+                                Contactar soporte a vendedores
+                            </a>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Persistent Footer Action Bar -->
+<footer class="fixed bottom-0 w-full h-20 bg-surface border-t border-outline-variant flex justify-between items-center px-lg z-50 shadow-[0px_-4px_12px_rgba(11,37,69,0.05)]">
+<div class="text-on-surface-variant font-body-sm text-body-sm">
+            Progreso guardado hace 2 minutos.
+        </div>
+<div class="flex gap-md">
+<button class="px-lg py-sm rounded-btn border border-primary-container text-primary-container font-label-md text-label-md hover:bg-surface-container-low transition-colors duration-200">
+                Guardar Borrador
+            </button>
+<button class="px-lg py-sm rounded-btn bg-[#2563EB] text-white font-label-md text-label-md shadow-sm hover:bg-[#1d4ed8] transition-colors duration-200 flex items-center gap-sm">
+                Siguiente
+                <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</footer>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA={"ruta": "seller/onboarding-kyc.html", "superficie": "seller", "rol": "seller", "titulo": "Onboarding y KYC — SEL-014"};</script>
+</body></html>

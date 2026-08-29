@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+
+<html data-tumbo-movil="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Detalle de producto (móvil) · Tumbo Market beta</title>
+<!-- Material Symbols -->
+<!-- Tailwind CSS -->
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<!-- Tailwind Config -->
+<style>
+        /* Custom scrollbar hiding for the slider */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        /* Accordion transition utility */
+        details > summary {
+            list-style: none;
+        }
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
+        details[open] summary ~ * {
+            animation: sweep .3s ease-in-out;
+        }
+        @keyframes sweep {
+            0%    {opacity: 0; transform: translateY(-10px)}
+            100%  {opacity: 1; transform: translateY(0)}
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  <link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Detalle de producto (móvil) — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-surface-container-highest flex justify-center h-screen overflow-hidden text-on-surface antialiased">
+<!-- Mobile Device Frame Container -->
+<div class="w-full max-w-[414px] h-full bg-surface relative flex flex-col overflow-hidden shadow-2xl">
+<!-- Top App Bar (Task-focused sub-page) -->
+<header class="sticky top-0 z-40 bg-surface/95 backdrop-blur-md border-b border-outline-variant flex items-center justify-between px-md py-sm">
+<button aria-label="Volver" class="p-2 rounded-full hover:bg-surface-variant transition-colors text-primary">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<div class="flex gap-sm">
+<button aria-label="Compartir" class="p-2 rounded-full hover:bg-surface-variant transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">share</span>
+</button>
+<button aria-label="Carrito" class="p-2 rounded-full hover:bg-surface-variant transition-colors text-on-surface-variant relative">
+<span class="material-symbols-outlined">shopping_cart</span>
+<span class="absolute top-1 right-1 w-2 h-2 bg-error rounded-full border border-surface"></span>
+</button>
+</div>
+</header>
+<!-- Main Scrollable Content -->
+<main class="flex-1 overflow-y-auto pb-[100px] no-scrollbar">
+<!-- Image Gallery Slider -->
+<section class="relative w-full aspect-square bg-surface-container-lowest border-b border-outline-variant">
+<div class="flex overflow-x-auto snap-x snap-mandatory w-full h-full no-scrollbar" id="image-slider">
+<div class="w-full h-full flex-shrink-0 snap-center relative">
+<img loading="lazy" alt="Imagen logística — demostración" class="w-full h-full object-contain p-lg" data-alt="A pristine, high-resolution studio shot of an advanced professional laser measurement device. The device is sleek, encased in matte deep navy blue polycarbonate with brushed steel accents. It sits perfectly centered against a pure white backdrop. The lighting is high-key and diffused, typical of modern high-end B2B catalog photography, casting a very soft, barely noticeable drop shadow. The screen on the device is bright, displaying precise digital measurements in crisp corporate fonts." src="../../assets/img/logistica-03.svg"/>
+</div>
+<div class="w-full h-full flex-shrink-0 snap-center relative">
+<img loading="lazy" alt="Imagen del producto — demostración" class="w-full h-full object-contain p-lg" data-alt="A close-up macro shot of the interface and buttons of a high-end industrial laser measurement tool. The focus is incredibly sharp on a bright blue tactical 'Measure' button with a tactile grip texture. The surrounding casing is dark grey. Soft, cool-toned directional light highlights the modern, precise engineering of the product, fitting a premium B2B tech aesthetic. The background is softly blurred out." src="../../assets/img/producto-01.svg"/>
+</div>
+</div>
+<!-- Slider Indicators -->
+<div class="absolute bottom-md left-1/2 -translate-x-1/2 flex gap-xs bg-surface/50 backdrop-blur-sm px-3 py-1.5 rounded-full">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<div class="w-2 h-2 rounded-full bg-outline-variant"></div>
+</div>
+</section>
+<!-- Product Header Info -->
+<section class="px-md pt-lg pb-md">
+<div class="flex items-center gap-2 mb-xs">
+<span class="text-label-sm font-label-sm text-secondary uppercase tracking-wider">Industrial Tech</span>
+<span class="w-1 h-1 rounded-full bg-outline"></span>
+<span class="text-label-sm font-label-sm text-on-surface-variant flex items-center">
+<span class="material-symbols-outlined text-[14px] mr-1 text-primary">star</span>
+                        4.9 (128 reseñas)
+                    </span>
+</div>
+<h1 class="text-headline-sm font-headline-sm text-primary mb-md">Medidor Láser Profesional de Alta Precisión 100M - Bluetooth Integrado</h1>
+<!-- Price & Stock Container -->
+<div class="bg-surface-container-lowest p-md rounded-lg border border-outline-variant shadow-[0_4px_12px_rgba(11,37,69,0.02)] flex flex-col gap-xs">
+<div class="flex justify-between items-start">
+<div>
+<div class="text-headline-lg-mobile font-headline-lg-mobile text-primary flex items-baseline gap-1">
+<span>$145.00</span>
+<span class="text-body-sm font-body-sm text-on-surface-variant font-normal">USD</span>
+</div>
+<div class="text-body-sm font-body-sm text-on-surface-variant mt-1">
+                                Ref: Bs. 5,220.00 (Tasa BCV)
+                            </div>
+</div>
+<div class="inline-flex items-center gap-1 px-sm py-1 rounded-full bg-tertiary-fixed/40 text-on-tertiary-fixed-variant">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+<span class="text-label-sm font-label-sm">Stock Disponible</span>
+</div>
+</div>
+<div class="w-full h-px bg-outline-variant/50 my-sm"></div>
+<div class="flex items-center text-body-sm font-body-sm text-primary gap-2">
+<span class="material-symbols-outlined text-secondary">local_shipping</span>
+                        Envío gratis a nivel nacional en pedidos B2B
+                    </div>
+</div>
+</section>
+<!-- Divider -->
+<div class="h-2 w-full bg-surface-container-low"></div>
+<!-- Expandable Seller Info -->
+<section class="px-md">
+<details class="group border-b border-outline-variant py-md">
+<summary class="flex justify-between items-center cursor-pointer select-none">
+<h3 class="text-label-md font-label-md text-primary">Información del Vendedor</h3>
+<span class="material-symbols-outlined text-on-surface-variant transition-transform duration-200 group-open:rotate-180">expand_more</span>
+</summary>
+<div class="pt-md pb-sm">
+<div class="flex items-center gap-md bg-surface-container-lowest p-md rounded-lg border border-outline-variant">
+<div class="w-12 h-12 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container flex-shrink-0">
+<span class="material-symbols-outlined text-[24px]">storefront</span>
+</div>
+<div class="flex-1">
+<h4 class="text-label-md font-label-md text-primary">ElectroIndustrial CA</h4>
+<p class="text-body-sm font-body-sm text-on-surface-variant">Distribuidor Autorizado</p>
+</div>
+<div class="flex flex-col items-end">
+<div class="flex items-center text-label-sm font-label-sm text-tertiary-container gap-1">
+<span class="material-symbols-outlined text-[14px] text-tertiary-container" style="font-variation-settings: 'FILL' 1;">verified</span>
+                                    Aliado Verificado
+                                </div>
+</div>
+</div>
+</div>
+</details>
+</section>
+<!-- Expandable Product Details -->
+<section class="px-md">
+<details class="group border-b border-outline-variant py-md" open="">
+<summary class="flex justify-between items-center cursor-pointer select-none">
+<h3 class="text-label-md font-label-md text-primary">Características Destacadas</h3>
+<span class="material-symbols-outlined text-on-surface-variant transition-transform duration-200 group-open:rotate-180">expand_more</span>
+</summary>
+<div class="pt-md text-body-md font-body-md text-on-surface-variant space-y-sm">
+<ul class="list-disc pl-5 space-y-1">
+<li>Precisión milimétrica de ±1.5 mm a 100 metros.</li>
+<li>Conectividad Bluetooth para exportación de datos a software corporativo.</li>
+<li>Carcasa reforzada IP65 (resistencia al polvo y agua).</li>
+<li>Batería recargable Li-Ion de larga duración (hasta 5000 mediciones).</li>
+</ul>
+</div>
+</details>
+</section>
+<!-- Padding for bottom spacing -->
+<div class="h-6 w-full"></div>
+</main>
+<!-- Persistent Bottom Action Bar (Add to Cart) -->
+<div class="fixed bottom-0 left-0 w-full max-w-[414px] mx-auto z-50 bg-surface px-md py-md border-t border-outline-variant shadow-[0_-8px_16px_rgba(11,37,69,0.06)] pb-[max(16px,env(safe-area-inset-bottom))]">
+<div class="flex items-center gap-md">
+<!-- Quantity Selector (Simplified for mobile) -->
+<div class="flex items-center justify-between border border-outline-variant rounded-[10px] h-12 w-24 bg-surface-container-lowest px-1">
+<button aria-label="Disminuir" class="w-8 h-8 flex items-center justify-center text-on-surface-variant active:bg-surface-variant rounded-md transition-colors">
+<span class="material-symbols-outlined text-[20px]">remove</span>
+</button>
+<span class="text-label-md font-label-md text-primary">1</span>
+<button aria-label="Aumentar" class="w-8 h-8 flex items-center justify-center text-on-surface-variant active:bg-surface-variant rounded-md transition-colors">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+</div>
+<!-- Main CTA -->
+<button class="flex-1 h-12 bg-secondary text-on-secondary rounded-[10px] flex items-center justify-center gap-sm text-label-md font-label-md transition-transform duration-200 active:scale-[0.98] shadow-sm hover:shadow-md">
+<span class="material-symbols-outlined text-[20px]">shopping_bag</span>
+                    Agregar al Carrito
+                </button>
+</div>
+</div>
+</div>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA={"ruta": "marketplace/producto-movil.html", "superficie": "marketplace", "rol": "visitante", "titulo": "Detalle de producto (móvil)"};</script>
+</body></html>

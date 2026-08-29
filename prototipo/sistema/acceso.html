@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="es-VE">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Acceso, registro y verificación · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col">
+
+<!-- Fondo: retícula sobria, sin ilustración, coherente con el resto de la beta -->
+<div aria-hidden="true" class="fixed inset-0 -z-10 bg-background"
+     style="background-image:
+       radial-gradient(900px 420px at 50% -8%, rgba(37,99,235,.10), transparent 65%),
+       linear-gradient(rgba(11,37,69,.045) 1px, transparent 1px),
+       linear-gradient(90deg, rgba(11,37,69,.045) 1px, transparent 1px);
+       background-size: auto, 32px 32px, 32px 32px;"></div>
+
+<main class="flex-1 w-full flex items-start justify-center px-md py-xl" data-tumbo-propio>
+  <div class="w-full max-w-[440px]">
+
+    <!-- ===================== Marca ===================== -->
+    <div class="mb-lg">
+      <span class="inline-flex items-center justify-center w-14 h-14 rounded-card bg-primary-container text-on-primary mb-md">
+        <span class="material-symbols-outlined text-[30px]" aria-hidden="true">storefront</span>
+      </span>
+      <h1 class="font-headline-lg text-headline-lg text-primary-container mb-xs">Tumbo Market</h1>
+      <p class="font-body-md text-body-md text-on-surface-variant">
+        Marketplace curado de Venezuela — acceso a la plataforma
+      </p>
+    </div>
+
+    <!-- ===================== Formulario ===================== -->
+    <div class="rounded-card border border-outline-variant bg-surface-container-lowest p-lg shadow-nivel-2">
+
+      <!-- Paso 1: credenciales -->
+      <form data-paso="credenciales" novalidate>
+        <div class="mb-md">
+          <label class="block font-label-md text-label-md text-on-surface mb-xs" for="acceso-correo">Correo</label>
+          <input class="w-full h-11 px-md rounded-btn border border-outline-variant bg-surface-container-low
+                        font-body-md text-body-md text-on-surface placeholder:text-outline
+                        focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"
+                 id="acceso-correo" name="correo" type="email" autocomplete="username"
+                 placeholder="usuario@demo.ve" aria-describedby="acceso-correo-error"/>
+          <p class="hidden items-center gap-xs mt-xs font-body-sm text-body-sm text-error" id="acceso-correo-error" role="alert">
+            <span class="material-symbols-outlined text-[16px]" aria-hidden="true">error</span>
+            <span data-texto></span>
+          </p>
+        </div>
+
+        <div class="mb-lg">
+          <label class="block font-label-md text-label-md text-on-surface mb-xs" for="acceso-clave">Contraseña</label>
+          <input class="w-full h-11 px-md rounded-btn border border-outline-variant bg-surface-container-low
+                        font-body-md text-body-md text-on-surface
+                        focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"
+                 id="acceso-clave" name="clave" type="password" autocomplete="current-password"
+                 aria-describedby="acceso-clave-error"/>
+          <p class="hidden items-center gap-xs mt-xs font-body-sm text-body-sm text-error" id="acceso-clave-error" role="alert">
+            <span class="material-symbols-outlined text-[16px]" aria-hidden="true">error</span>
+            <span data-texto></span>
+          </p>
+        </div>
+
+        <button class="w-full h-12 rounded-btn bg-primary-container text-on-primary font-label-md text-label-md
+                       flex items-center justify-center gap-sm hover:opacity-90 transition-opacity"
+                data-acceso-enviar type="submit">
+          Ingresar
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">login</span>
+        </button>
+
+        <div class="flex flex-col items-center gap-xs mt-md">
+          <button class="font-label-md text-label-md text-secondary hover:underline" data-ir="registro" type="button">
+            ¿No tienes cuenta? Regístrate
+          </button>
+          <button class="font-label-md text-label-md text-secondary hover:underline" data-invitado type="button">
+            Entrar como invitado
+          </button>
+        </div>
+      </form>
+
+      <!-- Paso 2: verificación en dos pasos -->
+      <form class="hidden" data-paso="mfa" novalidate>
+        <button class="inline-flex items-center gap-xs font-label-md text-label-md text-on-surface-variant hover:text-on-surface mb-md"
+                data-ir="credenciales" type="button">
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
+          Volver
+        </button>
+        <div class="flex items-start gap-sm p-md rounded-btn bg-secondary-container mb-lg">
+          <span class="material-symbols-outlined text-[20px] text-on-secondary-container" aria-hidden="true">shield_lock</span>
+          <p class="font-body-sm text-body-sm text-on-secondary-container">
+            Este rol exige verificación en dos pasos. En la demo el código es
+            <strong class="font-data-mono text-data-mono">123456</strong>.
+          </p>
+        </div>
+        <label class="block font-label-md text-label-md text-on-surface mb-xs" for="acceso-codigo">Código de verificación</label>
+        <input class="w-full h-12 px-md rounded-btn border border-outline-variant bg-surface-container-low
+                      font-data-mono text-data-mono tracking-[0.4em] text-center text-on-surface
+                      focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"
+               id="acceso-codigo" inputmode="numeric" maxlength="6" placeholder="000000"
+               aria-describedby="acceso-codigo-error"/>
+        <p class="hidden items-center gap-xs mt-xs font-body-sm text-body-sm text-error" id="acceso-codigo-error" role="alert">
+          <span class="material-symbols-outlined text-[16px]" aria-hidden="true">error</span>
+          <span data-texto></span>
+        </p>
+        <button class="w-full h-12 mt-lg rounded-btn bg-primary-container text-on-primary font-label-md text-label-md
+                       flex items-center justify-center gap-sm hover:opacity-90 transition-opacity" type="submit">
+          Verificar y entrar
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">login</span>
+        </button>
+      </form>
+
+      <!-- Paso 3: registro -->
+      <form class="hidden" data-paso="registro" novalidate>
+        <button class="inline-flex items-center gap-xs font-label-md text-label-md text-on-surface-variant hover:text-on-surface mb-md"
+                data-ir="credenciales" type="button">
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
+          Volver al acceso
+        </button>
+        <h2 class="font-headline-sm text-headline-sm text-primary-container mb-xs">Crear cuenta de comprador</h2>
+        <p class="font-body-sm text-body-sm text-on-surface-variant mb-lg">
+          Los sellers no se registran por aquí: el marketplace es curado y los comercios entran por invitación.
+        </p>
+        <div class="mb-md">
+          <label class="block font-label-md text-label-md text-on-surface mb-xs" for="registro-correo">Correo o teléfono</label>
+          <input class="w-full h-11 px-md rounded-btn border border-outline-variant bg-surface-container-low
+                        font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"
+                 id="registro-correo" placeholder="usuario@demo.ve o 0412-0000000"/>
+        </div>
+        <div class="mb-md">
+          <label class="block font-label-md text-label-md text-on-surface mb-xs" for="registro-clave">Contraseña</label>
+          <input class="w-full h-11 px-md rounded-btn border border-outline-variant bg-surface-container-low
+                        font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"
+                 id="registro-clave" type="password"/>
+          <p class="mt-xs font-body-sm text-body-sm text-on-surface-variant">Mínimo 8 caracteres.</p>
+        </div>
+        <label class="flex items-start gap-sm mb-lg cursor-pointer">
+          <input class="mt-1 w-4 h-4 rounded border-outline text-secondary focus:ring-secondary/40" id="registro-terminos" type="checkbox"/>
+          <span class="font-body-sm text-body-sm text-on-surface-variant">
+            Acepto los términos y condiciones y las políticas de privacidad.
+          </span>
+        </label>
+        <p class="hidden items-center gap-xs mb-md font-body-sm text-body-sm text-error" id="registro-error" role="alert">
+          <span class="material-symbols-outlined text-[16px]" aria-hidden="true">error</span>
+          <span data-texto></span>
+        </p>
+        <button class="w-full h-12 rounded-btn bg-primary-container text-on-primary font-label-md text-label-md
+                       flex items-center justify-center gap-sm hover:opacity-90 transition-opacity" type="submit">
+          Crear cuenta
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">person_add</span>
+        </button>
+      </form>
+
+      <!-- ===================== Cuentas de prueba ===================== -->
+      <div class="mt-lg pt-lg border-t border-outline-variant" data-cuentas>
+        <p class="font-body-sm text-body-sm text-on-surface-variant mb-md">
+          Cuentas de prueba (contraseña <strong class="font-data-mono text-data-mono text-on-surface">demo1234</strong>):
+        </p>
+        <div data-lista-cuentas></div>
+        <p class="mt-md font-body-sm text-body-sm text-on-surface-variant">
+          Pulsa una cuenta para cargar sus credenciales. Los perfiles marcados
+          <span class="inline-block px-1.5 py-0.5 rounded bg-secondary-container text-on-secondary-container
+                       font-label-sm text-label-sm align-middle">MFA</span>
+          piden después el código <strong class="font-data-mono text-data-mono text-on-surface">123456</strong>.
+        </p>
+      </div>
+    </div>
+
+    <p class="text-center mt-lg font-body-sm text-body-sm text-on-surface-variant">
+      Versión de demostración · datos ficticios · sin cobros reales
+    </p>
+  </div>
+</main>
+
+<script>
+/* =========================================================================
+   Acceso a la beta
+   -------------------------------------------------------------------------
+   Cubre la pantalla «Registro/inicio» que la especificación pide (Prompt 1,
+   pantalla 7) y que la exportación de Stitch nunca generó. No hay
+   autenticación real: valida contra la tabla de cuentas demo, exige el
+   segundo factor donde la especificación lo marca obligatorio y termina
+   entregando el rol al runtime.
+   ========================================================================= */
+(function () {
+  'use strict';
+
+  var CLAVE_DEMO = 'demo1234';
+  var CODIGO_DEMO = '123456';
+
+  /* El segundo factor sigue lo que exige la especificación: obligatorio en
+     todo el Backoffice, en el gestor de precios y en el seller principal
+     (cambios bancarios, usuarios y precios masivos). */
+  var CUENTAS = [
+    { grupo: 'Marketplace', icono: 'shopping_bag', cuentas: [
+      { rol: 'comprador', nombre: 'Comprador', correo: 'comprador@demo.ve', mfa: false }
+    ]},
+    { grupo: 'Seller Center', icono: 'storefront', cuentas: [
+      { rol: 'seller',   nombre: 'Seller principal',  correo: 'propietario@sel-014.demo', mfa: true },
+      { rol: 'precios',  nombre: 'Gestor de precios', correo: 'precios@sel-014.demo',     mfa: true },
+      { rol: 'operador', nombre: 'Operador',          correo: 'operador@sel-014.demo',    mfa: false }
+    ]},
+    { grupo: 'Backoffice', icono: 'account_balance', cuentas: [
+      { rol: 'superadmin', nombre: 'Superadministrador', correo: 'superadmin@tumbomarket.demo', mfa: true },
+      { rol: 'ops',        nombre: 'Operaciones',        correo: 'operaciones@tumbomarket.demo', mfa: true },
+      { rol: 'finanzas',   nombre: 'Finanzas',           correo: 'finanzas@tumbomarket.demo',   mfa: true }
+    ]}
+  ];
+
+  var porCorreo = {};
+  CUENTAS.forEach(function (g) {
+    g.cuentas.forEach(function (c) { porCorreo[c.correo.toLowerCase()] = c; });
+  });
+
+  /* No se usa `document.currentScript`: al empaquetar la beta en un archivo
+     único los scripts se recrean y ese puntero deja de apuntar aquí. */
+  var raiz = document.querySelector('[data-tumbo-propio]');
+  if (!raiz) return;
+  var pasos = {};
+  raiz.querySelectorAll('[data-paso]').forEach(function (f) { pasos[f.getAttribute('data-paso')] = f; });
+  var pendiente = null;
+
+  function mostrar(nombre) {
+    Object.keys(pasos).forEach(function (k) { pasos[k].classList.toggle('hidden', k !== nombre); });
+    raiz.querySelector('[data-cuentas]').classList.toggle('hidden', nombre !== 'credenciales');
+    var primero = pasos[nombre].querySelector('input');
+    if (primero) primero.focus();
+  }
+
+  function error(id, texto) {
+    var p = document.getElementById(id);
+    if (!p) return;
+    if (texto) {
+      p.querySelector('[data-texto]').textContent = texto;
+      p.classList.remove('hidden');
+      p.classList.add('flex');
+    } else {
+      p.classList.add('hidden');
+      p.classList.remove('flex');
+    }
+  }
+
+  function limpiarErrores() {
+    ['acceso-correo-error', 'acceso-clave-error', 'acceso-codigo-error', 'registro-error']
+      .forEach(function (id) { error(id, ''); });
+  }
+
+  function entrar(cuenta) {
+    if (window.tumboToast) {
+      window.tumboToast('Sesión iniciada (demo)', cuenta.nombre + ' · ' + cuenta.correo, 'login');
+    }
+    window.tumboEntrarComo(cuenta.rol);
+  }
+
+  /* --- Lista de cuentas de prueba --------------------------------------- */
+  var lista = raiz.querySelector('[data-lista-cuentas]');
+  CUENTAS.forEach(function (g) {
+    var bloque = document.createElement('div');
+    bloque.className = 'mb-md last:mb-0';
+    bloque.innerHTML =
+      '<p class="flex items-center gap-xs mb-xs font-label-caps text-label-caps uppercase text-on-surface-variant">' +
+        '<span class="material-symbols-outlined text-[16px]" aria-hidden="true">' + g.icono + '</span>' +
+        g.grupo +
+      '</p>';
+    var fila = document.createElement('div');
+    fila.className = 'flex flex-wrap gap-xs';
+    g.cuentas.forEach(function (c) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'inline-flex items-center gap-xs min-h-[44px] px-md rounded-btn border border-outline-variant ' +
+                    'bg-surface-container-lowest font-body-sm text-body-sm text-on-surface ' +
+                    'hover:border-secondary hover:bg-surface-container-low transition-colors';
+      b.innerHTML = c.nombre + (c.mfa
+        ? '<span class="px-1.5 py-0.5 rounded bg-secondary-container text-on-secondary-container ' +
+          'font-label-sm text-label-sm">MFA</span>'
+        : '');
+      b.addEventListener('click', function () {
+        limpiarErrores();
+        document.getElementById('acceso-correo').value = c.correo;
+        document.getElementById('acceso-clave').value = CLAVE_DEMO;
+        document.getElementById('acceso-clave').focus();
+      });
+      fila.appendChild(b);
+    });
+    bloque.appendChild(fila);
+    lista.appendChild(bloque);
+  });
+
+  /* --- Paso 1: credenciales --------------------------------------------- */
+  pasos.credenciales.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    limpiarErrores();
+    var correo = document.getElementById('acceso-correo').value.trim().toLowerCase();
+    var clave = document.getElementById('acceso-clave').value;
+
+    if (!correo) { error('acceso-correo-error', 'Escribe tu correo.'); return; }
+    var cuenta = porCorreo[correo];
+    if (!cuenta) {
+      error('acceso-correo-error', 'No hay ninguna cuenta demo con ese correo. Pulsa una de las de abajo.');
+      return;
+    }
+    if (clave !== CLAVE_DEMO) {
+      error('acceso-clave-error', 'La contraseña de las cuentas demo es ' + CLAVE_DEMO + '.');
+      return;
+    }
+    if (cuenta.mfa) {
+      pendiente = cuenta;
+      mostrar('mfa');
+      return;
+    }
+    entrar(cuenta);
+  });
+
+  /* --- Paso 2: segundo factor ------------------------------------------- */
+  pasos.mfa.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    limpiarErrores();
+    var codigo = document.getElementById('acceso-codigo').value.trim();
+    if (codigo !== CODIGO_DEMO) {
+      error('acceso-codigo-error', 'Código incorrecto. En la demo es ' + CODIGO_DEMO + '.');
+      return;
+    }
+    if (pendiente) entrar(pendiente);
+  });
+
+  /* --- Paso 3: registro -------------------------------------------------- */
+  pasos.registro.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    limpiarErrores();
+    var correo = document.getElementById('registro-correo').value.trim();
+    var clave = document.getElementById('registro-clave').value;
+    var acepta = document.getElementById('registro-terminos').checked;
+
+    if (!correo) { error('registro-error', 'Indica un correo o un teléfono.'); return; }
+    if (clave.length < 8) { error('registro-error', 'La contraseña necesita al menos 8 caracteres.'); return; }
+    if (!acepta) { error('registro-error', 'Debes aceptar los términos para continuar.'); return; }
+
+    if (window.tumboToast) {
+      window.tumboToast('Cuenta creada (demo)', 'Entras como comprador registrado. No se guardó ningún dato.', 'person_add');
+    }
+    window.tumboEntrarComo('comprador');
+  });
+
+  /* --- Navegación entre pasos ------------------------------------------- */
+  raiz.querySelectorAll('[data-ir]').forEach(function (b) {
+    b.addEventListener('click', function () { limpiarErrores(); mostrar(b.getAttribute('data-ir')); });
+  });
+
+  var invitado = raiz.querySelector('[data-invitado]');
+  invitado.addEventListener('click', function () {
+    if (window.tumboToast) {
+      window.tumboToast('Entraste como visitante', 'Puedes explorar y armar el carrito sin identificarte.', 'hiking');
+    }
+    window.tumboEntrarComo('visitante');
+  });
+})();
+</script>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA={"ruta": "sistema/acceso.html", "superficie": "sistema", "rol": "todos", "titulo": "Acceso, registro y verificación"};</script>
+</body>
+</html>

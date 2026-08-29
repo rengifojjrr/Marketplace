@@ -29,13 +29,16 @@
      página por archivo) o empaquetada en un único HTML, donde la navegación
      va por el hash. `TUMBO_PAQUETE` lo define el empaquetador. */
   var PAQUETE = !!window.TUMBO_PAQUETE;
+  /* Carpeta donde viven las pantallas del prototipo. El compilador la inyecta;
+     por defecto se asume la histórica. */
+  var DIR = (window.TUMBO_DIR || 'app/');
   var BASE = PAQUETE ? '' : (self.src || '').replace(/assets\/js\/tumbo-app\.js.*$/, '');
   var CLAVE = 'tumbo.beta.estado.v1';
 
   /* Dirección de una ruta, en la forma que entienda el modo activo. */
   function enlaceA(ruta, consulta) {
     var q = consulta ? '?' + consulta : '';
-    return PAQUETE ? '#/' + ruta + q : BASE + 'app/' + ruta + q;
+    return PAQUETE ? '#/' + ruta + q : BASE + DIR + ruta + q;
   }
   window.tumboHref = enlaceA;
 

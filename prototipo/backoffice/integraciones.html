@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+
+<html data-tumbo-escritorio="1" lang="es-VE"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Integraciones y salud del sistema · Tumbo Market beta</title>
+<link rel="stylesheet" href="../../assets/css/tumbo-tailwind.css"/>
+<script src="../../assets/vendor/chart.umd.min.js"></script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .icon-fill {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+<link rel="stylesheet" href="../../assets/fuentes/fuentes.css"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="description" content="Integraciones y salud del sistema — prototipo beta de Tumbo Market. Modo demo: no mueve dinero real."/>
+<link rel="stylesheet" href="../../assets/css/tumbo.css"/>
+</head>
+<body class="bg-[#F8FAFC] text-on-surface font-body-md min-h-screen flex overflow-hidden">
+<!-- Modo Demo Banner -->
+<div class="fixed top-0 left-0 w-full h-[48px] bg-amber-500 text-[#172033] font-bold flex items-center justify-center z-50 shadow-md">
+        MODO DEMO - DATOS SIMULADOS
+    </div>
+<!-- SideNavBar -->
+<nav class="hidden md:flex h-screen w-64 fixed left-0 top-0 bg-primary dark:bg-primary-container shadow-md flex-col py-md overflow-y-auto z-40 mt-[48px]">
+<div class="px-md mb-lg flex items-center gap-sm">
+<span class="material-symbols-outlined text-on-primary text-3xl icon-fill" data-icon="hub">hub</span>
+<div>
+<h1 class="font-headline-md text-headline-md text-on-primary font-bold leading-tight">Backoffice</h1>
+<p class="font-label-caps text-label-caps text-on-primary/70">Tumbo Market</p>
+</div>
+</div>
+<div class="flex-1 px-sm space-y-xs font-body-sm text-body-sm text-primary-fixed dark:text-primary-fixed-dim">
+<a class="flex items-center gap-3 px-4 py-2 text-on-primary/80 hover:text-on-primary hover:bg-primary-fixed-dim/10 transition-colors rounded-lg active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Panel</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-primary/80 hover:text-on-primary hover:bg-primary-fixed-dim/10 transition-colors rounded-lg active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="storefront">storefront</span>
+<span>Sellers</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-primary/80 hover:text-on-primary hover:bg-primary-fixed-dim/10 transition-colors rounded-lg active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+<span>Productos</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-primary/80 hover:text-on-primary hover:bg-primary-fixed-dim/10 transition-colors rounded-lg active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+<span>Logística</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 bg-secondary-container text-on-secondary-container rounded-lg active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined icon-fill" data-icon="hub">hub</span>
+<span class="font-bold">Integraciones</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-primary/80 hover:text-on-primary hover:bg-primary-fixed-dim/10 transition-colors rounded-lg active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span>Analítica</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-primary/80 hover:text-on-primary hover:bg-primary-fixed-dim/10 transition-colors rounded-lg active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span>Configuración</span>
+</a>
+</div>
+<div class="p-md mt-auto">
+<div class="flex items-center gap-3 p-3 bg-primary-container rounded-lg border border-outline/20">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-bold">
+                    SA
+                </div>
+<div>
+<p class="font-body-sm text-body-sm text-on-primary font-semibold">Superadmin</p>
+<p class="font-label-caps text-label-caps text-on-primary/60">admin@tumbomarket.demo</p>
+</div>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 md:ml-64 mt-[48px] h-[calc(100vh-48px)] overflow-y-auto bg-[#F8FAFC]">
+<!-- TopNavBar -->
+<header class="h-16 w-full md:w-[calc(100%-16rem)] fixed top-[48px] right-0 bg-surface dark:bg-inverse-surface border-b border-outline-variant dark:border-outline z-30 flex justify-between items-center px-lg">
+<div class="flex items-center gap-md">
+<div class="flex items-center gap-2 font-label-caps text-label-caps text-on-surface-variant font-medium">
+<span>Backoffice</span>
+<span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+<span class="text-primary font-bold">Salud de Integraciones</span>
+</div>
+</div>
+<div class="flex items-center gap-4 text-primary dark:text-primary-fixed">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-low dark:hover:bg-surface-container-high transition-colors active:opacity-80">
+<span class="material-symbols-outlined" data-icon="health_and_safety">health_and_safety</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-low dark:hover:bg-surface-container-high transition-colors active:opacity-80 relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-low dark:hover:bg-surface-container-high transition-colors active:opacity-80">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</div>
+</header>
+<div class="p-lg pt-24 max-w-container-max mx-auto space-y-lg pb-xl">
+<!-- Page Header & Metrics Bento -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-lg">
+<div class="col-span-1 lg:col-span-8 bg-surface rounded-xl border border-outline-variant p-lg shadow-sm flex flex-col justify-between">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-2">Estado del Sistema</h2>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-2xl">Monitorización en tiempo real de servicios de terceros y APIs críticas para la operación del marketplace.</p>
+</div>
+<div class="grid grid-cols-3 gap-md mt-6">
+<div class="bg-surface-container-low p-md rounded-lg border border-outline-variant/50">
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-1">UPTIME GLOBAL (30D)</p>
+<div class="flex items-end gap-2">
+<span class="font-headline-lg text-headline-lg text-secondary">99.8%</span>
+<span class="material-symbols-outlined text-secondary text-sm mb-2" data-icon="trending_up">trending_up</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-md rounded-lg border border-outline-variant/50">
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-1">LATENCIA PROMEDIO</p>
+<div class="flex items-end gap-2">
+<span class="font-headline-lg text-headline-lg text-on-surface font-data-mono">145ms</span>
+</div>
+</div>
+<div class="bg-error-container/20 p-md rounded-lg border border-error/20">
+<p class="font-label-caps text-label-caps text-error mb-1">ERRORES (24H)</p>
+<div class="flex items-end gap-2">
+<span class="font-headline-lg text-headline-lg text-error font-data-mono">12</span>
+<span class="material-symbols-outlined text-error text-sm mb-2" data-icon="warning">warning</span>
+</div>
+</div>
+</div>
+</div>
+<div class="col-span-1 lg:col-span-4 bg-surface rounded-xl border border-outline-variant p-lg shadow-sm">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-4 text-lg">Timeline de Salud (7D)</h3>
+<div class="h-40 w-full">
+<canvas id="healthChart"></canvas>
+</div>
+</div>
+</div>
+<!-- Integrations Table -->
+<div class="bg-surface rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+<div class="px-lg py-md border-b border-outline-variant flex justify-between items-center bg-surface-container-lowest">
+<h3 class="font-headline-md text-headline-md text-on-surface text-lg">Servicios Conectados</h3>
+<button class="flex items-center gap-2 px-4 py-2 bg-surface-container-low text-on-surface font-body-sm text-body-sm font-semibold rounded-lg border border-outline-variant hover:bg-surface-container transition-colors active:scale-95">
+<span class="material-symbols-outlined text-sm" data-icon="refresh">refresh</span>
+<span>Sincronizar Todos</span>
+</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low border-b border-outline-variant font-label-caps text-label-caps text-on-surface-variant">
+<th class="p-4 font-semibold w-1/4">SERVICIO</th>
+<th class="p-4 font-semibold w-1/6">ESTADO</th>
+<th class="p-4 font-semibold w-1/6 text-right">LATENCIA</th>
+<th class="p-4 font-semibold w-1/6">ÚLTIMA SYNC</th>
+<th class="p-4 font-semibold w-1/12 text-center">ERRORES (24H)</th>
+<th class="p-4 font-semibold w-1/6 text-right">ACCIÓN</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm divide-y divide-outline-variant/50">
+<!-- Row 1: Stripe -->
+<tr class="hover:bg-surface-container-lowest/50 transition-colors group">
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-primary-container flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined text-sm" data-icon="payments">payments</span>
+</div>
+<div>
+<p class="font-semibold text-on-surface">Stripe API</p>
+<p class="text-on-surface-variant text-xs">Pasarela Internacional</p>
+</div>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary-container/30 text-on-secondary-container text-xs font-semibold border border-secondary-container/50">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                                        Saludable
+                                    </span>
+</td>
+<td class="p-4 text-right font-data-mono text-data-mono text-on-surface">85ms</td>
+<td class="p-4 text-on-surface-variant font-data-mono text-data-mono">Hace 2 min</td>
+<td class="p-4 text-center font-data-mono text-data-mono text-on-surface">0</td>
+<td class="p-4 text-right">
+<button class="opacity-0 group-hover:opacity-100 px-3 py-1.5 text-xs font-semibold rounded border border-[#DCE3EC] text-[#172033] hover:bg-surface-container-low transition-all">
+                                        Reintentar
+                                    </button>
+</td>
+</tr>
+<!-- Row 2: Local Payment (Degraded) -->
+<tr class="hover:bg-surface-container-lowest/50 transition-colors group">
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-surface-variant flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-sm" data-icon="account_balance">account_balance</span>
+</div>
+<div>
+<p class="font-semibold text-on-surface">Banca Nacional</p>
+<p class="text-on-surface-variant text-xs">Pago Móvil / Transferencias</p>
+</div>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold border border-amber-200">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                        Degradado
+                                    </span>
+</td>
+<td class="p-4 text-right font-data-mono text-data-mono text-amber-600 font-bold">1250ms</td>
+<td class="p-4 text-on-surface-variant font-data-mono text-data-mono">Hace 15 min</td>
+<td class="p-4 text-center font-data-mono text-data-mono text-on-surface">8</td>
+<td class="p-4 text-right">
+<button class="px-3 py-1.5 text-xs font-semibold rounded bg-[#0B2545] text-white hover:bg-primary transition-all">
+                                        Reintentar
+                                    </button>
+</td>
+</tr>
+<!-- Row 3: WhatsApp -->
+<tr class="hover:bg-surface-container-lowest/50 transition-colors group">
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-primary-container flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined text-sm" data-icon="chat">chat</span>
+</div>
+<div>
+<p class="font-semibold text-on-surface">WhatsApp Business</p>
+<p class="text-on-surface-variant text-xs">Notificaciones a Usuario</p>
+</div>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary-container/30 text-on-secondary-container text-xs font-semibold border border-secondary-container/50">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                                        Saludable
+                                    </span>
+</td>
+<td class="p-4 text-right font-data-mono text-data-mono text-on-surface">120ms</td>
+<td class="p-4 text-on-surface-variant font-data-mono text-data-mono">Hace 1 min</td>
+<td class="p-4 text-center font-data-mono text-data-mono text-on-surface">0</td>
+<td class="p-4 text-right">
+<button class="opacity-0 group-hover:opacity-100 px-3 py-1.5 text-xs font-semibold rounded border border-[#DCE3EC] text-[#172033] hover:bg-surface-container-low transition-all">
+                                        Reintentar
+                                    </button>
+</td>
+</tr>
+<!-- Row 4: Courier API (Down) -->
+<tr class="hover:bg-surface-container-lowest/50 transition-colors group bg-error-container/5">
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-error/10 flex items-center justify-center text-error">
+<span class="material-symbols-outlined text-sm" data-icon="local_shipping">local_shipping</span>
+</div>
+<div>
+<p class="font-semibold text-error">Logística Nacional API</p>
+<p class="text-on-surface-variant text-xs">Cotización de Envíos</p>
+</div>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-error-container text-on-error-container text-xs font-semibold border border-error/30">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+                                        Caído
+                                    </span>
+</td>
+<td class="p-4 text-right font-data-mono text-data-mono text-error font-bold">Timeout</td>
+<td class="p-4 text-on-surface-variant font-data-mono text-data-mono">Hace 45 min</td>
+<td class="p-4 text-center font-data-mono text-data-mono text-error font-bold">4</td>
+<td class="p-4 text-right">
+<button class="px-3 py-1.5 text-xs font-semibold rounded bg-[#DC2626] text-white hover:bg-error/90 transition-all shadow-sm">
+                                        Forzar Retry
+                                    </button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Activity Audit Timeline (Contextual) -->
+<div class="bg-surface rounded-xl border border-outline-variant p-lg shadow-sm">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-6 text-lg border-b border-outline-variant pb-2">Últimos Eventos del Sistema</h3>
+<div class="space-y-4 font-data-mono text-data-mono">
+<div class="flex gap-4">
+<div class="w-6 flex flex-col items-center">
+<div class="w-2 h-2 rounded-full bg-error mt-1.5"></div>
+<div class="w-px h-full bg-outline-variant/50 my-1"></div>
+</div>
+<div class="flex-1 pb-4">
+<span class="text-on-surface-variant mr-2">10:45 am</span>
+<span class="px-2 py-0.5 bg-surface-container-low rounded text-xs text-on-surface border border-outline-variant/50 mr-2">SYSTEM</span>
+<span class="text-on-surface">Conexión con <span class="font-bold">Logística Nacional API</span> perdida. Timeout excedido (5000ms).</span>
+</div>
+</div>
+<div class="flex gap-4">
+<div class="w-6 flex flex-col items-center">
+<div class="w-2 h-2 rounded-full bg-amber-500 mt-1.5"></div>
+<div class="w-px h-full bg-outline-variant/50 my-1"></div>
+</div>
+<div class="flex-1 pb-4">
+<span class="text-on-surface-variant mr-2">10:30 am</span>
+<span class="px-2 py-0.5 bg-surface-container-low rounded text-xs text-on-surface border border-outline-variant/50 mr-2">SYSTEM</span>
+<span class="text-on-surface">Latencia elevada detectada en <span class="font-bold">Banca Nacional</span> (&gt;1000ms).</span>
+</div>
+</div>
+<div class="flex gap-4">
+<div class="w-6 flex flex-col items-center">
+<div class="w-2 h-2 rounded-full bg-secondary mt-1.5"></div>
+</div>
+<div class="flex-1">
+<span class="text-on-surface-variant mr-2">09:15 am</span>
+<span class="px-2 py-0.5 bg-primary-container text-on-primary rounded text-xs mr-2">SUPERADMIN</span>
+<span class="text-on-surface">Re-sincronización manual exitosa para <span class="font-bold">Stripe API</span>.</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Chart.js implementation for Health Timeline
+        document.addEventListener('DOMContentLoaded', function() {
+            const ctx = document.getElementById('healthChart').getContext('2d');
+            
+            // Gradient for line
+            const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+            gradient.addColorStop(0, 'rgba(0, 106, 99, 0.2)'); // secondary color with opacity
+            gradient.addColorStop(1, 'rgba(0, 106, 99, 0)');
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'],
+                    datasets: [{
+                        label: 'Uptime %',
+                        data: [99.9, 99.9, 99.5, 98.2, 99.8, 99.9, 99.8],
+                        borderColor: '#006a63', // secondary
+                        backgroundColor: gradient,
+                        borderWidth: 2,
+                        pointBackgroundColor: '#006a63',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#273044', // inverse-surface
+                            titleFont: { family: 'Inter', size: 12 },
+                            bodyFont: { family: 'JetBrains Mono', size: 13 },
+                            padding: 10,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y + '%';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            min: 97,
+                            max: 100,
+                            grid: {
+                                color: '#e9edff', // surface-container
+                                drawBorder: false,
+                            },
+                            ticks: {
+                                font: { family: 'JetBrains Mono', size: 10 },
+                                color: '#74777f', // outline
+                                stepSize: 1
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { family: 'Inter', size: 11 },
+                                color: '#74777f'
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index',
+                    },
+                }
+            });
+        });
+    </script>
+
+<!-- Runtime de la beta: estado simulado, RBAC, recorrido transversal. -->
+<script src="../../assets/js/tumbo-pantallas.js"></script>
+<script src="../../assets/js/tumbo-traducciones.js"></script>
+<script src="../../assets/js/tumbo-rutas.js"></script>
+<script src="../../assets/js/tumbo-listas.js"></script>
+<script src="../../assets/js/tumbo-app.js"></script>
+<script>window.TUMBO_DIR="prototipo/";window.TUMBO_PAGINA={"ruta": "backoffice/integraciones.html", "superficie": "backoffice", "rol": "superadmin", "titulo": "Integraciones y salud del sistema"};</script>
+</body></html>

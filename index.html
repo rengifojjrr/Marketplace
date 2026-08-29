@@ -4,412 +4,237 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <meta name="robots" content="noindex, nofollow"/>
-<title>Tumbo Market · Beta navegable</title>
-<meta name="description" content="Prototipo beta navegable del marketplace curado de Venezuela: 68 pantallas, 8 roles y 3 superficies. Modo demo, no mueve dinero real."/>
+<title>Tumbo Market · Acceso</title>
+<meta name="description" content="Acceso a la beta de Tumbo Market: marketplace curado de Venezuela."/>
 <link rel="stylesheet" href="assets/css/tumbo-tailwind.css"/>
 <link rel="stylesheet" href="assets/fuentes/fuentes.css"/>
-<link rel="stylesheet" href="assets/css/tumbo.css"/>
-<style>
-  body { font-family: Inter, system-ui, sans-serif; }
-  .material-symbols-outlined { font-size: 24px; font-variation-settings: 'FILL' 0; }
-  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
-  .tarjeta { transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
-  .tarjeta:hover { border-color: #2563eb; box-shadow: 0 4px 20px rgba(11,37,69,.08); transform: translateY(-1px); }
-  @media (prefers-reduced-motion: reduce) { .tarjeta { transition: none; } .tarjeta:hover { transform: none; } }
-</style>
+<link rel="stylesheet" href="assets/css/tm.css"/>
+<style>body{font-family:Inter,system-ui,sans-serif}</style>
 </head>
+<body class="bg-background text-on-background min-h-screen flex flex-col">
 
-<body class="bg-background text-on-background antialiased" data-tumbo-ui="indice">
+<div aria-hidden="true" class="fixed inset-0 -z-10 bg-background"
+     style="background-image:
+       radial-gradient(900px 420px at 50% -8%, rgba(37,99,235,.10), transparent 65%),
+       linear-gradient(rgba(11,37,69,.045) 1px, transparent 1px),
+       linear-gradient(90deg, rgba(11,37,69,.045) 1px, transparent 1px);
+       background-size: auto, 32px 32px, 32px 32px;"></div>
 
-<!-- ===================== Cabecera ===================== -->
-<header class="sticky top-0 z-40 bg-primary-container text-on-primary border-b border-white/10">
-  <div class="max-w-[1280px] mx-auto px-4 sm:px-6 h-16 flex items-center gap-4">
-    <div class="flex items-center gap-2.5 min-w-0">
-      <span class="material-symbols-outlined text-[26px]" aria-hidden="true">storefront</span>
-      <div class="min-w-0">
-        <p class="font-bold text-[15px] leading-tight truncate">Tumbo Market</p>
-        <p class="text-[11px] text-white/60 leading-tight truncate">Marketplace curado de Venezuela</p>
+<main class="flex-1 w-full flex items-start justify-center px-4 py-10" data-tumbo-propio>
+  <div class="w-full max-w-[430px]">
+
+    <div class="mb-6 text-center">
+      <span class="inline-flex items-center justify-center w-14 h-14 rounded-card bg-primary-container text-on-primary mb-3">
+        <span class="material-symbols-outlined text-[30px]" aria-hidden="true">storefront</span>
+      </span>
+      <h1 class="font-headline-lg text-headline-lg text-primary-container">Tumbo Market</h1>
+      <p class="font-body-md text-body-md text-on-surface-variant">Marketplace curado de Venezuela</p>
+    </div>
+
+    <div class="rounded-card border border-outline-variant bg-surface-container-lowest p-6 shadow-nivel-2">
+
+      <!-- Paso 1: credenciales -->
+      <form data-paso="credenciales" novalidate>
+        <div class="mb-4">
+          <label class="block font-label-md text-label-md text-on-surface mb-1" for="ac-correo">Correo</label>
+          <input class="w-full h-11 px-3 rounded-btn border border-outline-variant bg-surface-container-low
+                        font-body-md text-body-md placeholder:text-outline
+                        focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"
+                 id="ac-correo" type="email" autocomplete="username" placeholder="usuario@demo.ve"
+                 aria-describedby="ac-correo-err"/>
+          <p class="hidden items-center gap-1 mt-1 font-body-sm text-body-sm text-error" id="ac-correo-err" role="alert">
+            <span class="material-symbols-outlined text-[16px]" aria-hidden="true">error</span><span data-texto></span></p>
+        </div>
+        <div class="mb-5">
+          <label class="block font-label-md text-label-md text-on-surface mb-1" for="ac-clave">Contraseña</label>
+          <input class="w-full h-11 px-3 rounded-btn border border-outline-variant bg-surface-container-low
+                        font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"
+                 id="ac-clave" type="password" autocomplete="current-password" aria-describedby="ac-clave-err"/>
+          <p class="hidden items-center gap-1 mt-1 font-body-sm text-body-sm text-error" id="ac-clave-err" role="alert">
+            <span class="material-symbols-outlined text-[16px]" aria-hidden="true">error</span><span data-texto></span></p>
+        </div>
+        <button class="w-full h-12 rounded-btn bg-primary-container text-on-primary font-label-md text-label-md
+                       flex items-center justify-center gap-2 hover:opacity-90 transition-opacity" type="submit">
+          Ingresar<span class="material-symbols-outlined text-[18px]" aria-hidden="true">login</span></button>
+        <div class="flex flex-col items-center gap-1.5 mt-4">
+          <button class="font-label-md text-label-md text-secondary hover:underline" data-ir="registro" type="button">¿No tienes cuenta? Regístrate</button>
+          <button class="font-label-md text-label-md text-secondary hover:underline" data-invitado type="button">Entrar como invitado</button>
+        </div>
+      </form>
+
+      <!-- Paso 2: MFA -->
+      <form class="hidden" data-paso="mfa" novalidate>
+        <button class="inline-flex items-center gap-1 font-label-md text-label-md text-on-surface-variant hover:text-on-surface mb-4" data-ir="credenciales" type="button">
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>Volver</button>
+        <div class="flex items-start gap-2 p-3 rounded-btn bg-secondary-container mb-5">
+          <span class="material-symbols-outlined text-[20px] text-on-secondary-container" aria-hidden="true">lock</span>
+          <p class="font-body-sm text-body-sm text-on-secondary-container">Este rol exige verificación en dos pasos. En la demo el código es <strong class="font-data-mono">123456</strong>.</p>
+        </div>
+        <label class="block font-label-md text-label-md text-on-surface mb-1" for="ac-codigo">Código de verificación</label>
+        <input class="w-full h-12 px-3 rounded-btn border border-outline-variant bg-surface-container-low
+                      font-data-mono text-data-mono tracking-[0.4em] text-center
+                      focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"
+               id="ac-codigo" inputmode="numeric" maxlength="6" placeholder="000000" aria-describedby="ac-codigo-err"/>
+        <p class="hidden items-center gap-1 mt-1 font-body-sm text-body-sm text-error" id="ac-codigo-err" role="alert">
+          <span class="material-symbols-outlined text-[16px]" aria-hidden="true">error</span><span data-texto></span></p>
+        <button class="w-full h-12 mt-5 rounded-btn bg-primary-container text-on-primary font-label-md text-label-md
+                       flex items-center justify-center gap-2 hover:opacity-90" type="submit">
+          Verificar y entrar<span class="material-symbols-outlined text-[18px]" aria-hidden="true">login</span></button>
+      </form>
+
+      <!-- Paso 3: registro de comprador -->
+      <form class="hidden" data-paso="registro" novalidate>
+        <button class="inline-flex items-center gap-1 font-label-md text-label-md text-on-surface-variant hover:text-on-surface mb-4" data-ir="credenciales" type="button">
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>Volver al acceso</button>
+        <h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Crear cuenta de comprador</h2>
+        <p class="font-body-sm text-body-sm text-on-surface-variant mb-4">Los comercios no se registran aquí: el marketplace es curado y los sellers entran por invitación.</p>
+        <label class="block font-label-md text-label-md text-on-surface mb-1" for="rg-correo">Correo o teléfono</label>
+        <input id="rg-correo" placeholder="usuario@demo.ve o 0412-0000000" class="w-full h-11 px-3 mb-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>
+        <label class="block font-label-md text-label-md text-on-surface mb-1" for="rg-clave">Contraseña</label>
+        <input id="rg-clave" type="password" class="w-full h-11 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>
+        <p class="font-body-sm text-body-sm text-on-surface-variant mt-1 mb-3">Mínimo 8 caracteres.</p>
+        <label class="flex items-start gap-2 mb-4 cursor-pointer">
+          <input id="rg-terminos" type="checkbox" class="mt-1 w-4 h-4 rounded border-outline text-secondary focus:ring-secondary/40"/>
+          <span class="font-body-sm text-body-sm text-on-surface-variant">Acepto los términos y las políticas de privacidad de la beta.</span></label>
+        <p class="hidden items-center gap-1 mb-3 font-body-sm text-body-sm text-error" id="rg-err" role="alert">
+          <span class="material-symbols-outlined text-[16px]" aria-hidden="true">error</span><span data-texto></span></p>
+        <button class="w-full h-12 rounded-btn bg-primary-container text-on-primary font-label-md text-label-md
+                       flex items-center justify-center gap-2 hover:opacity-90" type="submit">
+          Crear cuenta<span class="material-symbols-outlined text-[18px]" aria-hidden="true">person_add</span></button>
+      </form>
+
+      <!-- Cuentas de prueba -->
+      <div class="mt-6 pt-5 border-t border-outline-variant" data-cuentas>
+        <p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Cuentas de prueba (contraseña <strong class="font-data-mono text-on-surface">demo1234</strong>):</p>
+        <div data-lista></div>
+        <p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Pulsa una cuenta para cargar sus credenciales. Los perfiles
+          <span class="inline-block px-1.5 py-0.5 rounded bg-secondary-container text-on-secondary-container font-label-sm text-label-sm align-middle">MFA</span>
+          piden después el código <strong class="font-data-mono text-on-surface">123456</strong>.</p>
       </div>
     </div>
-    <span class="ml-1 shrink-0 px-2.5 py-1 rounded-full bg-warning text-on-warning text-[11px] font-bold tracking-wide">MODO DEMO</span>
-    <nav class="ml-auto hidden md:flex items-center gap-1 text-[13px]">
-      <a class="px-3 py-2 rounded-lg hover:bg-white/10 transition-colors" href="#roles">Roles</a>
-      <a class="px-3 py-2 rounded-lg hover:bg-white/10 transition-colors" href="#recorrido">Recorrido</a>
-      <a class="px-3 py-2 rounded-lg hover:bg-white/10 transition-colors" href="#pantallas">Pantallas</a>
-      <a class="px-3 py-2 rounded-lg hover:bg-white/10 transition-colors" data-ruta="sistema/mapa-interfaces.html" href="app/sistema/mapa-interfaces.html">Mapa</a>
-    </nav>
+
+    <p class="text-center mt-5 font-body-sm text-body-sm text-on-surface-variant">
+      Versión beta · datos ficticios · sin cobros reales ·
+      <a class="text-secondary hover:underline" href="prototipo/index.html">prototipo de referencia</a></p>
   </div>
-</header>
+</main>
 
-<!-- ===================== Presentación ===================== -->
-<section class="border-b border-outline-variant bg-surface-container-lowest">
-  <div class="max-w-[1280px] mx-auto px-4 sm:px-6 py-12 lg:py-16 grid lg:grid-cols-[1.35fr_1fr] gap-10 items-start">
-    <div>
-      <p class="text-label-caps text-secondary font-bold tracking-[0.08em] uppercase mb-3">Prototipo beta · versión 1.0</p>
-      <h1 class="text-[34px] sm:text-[44px] font-bold leading-[1.12] tracking-[-0.02em] text-primary-container mb-4">
-        Una beta navegable de las tres superficies del marketplace
-      </h1>
-      <p class="text-body-lg text-on-surface-variant max-w-2xl mb-6">
-        Marketplace público, Seller Center y Backoffice comparten componentes, datos y estados.
-        Los ocho roles no tienen ocho aplicaciones: reutilizan las mismas superficies con permisos distintos.
-        Cambia de rol y observa cómo el mismo evento se ve diferente en cada pantalla.
-      </p>
-
-      <div class="flex flex-wrap gap-3 mb-8">
-        <a data-ruta="sistema/acceso.html" href="app/sistema/acceso.html"
-          class="inline-flex items-center gap-2 h-11 px-5 rounded-btn bg-secondary text-on-secondary font-semibold text-body-sm hover:brightness-110 transition">
-          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">login</span>
-          Iniciar sesión
-        </a>
-        <button data-entrar="visitante"
-          class="inline-flex items-center gap-2 h-11 px-5 rounded-btn border border-primary-container text-primary-container font-semibold text-body-sm hover:bg-surface-container transition">
-          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">play_arrow</span>
-          Entrar al Marketplace
-        </button>
-        <button data-recorrido="normal"
-          class="inline-flex items-center gap-2 h-11 px-5 rounded-btn border border-primary-container text-primary-container font-semibold text-body-sm hover:bg-surface-container transition">
-          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">route</span>
-          Iniciar recorrido guiado
-        </button>
-        <a data-ruta="sistema/mapa-interfaces.html" href="app/sistema/mapa-interfaces.html"
-          class="inline-flex items-center gap-2 h-11 px-5 rounded-btn text-primary-container font-semibold text-body-sm hover:bg-surface-container transition">
-          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">account_tree</span>
-          Ver mapa de interfaces
-        </a>
-      </div>
-
-      <dl class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">
-          <dt class="text-label-sm text-on-surface-variant mb-1">Pantallas</dt>
-          <dd class="text-headline-md font-bold text-primary-container" data-kpi="pantallas">—</dd>
-        </div>
-        <div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">
-          <dt class="text-label-sm text-on-surface-variant mb-1">Roles</dt>
-          <dd class="text-headline-md font-bold text-primary-container">8</dd>
-        </div>
-        <div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">
-          <dt class="text-label-sm text-on-surface-variant mb-1">Superficies</dt>
-          <dd class="text-headline-md font-bold text-primary-container">3</dd>
-        </div>
-        <div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">
-          <dt class="text-label-sm text-on-surface-variant mb-1">Pasos del recorrido</dt>
-          <dd class="text-headline-md font-bold text-primary-container">9 + 6</dd>
-        </div>
-      </dl>
-    </div>
-
-    <aside class="rounded-card border border-warning/40 bg-warning-container p-6">
-      <h2 class="flex items-center gap-2 text-headline-sm font-semibold text-on-warning-container mb-3">
-        <span class="material-symbols-outlined text-[20px]" aria-hidden="true">science</span>
-        Qué es y qué no es
-      </h2>
-      <ul class="space-y-2.5 text-body-sm text-on-warning-container/90">
-        <li class="flex gap-2"><span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">check</span>
-          Demostración de interfaz con datos ficticios y estados simulados.</li>
-        <li class="flex gap-2"><span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">check</span>
-          Todos los botones responden: navegan, cambian estado o explican qué falta.</li>
-        <li class="flex gap-2"><span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">check</span>
-          El estado vive en tu navegador y se reinicia desde el dock inferior.</li>
-        <li class="flex gap-2"><span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">close</span>
-          No mueve dinero, no envía WhatsApp ni correos, no crea guías de courier.</li>
-        <li class="flex gap-2"><span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">close</span>
-          No hay backend: pagos, KYC, custodia y liquidaciones son representaciones.</li>
-      </ul>
-    </aside>
-  </div>
-</section>
-
-<!-- ===================== Roles ===================== -->
-<section id="roles" class="max-w-[1280px] mx-auto px-4 sm:px-6 py-12 scroll-mt-20">
-  <h2 class="text-headline-lg font-bold text-primary-container mb-2">Entrar por rol</h2>
-  <p class="text-body-md text-on-surface-variant mb-6 max-w-3xl">
-    Al elegir un rol se activa su navegación permitida. Abrir una ruta fuera de su alcance lleva a la pantalla 403 real,
-    con el motivo del bloqueo y el intento registrado en la auditoría.
-  </p>
-  <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4" data-roles-grid></div>
-</section>
-
-<!-- ===================== Recorrido ===================== -->
-<section id="recorrido" class="bg-surface-container-low border-y border-outline-variant scroll-mt-20">
-  <div class="max-w-[1280px] mx-auto px-4 sm:px-6 py-12">
-    <h2 class="text-headline-lg font-bold text-primary-container mb-2">Recorrido transversal</h2>
-    <p class="text-body-md text-on-surface-variant mb-6 max-w-3xl">
-      Un mismo pedido recorre las tres superficies. Orden, pago, envío, disputa y liquidación avanzan como estados
-      independientes: ninguno resume a los demás.
-    </p>
-    <div class="grid lg:grid-cols-2 gap-4">
-
-      <article class="rounded-card border border-outline-variant bg-surface-container-lowest p-6">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="material-symbols-outlined text-tertiary text-[22px]" aria-hidden="true">check_circle</span>
-          <h3 class="text-headline-sm font-semibold text-primary-container">Camino normal · 9 pasos</h3>
-        </div>
-        <p class="text-body-sm text-on-surface-variant mb-4">
-          El pedido <span class="mono text-on-surface font-medium">TM-2026-00428</span> se paga, se concilia, se prepara,
-          se despacha, se entrega y termina liquidado al seller <span class="mono text-on-surface font-medium">SEL-014</span>.
-        </p>
-        <ol class="space-y-1.5 text-body-sm text-on-surface-variant mb-5 list-decimal list-inside marker:text-secondary marker:font-semibold">
-          <li>El comprador paga en modo demo</li>
-          <li>Finanzas concilia el pago</li>
-          <li>El operador recibe la tarea y reserva el SKU</li>
-          <li>Prepara, genera guía y entrega al courier</li>
-          <li>Operaciones sigue el tracking y el SLA</li>
-          <li>El comprador recibe y confirma</li>
-          <li>Cierra la ventana de reclamo</li>
-          <li>Finanzas liquida</li>
-          <li>El seller ve el comprobante</li>
-        </ol>
-        <button data-recorrido="normal"
-          class="inline-flex items-center gap-2 h-11 px-5 rounded-btn bg-secondary text-on-secondary font-semibold text-body-sm hover:brightness-110 transition">
-          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">route</span>
-          Iniciar recorrido normal
-        </button>
-      </article>
-
-      <article class="rounded-card border border-outline-variant bg-surface-container-lowest p-6">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="material-symbols-outlined text-error text-[22px]" aria-hidden="true">gavel</span>
-          <h3 class="text-headline-sm font-semibold text-primary-container">Camino de excepción · 6 pasos</h3>
-        </div>
-        <p class="text-body-sm text-on-surface-variant mb-4">
-          El caso <span class="mono text-on-surface font-medium">DSP-0098</span> congela la liquidación, exige evidencia
-          de ambas partes y termina en reembolso, reflejado igual en las tres superficies.
-        </p>
-        <ol class="space-y-1.5 text-body-sm text-on-surface-variant mb-5 list-decimal list-inside marker:text-error marker:font-semibold">
-          <li>El comprador abre la disputa por producto dañado</li>
-          <li>El sistema congela la liquidación y pide el video</li>
-          <li>El seller responde con evidencia de empaque</li>
-          <li>Operaciones decide devolución y reembolso</li>
-          <li>Finanzas procesa el reembolso demo</li>
-          <li>Auditoría refleja el mismo resultado</li>
-        </ol>
-        <button data-recorrido="excepcion"
-          class="inline-flex items-center gap-2 h-11 px-5 rounded-btn border border-error text-error font-semibold text-body-sm hover:bg-error-container transition">
-          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">gavel</span>
-          Iniciar recorrido de disputa
-        </button>
-      </article>
-
-    </div>
-  </div>
-</section>
-
-<!-- ===================== Índice de pantallas ===================== -->
-<section id="pantallas" class="max-w-[1280px] mx-auto px-4 sm:px-6 py-12 scroll-mt-20">
-  <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
-    <div>
-      <h2 class="text-headline-lg font-bold text-primary-container mb-2">Todas las pantallas</h2>
-      <p class="text-body-md text-on-surface-variant">
-        Las variantes móviles y las revisiones de consistencia se muestran junto a su pantalla principal.
-      </p>
-    </div>
-    <label class="relative w-full sm:w-80">
-      <span class="sr-only">Buscar pantalla</span>
-      <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]" aria-hidden="true">search</span>
-      <input type="search" data-buscar placeholder="Buscar por nombre, rol o ruta…"
-        class="w-full h-11 pl-11 pr-4 rounded-btn border border-outline-variant bg-surface-container-lowest text-body-sm focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>
-    </label>
-  </div>
-
-  <div class="flex flex-wrap gap-2 mb-6" data-filtros role="group" aria-label="Filtrar por superficie"></div>
-  <div class="grid gap-6" data-grupos></div>
-  <p class="hidden py-12 text-center text-body-md text-on-surface-variant" data-sin-resultados>
-    Ninguna pantalla coincide con la búsqueda.
-  </p>
-</section>
-
-<!-- ===================== Pie ===================== -->
-<footer class="bg-primary-container text-on-primary/80 border-t border-white/10">
-  <div class="max-w-[1280px] mx-auto px-4 sm:px-6 py-10 grid sm:grid-cols-3 gap-8 text-body-sm">
-    <div>
-      <p class="font-bold text-on-primary mb-2">Tumbo Market</p>
-      <p>Nombre e identidad visual provisionales. Marketplace curado B2B2C para Venezuela.</p>
-    </div>
-    <div>
-      <p class="font-bold text-on-primary mb-2">Documentación</p>
-      <ul class="space-y-1.5">
-        <li><a class="hover:text-on-primary hover:underline" href="docs/ESPECIFICACION-FUNCIONAL.md">Especificación funcional</a></li>
-        <li><a class="hover:text-on-primary hover:underline" href="docs/ARQUITECTURA-BETA.md">Arquitectura de la beta</a></li>
-        <li><a class="hover:text-on-primary hover:underline" href="docs/DESIGN.md">Sistema de diseño</a></li>
-        <li><a class="hover:text-on-primary hover:underline" href="docs/PROMPTS-STITCH.md">Prompts de generación</a></li>
-      </ul>
-    </div>
-    <div>
-      <p class="font-bold text-on-primary mb-2">Alcance</p>
-      <p>Prototipo de interfaz. Pagos, WhatsApp, couriers, KYC, custodia y liquidaciones se representan con estados
-      simulados hasta que exista backend e integraciones autorizadas.</p>
-    </div>
-  </div>
-</footer>
-
-<script src="assets/js/tumbo-pantallas.js"></script>
-<script src="assets/js/tumbo-traducciones.js"></script>
-<script src="assets/js/tumbo-rutas.js"></script>
-<script src="assets/js/tumbo-listas.js"></script>
-<script src="assets/js/tumbo-app.js"></script>
+<script src="assets/js/tm-datos.js"></script>
+<script src="assets/js/tm-store.js"></script>
 <script>
-/* --- Lógica propia del índice ---------------------------------------- */
+/* =========================================================================
+   Acceso: valida contra los usuarios demo, exige MFA donde corresponde y
+   entrega la sesión al armazón. `?volver=` regresa a la página protegida.
+   ========================================================================= */
 (function () {
   'use strict';
+  var GRUPOS = [
+    { nombre: 'Tienda',        icono: 'shopping_bag',    roles: ['comprador'] },
+    { nombre: 'Seller Center', icono: 'storefront',      roles: ['seller', 'precios', 'operador'] },
+    { nombre: 'Backoffice',    icono: 'account_balance', roles: ['superadmin', 'ops', 'finanzas'] }
+  ];
+  var NOMBRES = { comprador: 'Comprador', seller: 'Seller principal', precios: 'Gestor de precios',
+    operador: 'Operador', superadmin: 'Superadministrador', ops: 'Operaciones', finanzas: 'Finanzas' };
+  var INICIOS = { comprador: 'app/tienda/inicio.html', seller: 'app/seller/panel.html',
+    precios: 'app/seller/catalogo.html', operador: 'app/seller/pedidos.html',
+    superadmin: 'app/admin/panel.html', ops: 'app/admin/pedidos.html', finanzas: 'app/admin/conciliacion.html' };
 
-  var PANTALLAS = window.TUMBO_PANTALLAS || [];
-  var ROLES = window.TUMBO_ROLES;
+  var usuarios = TM.estado.usuarios;
+  var pendiente = null;
+  var pasos = {};
+  document.querySelectorAll('[data-paso]').forEach(function (f) { pasos[f.getAttribute('data-paso')] = f; });
 
-  var SUPERFICIES = {
-    marketplace: { nombre: 'Marketplace público', icono: 'storefront', color: '#2563eb' },
-    seller:      { nombre: 'Seller Center',       icono: 'inventory_2', color: '#0f766e' },
-    backoffice:  { nombre: 'Backoffice',          icono: 'admin_panel_settings', color: '#0b2545' },
-    demo:        { nombre: 'Recorrido transversal', icono: 'route', color: '#7c3aed' },
-    sistema:     { nombre: 'Sistema',             icono: 'settings', color: '#64748b' }
-  };
+  function mostrar(n) {
+    Object.keys(pasos).forEach(function (k) { pasos[k].classList.toggle('hidden', k !== n); });
+    document.querySelector('[data-cuentas]').classList.toggle('hidden', n !== 'credenciales');
+    var primero = pasos[n].querySelector('input');
+    if (primero) primero.focus();
+  }
+  function error(id, txt) {
+    var p = document.getElementById(id);
+    if (!p) return;
+    if (txt) { p.querySelector('[data-texto]').textContent = txt; p.classList.remove('hidden'); p.classList.add('flex'); }
+    else { p.classList.add('hidden'); p.classList.remove('flex'); }
+  }
+  function limpiar() { ['ac-correo-err', 'ac-clave-err', 'ac-codigo-err', 'rg-err'].forEach(function (i) { error(i, ''); }); }
 
-  document.querySelector('[data-kpi="pantallas"]').textContent = PANTALLAS.length;
-
-  /* Enlaces escritos a mano en el marcado: se reescriben con el ayudante para
-     que funcionen tanto servidos como dentro del archivo único. */
-  document.querySelectorAll('[data-ruta]').forEach(function (a) {
-    a.setAttribute('href', window.tumboHref(a.getAttribute('data-ruta')));
-  });
-
-  /* --- Tarjetas de rol -------------------------------------------------- */
-  var gridRoles = document.querySelector('[data-roles-grid]');
-  var DESCRIPCION_ROL = {
-    visitante:  'Explora, busca y arma el carrito sin identificarse.',
-    comprador:  'Paga en modo demo, sigue el pedido y abre reclamos.',
-    seller:     'Homologación, catálogo, equipo, ventas y liquidaciones.',
-    precios:    'Precios, promociones y márgenes. Sin acceso a dinero ni contratos.',
-    operador:   'Catálogo, inventario, picking, empaque y guías.',
-    superadmin: 'Gobierno, KYC, moderación, reglas e integraciones.',
-    ops:        'Colas por SLA, incidencias, disputas y bandeja omnicanal.',
-    finanzas:   'Conciliación, custodia, reembolsos y liquidaciones.'
-  };
-
-  Object.keys(ROLES).forEach(function (id) {
-    var r = ROLES[id];
-    var n = PANTALLAS.filter(function (p) { return p.rol === id; }).length;
-    var b = document.createElement('button');
-    b.setAttribute('data-entrar', id);
-    b.className = 'tarjeta text-left rounded-card border border-outline-variant bg-surface-container-lowest p-5 ' +
-                  'focus:outline-none focus:ring-2 focus:ring-secondary/40';
-    b.innerHTML =
-      '<span class="flex items-center gap-2 mb-2">' +
-        '<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:' + r.color + '"></span>' +
-        '<span class="font-semibold text-body-md text-primary-container">' + r.nombre + '</span>' +
-      '</span>' +
-      '<span class="block text-body-sm text-on-surface-variant mb-4 min-h-[40px]">' + DESCRIPCION_ROL[id] + '</span>' +
-      '<span class="flex items-center justify-between text-label-sm">' +
-        '<span class="text-on-surface-variant">' + SUPERFICIES[r.superficie].nombre +
-          (n ? ' · ' + n + ' pantallas' : '') + '</span>' +
-        '<span class="material-symbols-outlined text-secondary text-[18px]" aria-hidden="true">arrow_forward</span>' +
-      '</span>';
-    gridRoles.appendChild(b);
-  });
-
-  /* En el archivo único este script se ejecuta cada vez que se pinta el
-     índice, así que el listener se registra una sola vez y solo actúa sobre
-     valores que reconoce: un `data-entrar` ajeno no debe recibir un
-     preventDefault que rompa su formulario. */
-  if (!window.__tumboIndiceListo) {
-    window.__tumboIndiceListo = true;
-    document.addEventListener('click', function (ev) {
-      var btn = ev.target.closest('[data-entrar]');
-      if (btn && ROLES[btn.getAttribute('data-entrar')]) {
-        ev.preventDefault();
-        window.tumboEntrarComo(btn.getAttribute('data-entrar'));
-        return;
-      }
-      var rec = ev.target.closest('[data-recorrido]');
-      if (rec && /^(normal|excepcion)$/.test(rec.getAttribute('data-recorrido'))) {
-        ev.preventDefault();
-        window.tumboIniciarRecorrido(rec.getAttribute('data-recorrido'));
-      }
-    });
+  function destino(rol) {
+    var volver = new URLSearchParams(location.search).get('volver');
+    if (volver && rol === 'comprador' && /^app\/tienda\//.test(volver)) return volver;
+    return INICIOS[rol];
+  }
+  function entrar(u) {
+    TM.iniciarSesion(u.email);
+    location.href = destino(u.rol);
   }
 
-  /* --- Índice filtrable ------------------------------------------------- */
-  var contGrupos = document.querySelector('[data-grupos]');
-  var contFiltros = document.querySelector('[data-filtros]');
-  var sinResultados = document.querySelector('[data-sin-resultados]');
-  var filtro = 'todas';
-  var busqueda = '';
-
-  ['todas'].concat(Object.keys(SUPERFICIES)).forEach(function (id) {
-    var b = document.createElement('button');
-    b.className = 'h-9 px-4 rounded-full border text-label-md font-semibold transition-colors';
-    b.textContent = id === 'todas' ? 'Todas' : SUPERFICIES[id].nombre;
-    b.setAttribute('data-filtro', id);
-    b.setAttribute('aria-pressed', String(id === 'todas'));
-    contFiltros.appendChild(b);
-    b.addEventListener('click', function () { filtro = id; pintar(); });
+  /* Cuentas de prueba agrupadas por superficie */
+  var lista = document.querySelector('[data-lista]');
+  GRUPOS.forEach(function (g) {
+    var bloque = document.createElement('div');
+    bloque.className = 'mb-3 last:mb-0';
+    bloque.innerHTML = '<p class="flex items-center gap-1 mb-1.5 font-label-caps text-label-caps uppercase text-on-surface-variant">' +
+      '<span class="material-symbols-outlined text-[16px]" aria-hidden="true">' + g.icono + '</span>' + g.nombre + '</p>';
+    var fila = document.createElement('div');
+    fila.className = 'flex flex-wrap gap-1.5';
+    g.roles.forEach(function (rol) {
+      var u = usuarios.find(function (x) { return x.rol === rol; });
+      if (!u) return;
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'inline-flex items-center gap-1.5 min-h-[42px] px-3.5 rounded-btn border border-outline-variant ' +
+        'bg-surface-container-lowest font-body-sm text-body-sm hover:border-secondary hover:bg-surface-container-low transition-colors';
+      b.innerHTML = NOMBRES[rol] + (u.mfa ? '<span class="px-1.5 py-0.5 rounded bg-secondary-container text-on-secondary-container font-label-sm text-label-sm">MFA</span>' : '');
+      b.addEventListener('click', function () {
+        limpiar();
+        document.getElementById('ac-correo').value = u.email;
+        document.getElementById('ac-clave').value = 'demo1234';
+        document.getElementById('ac-clave').focus();
+      });
+      fila.appendChild(b);
+    });
+    bloque.appendChild(fila);
+    lista.appendChild(bloque);
   });
 
-  document.querySelector('[data-buscar]').addEventListener('input', function (ev) {
-    busqueda = ev.target.value.toLowerCase().trim();
-    pintar();
+  pasos.credenciales.addEventListener('submit', function (ev) {
+    ev.preventDefault(); limpiar();
+    var correo = document.getElementById('ac-correo').value.trim().toLowerCase();
+    var clave = document.getElementById('ac-clave').value;
+    if (!correo) { error('ac-correo-err', 'Escribe tu correo.'); return; }
+    var u = usuarios.find(function (x) { return x.email === correo; });
+    if (!u) { error('ac-correo-err', 'No hay ninguna cuenta demo con ese correo: usa las de abajo.'); return; }
+    if (clave !== u.clave) { error('ac-clave-err', 'La contraseña de las cuentas demo es demo1234.'); return; }
+    if (u.mfa) { pendiente = u; mostrar('mfa'); return; }
+    entrar(u);
   });
 
-  function pintar() {
-    Array.prototype.forEach.call(contFiltros.children, function (b) {
-      var activo = b.getAttribute('data-filtro') === filtro;
-      b.setAttribute('aria-pressed', String(activo));
-      b.className = 'h-9 px-4 rounded-full border text-label-md font-semibold transition-colors ' +
-        (activo ? 'bg-primary-container text-on-primary border-primary-container'
-                : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:border-secondary');
-    });
+  pasos.mfa.addEventListener('submit', function (ev) {
+    ev.preventDefault(); limpiar();
+    if (document.getElementById('ac-codigo').value.trim() !== '123456') {
+      error('ac-codigo-err', 'Código incorrecto. En la demo es 123456.'); return;
+    }
+    if (pendiente) entrar(pendiente);
+  });
 
-    var visibles = PANTALLAS.filter(function (p) {
-      if (filtro !== 'todas' && p.superficie !== filtro) return false;
-      if (!busqueda) return true;
-      return (p.titulo + ' ' + p.ruta + ' ' + p.rol + ' ' + p.grupo).toLowerCase().indexOf(busqueda) >= 0;
-    });
+  pasos.registro.addEventListener('submit', function (ev) {
+    ev.preventDefault(); limpiar();
+    var correo = document.getElementById('rg-correo').value.trim();
+    var clave = document.getElementById('rg-clave').value;
+    if (!correo) { error('rg-err', 'Indica un correo o un teléfono.'); return; }
+    if (clave.length < 8) { error('rg-err', 'La contraseña necesita al menos 8 caracteres.'); return; }
+    if (!document.getElementById('rg-terminos').checked) { error('rg-err', 'Debes aceptar los términos para continuar.'); return; }
+    /* En la beta el registro entra con la cuenta demo de comprador. */
+    entrar(usuarios.find(function (x) { return x.rol === 'comprador'; }));
+  });
 
-    sinResultados.classList.toggle('hidden', visibles.length > 0);
-    contGrupos.innerHTML = '';
-
-    var orden = ['marketplace', 'seller', 'backoffice', 'demo', 'sistema'];
-    orden.forEach(function (sup) {
-      var deSup = visibles.filter(function (p) { return p.superficie === sup; });
-      if (!deSup.length) return;
-
-      var s = SUPERFICIES[sup];
-      var seccion = document.createElement('section');
-      seccion.className = 'rounded-card border border-outline-variant bg-surface-container-lowest overflow-hidden';
-
-      var grupos = [];
-      deSup.forEach(function (p) { if (grupos.indexOf(p.grupo) < 0) grupos.push(p.grupo); });
-
-      seccion.innerHTML =
-        '<header class="flex items-center gap-2.5 px-5 py-4 border-b border-outline-variant bg-surface-container-low">' +
-          '<span class="material-symbols-outlined text-[22px]" style="color:' + s.color + '" aria-hidden="true">' + s.icono + '</span>' +
-          '<h3 class="font-semibold text-body-md text-primary-container">' + s.nombre + '</h3>' +
-          '<span class="ml-auto text-label-sm text-on-surface-variant">' + deSup.length + ' pantallas</span>' +
-        '</header>' +
-        grupos.map(function (g) {
-          var items = deSup.filter(function (p) { return p.grupo === g; });
-          return '<div class="px-5 py-4 border-b border-outline-variant last:border-0">' +
-            '<p class="text-label-caps uppercase tracking-[0.06em] text-on-surface-variant font-bold mb-3">' + g + '</p>' +
-            '<ul class="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">' +
-            items.map(function (p) {
-              return '<li><a class="tarjeta flex items-start gap-2.5 h-full rounded-lg border border-outline-variant ' +
-                'bg-surface-container-lowest p-3 focus:outline-none focus:ring-2 focus:ring-secondary/40" href="' + window.tumboHref(p.ruta) + '">' +
-                '<span class="material-symbols-outlined text-[18px] shrink-0 mt-0.5 ' +
-                  (p.canonica ? 'text-secondary' : 'text-outline') + '" aria-hidden="true">' +
-                  (p.canonica ? 'radio_button_checked' : 'radio_button_unchecked') + '</span>' +
-                '<span class="min-w-0">' +
-                  '<span class="block text-body-sm font-medium text-on-surface leading-snug">' + p.titulo + '</span>' +
-                  '<span class="block mono text-[11px] text-on-surface-variant mt-0.5 truncate">' + p.ruta + '</span>' +
-                  (p.demo ? '<span class="inline-block mt-1.5 px-1.5 py-0.5 rounded bg-warning-container ' +
-                    'text-on-warning-container text-[10px] font-bold">MODO DEMO</span>' : '') +
-                '</span></a></li>';
-            }).join('') +
-            '</ul></div>';
-        }).join('');
-
-      contGrupos.appendChild(seccion);
-    });
-  }
-
-  pintar();
+  document.querySelectorAll('[data-ir]').forEach(function (b) {
+    b.addEventListener('click', function () { limpiar(); mostrar(b.getAttribute('data-ir')); });
+  });
+  document.querySelector('[data-invitado]').addEventListener('click', function () {
+    TM.cerrarSesion();
+    location.href = 'app/tienda/inicio.html';
+  });
 })();
 </script>
 </body>
