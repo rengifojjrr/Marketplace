@@ -9,6 +9,25 @@ atraviesa Marketplace, Seller Center y Backoffice sin contradecirse.
 > courier. Pagos, KYC, custodia y liquidaciones son representaciones de interfaz.
 > El estado vive en tu navegador y se reinicia desde el dock inferior.
 
+## Enlace público
+
+La beta se publica con **GitHub Pages** desde la rama `main`:
+
+**https://rengifojjrr.github.io/Marketplace/**
+
+### Activarlo (una sola vez)
+
+GitHub no permite encender Pages desde fuera del repositorio, así que hace falta
+un paso manual la primera vez:
+
+1. Abre **Settings → Pages** en el repositorio.
+2. En *Build and deployment · Source* elige **Deploy from a branch**.
+3. Rama **`main`**, carpeta **`/ (root)`**, y pulsa **Save**.
+
+En un minuto el sitio queda en línea. A partir de ahí, cada `git push` a `main`
+lo actualiza solo. El repositorio incluye un `.nojekyll` para que Pages sirva
+los archivos tal cual, sin procesarlos con Jekyll.
+
 ## Cómo verlo
 
 ```bash
