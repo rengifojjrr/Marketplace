@@ -33,11 +33,18 @@ para **no tocar nada** de lo que ya hay:
   solo con lo que ese rol puede ver.
 
 Para quitar Tumbo del proyecto basta con ejecutar
-[`tools/retirar-tumbo.sql`](../tools/retirar-tumbo.sql): borra los dos
-esquemas y las funciones `public.tm_*` **por nombre** (una función de otra
-aplicación que empiece por `tm_` no se toca). La primera migración usa
-`create schema tumbo` sin `if not exists`: si el nombre ya estuviera ocupado
-por otra aplicación, falla en vez de adueñarse de él.
+[`tools/retirar-tumbo.sql`](../tools/retirar-tumbo.sql). Antes de borrar
+comprueba que los esquemas son los de Tumbo y que ningún objeto de otra
+aplicación depende de ellos (si algo no cuadra, se detiene sin tocar nada);
+después borra los dos esquemas y las funciones `public.tm_*` **por firma
+exacta** (una función de otra aplicación con el mismo nombre no se toca). La
+primera migración usa `create schema tumbo` sin `if not exists`: si el nombre
+ya estuviera ocupado por otra aplicación, falla en vez de adueñarse de él.
+
+Las migraciones solo agregan sobre la base compartida (el conector de
+Supabase pide confirmación humana para borrar o reescribir). Por eso, desde
+la migración 6, `tumbo.cuotas` y el índice `tumbo.pedidos_ref_idx` quedaron
+sin uso; se pueden borrar a mano cuando convenga.
 
 Los avisos del *Security Advisor* de Supabase sobre Tumbo son esperados:
 «RLS sin políticas» en `tumbo.*` (nadie lee filas directamente, a propósito)
@@ -53,6 +60,7 @@ supabase/migrations/
   20261022170200_tumbo_funciones.sql   operaciones de negocio tm_*
   20261022170300_tumbo_semilla.sql     datos de la demo, reinicio y privilegios
   20261022170400_tumbo_endurecimiento.sql  topes, vencimientos, devoluciones y lectura acotada
+  20261022170500_tumbo_ajustes.sql     topes por red, auditoría completa, referencia única y sin interbloqueos
 assets/js/tm-config.js                 URL y clave publicable del proyecto
 assets/js/tm-remoto.js                 motor remoto: llama a /rest/v1/rpc/tm_* con fetch (sin librerías)
 tools/retirar-tumbo.sql                quita Tumbo del proyecto sin tocar nada más
@@ -68,12 +76,15 @@ tools/verificar-beta.js                recorridos completos en navegador
    `tm_salir`. Tras 8 intentos fallidos desde una misma conexión en 15
    minutos, esa conexión queda frenada para esa cuenta (quien ataca desde su
    red no bloquea al dueño en la suya). Hay además topes por conexión y por
-   cuenta, y este último no frena al dueño en una red desde la que ya entró
-   esa semana. Un techo global de fallos por minuto acota el coste de bcrypt
-   en la base compartida. La conexión se identifica con `cf-connecting-ip`,
-   que fija el borde de Supabase; en IPv6 se agrupa por /64. Un registro
-   desde la web **siempre** nace `comprador` (el rol nunca viene del
-   navegador) y tiene freno por conexión y un techo global.
+   cuenta, y este último no frena al dueño en una red desde la que entró o se
+   registró esa semana. Los accesos correctos de una cuenta desde una misma
+   red también tienen tope (60 cada 15 minutos, con su propio mensaje), y un
+   techo global de 120 comprobaciones de contraseña por minuto acota el coste
+   de bcrypt en la base compartida. La conexión se identifica con
+   `cf-connecting-ip`, que fija el borde de Supabase; en IPv6 se agrupa por
+   /64 (y una IPv4 escrita como IPv6 cuenta como la IPv4). Un registro desde
+   la web **siempre** nace `comprador` (el rol nunca viene del navegador) y
+   tiene freno por conexión y un techo global.
 2. **Lectura**: `tm_cargar(sesión)` devuelve de una vez lo que el rol puede ver:
 
    | Rol | Ve |
@@ -93,7 +104,12 @@ tools/verificar-beta.js                recorridos completos en navegador
    de tiempo). Fuera del equipo del comercio, un producto muestra lo
    disponible, no sus reservas ni fechas internas. Lo pendiente (pagos por
    verificar, pedidos en curso, fondos retenidos o elegibles, reclamos
-   abiertos) llega siempre; el historial cerrado, los 150 más recientes.
+   abiertos) llega de más antiguo a más nuevo, hasta 2.000 (si hay más, el
+   backoffice lo avisa); el historial cerrado, los 150 más recientes. La
+   auditoría llega en tres ventanas que no se tapan entre sí —decisiones del
+   equipo y del sistema (300), acciones de comercios y compradores (150) e
+   inicios de sesión (50)— y el historial completo se busca y se pagina con
+   `tm_auditoria`.
 3. **Escritura**: cada cambio pasa por una función `tm_*` (`SECURITY DEFINER`,
    `search_path` vacío) que, en una sola transacción:
    - exige el rol y la propiedad del recurso (un pedido ajeno responde «no
@@ -109,18 +125,28 @@ tools/verificar-beta.js                recorridos completos en navegador
    el comprador u Operaciones con la prueba del courier; no se liquida un neto
    negativo. Las operaciones de un mismo comprador sobre su carrito se
    serializan, así que dos pestañas a la vez no descuadran las reservas.
-   Además: hasta 10 unidades por producto; un pago sin verificar vence a las
-   48 horas y libera su reserva; una referencia de pago no se reutiliza; el
-   pedido se crea con el subtotal que vio el comprador (si un precio cambió,
-   se le avisa); la liquidación paga exactamente los pedidos mostrados; una
-   devolución se cierra con el producto de vuelta (reembolso y stock) o sin
-   él (fondos al seller); un producto pausado que se corrige vuelve pausado
-   tras la aprobación.
-5. **Topes contra el abuso** (las cuentas demo tienen contraseña pública):
-   150 escrituras por usuario cada 10 minutos, 150 productos por comercio, 50
-   sesiones abiertas por cuenta, un «Inicio de sesión» auditado por cuenta
-   cada 10 minutos (con su propia ventana en la lectura, para que no tape el
-   resto) y sin auditar datos triviales del comprador.
+   Además: hasta 10 unidades por producto (también al crear el pedido); un
+   pago sin verificar vence a las 48 horas y libera su reserva —en la
+   siguiente lectura u operación de carrito— y ya no se puede conciliar; una
+   referencia de pago no se reutiliza (sin importar guiones ni espacios, ni
+   aunque se cancele un pedido ya conciliado; dos compras simultáneas con la
+   misma referencia se ordenan con un candado); el pedido se crea con el
+   subtotal que la pantalla le mostró al comprador (si un precio cambió, se le
+   avisa y el checkout se repinta con el precio vigente); la liquidación paga
+   exactamente los pedidos mostrados; una devolución se cierra con el
+   producto de vuelta (reembolso y stock) o sin él (fondos al seller); un
+   producto pausado que se corrige vuelve pausado tras la aprobación, aunque
+   pase antes por un rechazo. Los bloqueos siguen siempre el mismo orden
+   (usuario → referencia → pedidos vencidos sin esperar → productos por
+   SKU), así que dos operaciones no se interbloquean.
+5. **Topes contra el abuso** (las cuentas demo tienen contraseña pública y
+   las comparte cualquiera que visite la beta, así que los topes cuentan por
+   cuenta **y por red**: quien los agota se frena a sí mismo, no a los demás):
+   150 escrituras cada 10 minutos por cuenta y red (abrir la campana de avisos
+   no cuenta), 10 sesiones por cuenta y red y 200 por cuenta (se cierran las
+   que llevan más tiempo sin usarse), 150 productos por comercio, un «Inicio
+   de sesión» auditado por cuenta cada 10 minutos y sin auditar datos
+   triviales del comprador.
 6. **Auditoría** de solo agregar: los disparadores impiden editar, borrar o
    vaciar eventos (también al reiniciar la demo).
 7. **Segundo factor**: en la beta es un código fijo (`123456`) verificado en el
@@ -136,6 +162,7 @@ tools/verificar-beta.js                recorridos completos en navegador
 | --- | --- | --- |
 | `tm_acceder(email, clave)` · `tm_registrar(email, clave, nombre)` · `tm_salir` · `tm_sesion` | cualquiera | sesión |
 | `tm_cargar(sesión, huella)` | cualquiera | la caché del rol (visitante sin sesión); con la huella de la última respuesta, `sin_cambios` si nada cambió |
+| `tm_auditoria(sesión, antes, texto)` | superadmin, finanzas | historial completo de auditoría, 200 por página, con búsqueda |
 | `tm_carrito_poner` · `tm_carrito_quitar` · `tm_fusionar_carrito` · `tm_direccion_agregar` · `tm_direccion_quitar` | comprador | carrito y direcciones |
 | `tm_crear_pedido(tipo, dirección, método, ref, total)` | comprador | un pedido por seller, reserva stock, vacía el carrito |
 | `tm_conciliar_pago` · `tm_rechazar_pago` | superadmin, finanzas | por aceptar, o cancelado con la reserva liberada |
@@ -172,19 +199,21 @@ Realtime: en un proyecto compartido delataría la actividad de Tumbo.
 
    ```bash
    NODE_USE_ENV_PROXY=1 TM_SUPABASE_URL=… TM_SUPABASE_KEY=… node tools/verificar-rls.js
-   node tools/verificar-beta.js https://rengifojjrr.github.io/Marketplace
+   TM_NUBE=1 node tools/verificar-beta.js https://rengifojjrr.github.io/Marketplace
    ```
 
-   Desde un entorno con proxy, el sitio servido en local también se puede
-   probar contra la nube: `NODE_USE_ENV_PROXY=1 TM_SUPABASE_URL=… TM_SUPABASE_KEY=…
+   Ambas reinician los datos de la demo; por eso, contra el sitio publicado,
+   la prueba en navegador exige `TM_NUBE=1` (o `npm run test:nube`). Desde un
+   entorno con proxy, el sitio servido en local también se puede probar
+   contra la nube: `NODE_USE_ENV_PROXY=1 TM_SUPABASE_URL=… TM_SUPABASE_KEY=…
    node tools/verificar-beta.js http://127.0.0.1:8099` (las llamadas a la API
-   salen por el proceso de la prueba).
-
-   Ambas reinician los datos de la demo.
-4. Publicar el sitio: GitHub Pages lo reconstruye desde `main` en cada
-   push. Si un push no dispara la publicación (no aparece un nuevo
-   «pages-build-deployment» en Actions), un commit hecho desde la web de
-   GitHub la vuelve a lanzar.
+   salen por el proceso de la prueba). Sin variables y con el sitio en local,
+   `npm test` usa el modo local y no toca la nube.
+4. Publicar el sitio: GitHub Pages lo reconstruye desde `main`. Los push
+   hechos con la credencial de una integración (como la de una sesión de
+   Claude) no siempre disparan la publicación: si no aparece un nuevo
+   «pages-build-deployment» en Actions, un commit hecho desde la web de
+   GitHub (o su API, con la cuenta de la persona) la vuelve a lanzar.
 
 > El proyecto usa el plan gratuito: si pasa 7 días sin actividad, Supabase lo
 > pausa. Si la beta muestra «No pudimos cargar Tumbo», hay que reactivarlo
