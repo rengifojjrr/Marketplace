@@ -291,13 +291,19 @@
     raiz.querySelector('[data-reintentar]').addEventListener('click', reintentar);
   }
 
-  /* No repintar mientras el usuario escribe, tiene un modal o un menú
-     abierto: los cambios de otros usuarios esperan a que termine. */
-  function ocupado(raiz) {
+  /* No repintar mientras el usuario escribe, tiene un formulario a medio
+     llenar, un modal o un menú abierto: los cambios de otros usuarios
+     esperan a su próxima acción. */
+  function ocupado(raiz, editado) {
     var a = document.activeElement;
+    if (editado) return true;
     if (document.querySelector('.tm-velo')) return true;
-    if (raiz.querySelector('[data-cuenta-panel]:not([hidden]),[data-notif-panel]:not([hidden])')) return true;
+    if (raiz.querySelector('[data-cuenta-panel]:not([hidden]),[data-notif-panel]:not([hidden]),[data-velo-nav]:not([hidden])')) return true;
     return !!(a && raiz.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
+  }
+
+  function mismaIdentidad(a, b) {
+    return (!a && !b) || !!(a && b && a.uid === b.uid && a.rol === b.rol);
   }
 
   function montar() {
@@ -348,16 +354,24 @@
       if (def.despues) def.despues(raiz, params(), s);
     }
 
+    var editado = false;
+    raiz.addEventListener('input', function () { editado = true; });
+    raiz.addEventListener('change', function () { editado = true; });
+
     pintar();
     var pendiente = false;
     TM.suscribir(function (origen) {
-      if (origen === 'externo' && ocupado(raiz)) { pendiente = true; return; }
+      /* La sesión cambió (venció, se cerró o se abrió otra cuenta en otra
+         pestaña): la página se vuelve a montar con la identidad real. */
+      if (!mismaIdentidad(s, TM.sesion())) { location.reload(); return; }
+      if (origen === 'externo' && ocupado(raiz, editado)) { pendiente = true; return; }
       pendiente = false;
+      editado = false;
       pintar();
     });
     function alLiberar() {
       setTimeout(function () {
-        if (pendiente && !ocupado(raiz)) { pendiente = false; pintar(); }
+        if (pendiente && !ocupado(raiz, editado)) { pendiente = false; pintar(); }
       }, 0);
     }
     document.addEventListener('focusout', alLiberar);

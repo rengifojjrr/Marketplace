@@ -32,13 +32,17 @@ para **no tocar nada** de lo que ya hay:
   una recibe el token de sesión, valida rol, propiedad y estado, y responde
   solo con lo que ese rol puede ver.
 
-Para quitar Tumbo del proyecto basta con:
+Para quitar Tumbo del proyecto basta con ejecutar
+[`tools/retirar-tumbo.sql`](../tools/retirar-tumbo.sql): borra los dos
+esquemas y las funciones `public.tm_*` **por nombre** (una función de otra
+aplicación que empiece por `tm_` no se toca). La primera migración usa
+`create schema tumbo` sin `if not exists`: si el nombre ya estuviera ocupado
+por otra aplicación, falla en vez de adueñarse de él.
 
-```sql
-drop schema tumbo cascade;
-drop schema tumbo_privado cascade;
--- y las funciones public.tm_* (ver tools/supabase-local/reaplicar.sh)
-```
+Los avisos del *Security Advisor* de Supabase sobre Tumbo son esperados:
+«RLS sin políticas» en `tumbo.*` (nadie lee filas directamente, a propósito)
+y «función `SECURITY DEFINER` ejecutable por `anon`» en `public.tm_*` (es la
+API: cada función valida la sesión de Tumbo que recibe).
 
 ## Piezas
 
@@ -48,8 +52,10 @@ supabase/migrations/
   20261022170100_tumbo_nucleo.sql      sesiones, ayudantes y lectura por rol (tm_cargar)
   20261022170200_tumbo_funciones.sql   operaciones de negocio tm_*
   20261022170300_tumbo_semilla.sql     datos de la demo, reinicio y privilegios
+  20261022170400_tumbo_endurecimiento.sql  topes, vencimientos, devoluciones y lectura acotada
 assets/js/tm-config.js                 URL y clave publicable del proyecto
 assets/js/tm-remoto.js                 motor remoto: llama a /rest/v1/rpc/tm_* con fetch (sin librerías)
+tools/retirar-tumbo.sql                quita Tumbo del proyecto sin tocar nada más
 tools/supabase-local/                  Postgres + PostgREST en local para probar sin la nube
 tools/verificar-rls.js                 permisos rol por rol contra la API
 tools/verificar-beta.js                recorridos completos en navegador
@@ -58,13 +64,16 @@ tools/verificar-beta.js                recorridos completos en navegador
 ## Modelo de seguridad
 
 1. **Identidad**: `tm_acceder(correo, clave)` devuelve un token de sesión que
-   vive 7 días (se renueva con el uso) y se invalida con `tm_salir`. Tras 8
-   intentos fallidos desde una misma conexión en 15 minutos, esa conexión queda
-   frenada para esa cuenta (quien ataca desde su red no bloquea al dueño en la
-   suya), con topes adicionales por conexión y por cuenta. La conexión se
-   identifica con `cf-connecting-ip`, que fija el borde de Supabase. Un
-   registro desde la web **siempre** nace `comprador` (el rol nunca viene del
-   navegador) y tiene freno por conexión.
+   vive 7 días (se renueva con el uso, con tope de 30) y se invalida con
+   `tm_salir`. Tras 8 intentos fallidos desde una misma conexión en 15
+   minutos, esa conexión queda frenada para esa cuenta (quien ataca desde su
+   red no bloquea al dueño en la suya). Hay además topes por conexión y por
+   cuenta, y este último no frena al dueño en una red desde la que ya entró
+   esa semana. Un techo global de fallos por minuto acota el coste de bcrypt
+   en la base compartida. La conexión se identifica con `cf-connecting-ip`,
+   que fija el borde de Supabase; en IPv6 se agrupa por /64. Un registro
+   desde la web **siempre** nace `comprador` (el rol nunca viene del
+   navegador) y tiene freno por conexión y un techo global.
 2. **Lectura**: `tm_cargar(sesión)` devuelve de una vez lo que el rol puede ver:
 
    | Rol | Ve |
@@ -80,7 +89,11 @@ tools/verificar-beta.js                recorridos completos en navegador
 
    Los pedidos que ve un seller no traen el identificador del comprador, y
    los avisos a un comercio declaran qué roles los ven (dinero y reclamos: solo
-   el seller principal).
+   el seller principal; al operador tampoco le llegan esos eventos en la línea
+   de tiempo). Fuera del equipo del comercio, un producto muestra lo
+   disponible, no sus reservas ni fechas internas. Lo pendiente (pagos por
+   verificar, pedidos en curso, fondos retenidos o elegibles, reclamos
+   abiertos) llega siempre; el historial cerrado, los 150 más recientes.
 3. **Escritura**: cada cambio pasa por una función `tm_*` (`SECURITY DEFINER`,
    `search_path` vacío) que, en una sola transacción:
    - exige el rol y la propiedad del recurso (un pedido ajeno responde «no
@@ -96,12 +109,24 @@ tools/verificar-beta.js                recorridos completos en navegador
    el comprador u Operaciones con la prueba del courier; no se liquida un neto
    negativo. Las operaciones de un mismo comprador sobre su carrito se
    serializan, así que dos pestañas a la vez no descuadran las reservas.
-5. **Auditoría** de solo agregar: los disparadores impiden editar, borrar o
+   Además: hasta 10 unidades por producto; un pago sin verificar vence a las
+   48 horas y libera su reserva; una referencia de pago no se reutiliza; el
+   pedido se crea con el subtotal que vio el comprador (si un precio cambió,
+   se le avisa); la liquidación paga exactamente los pedidos mostrados; una
+   devolución se cierra con el producto de vuelta (reembolso y stock) o sin
+   él (fondos al seller); un producto pausado que se corrige vuelve pausado
+   tras la aprobación.
+5. **Topes contra el abuso** (las cuentas demo tienen contraseña pública):
+   150 escrituras por usuario cada 10 minutos, 150 productos por comercio, 50
+   sesiones abiertas por cuenta, un «Inicio de sesión» auditado por cuenta
+   cada 10 minutos (con su propia ventana en la lectura, para que no tape el
+   resto) y sin auditar datos triviales del comprador.
+6. **Auditoría** de solo agregar: los disparadores impiden editar, borrar o
    vaciar eventos (también al reiniciar la demo).
-6. **Segundo factor**: en la beta es un código fijo (`123456`) verificado en el
+7. **Segundo factor**: en la beta es un código fijo (`123456`) verificado en el
    navegador. Es una puerta de demostración, no una defensa. Para producción:
    TOTP en el servidor exigido por las funciones financieras.
-7. **Defensa en profundidad**: RLS activo y sin políticas en todas las tablas
+8. **Defensa en profundidad**: RLS activo y sin políticas en todas las tablas
    de `tumbo`; aunque alguien expusiera el esquema por error, ninguna fila
    sería legible.
 
@@ -110,15 +135,16 @@ tools/verificar-beta.js                recorridos completos en navegador
 | Función | Quién | Efecto |
 | --- | --- | --- |
 | `tm_acceder(email, clave)` · `tm_registrar(email, clave, nombre)` · `tm_salir` · `tm_sesion` | cualquiera | sesión |
-| `tm_cargar(sesión)` | cualquiera | la caché del rol (visitante sin sesión) |
+| `tm_cargar(sesión, huella)` | cualquiera | la caché del rol (visitante sin sesión); con la huella de la última respuesta, `sin_cambios` si nada cambió |
 | `tm_carrito_poner` · `tm_carrito_quitar` · `tm_fusionar_carrito` · `tm_direccion_agregar` · `tm_direccion_quitar` | comprador | carrito y direcciones |
-| `tm_crear_pedido(tipo, dirección, método, ref)` | comprador | un pedido por seller, reserva stock, vacía el carrito |
+| `tm_crear_pedido(tipo, dirección, método, ref, total)` | comprador | un pedido por seller, reserva stock, vacía el carrito |
 | `tm_conciliar_pago` · `tm_rechazar_pago` | superadmin, finanzas | por aceptar, o cancelado con la reserva liberada |
 | `tm_aceptar_pedido` · `tm_marcar_listo` · `tm_despachar` | seller, operador | preparación y salida; el despacho descuenta el stock |
 | `tm_confirmar_entrega` | comprador, ops, superadmin | abre la ventana de reclamo, fondos retenidos |
 | `tm_cancelar_pedido` | comprador | antes del despacho; libera la reserva |
 | `tm_abrir_disputa` · `tm_responder_disputa` · `tm_resolver_disputa` | comprador · seller · superadmin y ops | reclamo con fondos congelados hasta la decisión |
-| `tm_cerrar_ventana` · `tm_ejecutar_liquidacion` | superadmin, finanzas | fondos elegibles → liquidación con comisión y comprobante |
+| `tm_cerrar_devolucion(pedido, recibida)` | superadmin, ops | devolución recibida (reembolso y stock) o no (fondos al seller) |
+| `tm_cerrar_ventana` · `tm_ejecutar_liquidacion(seller, pedidos)` | superadmin, finanzas | fondos elegibles → liquidación con comisión y comprobante |
 | `tm_guardar_producto` · `tm_pausar_producto` | seller, operador | alta, edición, revisión, pausa |
 | `tm_ajustar_producto` | precio: seller, precios · stock: seller, operador | edición en línea |
 | `tm_moderar_producto` · `tm_decidir_kyc` | superadmin | publicación y homologación |
@@ -128,15 +154,19 @@ tools/verificar-beta.js                recorridos completos en navegador
 ## Cambios de otros usuarios
 
 Mientras la pestaña está a la vista, la app vuelve a pedir `tm_cargar` cada
-20 segundos con su propia sesión y se repinta solo si algo cambió — salvo que
-la persona esté escribiendo o tenga un modal abierto: entonces espera. No se
+20 segundos con su propia sesión (y la huella de lo que ya tiene: si nada
+cambió, el servidor no repite la descarga) y se repinta solo si algo cambió —
+salvo que la persona esté escribiendo, tenga un formulario a medio llenar, un
+modal o un menú abierto: entonces espera a su próxima acción. Si la sesión
+cambió (venció, se cerró o se abrió otra cuenta en otra pestaña), la página
+se vuelve a montar con la identidad real. No se
 usa un canal público de Realtime: en un proyecto compartido delataría la
 actividad de Tumbo.
 
 ## Desplegar o actualizar
 
-1. Aplicar las cuatro migraciones en orden (SQL Editor, `supabase db push` o
-   el conector MCP). La última siembra las cuentas demo y los datos.
+1. Aplicar las migraciones en orden (SQL Editor, `supabase db push` o el
+   conector MCP). La cuarta siembra las cuentas demo y los datos.
 2. Poner la **Project URL** y la **publishable key** en
    `assets/js/tm-config.js` y publicar.
 3. Verificar:
@@ -145,6 +175,11 @@ actividad de Tumbo.
    NODE_USE_ENV_PROXY=1 TM_SUPABASE_URL=… TM_SUPABASE_KEY=… node tools/verificar-rls.js
    node tools/verificar-beta.js https://rengifojjrr.github.io/Marketplace
    ```
+
+   Desde un entorno con proxy, el sitio servido en local también se puede
+   probar contra la nube: `NODE_USE_ENV_PROXY=1 TM_SUPABASE_URL=… TM_SUPABASE_KEY=…
+   node tools/verificar-beta.js http://127.0.0.1:8099` (las llamadas a la API
+   salen por el proceso de la prueba).
 
    Ambas reinician los datos de la demo.
 
@@ -160,7 +195,7 @@ python3 -m http.server 8099                # el sitio
 TM_SUPABASE_URL=http://127.0.0.1:54321 \
 TM_SUPABASE_KEY=$(node tools/supabase-local/pasarela.js --clave) \
 node tools/verificar-beta.js http://127.0.0.1:8099
-tools/supabase-local/reaplicar.sh          # vuelve a aplicar las migraciones desde cero
+PGDATABASE=… tools/supabase-local/reaplicar.sh   # vuelve a aplicar las migraciones desde cero
 ```
 
 El stack local usa el binario oficial de PostgREST y reproduce los roles y

@@ -35,6 +35,7 @@
   var promesaDatos = null;
   var turnoCarga = 0;
   var huella = '';
+  var huellaServidor = null;
 
   /* ---------------------------------------------------------------------
      Utilidades
@@ -71,6 +72,7 @@
      redactados por el servidor. */
   function traducir(err) {
     var m = (err && (err.message || err.error)) || '';
+    if (err && (err.code === '40P01' || err.code === '55P03')) return 'Otra operación tocó lo mismo a la vez. Inténtalo de nuevo.';
     if (/Failed to fetch|NetworkError|Load failed|fetch failed/i.test(m)) return 'Sin conexión con el servidor. Revisa tu internet e inténtalo de nuevo.';
     if (/permission denied/i.test(m)) return 'Tu rol no permite esta acción.';
     if (/violates check constraint/i.test(m)) return 'Algún dato no es válido. Revísalo e inténtalo de nuevo.';
@@ -100,7 +102,10 @@
         var dato = null;
         try { dato = texto ? JSON.parse(texto) : null; } catch (e) { dato = null; }
         if (!r.ok) {
-          var err = dato || { message: texto };
+          /* Una página de error del gateway (502, 520…) no se muestra cruda. */
+          var err = (dato && typeof dato === 'object') ? dato
+            : { message: r.status === 429 ? 'Demasiadas solicitudes seguidas. Espera unos segundos.'
+                : 'El servidor no está disponible (' + r.status + '). Inténtalo en unos segundos.' };
           if (err.code === '28000') olvidarSesion();
           throw { error: traducir(err) };
         }
@@ -279,8 +284,13 @@
      recarga por tiempo real que no cambia nada no repinta. */
   function refrescar(origen) {
     var turno = ++turnoCarga;
-    return llamar('tm_cargar', { p_sesion: token() }).then(function (d) {
+    /* En el sondeo, si nada cambió el servidor solo lo confirma. */
+    var params = { p_sesion: token() };
+    if (origen === 'externo' && huellaServidor) params.p_huella = huellaServidor;
+    return llamar('tm_cargar', params).then(function (d) {
       if (turno !== turnoCarga) return;
+      if (d.sin_cambios) return;
+      huellaServidor = d.huella || null;
       if (d.sesion_invalida) olvidarSesion();
       sesionActual = perfil(d.yo);
       var e = construir(d);
@@ -324,6 +334,8 @@
     });
   }
 
+  var TOPE_UNIDADES = 10;
+
   function esComprador() { return !!(sesionActual && sesionActual.rol === 'comprador'); }
 
   function disponibleDe(sku) {
@@ -340,11 +352,21 @@
     TM._avisar('propio');
   }
 
+  function lineasCarrito() {
+    return esComprador() ? (TM.estado.carritos[sesionActual.email] || []) : (TM.estado.carritos.invitado || invitado());
+  }
   function carrito() {
-    var lista = esComprador() ? (TM.estado.carritos[sesionActual.email] || []) : (TM.estado.carritos.invitado || invitado());
-    return lista.filter(function (i) {
+    return lineasCarrito().filter(function (i) {
       var p = TM.producto(i.sku);
       return p && p.estado === 'publicado';
+    });
+  }
+  /* Líneas cuyo producto dejó de estar a la venta (pausa, revisión…): se
+     muestran aparte para poder quitarlas. */
+  function carritoNoDisponible() {
+    return lineasCarrito().filter(function (i) {
+      var p = TM.producto(i.sku);
+      return !p || p.estado !== 'publicado';
     });
   }
 
@@ -360,8 +382,9 @@
       var ya = carrito().find(function (i) { return i.sku === sku; });
       var disponible = disponibleDe(sku);
       var nueva = (ya ? ya.cant : 0) + (cant || 1);
+      if (nueva > TOPE_UNIDADES) throw { error: 'Puedes llevar hasta ' + TOPE_UNIDADES + ' unidades de cada producto.' };
       if (nueva > disponible) throw { error: 'Solo quedan ' + disponible + ' unidades disponibles.' };
-      return poner(sku, Math.min(99, nueva));
+      return poner(sku, nueva);
     });
   }
 
@@ -369,7 +392,7 @@
     return Promise.resolve().then(function () {
       var p = TM.producto(sku);
       var disponible = p ? p.stockFis - p.stockRes : 0;
-      return poner(sku, Math.max(1, Math.min(cant, disponible || 1, 99)));
+      return poner(sku, Math.max(1, Math.min(cant, disponible || 1, TOPE_UNIDADES)));
     });
   }
 
@@ -435,14 +458,18 @@
   T.marcarNotificacionesLeidas = marcarNotificacionesLeidas;
 
   T.carrito = carrito;
+  T.carritoNoDisponible = carritoNoDisponible;
   T.carritoAgregar = carritoAgregar;
   T.carritoCambiar = carritoCambiar;
   T.carritoQuitar = carritoQuitar;
 
+  /* Con el subtotal que ve el comprador: si un precio cambió mientras
+     pagaba, el servidor no crea el pedido con otro monto. */
   T.crearPedido = function (d) {
+    var subtotal = carrito().reduce(function (t, i) { return t + TM.producto(i.sku).precioUsd * i.cant; }, 0);
     return rpc('tm_crear_pedido', {
       p_envio_tipo: d.tipo, p_direccion_id: d.tipo === 'agencia' ? null : (d.direccionId || null),
-      p_metodo: d.metodo, p_ref: d.ref
+      p_metodo: d.metodo, p_ref: d.ref, p_total_usd: Math.round(subtotal * 100) / 100
     });
   };
   T.conciliarPago = function (id) { return rpc('tm_conciliar_pago', { p_id: id }); };
@@ -464,7 +491,11 @@
   T.resolverDisputa = function (id, decision, nota) {
     return rpc('tm_resolver_disputa', { p_id: id, p_decision: decision, p_nota: nota || null });
   };
-  T.ejecutarLiquidacion = function (sellerId) { return rpc('tm_ejecutar_liquidacion', { p_seller: sellerId }); };
+  T.cerrarDevolucion = function (id, recibida) { return rpc('tm_cerrar_devolucion', { p_id: id, p_recibida: !!recibida }); };
+  /* La corrida liquida exactamente los pedidos que se mostraron. */
+  T.ejecutarLiquidacion = function (sellerId, pedidos) {
+    return rpc('tm_ejecutar_liquidacion', { p_seller: sellerId, p_pedidos: pedidos || [] });
+  };
 
   T.guardarProducto = guardarProducto;
   T.ajustarProducto = function (sku, campo, valor) {

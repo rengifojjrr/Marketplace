@@ -203,15 +203,35 @@
   /* =====================================================================
      Carrito
      ===================================================================== */
+  /* Productos del carrito que dejaron de estar a la venta: aparte, con su
+     botón para quitarlos (el pedido no se crea mientras sigan ahí). */
+  function lineasNoDisponibles() {
+    var fuera = TM.carritoNoDisponible();
+    if (!fuera.length) return '';
+    return '<div data-no-disponibles class="rounded-card border border-warning bg-warning-container/40 p-4 mb-4">' +
+      '<p class="flex items-center gap-1.5 font-body-sm text-body-sm font-bold text-on-warning-container mb-2">' + ic('info', 'text-[18px]') +
+      (fuera.length === 1 ? 'Un producto de tu carrito ya no está disponible' : fuera.length + ' productos de tu carrito ya no están disponibles') + '</p>' +
+      fuera.map(function (i) {
+        var p = TM.producto(i.sku);
+        return '<div class="flex items-center justify-between gap-3 py-1.5">' +
+          '<span class="font-body-sm text-body-sm">' + esc(p ? p.nombre : i.sku) + ' × ' + i.cant +
+          '<span class="block text-on-surface-variant">Pausado o en revisión por el seller</span></span>' +
+          '<button data-quitar="' + esc(i.sku) + '" class="font-label-md text-label-md text-secondary hover:underline">Eliminar</button></div>';
+      }).join('') + '</div>';
+  }
+
   function vCarrito(q, s) {
     var items = TM.carrito();
+    if (!items.length && TM.carritoNoDisponible().length) {
+      return tituloSeccion('Tu carrito') + lineasNoDisponibles();
+    }
     if (!items.length) {
       return tituloSeccion('Tu carrito') + UI.vacio('shopping_cart', 'El carrito está vacío',
         'Agrega productos del catálogo: aquí verás el subtotal en bolívares con su referencia en dólares.',
         '<a class="inline-flex items-center gap-2 min-h-[44px] px-5 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md" href="' +
         href('app/tienda/resultados.html') + '">' + ic('search', 'text-[18px]') + 'Explorar el catálogo</a>');
     }
-    return tituloSeccion('Tu carrito') +
+    return tituloSeccion('Tu carrito') + lineasNoDisponibles() +
       '<div class="grid lg:grid-cols-[1fr_340px] gap-6 items-start">' +
       '<div class="rounded-card border border-outline-variant bg-surface-container-lowest divide-y divide-outline-variant">' +
       items.map(function (i) {
@@ -274,6 +294,11 @@
         '<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href('app/tienda/resultados.html') + '">Volver al catálogo</a>');
     }
     var dirs = TM.estado.direcciones[s.email] || [];
+    if (TM.carritoNoDisponible().length) {
+      return tituloSeccion('Finalizar compra') + UI.vacio('remove_shopping_cart', 'Revisa tu carrito antes de pagar',
+        'Algún producto dejó de estar disponible: quítalo del carrito para continuar.',
+        '<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href('app/tienda/carrito.html') + '">Ir al carrito</a>');
+    }
     return tituloSeccion('Finalizar compra') +
     '<div class="grid lg:grid-cols-[1fr_340px] gap-6 items-start"><form data-checkout class="space-y-4">' +
 
@@ -357,14 +382,15 @@
      Confirmación
      ===================================================================== */
   function vConfirmacion(q) {
-    var ids = (q.get('ids') || '').split(',').filter(Boolean);
+    /* Solo identificadores de pedido: el parámetro viene de la URL. */
+    var ids = (q.get('ids') || '').split(',').filter(function (id) { return /^TM-\d{4}-\d{5,}$/.test(id); });
     return '<div class="max-w-xl mx-auto text-center py-8">' +
       '<span class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success-container text-on-success-container mb-4">' + ic('check_circle', 'text-[32px]') + '</span>' +
       '<h1 class="font-headline-md text-headline-md text-primary-container mb-2">¡Pedido registrado!</h1>' +
       '<p class="font-body-md text-body-md text-on-surface-variant mb-4">Tu pago quedó <strong>pendiente de verificación</strong>: Finanzas concilia la referencia y el seller empieza a preparar. Te avisaremos en cada paso.</p>' +
       ids.map(function (id) {
         return '<a class="flex items-center justify-between gap-2 rounded-card border border-outline-variant bg-surface-container-lowest px-4 py-3 mb-2 hover:border-secondary" href="' +
-          href('app/tienda/pedido.html?id=' + id) + '">' +
+          esc(href('app/tienda/pedido.html?id=' + encodeURIComponent(id))) + '">' +
           '<span class="font-data-mono text-data-mono text-on-surface">' + esc(id) + '</span>' +
           '<span class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary">Seguir pedido' + ic('arrow_forward', 'text-[16px]') + '</span></a>';
       }).join('') +

@@ -169,7 +169,7 @@
         td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtBs(TM.totalPedidoUsd(p))) + '</span>', 'text-right') +
         td(p.estado === 'despachado' && (s.rol === 'ops' || s.rol === 'superadmin')
           ? btn('Confirmar entrega', { icono: 'check_circle', attr: 'data-entregado="' + esc(p.id) + '" title="Con la prueba de entrega del courier"' })
-          : '', 'text-right');
+          : p.estado === 'devolucion' && (s.rol === 'ops' || s.rol === 'superadmin') ? botonesDevolucion(p.id) : '', 'text-right');
     });
     return titulo('Pedidos del marketplace') +
       '<form data-filtro class="mb-4 max-w-md flex" role="search">' +
@@ -179,7 +179,33 @@
         UI.vacio('search_off', 'Sin coincidencias', 'Ningún pedido coincide con la búsqueda.'));
   }
 
+  /* Cierre de una devolución: el producto volvió (reembolso y stock) o no
+     volvió (fondos al seller). */
+  function botonesDevolucion(id) {
+    return '<div class="flex flex-wrap gap-2 justify-end">' +
+      btn('Devolución recibida', { icono: 'assignment_return', attr: 'data-devolucion="' + esc(id) + '" data-recibida="1"' }) +
+      btn('No llegó', { estilo: 'borde', icono: 'lock_open', attr: 'data-devolucion="' + esc(id) + '" data-recibida="0"' }) + '</div>';
+  }
+
+  function conectarDevoluciones(raiz) {
+    raiz.querySelectorAll('[data-devolucion]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var id = b.getAttribute('data-devolucion');
+        var recibida = b.getAttribute('data-recibida') === '1';
+        UI.confirmar(recibida ? 'Devolución de ' + id + ' recibida' : 'Cerrar la devolución de ' + id,
+          recibida ? 'Se reembolsa al comprador (demo) y las unidades vuelven al inventario del seller.'
+                   : 'El producto no llegó en el plazo: el caso se cierra y los fondos pasan a elegibles para el seller.',
+          { accion: recibida ? 'Reembolsar' : 'Liberar fondos' }, function () {
+            UI.accion(null, function () { return TM.cerrarDevolucion(id, recibida); }, function () {
+              UI.toast('Devolución cerrada', id + (recibida ? ': reembolso en proceso.' : ': fondos elegibles para el seller.'), recibida ? 'undo' : 'lock_open');
+            }, 'No se cerró la devolución');
+          });
+      });
+    });
+  }
+
   function despuesPedidosAdmin(raiz) {
+    conectarDevoluciones(raiz);
     raiz.querySelectorAll('[data-entregado]').forEach(function (b) {
       b.addEventListener('click', function () {
         var id = b.getAttribute('data-entregado');
@@ -227,7 +253,9 @@
           (d.resolucion
             ? '<p class="font-body-sm text-body-sm"><strong>Resuelta (' + esc(d.resolucion.fecha) + '):</strong> ' +
               (d.resolucion.decision === 'reembolso' ? 'reembolso total al comprador.' : d.resolucion.decision === 'devolucion' ? 'devolución con logística inversa.' : 'a favor del seller, fondos liberados.') +
-              (d.resolucion.nota ? ' ' + esc(d.resolucion.nota) : '') + '</p>'
+              (d.resolucion.nota ? ' ' + esc(d.resolucion.nota) : '') + '</p>' +
+              (p && p.estado === 'devolucion' && (s.rol === 'ops' || s.rol === 'superadmin')
+                ? '<div class="flex flex-wrap items-center gap-2 mt-2"><span class="font-body-sm text-body-sm text-on-surface-variant">Devolución en curso:</span>' + botonesDevolucion(p.id) + '</div>' : '')
             : '<div class="flex flex-wrap gap-2">' +
               btn('Reembolso total', { estilo: 'primario', icono: 'undo', attr: 'data-resolver="reembolso" data-did="' + esc(d.id) + '"' }) +
               btn('Pedir devolución', { icono: 'assignment_return', attr: 'data-resolver="devolucion" data-did="' + esc(d.id) + '"' }) +
@@ -240,6 +268,7 @@
   }
 
   function despuesDisputasAdmin(raiz, q, s) {
+    conectarDevoluciones(raiz);
     raiz.querySelectorAll('[data-resolver]').forEach(function (b) {
       b.addEventListener('click', function () {
         var decision = b.getAttribute('data-resolver');
@@ -266,13 +295,14 @@
         td('<span class="font-data-mono text-data-mono">' + esc(p.id) + '</span>') +
         td(esc(p.metodo || 'Pago Móvil')) +
         td('<span class="font-data-mono text-data-mono">' + esc(TM.fmtBs(TM.totalPedidoUsd(p))) + '</span>') +
-        td('<span class="inline-flex items-center gap-1 font-body-sm text-body-sm text-tertiary">' + ic('check_circle', 'text-[16px]') + 'monto coincide</span>') +
+        td('<span class="inline-flex items-center gap-1 font-body-sm text-body-sm text-on-surface-variant">' + ic('account_balance', 'text-[16px]') + 'cotejar en el banco</span>') +
         td('<div class="flex gap-2 justify-end">' +
           btn('Rechazar', { estilo: 'borde', icono: 'block', attr: 'data-rechazar-pago="' + esc(p.id) + '"' }) +
           btn('Conciliar', { estilo: 'primario', icono: 'fact_check', attr: 'data-conciliar="' + esc(p.id) + '"' }) + '</div>', 'text-right');
     });
     return titulo('Conciliación de pagos',
-        cola.length > 1 ? btn('Conciliar todos (' + cola.length + ')', { estilo: 'marca', icono: 'fact_check', attr: 'data-conciliar-todo' }) : '') +
+        cola.length > 1 ? btn('Conciliar todos (' + cola.length + ')', { estilo: 'marca', icono: 'fact_check',
+          attr: 'data-conciliar-todo="' + esc(cola.map(function (p) { return p.id; }).join(',')) + '"' }) : '') +
       '<p class="flex items-center gap-1.5 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-4 max-w-2xl">' +
         ic('science', 'text-[16px]') + 'Modo demo: las referencias se validan contra los pedidos, no contra un banco real.</p>' +
       UI.tabla(['Referencia', 'Pedido', 'Método', 'Monto esperado', 'Verificación', ''], filas,
@@ -302,8 +332,8 @@
     });
     var todo = raiz.querySelector('[data-conciliar-todo]');
     if (todo) todo.addEventListener('click', function () {
-      var ids = TM.estado.pedidos.filter(function (p) { return p.estado === 'pago_por_verificar'; })
-        .map(function (p) { return p.id; });
+      /* Solo los pagos que están en pantalla, no los que llegaron después. */
+      var ids = todo.getAttribute('data-conciliar-todo').split(',').filter(Boolean);
       UI.accion(todo, function () { return TM.conciliarPagos(ids); }, function () {
         UI.toast('Conciliación masiva', ids.length + ' pagos conciliados.', 'fact_check');
       });
@@ -347,7 +377,8 @@
           '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">' + lista.length + ' pedido' + (lista.length === 1 ? '' : 's') + ' elegible' + (lista.length === 1 ? '' : 's') + ': ' +
           lista.map(function (p) { return p.id; }).join(', ') + '</p>' +
           '<p class="font-body-sm text-body-sm mb-3">Bruto <strong class="font-data-mono">' + esc(TM.fmtUsd(b)) + '</strong> · comisión ' + e.config.comisionPct + ' % + tarifas <strong class="font-data-mono text-error">−' + esc(TM.fmtUsd(comision + e.config.tarifaFijaUsd * lista.length)) + '</strong> · neto <strong class="font-data-mono">' + esc(TM.fmtUsd(neto)) + '</strong></p>' +
-          btn('Ejecutar liquidación (2FA)', { estilo: 'marca', icono: 'lock', attr: 'data-liquidar="' + esc(sid) + '"' }) + '</div>';
+          btn('Ejecutar liquidación (2FA)', { estilo: 'marca', icono: 'lock',
+            attr: 'data-liquidar="' + esc(sid) + '" data-pedidos="' + esc(lista.map(function (p) { return p.id; }).join(',')) + '"' }) + '</div>';
       }).join('')
       : UI.vacio('receipt_long', 'Sin corridas pendientes', 'Cuando haya pedidos con fondos elegibles, la corrida por seller aparecerá aquí.')) +
 
@@ -373,8 +404,9 @@
     raiz.querySelectorAll('[data-liquidar]').forEach(function (b) {
       b.addEventListener('click', function () {
         var sid = b.getAttribute('data-liquidar');
+        var pedidos = b.getAttribute('data-pedidos').split(',').filter(Boolean);
         UI.pedir2fa('Ejecutar liquidación a ' + sid, function () {
-          UI.accion(null, function () { return TM.ejecutarLiquidacion(sid); }, function (liq) {
+          UI.accion(null, function () { return TM.ejecutarLiquidacion(sid, pedidos); }, function (liq) {
             UI.toast('Liquidación ' + liq.id + ' ejecutada', 'Neto ' + TM.fmtUsd(Number(liq.netoUsd)) + ' · el seller ya ve su comprobante.', 'receipt_long');
           }, 'No se ejecutó la liquidación');
         });

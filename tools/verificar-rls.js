@@ -64,6 +64,8 @@ const ESPERADO = {
 
   const r0 = await rpc('tm_reiniciar_demo', { p_sesion: s.superadmin });
   ok(r0.ok, 'superadmin reinicia la demo', r0.texto);
+  s.ops2 = await sesion(CUENTAS.ops);
+  const stockCaucho = (await rpc('tm_cargar', { p_sesion: s.superadmin })).dato.productos.find((p) => p.sku === 'SKU-MOT-0832').stock_fis;
 
   /* ---------- Lectura por rol ---------- */
   for (const [rol, claves] of Object.entries(ESPERADO)) {
@@ -99,19 +101,23 @@ const ESPERADO = {
   const r4 = await rpc('tm_conciliar_pago', { p_sesion: falsa, p_id: 'TM-2026-00433' });
   ok(!r4.ok && /sesión expiró/.test(r4.texto), 'una sesión inventada no puede actuar', r4.texto.slice(0, 120));
   const desechable = 'nadie-' + Date.now() + '@correo-demo.ve';
+  /* (hasta 20 intentos: la salida a internet de algunos entornos alterna
+     entre varias IP, y el freno cuenta por conexión) */
   let bloqueado = false;
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < 20 && !bloqueado; i++) {
     const r = await rpc('tm_acceder', { p_email: desechable, p_clave: 'mala-' + i });
     if (r.dato && /Demasiados intentos/.test(r.dato.error || '')) bloqueado = true;
   }
-  ok(bloqueado, 'tras 8 intentos fallidos el acceso se frena');
+  ok(bloqueado, 'tras 8 intentos fallidos desde una conexión el acceso se frena');
 
   /* ---------- Acciones fuera del rol o sobre recursos ajenos ---------- */
   const rechazadas = [
     [null, 'tm_crear_pedido', { p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'PM-00000' }],
     ['comprador', 'tm_conciliar_pago', { p_id: 'TM-2026-00433' }],
     ['comprador', 'tm_reiniciar_demo', {}],
-    ['seller', 'tm_ejecutar_liquidacion', { p_seller: 'SEL-014' }],
+    ['seller', 'tm_ejecutar_liquidacion', { p_seller: 'SEL-014', p_pedidos: ['TM-2026-00415'] }],
+    ['seller', 'tm_cerrar_devolucion', { p_id: 'TM-2026-00428', p_recibida: true }],
+    ['comprador', 'tm_carrito_poner', { p_sku: 'SKU-TEC-0450', p_cant: 11 }],
     ['seller', 'tm_ajustar_producto', { p_sku: 'SKU-HOG-0110', p_campo: 'precioUsd', p_valor: 1 }],
     ['precios', 'tm_ajustar_producto', { p_sku: 'SKU-MOT-0832', p_campo: 'stockFis', p_valor: 99 }],
     ['operador', 'tm_ajustar_producto', { p_sku: 'SKU-MOT-0832', p_campo: 'precioUsd', p_valor: 1 }],
@@ -134,7 +140,7 @@ const ESPERADO = {
   /* Falsear la IP con cabeceras que escribe el navegador no evade el freno. */
   const otra = 'nadie2-' + Date.now() + '@correo-demo.ve';
   let frenado = false;
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < 20 && !frenado; i++) {
     const r = await rpc('tm_acceder', { p_email: otra, p_clave: 'mala' }, { 'x-forwarded-for': '10.0.0.' + i, 'x-real-ip': '10.1.0.' + i });
     if (r.dato && /Demasiados intentos/.test(r.dato.error || '')) frenado = true;
   }
@@ -168,6 +174,46 @@ const ESPERADO = {
   const descuadres = vista.dato.productos.filter((p) => p.stock_res !== (reservado[p.sku] || 0))
     .map((p) => `${p.sku}: reservado ${p.stock_res} vs pedidos ${reservado[p.sku] || 0}`);
   ok(!descuadres.length, 'lo reservado coincide con los pedidos abiertos (también bajo concurrencia)', descuadres.join('; '));
+
+  /* Fuera del equipo del comercio no se publican reservas ni fechas internas. */
+  const pub = await rpc('tm_cargar', { p_sesion: null });
+  ok(pub.dato.productos.every((p) => p.stock_res === 0 && !('actualizado' in p) && !('motivo_rechazo' in p)),
+    'el catálogo público no expone reservas, fechas internas ni motivos de rechazo');
+  const igual = await rpc('tm_cargar', { p_sesion: null, p_huella: pub.dato.huella });
+  ok(igual.ok && igual.dato.sin_cambios === true && !igual.dato.productos, 'sin cambios, el servidor no repite la descarga');
+
+  /* El operador no recibe eventos de dinero ni de reclamos en la línea de tiempo. */
+  const vop = await rpc('tm_cargar', { p_sesion: s.operador });
+  const evOp = vop.dato.pedidos.flatMap((p) => p.pedido_eventos.map((e) => e.texto));
+  ok(!evOp.some((t) => /reclamo DSP|liquidación|fondos/i.test(t)), 'el operador no ve eventos de dinero ni de reclamos', evOp.filter((t) => /reclamo DSP|liquidación|fondos/i.test(t)).join(' | '));
+
+  /* Pedido: referencia única y precio que vio el comprador. */
+  const comp2 = await rpc('tm_registrar', { p_email: 'precio-' + Date.now() + '@correo-demo.ve', p_clave: 'clave-precio-1', p_nombre: 'Prueba Precio' });
+  const sp = comp2.dato && comp2.dato.sesion;
+  ok(!!sp, 'segundo comprador de prueba creado', comp2.texto.slice(0, 100));
+  if (sp) {
+    await rpc('tm_carrito_poner', { p_sesion: sp, p_sku: 'SKU-HOG-0110', p_cant: 1 });
+    const d1 = await rpc('tm_crear_pedido', { p_sesion: sp, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'trf-91108' });
+    ok(!d1.ok && /ya está registrada/.test(d1.texto), 'una referencia de pago ya usada se rechaza', d1.texto.slice(0, 120));
+    const d2 = await rpc('tm_crear_pedido', { p_sesion: sp, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'PM-PRECIO-1', p_total_usd: 1 });
+    ok(!d2.ok && /precios de tu carrito cambiaron/.test(d2.texto), 'si el precio cambió, el pedido no se crea', d2.texto.slice(0, 120));
+    const d3 = await rpc('tm_crear_pedido', { p_sesion: sp, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'PM-PRECIO-2', p_total_usd: 55 });
+    ok(d3.ok, 'con el precio que vio, el pedido se crea', d3.texto.slice(0, 120));
+  }
+
+  /* Liquidación: paga exactamente la corrida mostrada. */
+  const l1 = await rpc('tm_ejecutar_liquidacion', { p_sesion: s.finanzas, p_seller: 'SEL-014', p_pedidos: ['TM-2026-00415', 'TM-2026-00428'] });
+  ok(!l1.ok && /corrida cambió/.test(l1.texto), 'una corrida con un pedido no elegible se rechaza', l1.texto.slice(0, 120));
+
+  /* Devolución: se resuelve y se cierra con el producto de vuelta. */
+  const dv1 = await rpc('tm_resolver_disputa', { p_sesion: s.ops2, p_id: 'DSP-0098', p_decision: 'devolucion', p_nota: null });
+  const dv2 = await rpc('tm_cerrar_devolucion', { p_sesion: s.ops2, p_id: 'TM-2026-00428', p_recibida: true });
+  const dv3 = await rpc('tm_cargar', { p_sesion: s.superadmin });
+  const p428 = dv3.dato.pedidos.find((p) => p.id === 'TM-2026-00428');
+  const caucho = dv3.dato.productos.find((p) => p.sku === 'SKU-MOT-0832');
+  ok(dv1.ok && dv2.ok && p428 && p428.estado === 'reembolsado' && p428.liquidacion === 'reembolsado',
+    'la devolución recibida termina en reembolso', [dv1.texto, dv2.texto].join(' ').slice(0, 160));
+  ok(caucho && caucho.stock_fis === stockCaucho + 2, 'el producto devuelto vuelve al inventario', caucho && `${stockCaucho} → ${caucho.stock_fis}`);
 
   /* Y lo permitido funciona. */
   const a1 = await rpc('tm_conciliar_pago', { p_sesion: s.finanzas, p_id: 'TM-2026-00433' });

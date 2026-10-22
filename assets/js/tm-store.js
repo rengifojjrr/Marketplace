@@ -251,14 +251,24 @@
       return p && p.estado === 'publicado';
     });
   }
+  /* Líneas cuyo producto dejó de estar a la venta: se muestran aparte. */
+  function carritoNoDisponible() {
+    return (estado.carritos[claveCarrito()] || []).filter(function (i) {
+      var p = producto(i.sku);
+      return !p || p.estado !== 'publicado';
+    });
+  }
+
+  var TOPE_UNIDADES = 10;
 
   function validarAgregar(sku, cant, actual) {
     var p = producto(sku);
     if (!p || p.estado !== 'publicado') falla('Producto no disponible.');
     var disponible = p.stockFis - p.stockRes;
     var nueva = actual + (cant || 1);
+    if (nueva > TOPE_UNIDADES) falla('Puedes llevar hasta ' + TOPE_UNIDADES + ' unidades de cada producto.');
     if (nueva > disponible) falla('Solo quedan ' + disponible + ' unidades disponibles.');
-    return Math.min(99, nueva);
+    return nueva;
   }
 
   function carritoAgregar(sku, cant) {
@@ -272,7 +282,7 @@
   function topeCarrito(sku, cant) {
     var p = producto(sku);
     var disponible = p ? p.stockFis - p.stockRes : 0;
-    return Math.max(1, Math.min(cant, disponible || 1, 99));
+    return Math.max(1, Math.min(cant, disponible || 1, TOPE_UNIDADES));
   }
 
   function carritoCambiar(sku, cant) {
@@ -296,9 +306,15 @@
     var s = sesion();
     if (!s || s.rol !== 'comprador') falla('Inicia sesión para comprar.');
     var items = carrito();
+    var fuera = carritoNoDisponible()[0];
+    if (fuera) falla('El producto ' + fuera.sku + ' ya no está disponible: quítalo del carrito.');
     if (!items.length) falla('El carrito está vacío.');
     var ref = String(datos.ref || '').trim().toUpperCase();
     if (ref.length < 5 || ref.length > 30) falla('Registra la referencia del pago (entre 5 y 30 caracteres).');
+    /* Una referencia bancaria corresponde a un solo pago. */
+    if (estado.pedidos.some(function (p) { return p.ref === ref && p.estado !== 'cancelado'; })) {
+      falla('La referencia ' + ref + ' ya está registrada en otro pedido: revisa el número del pago.');
+    }
     if (estado.pedidos.filter(function (p) { return p.compradorEmail === s.email && p.estado === 'pago_por_verificar'; }).length >= 5) {
       falla('Tienes 5 pedidos con el pago por verificar: espera la conciliación o cancela alguno.');
     }
@@ -442,8 +458,10 @@
     p.liquidacion = null;
     p.items.forEach(function (i) { var pr = producto(i.sku); if (pr) pr.stockRes = Math.max(0, pr.stockRes - i.cant); });
     p.timeline.push({ fecha: ahora(), actor: actor(), texto: 'Pedido cancelado (' + (motivo || 'sin motivo') + ') · stock liberado' + (conPago ? ' y reembolso en cola' : ''), icono: 'cancel' });
-    if (conPago) notificar('seller:' + p.sellerId, 'El comprador canceló el pedido ' + id, 'cancel', 'seller/pedidos.html?estado=', ['seller', 'operador']);
-    notificar('rol:finanzas', 'Cancelación de ' + id + ': procesar reembolso demo', 'undo', 'admin/conciliacion.html');
+    if (conPago) {
+      notificar('seller:' + p.sellerId, 'El comprador canceló el pedido ' + id, 'cancel', 'seller/pedidos.html?estado=', ['seller', 'operador']);
+      notificar('rol:finanzas', 'Cancelación de ' + id + ': procesar reembolso demo', 'undo', 'admin/conciliacion.html');
+    }
     auditar(actor(), 'Cancelación', id + (motivo ? ' · ' + motivo : ''));
     guardar();
   }
@@ -516,6 +534,29 @@
     guardar();
   }
 
+  /* Tras resolver con devolución: si el producto volvió, reembolso y stock
+     repuesto; si no, fondos al seller. */
+  function cerrarDevolucion(id, recibida) {
+    var p = exigirPedido(id);
+    if (p.estado !== 'devolucion') falla('El pedido ' + id + ' no tiene una devolución en curso.');
+    if (recibida) {
+      p.estado = 'reembolsado';
+      p.liquidacion = 'reembolsado';
+      p.items.forEach(function (i) { var pr = producto(i.sku); if (pr) pr.stockFis += i.cant; });
+      p.timeline.push({ fecha: ahora(), actor: 'Operaciones', texto: 'Devolución recibida · reembolso al comprador (demo) y stock repuesto', icono: 'undo' });
+      notificar(p.compradorEmail, 'Recibimos la devolución de ' + id + ': reembolso en proceso (demo)', 'undo', 'tienda/pedido.html?id=' + id);
+      notificar('seller:' + p.sellerId, 'La devolución de ' + id + ' volvió a tu inventario; el pedido se reembolsó', 'assignment_return', 'seller/disputas.html');
+    } else {
+      p.estado = 'cerrado';
+      p.liquidacion = 'elegible';
+      p.timeline.push({ fecha: ahora(), actor: 'Operaciones', texto: 'El producto no se devolvió en el plazo · fondos liberados al seller', icono: 'lock_open' });
+      notificar(p.compradorEmail, 'La devolución de ' + id + ' se cerró: el producto no llegó en el plazo', 'gavel', 'tienda/pedido.html?id=' + id);
+      notificar('seller:' + p.sellerId, 'La devolución de ' + id + ' se cerró a tu favor: fondos elegibles', 'lock_open', 'seller/finanzas.html');
+    }
+    auditar(actor(), 'Cierre de devolución', id + ' → ' + (recibida ? 'recibida, reembolso' : 'no recibida, fondos al seller'));
+    guardar();
+  }
+
   /* ---------------------------------------------------------------------
      Finanzas
      ------------------------------------------------------------------- */
@@ -529,11 +570,16 @@
     guardar();
   }
 
-  function ejecutarLiquidacion(sellerId) {
+  /* Liquida exactamente los pedidos que se mostraron en la corrida. */
+  function ejecutarLiquidacion(sellerId, ids) {
+    ids = ids || [];
     var elegibles = estado.pedidos.filter(function (p) {
-      return p.sellerId === sellerId && p.liquidacion === 'elegible';
+      return p.sellerId === sellerId && p.liquidacion === 'elegible' && ids.indexOf(p.id) >= 0;
     });
     if (!elegibles.length) falla('No hay pedidos elegibles para este seller.');
+    if (elegibles.length !== ids.filter(function (x, i) { return ids.indexOf(x) === i; }).length) {
+      falla('La corrida cambió (algún pedido ya no está elegible): recarga la página y revísala.');
+    }
     var bruto = elegibles.reduce(function (t, p) { return t + totalPedidoUsd(p) - (p.envio.costoUsd || 0); }, 0);
     var comision = Math.round(bruto * estado.config.comisionPct) / 100;
     var tarifa = Math.round(estado.config.tarifaFijaUsd * elegibles.length * 100) / 100;
@@ -578,11 +624,19 @@
     var contenido = !!p && ['nombre', 'marca', 'categoria', 'descripcion'].some(function (k) {
       return datos[k] !== undefined && String(datos[k]).trim() !== String(p[k] == null ? '' : p[k]);
     });
-    if (p && ['publicado', 'pausado'].indexOf(p.estado) >= 0 && contenido) enviarRevision = true;
-    if (p && enviarRevision && ['publicado', 'pausado', 'en_revision'].indexOf(p.estado) >= 0 && !contenido) {
+    if (p && p.estado === 'en_revision' && contenido) {
+      falla('El producto está en revisión: espera la decisión de Moderación para cambiar su contenido.');
+    }
+    if (p && p.estado === 'en_revision') enviarRevision = false;      /* ya está en la cola */
+    else if (p && ['publicado', 'pausado'].indexOf(p.estado) >= 0 && contenido) enviarRevision = true;
+    else if (p && enviarRevision && ['publicado', 'pausado'].indexOf(p.estado) >= 0) {
       falla('El producto ya pasó moderación: solo vuelve a revisión si cambias su contenido.');
     }
+    if (p && enviarRevision) p.volverAPausa = p.estado === 'pausado';
     if (!p) {
+      if (estado.productos.filter(function (x) { return x.sellerId === s.sellerId; }).length >= 150) {
+        falla('Tu catálogo llegó al tope de la beta (150 productos).');
+      }
       /* Mismo esquema que el backend: SKU-CAT-1101, 1102… */
       var mayor = 1100;
       estado.productos.forEach(function (x) {
@@ -639,10 +693,14 @@
   function moderarProducto(sku, aprobar, motivo) {
     var p = producto(sku);
     if (!p || p.estado !== 'en_revision') falla('El producto ' + sku + ' no está en revisión.');
-    p.estado = aprobar ? 'publicado' : 'rechazado';
+    /* Si el seller lo tenía pausado, sigue pausado: aprobar no lo publica. */
+    var pausado = !!p.volverAPausa;
+    delete p.volverAPausa;
+    p.estado = aprobar ? (pausado ? 'pausado' : 'publicado') : 'rechazado';
     if (!aprobar) p.motivoRechazo = motivo || 'No cumple los requisitos de publicación.';
     notificar('seller:' + p.sellerId,
-      aprobar ? 'Tu producto ' + p.sku + ' fue aprobado y ya está publicado'
+      aprobar ? (pausado ? 'Tu producto ' + p.sku + ' fue aprobado; sigue pausado hasta que lo reanudes'
+                         : 'Tu producto ' + p.sku + ' fue aprobado y ya está publicado')
               : 'Tu producto ' + p.sku + ' fue rechazado: ' + p.motivoRechazo,
       aprobar ? 'check_circle' : 'cancel', 'seller/catalogo.html', ['seller', 'precios', 'operador']);
     auditar(actor(), aprobar ? 'Producto aprobado' : 'Producto rechazado', sku + (aprobar ? '' : ' · ' + p.motivoRechazo));
@@ -666,7 +724,7 @@
       observado: 'Tu expediente tiene observaciones: ' + motivo,
       suspendido: 'Tu comercio fue suspendido: ' + motivo
     }[decision] || 'Tu solicitud fue rechazada: ' + motivo, 'verified_user', null);
-    auditar(actor(), 'Decisión KYC', sellerId + ': ' + antes + ' → ' + decision + (motivo ? ' · ' + motivo : ''));
+    auditar(actor(), 'Decisión KYC', sellerId + ': ' + antes + ' → ' + decision);
     guardar();
   }
 
@@ -680,7 +738,6 @@
     datos.id = 'DIR-' + Date.now().toString(36);
     if (datos.predeterminada) lista.forEach(function (d) { d.predeterminada = false; });
     lista.push(datos);
-    auditar(s.nombre, 'Dirección agregada', datos.nombre);
     guardar();
   }
 
@@ -722,6 +779,7 @@
     misNotificaciones: misNotificaciones, marcarNotificacionesLeidas: marcarNotificacionesLeidas,
 
     carrito: carrito,
+    carritoNoDisponible: carritoNoDisponible,
     carritoAgregar: asincrona(carritoAgregar),
     carritoCambiar: asincrona(carritoCambiar),
     carritoQuitar: asincrona(carritoQuitar),
@@ -740,6 +798,7 @@
     abrirDisputa: asincrona(abrirDisputa),
     responderDisputa: asincrona(responderDisputa),
     resolverDisputa: asincrona(resolverDisputa),
+    cerrarDevolucion: asincrona(cerrarDevolucion),
     ejecutarLiquidacion: asincrona(ejecutarLiquidacion),
 
     guardarProducto: asincrona(guardarProducto),

@@ -9,6 +9,8 @@
  *
  *   TM_SUPABASE_URL=http://127.0.0.1:54321 TM_SUPABASE_KEY=<clave> node tools/verificar-beta.js
  *
+ * y en modo local (datos en el navegador): TM_LOCAL=1 node tools/verificar-beta.js
+ *
  * Con backend, la prueba reinicia los datos de la demo (como superadmin).
  *
  * Recorre el acceso, el RBAC por ocultación y —lo central— los recorridos
@@ -41,7 +43,23 @@ const PAGINAS = {
   const externo = !/\/\/(localhost|127\.0\.0\.1)[:/]/.test(BASE);
   const navegador = await chromium.launch(externo && process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY } } : {});
   const ctx = await navegador.newContext({ viewport: { width: 1440, height: 950 } });
-  if (process.env.TM_SUPABASE_URL) {
+  /* Sitio en local y backend en la nube detrás de un proxy: las llamadas a
+     la API salen desde aquí (NODE_USE_ENV_PROXY=1) y vuelven al navegador. */
+  const api = process.env.TM_SUPABASE_URL || '';
+  if (!externo && process.env.HTTPS_PROXY && /^https:/.test(api)) {
+    await ctx.route(api + '/**', async (r) => {
+      const req = r.request();
+      const res = await fetch(req.url(), { method: req.method(), headers: req.headers(), body: req.postDataBuffer() || undefined });
+      const cab = {};
+      res.headers.forEach((v, k) => { if (!/^(content-encoding|content-length|transfer-encoding)$/i.test(k)) cab[k] = v; });
+      await r.fulfill({ status: res.status, headers: cab, body: Buffer.from(await res.arrayBuffer()) });
+    });
+  }
+  if (process.env.TM_LOCAL === '1') {
+    /* modo local: datos en el navegador, sin backend */
+    await ctx.route('**/assets/js/tm-config.js', (r) => r.fulfill({ contentType: 'application/javascript',
+      body: "window.TM_CONFIG = { supabaseUrl: '', supabaseKey: '' };" }));
+  } else if (process.env.TM_SUPABASE_URL) {
     /* sin consulta periódica salvo TM_TIEMPO_REAL=1: las pruebas deciden cuándo repintar */
     const cfg = 'window.TM_CONFIG = ' + JSON.stringify({ supabaseUrl: process.env.TM_SUPABASE_URL,
       supabaseKey: process.env.TM_SUPABASE_KEY, tiempoReal: process.env.TM_TIEMPO_REAL === '1' }) + ';';
@@ -337,6 +355,24 @@ const PAGINAS = {
     if (!/Congelado/i.test(await fila.innerText())) throw new Error('los fondos no quedaron congelados');
     await abrir('seller/disputas');
     if (!(await p.locator('#raiz').innerText()).includes('monitor de 22 pulgadas')) throw new Error('el seller no ve el reclamo');
+  });
+
+  await prueba('ops resuelve con devolución y la cierra al recibir el producto', async () => {
+    await login('Operaciones');
+    await abrir('admin/disputas');
+    const caso = p.locator('#raiz article', { hasText: 'TM-2026-00431' });
+    await caso.locator('[data-resolver="devolucion"]').click();
+    await p.waitForSelector('.tm-modal [data-ok]');
+    await p.locator('.tm-modal [data-ok]').click();
+    await aviso('resuelta');
+    await caso.locator('[data-devolucion="TM-2026-00431"][data-recibida="1"]').click();
+    await p.waitForSelector('.tm-modal [data-ok]');
+    await p.locator('.tm-modal [data-ok]').click();
+    await aviso('Devolución cerrada');
+    await login('Comprador');
+    await abrir('tienda/pedido?id=TM-2026-00431');
+    const t = await p.locator('#raiz').innerText();
+    if (!/Devolución recibida/.test(t)) throw new Error('el comprador no ve el cierre de la devolución');
   });
 
   await prueba('el comprador cancela un pedido sin conciliar y libera stock', async () => {

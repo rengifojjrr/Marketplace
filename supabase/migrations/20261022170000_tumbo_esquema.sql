@@ -19,8 +19,10 @@
 -- `tumbo_privado` guarda ayudantes, secuencias y la semilla.
 -- =========================================================================
 
-create schema if not exists tumbo;
-create schema if not exists tumbo_privado;
+-- Sin «if not exists»: si el nombre ya lo usa otra aplicación, la migración
+-- falla en vez de adueñarse de su esquema.
+create schema tumbo;
+create schema tumbo_privado;
 revoke all on schema tumbo, tumbo_privado from public;
 comment on schema tumbo is
   'Tumbo Market (beta). Privado: no expuesto por la API; se accede solo con las funciones public.tm_*.';

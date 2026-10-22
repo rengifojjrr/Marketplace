@@ -16,7 +16,10 @@ aparece en la tienda — para todos los usuarios a la vez.
 **https://rengifojjrr.github.io/Marketplace/**
 
 La raíz es el acceso: eliges una cuenta de prueba y entras. Publicado con
-GitHub Pages desde `main`; cada `git push` lo actualiza.
+GitHub Pages desde `main`; cada `git push` lo actualiza. Los datos viven en
+Supabase, en un espacio aislado dentro de un proyecto compartido (ver
+[docs/BACKEND.md](docs/BACKEND.md)): lo que hace una cuenta lo ven las demás
+al instante o en el siguiente sondeo de 20 segundos.
 
 ## Cuentas de prueba
 
@@ -98,8 +101,9 @@ tools/                Generadores, fuentes, verificación E2E y Supabase local
 ```bash
 python3 serve.py      # http://localhost:8000
 npm run build         # recompila estilos y regenera las páginas
-npm test              # 23 pruebas E2E en Chromium (flujos interconectados)
+npm test              # 24 pruebas E2E en Chromium (flujos interconectados)
 npm run test:api      # permisos rol por rol contra la API (requiere backend)
+TM_LOCAL=1 npm test   # las mismas pruebas en modo local (sin backend)
 ```
 
 Las páginas de `app/` son cascarones generados: **no se editan a mano**. El
