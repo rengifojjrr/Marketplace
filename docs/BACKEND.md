@@ -49,8 +49,7 @@ supabase/migrations/
   20261022170200_tumbo_funciones.sql   operaciones de negocio tm_*
   20261022170300_tumbo_semilla.sql     datos de la demo, reinicio y privilegios
 assets/js/tm-config.js                 URL y clave publicable del proyecto
-assets/js/tm-remoto.js                 motor remoto (sustituye las acciones de TM)
-assets/vendor/supabase-js-2.117.3.js   cliente oficial de Supabase (MIT), sin CDN
+assets/js/tm-remoto.js                 motor remoto: llama a /rest/v1/rpc/tm_* con fetch (sin librerías)
 tools/supabase-local/                  Postgres + PostgREST en local para probar sin la nube
 tools/verificar-rls.js                 permisos rol por rol contra la API
 tools/verificar-beta.js                recorridos completos en navegador
@@ -60,9 +59,12 @@ tools/verificar-beta.js                recorridos completos en navegador
 
 1. **Identidad**: `tm_acceder(correo, clave)` devuelve un token de sesión que
    vive 7 días (se renueva con el uso) y se invalida con `tm_salir`. Tras 8
-   intentos fallidos en 15 minutos, la cuenta se frena. Un registro desde la
-   web **siempre** nace `comprador` (el rol nunca viene del navegador) y hay un
-   tope de altas por minuto.
+   intentos fallidos desde una misma conexión en 15 minutos, esa conexión queda
+   frenada para esa cuenta (quien ataca desde su red no bloquea al dueño en la
+   suya), con topes adicionales por conexión y por cuenta. La conexión se
+   identifica con `cf-connecting-ip`, que fija el borde de Supabase. Un
+   registro desde la web **siempre** nace `comprador` (el rol nunca viene del
+   navegador) y tiene freno por conexión.
 2. **Lectura**: `tm_cargar(sesión)` devuelve de una vez lo que el rol puede ver:
 
    | Rol | Ve |
@@ -92,7 +94,8 @@ tools/verificar-beta.js                recorridos completos en navegador
    gestor de precios; cambiar el contenido de un producto publicado lo devuelve
    a moderación; el reclamo solo dentro de la ventana; la entrega la confirma
    el comprador u Operaciones con la prueba del courier; no se liquida un neto
-   negativo.
+   negativo. Las operaciones de un mismo comprador sobre su carrito se
+   serializan, así que dos pestañas a la vez no descuadran las reservas.
 5. **Auditoría** de solo agregar: los disparadores impiden editar, borrar o
    vaciar eventos (también al reiniciar la demo).
 6. **Segundo factor**: en la beta es un código fijo (`123456`) verificado en el
@@ -122,13 +125,13 @@ tools/verificar-beta.js                recorridos completos en navegador
 | `tm_marcar_notificaciones_leidas` | con sesión | lectura individual de avisos |
 | `tm_reiniciar_demo` | superadmin | vuelve los datos de negocio a la semilla (cuentas y auditoría se conservan) |
 
-## Tiempo real
+## Cambios de otros usuarios
 
-Cada operación emite un aviso «algo cambió» (`realtime.send`) por el canal
-público `tumbo`, **sin datos**. Las pantallas abiertas recargan su propia
-caché con su sesión y se repintan — salvo que la persona esté escribiendo o
-tenga un modal abierto: entonces esperan. Si Realtime no está disponible, la
-operación no se ve afectada.
+Mientras la pestaña está a la vista, la app vuelve a pedir `tm_cargar` cada
+20 segundos con su propia sesión y se repinta solo si algo cambió — salvo que
+la persona esté escribiendo o tenga un modal abierto: entonces espera. No se
+usa un canal público de Realtime: en un proyecto compartido delataría la
+actividad de Tumbo.
 
 ## Desplegar o actualizar
 
@@ -161,4 +164,4 @@ tools/supabase-local/reaplicar.sh          # vuelve a aplicar las migraciones de
 ```
 
 El stack local usa el binario oficial de PostgREST y reproduce los roles y
-tiempos límite del proyecto; no incluye el servidor de tiempo real.
+tiempos límite del proyecto.

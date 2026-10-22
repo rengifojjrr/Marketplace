@@ -131,6 +131,44 @@ const ESPERADO = {
     ok(!r.ok, `${rol || 'anon'} no puede ${fn}`, `${r.status} ${r.texto.slice(0, 120)}`);
   }
 
+  /* Falsear la IP con cabeceras que escribe el navegador no evade el freno. */
+  const otra = 'nadie2-' + Date.now() + '@correo-demo.ve';
+  let frenado = false;
+  for (let i = 0; i < 9; i++) {
+    const r = await rpc('tm_acceder', { p_email: otra, p_clave: 'mala' }, { 'x-forwarded-for': '10.0.0.' + i, 'x-real-ip': '10.1.0.' + i });
+    if (r.dato && /Demasiados intentos/.test(r.dato.error || '')) frenado = true;
+  }
+  ok(frenado, 'x-forwarded-for / x-real-ip falsos no evaden el freno de acceso');
+
+  /* Contenido en revisión: no se cambia hasta que Moderación decida. */
+  const e1 = await rpc('tm_guardar_producto', { p_sesion: s.seller, p_datos: { sku: 'SKU-ELE-1045', nombre: 'Alternador cambiado durante la revisión' }, p_enviar: false });
+  ok(!e1.ok && /en revisión/.test(e1.texto), 'no se cambia el contenido de un producto en revisión', e1.texto.slice(0, 100));
+
+  /* Concurrencia: carrito y pedido a la vez desde la misma cuenta no
+     descuadran las reservas. */
+  const comp = await rpc('tm_registrar', { p_email: 'carrera-' + Date.now() + '@correo-demo.ve', p_clave: 'clave-carrera-1', p_nombre: 'Prueba Carrera' });
+  const sc = comp.dato && comp.dato.sesion;
+  ok(!!sc, 'comprador de prueba creado', comp.texto.slice(0, 100));
+  if (sc) {
+    await rpc('tm_carrito_poner', { p_sesion: sc, p_sku: 'SKU-TEC-0450', p_cant: 1 });
+    const lote = [];
+    for (let i = 0; i < 6; i++) {
+      lote.push(rpc('tm_carrito_poner', { p_sesion: sc, p_sku: 'SKU-TEC-0450', p_cant: 2 + i }));
+      lote.push(rpc('tm_crear_pedido', { p_sesion: sc, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'PM-CARRERA-' + i }));
+    }
+    await Promise.all(lote);
+  }
+  const vista = await rpc('tm_cargar', { p_sesion: s.superadmin });
+  const abiertos = ['pago_por_verificar', 'por_aceptar', 'preparando', 'listo'];
+  const reservado = {};
+  for (const p of vista.dato.pedidos) {
+    if (!abiertos.includes(p.estado)) continue;
+    for (const i of p.pedido_items) reservado[i.sku] = (reservado[i.sku] || 0) + i.cant;
+  }
+  const descuadres = vista.dato.productos.filter((p) => p.stock_res !== (reservado[p.sku] || 0))
+    .map((p) => `${p.sku}: reservado ${p.stock_res} vs pedidos ${reservado[p.sku] || 0}`);
+  ok(!descuadres.length, 'lo reservado coincide con los pedidos abiertos (también bajo concurrencia)', descuadres.join('; '));
+
   /* Y lo permitido funciona. */
   const a1 = await rpc('tm_conciliar_pago', { p_sesion: s.finanzas, p_id: 'TM-2026-00433' });
   ok(a1.ok, 'finanzas concilia TM-2026-00433', a1.texto);

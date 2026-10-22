@@ -12,19 +12,21 @@
 -- ---------------------------------------------------------------------------
 -- Sesiones
 -- ---------------------------------------------------------------------------
--- IP del cliente según el proxy de Supabase (Cloudflare la fija y no se puede
--- falsificar desde el navegador); sin cabeceras, 'desconocida'.
+-- IP del cliente. Solo se confía en `cf-connecting-ip`, que fija el borde de
+-- Supabase (Cloudflare) y el navegador no puede falsificar; x-forwarded-for y
+-- x-real-ip sí los puede escribir el cliente, así que no se usan. Sin esa
+-- cabecera: 'desconocida' (los frenos por conexión se desactivan y quedan los
+-- de por cuenta).
 create function tumbo_privado.ip_cliente() returns text
 language plpgsql stable set search_path = '' as $$
 declare
-  h jsonb;
+  v text;
 begin
-  h := nullif(current_setting('request.headers', true), '')::jsonb;
-  return left(coalesce(
-    nullif(h ->> 'cf-connecting-ip', ''),
-    nullif(h ->> 'x-real-ip', ''),
-    nullif(trim((regexp_split_to_array(coalesce(h ->> 'x-forwarded-for', ''), ','))[1]), ''),
-    'desconocida'), 64);
+  v := nullif(current_setting('request.headers', true), '')::jsonb ->> 'cf-connecting-ip';
+  if v is null or v !~ '^[0-9A-Fa-f:.]{3,45}$' then
+    return 'desconocida';
+  end if;
+  return v;
 exception when others then
   return 'desconocida';
 end $$;
@@ -125,19 +127,12 @@ language sql immutable set search_path = '' as $$
   select '$' || to_char(coalesce(p, 0), 'FM999,999,990.00')
 $$;
 
--- Aviso «algo cambió» por Supabase Realtime (canal público `tumbo`, sin
--- datos): las pantallas abiertas recargan lo suyo con su propia sesión. Si
--- Realtime no está disponible, no pasa nada: nunca deshace la operación.
-create function tumbo_privado.senal() returns void
-language plpgsql security definer set search_path = '' as $$
-begin
-  if to_regprocedure('realtime.send(jsonb,text,text,boolean)') is not null then
-    execute 'select realtime.send($1, $2, $3, $4)'
-      using jsonb_build_object('en', extract(epoch from clock_timestamp())), 'cambio', 'tumbo', false;
-  end if;
-exception when others then
-  null;
-end $$;
+-- Serializa las operaciones sobre el carrito o las direcciones de un mismo
+-- usuario (dos pestañas a la vez no pueden descuadrar reservas ni topes).
+create function tumbo_privado.bloquear_usuario(p_usuario uuid, p_ambito text) returns void
+language sql security definer set search_path = '' as $$
+  select pg_advisory_xact_lock(hashtextextended('tumbo:' || p_ambito || ':' || p_usuario::text, 0));
+$$;
 
 -- Bloquea un pedido que el usuario puede tocar; si no le pertenece, responde
 -- como si no existiera (no se filtra información de terceros).

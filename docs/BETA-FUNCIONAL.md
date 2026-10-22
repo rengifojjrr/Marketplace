@@ -34,7 +34,7 @@ Cada mutación agrega su evento a la **auditoría** (solo lectura) y genera las
 | `assets/js/tm-config.js` | URL y clave publicable de Supabase (vacías = modo local) |
 | `assets/js/tm-datos.js` | Datos semilla del modo local (gemelos de la semilla SQL) |
 | `assets/js/tm-store.js` | API común, formato, consultas y motor local |
-| `assets/js/tm-remoto.js` | Motor remoto: sesión Supabase, caché por rol, acciones RPC, tiempo real |
+| `assets/js/tm-remoto.js` | Motor remoto: sesión de Tumbo, caché por rol, acciones RPC, consulta periódica |
 | `assets/js/tm-ui.js` | Componentes: insignias de estado, tablas, tarjetas, KPI, modales, avisos, 2FA |
 | `assets/js/tm-app.js` | Armazones (tienda / panel), navegación por rol, RBAC, montaje de vistas |
 | `assets/js/tm-vistas-tienda.js` | 11 vistas del comprador y visitante |

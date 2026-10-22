@@ -2,7 +2,7 @@
 
 Marketplace curado de Venezuela: **tienda**, **Seller Center** y **Backoffice**
 funcionando como una sola aplicación sobre un backend real (Postgres en
-Supabase, con cuentas y sesiones propias y avisos en tiempo real). Lo que el comprador compra llega a la cola del seller, lo
+Supabase, con cuentas y sesiones propias). Lo que el comprador compra llega a la cola del seller, lo
 que Finanzas concilia habilita la preparación, lo que Moderación aprueba
 aparece en la tienda — para todos los usuarios a la vez.
 
@@ -83,11 +83,10 @@ assets/js/
   tm-config.js        Conexión con Supabase (vacía = modo local)
   tm-datos.js         Datos semilla del modo local
   tm-store.js         Almacén de estado: API común y motor local
-  tm-remoto.js        Motor remoto: caché + funciones tm_* de Supabase
+  tm-remoto.js        Motor remoto: caché + funciones tm_* de Supabase (fetch, sin librerías)
   tm-ui.js            Componentes compartidos
   tm-app.js           Armazones, navegación por rol y RBAC
   tm-vistas-*.js      Las vistas de cada superficie
-assets/vendor/        supabase-js empaquetado (sin CDN)
 supabase/migrations/  Esquema, RLS, funciones de negocio y semilla
 prototipo/            El prototipo original de Google Stitch (referencia)
 docs/                 Investigación, especificación y arquitectura

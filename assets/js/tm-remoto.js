@@ -14,23 +14,18 @@
      pequeños; así nunca hay datos a medias).
    · Escritura: siempre por funciones; el servidor valida rol, propiedad y
      estado, y responde con mensajes listos para mostrar.
-   · Tiempo real: el servidor emite «algo cambió» por un canal sin datos; la
-     pantalla recarga su caché y se repinta cuando no interrumpe al usuario.
+   · Cambios de otros usuarios: mientras la pestaña está a la vista, la caché
+     se consulta cada 20 s (con la propia sesión) y la pantalla se repinta
+     solo si algo cambió y no interrumpe al usuario.
+   · Sin dependencias: las funciones se invocan con fetch contra la API REST
+     del proyecto (`/rest/v1/rpc/<función>`) usando la clave publicable.
    ========================================================================= */
 (function () {
   'use strict';
 
   var C = window.TM_CONFIG || {};
   if (!C.supabaseUrl || !C.supabaseKey) return;
-  if (!window.supabase || !window.supabase.createClient) {
-    console.error('Tumbo: falta la librería de Supabase (assets/vendor/supabase-js-*.js).');
-    return;
-  }
-
-  /* Sin Supabase Auth: la clave publicable basta para invocar las funciones. */
-  var cliente = window.supabase.createClient(C.supabaseUrl, C.supabaseKey, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'tm.sb.sin-auth' }
-  });
+  var API = String(C.supabaseUrl).replace(/\/+$/, '') + '/rest/v1/rpc/';
 
   var SESION = 'tm.sesion.remota.v1';
   var INVITADO = 'tm.carrito.invitado.v1';
@@ -96,12 +91,21 @@
   /* Llamada cruda a una función. Si la sesión venció, se olvida aquí mismo
      para que la siguiente pantalla pida acceso. */
   function llamar(nombre, params) {
-    return Promise.resolve(cliente.rpc(nombre, params || {})).then(function (r) {
-      if (r.error) {
-        if (r.error.code === '28000') olvidarSesion();
-        throw { error: traducir(r.error) };
-      }
-      return r.data;
+    return fetch(API + nombre, {
+      method: 'POST',
+      headers: { apikey: C.supabaseKey, 'content-type': 'application/json' },
+      body: JSON.stringify(params || {})
+    }).then(function (r) {
+      return r.text().then(function (texto) {
+        var dato = null;
+        try { dato = texto ? JSON.parse(texto) : null; } catch (e) { dato = null; }
+        if (!r.ok) {
+          var err = dato || { message: texto };
+          if (err.code === '28000') olvidarSesion();
+          throw { error: traducir(err) };
+        }
+        return dato;
+      });
     }, function (err) { throw { error: traducir(err) }; });
   }
 
@@ -296,18 +300,17 @@
   }
 
   /* ---------------------------------------------------------------------
-     Tiempo real (canal público sin datos: solo avisa que hay cambios)
+     Cambios de otros usuarios: consulta periódica mientras se ve la pestaña
      ------------------------------------------------------------------- */
-  var canal = null;
+  var sondeo = null;
   function tiempoReal() {
-    if (canal || !cliente.channel || C.tiempoReal === false) return;
-    var espera = null;
-    canal = cliente.channel('tumbo');
-    canal.on('broadcast', { event: 'cambio' }, function () {
-      clearTimeout(espera);
-      espera = setTimeout(function () { refrescar('externo').catch(function () { }); }, 400);
-    });
-    try { canal.subscribe(); } catch (e) { /* sin websockets: la app funciona igual, sin avisos en vivo */ }
+    if (sondeo || C.tiempoReal === false) return;
+    function mirar() {
+      if (document.hidden) return;
+      refrescar('externo').catch(function () { });
+    }
+    sondeo = setInterval(mirar, C.intervaloMs || 20000);
+    document.addEventListener('visibilitychange', mirar);
   }
 
   /* ---------------------------------------------------------------------
@@ -416,7 +419,6 @@
      ------------------------------------------------------------------- */
   var T = window.TM;
   T.modo = 'remoto';
-  T.cliente = cliente;
   T.listo = listo;
   T.listoSesion = listoSesion;
   T.refrescar = function () { return refrescar('propio'); };

@@ -223,7 +223,6 @@ begin
   delete from tumbo.sellers_kyc where seller_id is not null;
   perform tumbo_privado.sembrar(false);
   perform tumbo_privado.auditar(yo, 'Demo reiniciada', 'Datos de negocio restaurados a la semilla');
-  perform tumbo_privado.senal();
 end $$;
 
 -- ---------------------------------------------------------------------------

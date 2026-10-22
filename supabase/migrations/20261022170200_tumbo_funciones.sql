@@ -6,8 +6,7 @@
 --   1. exigen el rol (tumbo_privado.exigir) y la propiedad del recurso;
 --   2. bloquean la fila (FOR UPDATE) y validan el estado de origen;
 --   3. escriben el cambio, la línea de tiempo, las notificaciones y la
---      auditoría en la MISMA transacción: o pasa todo o no pasa nada;
---   4. emiten la señal de tiempo real.
+--      auditoría en la MISMA transacción: o pasa todo o no pasa nada.
 -- =========================================================================
 
 -- ---------------------------------------------------------------------------
@@ -19,6 +18,7 @@ declare
   yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['comprador']);
   v_disp integer;
 begin
+  perform tumbo_privado.bloquear_usuario(yo.id, 'carrito');
   if p_cant is null or p_cant < 1 or p_cant > 99 then
     raise exception 'Cantidad inválida.';
   end if;
@@ -40,6 +40,7 @@ language plpgsql security definer set search_path = '' as $$
 declare
   yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['comprador']);
 begin
+  perform tumbo_privado.bloquear_usuario(yo.id, 'carrito');
   delete from tumbo.carrito_items where usuario_id = yo.id and sku = p_sku;
 end $$;
 
@@ -50,6 +51,7 @@ language plpgsql security definer set search_path = '' as $$
 declare
   yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['comprador']);
 begin
+  perform tumbo_privado.bloquear_usuario(yo.id, 'carrito');
   if jsonb_typeof(coalesce(p_items, '[]'::jsonb)) <> 'array' or jsonb_array_length(coalesce(p_items, '[]'::jsonb)) > 50 then
     raise exception 'Carrito inválido.';
   end if;
@@ -69,6 +71,7 @@ declare
   yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['comprador']);
   v_id uuid;
 begin
+  perform tumbo_privado.bloquear_usuario(yo.id, 'direcciones');
   insert into tumbo.direcciones (usuario_id, nombre, linea, municipio, ciudad, codigo, telefono, predeterminada)
   values (yo.id, trim(coalesce(p_datos ->> 'nombre', '')), trim(coalesce(p_datos ->> 'linea', '')),
           trim(coalesce(p_datos ->> 'municipio', '')), coalesce(nullif(trim(p_datos ->> 'ciudad'), ''), 'Caracas'),
@@ -106,6 +109,8 @@ declare
   v_id text;
   v_ids text[] := '{}';
 begin
+  -- Nadie más toca este carrito mientras se convierte en pedidos.
+  perform tumbo_privado.bloquear_usuario(yo.id, 'carrito');
   select * into cfg from tumbo.config;
   if p_metodo is null or p_metodo not in ('Pago Móvil', 'Transferencia') then
     raise exception 'Elige un método de pago válido.';
@@ -172,9 +177,11 @@ begin
     select v_id, p.sku, p.nombre, p.img, c.cant, p.precio_usd
     from tumbo.carrito_items c join tumbo.productos p on p.sku = c.sku
     where c.usuario_id = yo.id and p.seller_id = v_seller;
-    update tumbo.productos p set stock_res = p.stock_res + c.cant, actualizado = now()
-    from tumbo.carrito_items c
-    where c.usuario_id = yo.id and c.sku = p.sku and p.seller_id = v_seller;
+    -- La reserva sale de las líneas del pedido: lo reservado es exactamente
+    -- lo que luego liberan la cancelación, el rechazo o el despacho.
+    update tumbo.productos p set stock_res = p.stock_res + i.cant, actualizado = now()
+    from tumbo.pedido_items i
+    where i.pedido_id = v_id and i.sku = p.sku;
 
     perform tumbo_privado.evento(v_id, yo.nombre, 'Pedido creado y pago registrado (' || p_metodo || ' ref. ' || v_ref || ')', 'shopping_cart');
     perform tumbo_privado.notificar('rol:finanzas', 'Pago ' || v_ref || ' pendiente de conciliar (' || v_id || ')', 'fact_check', 'admin/conciliacion.html');
@@ -183,7 +190,6 @@ begin
   end loop;
 
   delete from tumbo.carrito_items where usuario_id = yo.id;
-  perform tumbo_privado.senal();
   return v_ids;
 end $$;
 
@@ -202,7 +208,6 @@ begin
                                   'seller/pedidos.html', array['seller', 'operador']);
   perform tumbo_privado.notificar('usr:' || v.comprador_id, 'Confirmamos el pago de tu pedido ' || p_id, 'check_circle', 'tienda/pedido.html?id=' || p_id);
   perform tumbo_privado.auditar(yo, 'Conciliación de pago', v.ref || ' → ' || p_id);
-  perform tumbo_privado.senal();
 end $$;
 
 -- El pago no llegó o no coincide: el pedido se cancela y libera su reserva.
@@ -223,7 +228,6 @@ begin
   perform tumbo_privado.notificar('usr:' || v.comprador_id,
     'No pudimos verificar el pago de tu pedido ' || p_id || ': ' || v_motivo, 'block', 'tienda/pedido.html?id=' || p_id);
   perform tumbo_privado.auditar(yo, 'Pago rechazado', v.ref || ' → ' || p_id || ' · ' || v_motivo);
-  perform tumbo_privado.senal();
 end $$;
 
 create function public.tm_aceptar_pedido(p_sesion text, p_id text) returns void
@@ -239,7 +243,6 @@ begin
   perform tumbo_privado.evento(p_id, v.seller_id, 'Pedido aceptado, preparación iniciada', 'inventory_2');
   perform tumbo_privado.notificar('usr:' || v.comprador_id, 'El seller está preparando tu pedido ' || p_id, 'inventory_2', 'tienda/pedido.html?id=' || p_id);
   perform tumbo_privado.auditar(yo, 'Pedido aceptado', p_id);
-  perform tumbo_privado.senal();
 end $$;
 
 create function public.tm_marcar_listo(p_sesion text, p_id text, p_peso numeric) returns text
@@ -259,7 +262,6 @@ begin
   update tumbo.pedidos set estado = 'listo', guia = v_guia, peso = p_peso where id = p_id;
   perform tumbo_privado.evento(p_id, v.seller_id, 'Paquete listo · guía ' || v_guia || ' (demo)', 'package_2');
   perform tumbo_privado.auditar(yo, 'Guía generada (demo)', p_id || ' · ' || v_guia);
-  perform tumbo_privado.senal();
   return v_guia;
 end $$;
 
@@ -284,7 +286,6 @@ begin
   perform tumbo_privado.notificar('usr:' || v.comprador_id, 'Tu pedido ' || p_id || ' va en camino', 'local_shipping', 'tienda/pedido.html?id=' || p_id);
   perform tumbo_privado.notificar('rol:ops', 'Pedido ' || p_id || ' despachado con ' || v.courier, 'local_shipping', 'admin/pedidos.html');
   perform tumbo_privado.auditar(yo, 'Despacho al courier (demo)', p_id);
-  perform tumbo_privado.senal();
 end $$;
 
 -- La entrega la confirma el comprador o, con la prueba del courier,
@@ -311,7 +312,6 @@ begin
       'Tu pedido ' || p_id || ' figura entregado: tienes ' || cfg.ventana_reclamo_dias || ' días para reclamar', 'check_circle', 'tienda/pedido.html?id=' || p_id);
   end if;
   perform tumbo_privado.auditar(yo, 'Entrega confirmada', p_id);
-  perform tumbo_privado.senal();
 end $$;
 
 create function public.tm_cancelar_pedido(p_sesion text, p_id text, p_motivo text) returns void
@@ -339,7 +339,6 @@ begin
   end if;
   perform tumbo_privado.notificar('rol:finanzas', 'Cancelación de ' || p_id || ': procesar reembolso demo', 'undo', 'admin/conciliacion.html');
   perform tumbo_privado.auditar(yo, 'Cancelación', p_id || coalesce(' · ' || v_motivo, ''));
-  perform tumbo_privado.senal();
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -383,7 +382,6 @@ begin
   perform tumbo_privado.notificar('seller:' || v.seller_id, 'Reclamo ' || v_id || ' abierto sobre ' || v.id || ': responde con tu evidencia', 'gavel', 'seller/disputas.html');
   perform tumbo_privado.notificar('rol:ops', 'Disputa ' || v_id || ' en cola: ' || p_motivo, 'gavel', 'admin/disputas.html');
   perform tumbo_privado.auditar(yo, 'Apertura de disputa', v_id || ' sobre ' || v.id);
-  perform tumbo_privado.senal();
   return v_id;
 end $$;
 
@@ -414,7 +412,6 @@ begin
   where id = p_id;
   perform tumbo_privado.notificar('rol:ops', 'El seller respondió la disputa ' || p_id, 'forum', 'admin/disputas.html');
   perform tumbo_privado.auditar(yo, 'Respuesta a disputa', p_id);
-  perform tumbo_privado.senal();
 end $$;
 
 create function public.tm_resolver_disputa(p_sesion text, p_id text, p_decision text, p_nota text) returns void
@@ -453,7 +450,6 @@ begin
     perform tumbo_privado.notificar('seller:' || d.seller_id, 'La disputa ' || p_id || ' se cerró a tu favor: fondos elegibles', 'lock_open', 'seller/finanzas.html');
   end if;
   perform tumbo_privado.auditar(yo, 'Resolución de disputa', p_id || ' → ' || p_decision);
-  perform tumbo_privado.senal();
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -471,7 +467,6 @@ begin
   update tumbo.pedidos set estado = 'cerrado', liquidacion = 'elegible' where id = p_id;
   perform tumbo_privado.evento(p_id, 'Sistema', 'Ventana de reclamo cerrada sin casos · fondos elegibles', 'lock_open');
   perform tumbo_privado.auditar(yo, 'Cierre de ventana de reclamo', p_id);
-  perform tumbo_privado.senal();
 end $$;
 
 create function public.tm_ejecutar_liquidacion(p_sesion text, p_seller text) returns jsonb
@@ -516,7 +511,6 @@ begin
   perform tumbo_privado.notificar('seller:' || p_seller,
     'Liquidación ' || v_id || ' ejecutada: ' || tumbo_privado.fmt_usd(v_neto) || ' · comprobante ' || v_cpr, 'receipt_long', 'seller/finanzas.html');
   perform tumbo_privado.auditar(yo, 'Liquidación ejecutada', v_id || ' → ' || p_seller || ' · ' || tumbo_privado.fmt_usd(v_neto));
-  perform tumbo_privado.senal();
   return jsonb_build_object('id', v_id, 'netoUsd', v_neto, 'comprobante', v_cpr);
 end $$;
 
@@ -588,6 +582,10 @@ begin
       or (p_datos ? 'marca' and trim(p_datos ->> 'marca') is distinct from v.marca)
       or (v_categoria is not null and v_categoria is distinct from v.categoria)
       or (p_datos ? 'descripcion' and trim(p_datos ->> 'descripcion') is distinct from v.descripcion);
+    -- Lo que Moderación aprueba es exactamente lo que revisó.
+    if v.estado = 'en_revision' and v_contenido then
+      raise exception 'El producto está en revisión: espera la decisión de Moderación para cambiar su contenido.';
+    end if;
     if v.estado in ('publicado', 'pausado') and v_contenido then
       v_enviar := true;
     end if;
@@ -616,7 +614,6 @@ begin
       'Producto ' || v_sku || ' («' || coalesce(nullif(v_nombre, ''), v.nombre) || '») espera moderación', 'category', 'admin/moderacion.html');
   end if;
   perform tumbo_privado.auditar(yo, case when v_enviar then 'Producto enviado a revisión' else 'Producto guardado' end, v_sku);
-  perform tumbo_privado.senal();
   return v_sku;
 end $$;
 
@@ -651,7 +648,6 @@ begin
     update tumbo.productos set stock_fis = p_valor::integer, actualizado = now() where sku = p_sku;
     perform tumbo_privado.auditar(yo, 'Ajuste de stock', p_sku || ': ' || v.stock_fis || ' → ' || p_valor::integer);
   end if;
-  perform tumbo_privado.senal();
 end $$;
 
 create function public.tm_pausar_producto(p_sesion text, p_sku text, p_pausar boolean) returns void
@@ -668,7 +664,6 @@ begin
     raise exception 'El producto no se puede % en su estado actual.', case when p_pausar then 'pausar' else 'reanudar' end;
   end if;
   perform tumbo_privado.auditar(yo, case when p_pausar then 'Publicación pausada' else 'Publicación reanudada' end, p_sku);
-  perform tumbo_privado.senal();
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -696,7 +691,6 @@ begin
   end if;
   perform tumbo_privado.auditar(yo, case when p_aprobar then 'Producto aprobado' else 'Producto rechazado' end,
                                 p_sku || case when p_aprobar then '' else ' · ' || v_motivo end);
-  perform tumbo_privado.senal();
 end $$;
 
 create function public.tm_decidir_kyc(p_sesion text, p_seller text, p_decision text, p_motivo text) returns void
@@ -731,5 +725,4 @@ begin
       else 'Tu solicitud fue rechazada: ' || v_motivo end,
     'verified_user', null);
   perform tumbo_privado.auditar(yo, 'Decisión KYC', p_seller || ': ' || v_antes || ' → ' || p_decision || coalesce(' · ' || v_motivo, ''));
-  perform tumbo_privado.senal();
 end $$;

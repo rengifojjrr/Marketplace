@@ -42,7 +42,7 @@ const PAGINAS = {
   const navegador = await chromium.launch(externo && process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY } } : {});
   const ctx = await navegador.newContext({ viewport: { width: 1440, height: 950 } });
   if (process.env.TM_SUPABASE_URL) {
-    /* el stack local no trae servidor de tiempo real */
+    /* sin consulta periódica salvo TM_TIEMPO_REAL=1: las pruebas deciden cuándo repintar */
     const cfg = 'window.TM_CONFIG = ' + JSON.stringify({ supabaseUrl: process.env.TM_SUPABASE_URL,
       supabaseKey: process.env.TM_SUPABASE_KEY, tiempoReal: process.env.TM_TIEMPO_REAL === '1' }) + ';';
     await ctx.route('**/assets/js/tm-config.js', (r) => r.fulfill({ contentType: 'application/javascript', body: cfg }));
