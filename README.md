@@ -1,8 +1,8 @@
 # Tumbo Market — beta funcional
 
 Marketplace curado de Venezuela: **tienda**, **Seller Center** y **Backoffice**
-funcionando como una sola aplicación sobre un backend real (Supabase: Postgres,
-Auth y tiempo real). Lo que el comprador compra llega a la cola del seller, lo
+funcionando como una sola aplicación sobre un backend real (Postgres en
+Supabase, con cuentas y sesiones propias y avisos en tiempo real). Lo que el comprador compra llega a la cola del seller, lo
 que Finanzas concilia habilita la preparación, lo que Moderación aprueba
 aparece en la tienda — para todos los usuarios a la vez.
 
@@ -34,7 +34,8 @@ Contraseña `demo1234`. Los perfiles **MFA** piden después el código `123456`.
 
 También puedes entrar **como invitado** (navegas la tienda y armas carrito) o
 **registrarte** como comprador: la cuenta queda creada al instante y solo ve
-sus propios pedidos.
+sus propios pedidos. Las cuentas son de Tumbo: no sirven en ninguna otra
+aplicación.
 
 ## Un recorrido que puedes probar completo
 
@@ -98,7 +99,8 @@ tools/                Generadores, fuentes, verificación E2E y Supabase local
 ```bash
 python3 serve.py      # http://localhost:8000
 npm run build         # recompila estilos y regenera las páginas
-npm test              # 20 pruebas E2E en Chromium (flujos interconectados)
+npm test              # 23 pruebas E2E en Chromium (flujos interconectados)
+npm run test:api      # permisos rol por rol contra la API (requiere backend)
 ```
 
 Las páginas de `app/` son cascarones generados: **no se editan a mano**. El

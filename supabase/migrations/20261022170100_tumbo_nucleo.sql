@@ -12,6 +12,23 @@
 -- ---------------------------------------------------------------------------
 -- Sesiones
 -- ---------------------------------------------------------------------------
+-- IP del cliente según el proxy de Supabase (Cloudflare la fija y no se puede
+-- falsificar desde el navegador); sin cabeceras, 'desconocida'.
+create function tumbo_privado.ip_cliente() returns text
+language plpgsql stable set search_path = '' as $$
+declare
+  h jsonb;
+begin
+  h := nullif(current_setting('request.headers', true), '')::jsonb;
+  return left(coalesce(
+    nullif(h ->> 'cf-connecting-ip', ''),
+    nullif(h ->> 'x-real-ip', ''),
+    nullif(trim((regexp_split_to_array(coalesce(h ->> 'x-forwarded-for', ''), ','))[1]), ''),
+    'desconocida'), 64);
+exception when others then
+  return 'desconocida';
+end $$;
+
 create function tumbo_privado.hash_token(p_token text) returns bytea
 language sql immutable set search_path = '' as $$
   select extensions.digest(p_token, 'sha256')
@@ -37,8 +54,10 @@ begin
   if not found then
     return null;
   end if;
+  -- Renovación deslizante de 7 días, con tope absoluto de 30 desde el acceso.
   if s.ultimo_uso < now() - interval '10 minutes' then
-    update tumbo.sesiones set ultimo_uso = now(), expira = greatest(expira, now() + interval '7 days')
+    update tumbo.sesiones
+    set ultimo_uso = now(), expira = least(creada + interval '30 days', greatest(expira, now() + interval '7 days'))
     where token_hash = s.token_hash;
   end if;
   return u;
@@ -78,10 +97,13 @@ $$;
 -- ---------------------------------------------------------------------------
 -- Ayudantes de negocio
 -- ---------------------------------------------------------------------------
+-- El actor se registra con su rol: un comprador que se llame como alguien del
+-- equipo no puede hacerse pasar por él en la auditoría.
 create function tumbo_privado.auditar(p_yo tumbo.usuarios, p_accion text, p_detalle text) returns void
 language sql security definer set search_path = '' as $$
   insert into tumbo.auditoria (actor_id, actor, accion, detalle)
-  values (p_yo.id, coalesce(p_yo.nombre, 'Sistema'), p_accion, coalesce(p_detalle, ''));
+  values (p_yo.id, case when p_yo.id is null then 'Sistema' else p_yo.nombre || ' (' || p_yo.rol || ')' end,
+          p_accion, coalesce(p_detalle, ''));
 $$;
 
 -- Un aviso a un comercio es, por omisión, solo para su seller principal
@@ -159,15 +181,24 @@ $$;
 create function public.tm_acceder(p_email text, p_clave text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
-  v_email text := lower(trim(coalesce(p_email, '')));
+  v_email text := left(lower(trim(coalesce(p_email, ''))), 120);
+  v_ip text := tumbo_privado.ip_cliente();
   u tumbo.usuarios;
   v_ok boolean := false;
   v_token text;
 begin
   delete from tumbo.intentos_acceso where fecha < now() - interval '1 day';
+  -- Freno por correo y conexión: quien falla desde su IP no bloquea al dueño
+  -- de la cuenta en la suya. Más un tope por conexión para cualquier correo
+  -- y un techo por cuenta.
   if (select count(*) from tumbo.intentos_acceso
-      where email = v_email and not exito and fecha > now() - interval '15 minutes') >= 8 then
-    return jsonb_build_object('error', 'Demasiados intentos fallidos con esta cuenta. Espera 15 minutos e inténtalo de nuevo.');
+      where tipo = 'acceso' and email = v_email and ip = v_ip and not exito and fecha > now() - interval '15 minutes') >= 8
+     or (v_ip <> 'desconocida' and (select count(*) from tumbo.intentos_acceso
+         where tipo = 'acceso' and ip = v_ip and not exito and fecha > now() - interval '15 minutes') >= 40)
+     -- techo por cuenta para quien rote direcciones: muy por encima del uso normal
+     or (select count(*) from tumbo.intentos_acceso
+         where tipo = 'acceso' and email = v_email and not exito and fecha > now() - interval '15 minutes') >= 100 then
+    return jsonb_build_object('error', 'Demasiados intentos fallidos. Espera 15 minutos e inténtalo de nuevo.');
   end if;
 
   select * into u from tumbo.usuarios where email = v_email and activo;
@@ -177,7 +208,7 @@ begin
     -- mismo coste que una comprobación real: el tiempo no delata si el correo existe
     perform extensions.crypt(coalesce(p_clave, ''), extensions.gen_salt('bf', 10));
   end if;
-  insert into tumbo.intentos_acceso (email, exito) values (left(v_email, 120), v_ok);
+  insert into tumbo.intentos_acceso (tipo, email, ip, exito) values ('acceso', v_email, v_ip, v_ok);
 
   if not v_ok then
     return jsonb_build_object('error', 'Correo o contraseña incorrectos. Las cuentas demo usan demo1234.');
@@ -188,36 +219,50 @@ begin
 end $$;
 
 -- Registro de comprador desde la web: la cuenta queda activa al instante.
+-- Los rechazos se devuelven como {error} para que el intento quede contado:
+-- el freno por conexión limita tanto las altas en masa como el sondeo de
+-- qué correos tienen cuenta.
 create function public.tm_registrar(p_email text, p_clave text, p_nombre text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
-  v_email text := lower(trim(coalesce(p_email, '')));
+  v_email text := left(lower(trim(coalesce(p_email, ''))), 200);
   v_nombre text := trim(coalesce(p_nombre, ''));
+  v_ip text := tumbo_privado.ip_cliente();
+  v_error text;
   u tumbo.usuarios;
 begin
+  delete from tumbo.intentos_acceso where fecha < now() - interval '1 day';
+  if (v_ip <> 'desconocida' and (select count(*) from tumbo.intentos_acceso
+      where tipo = 'registro' and ip = v_ip and fecha > now() - interval '10 minutes') >= 10)
+     or (select count(*) from tumbo.intentos_acceso
+         where tipo = 'registro' and exito and fecha > now() - interval '10 minutes') >= 200 then
+    return jsonb_build_object('error', 'Hay demasiados registros desde tu conexión. Inténtalo en unos minutos.');
+  end if;
+
   if v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]{2,}$' or char_length(v_email) > 120 then
-    raise exception 'Escribe un correo válido.';
-  end if;
+    v_error := 'Escribe un correo válido.';
   -- bcrypt solo usa los primeros 72 bytes: más larga sería una contraseña truncada
-  if char_length(coalesce(p_clave, '')) < 8 or octet_length(p_clave) > 72 then
-    raise exception 'La contraseña necesita entre 8 y 72 caracteres.';
+  elsif char_length(coalesce(p_clave, '')) < 8 or octet_length(p_clave) > 72 then
+    v_error := 'La contraseña necesita entre 8 y 72 caracteres.';
+  elsif char_length(v_nombre) < 2 or char_length(v_nombre) > 80 then
+    v_error := 'Escribe tu nombre (entre 2 y 80 caracteres).';
+  -- nombres reservados a actores del sistema en las líneas de tiempo
+  elsif lower(v_nombre) in ('finanzas', 'operaciones', 'sistema', 'courier', 'moderación', 'moderacion', 'backoffice', 'tumbo', 'tumbo market')
+        or v_nombre ~* '^sel-\d' then
+    v_error := 'Elige otro nombre: ese lo usa el sistema.';
+  elsif exists (select 1 from tumbo.usuarios where email = v_email) then
+    v_error := 'Ya existe una cuenta con ese correo: inicia sesión.';
   end if;
-  if char_length(v_nombre) < 2 or char_length(v_nombre) > 80 then
-    raise exception 'Escribe tu nombre (entre 2 y 80 caracteres).';
-  end if;
-  -- Freno a las altas en masa (la beta no tiene captcha)
-  if (select count(*) from tumbo.auditoria
-      where accion = 'Registro de comprador' and fecha > now() - interval '10 minutes') >= 30 then
-    raise exception 'Hay demasiados registros en este momento. Inténtalo en unos minutos.';
-  end if;
-  if exists (select 1 from tumbo.usuarios where email = v_email) then
-    raise exception 'Ya existe una cuenta con ese correo: inicia sesión.';
+
+  insert into tumbo.intentos_acceso (tipo, email, ip, exito) values ('registro', left(v_email, 120), v_ip, v_error is null);
+  if v_error is not null then
+    return jsonb_build_object('error', v_error);
   end if;
 
   insert into tumbo.usuarios (email, clave_hash, nombre, rol)
   values (v_email, extensions.crypt(p_clave, extensions.gen_salt('bf', 10)), v_nombre, 'comprador')
   returning * into u;
-  perform tumbo_privado.auditar(u, 'Registro de comprador', v_email);
+  perform tumbo_privado.auditar(u, 'Registro de comprador', 'cuenta nueva');
   return jsonb_build_object('sesion', tumbo_privado.abrir_sesion(u.id), 'usuario', tumbo_privado.perfil_json(u));
 end $$;
 
@@ -289,29 +334,39 @@ begin
   end if;
 
   r := r || jsonb_build_object(
+    -- Los 300 más recientes. El comercio solo ve pedidos con el pago ya
+    -- conciliado, y el operador, sin los datos de dinero ni de reclamos.
     'pedidos', coalesce((
-      select jsonb_agg((to_jsonb(p) - 'comprador_id') || jsonb_build_object(
+      select jsonb_agg((case when v_rol = 'operador'
+                             then to_jsonb(p) - 'comprador_id' - 'liquidacion' - 'liquidacion_id' - 'disputa_id'
+                             else to_jsonb(p) - 'comprador_id' end) || jsonb_build_object(
                'mio', p.comprador_id = v_uid,
                'pedido_items', coalesce((select jsonb_agg(to_jsonb(i) - 'pedido_id' order by i.sku)
                                          from tumbo.pedido_items i where i.pedido_id = p.id), '[]'::jsonb),
                'pedido_eventos', coalesce((select jsonb_agg(to_jsonb(e) - 'pedido_id' order by e.fecha, e.id)
                                            from tumbo.pedido_eventos e where e.pedido_id = p.id), '[]'::jsonb))
              order by p.creado desc)
-      from tumbo.pedidos p
-      where p.comprador_id = v_uid
-         or (p.seller_id = v_seller and v_rol in ('seller', 'operador'))
-         or v_admin), '[]'::jsonb),
+      from (select * from tumbo.pedidos p
+            where p.comprador_id = v_uid
+               or (p.seller_id = v_seller and v_rol in ('seller', 'operador')
+                   and p.estado <> 'pago_por_verificar'
+                   and not (p.estado = 'cancelado' and p.sla_horas is null))
+               or v_admin
+            order by p.creado desc limit 300) p), '[]'::jsonb),
     'disputas', coalesce((
       select jsonb_agg((to_jsonb(d) - 'comprador_id') || jsonb_build_object('mio', d.comprador_id = v_uid) order by d.creado desc)
-      from tumbo.disputas d
-      where d.comprador_id = v_uid
-         or (d.seller_id = v_seller and v_rol = 'seller')
-         or v_rol in ('superadmin', 'ops')), '[]'::jsonb),
+      from (select * from tumbo.disputas d
+            where d.comprador_id = v_uid
+               or (d.seller_id = v_seller and v_rol = 'seller')
+               or v_rol in ('superadmin', 'ops')
+            order by d.creado desc limit 300) d), '[]'::jsonb),
     'liquidaciones', coalesce((
       select jsonb_agg(to_jsonb(l) order by l.fecha desc, l.id desc) from tumbo.liquidaciones l
       where (l.seller_id = v_seller and v_rol = 'seller') or v_rol in ('superadmin', 'finanzas')), '[]'::jsonb),
+    -- Finanzas necesita el RIF para pagar, no las observaciones de cumplimiento.
     'kyc', coalesce((
-      select jsonb_agg(to_jsonb(k)) from tumbo.sellers_kyc k
+      select jsonb_agg(case when v_rol = 'finanzas' then to_jsonb(k) - 'observacion' else to_jsonb(k) end)
+      from tumbo.sellers_kyc k
       where (k.seller_id = v_seller and v_rol = 'seller') or v_rol in ('superadmin', 'finanzas')), '[]'::jsonb),
     'docs', coalesce((
       select jsonb_agg(to_jsonb(x) order by x.seller_id, x.orden) from tumbo.seller_documentos x
@@ -325,10 +380,10 @@ begin
                    or n.para = 'rol:' || v_rol
                    or (v_seller is not null and n.para = 'seller:' || v_seller))
               and (n.roles is null or v_rol = any (n.roles))
-            order by n.fecha desc, n.id desc limit 60) n), '[]'::jsonb),
+            order by n.fecha desc, n.id desc limit 100) n), '[]'::jsonb),
     'eventos', case when v_rol in ('superadmin', 'finanzas') then coalesce((
       select jsonb_agg(to_jsonb(a) - 'actor_id' order by a.fecha desc, a.id desc)
-      from (select * from tumbo.auditoria order by fecha desc, id desc limit 300) a), '[]'::jsonb)
+      from (select * from tumbo.auditoria order by fecha desc, id desc limit 500) a), '[]'::jsonb)
       else '[]'::jsonb end,
     'direcciones', coalesce((
       select jsonb_agg(to_jsonb(d) - 'usuario_id' order by d.creado) from tumbo.direcciones d

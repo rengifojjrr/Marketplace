@@ -107,14 +107,19 @@ create table tumbo.sesiones (
 create index sesiones_usuario_idx on tumbo.sesiones (usuario_id);
 create index sesiones_expira_idx on tumbo.sesiones (expira);
 
--- Intentos de acceso: frenan la adivinación de contraseñas.
+-- Intentos de acceso y de registro: frenan la adivinación de contraseñas y
+-- las altas en masa. Se cuentan por correo Y por IP, para que un tercero no
+-- pueda bloquear la cuenta de otra persona desde su propia conexión.
 create table tumbo.intentos_acceso (
   id    bigint generated always as identity primary key,
+  tipo  text not null default 'acceso' check (tipo in ('acceso', 'registro')),
   email text not null,
+  ip    text not null default 'desconocida',
   fecha timestamptz not null default now(),
   exito boolean not null
 );
-create index intentos_acceso_email_idx on tumbo.intentos_acceso (email, fecha desc);
+create index intentos_acceso_email_idx on tumbo.intentos_acceso (email, ip, fecha desc);
+create index intentos_acceso_ip_idx on tumbo.intentos_acceso (tipo, ip, fecha desc);
 
 -- ---------------------------------------------------------------------------
 -- Productos

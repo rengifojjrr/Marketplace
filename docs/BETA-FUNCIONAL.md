@@ -93,7 +93,7 @@ por navegador.
 
 ## Verificación
 
-`npm test` (`tools/verificar-beta.js`) ejecuta 20 pruebas E2E en Chromium
+`npm test` (`tools/verificar-beta.js`) ejecuta 23 pruebas E2E en Chromium
 contra el modo que tenga el sitio (local o Supabase),
 incluidos los tres recorridos interconectados completos, el RBAC por
 ocultación, el barrido de todas las páginas por rol sin errores de consola y

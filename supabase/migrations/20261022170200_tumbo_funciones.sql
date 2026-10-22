@@ -118,6 +118,9 @@ begin
   if (select count(*) from tumbo.pedidos where comprador_id = yo.id and estado = 'pago_por_verificar') >= 5 then
     raise exception 'Tienes 5 pedidos con el pago por verificar: espera la conciliación o cancela alguno.';
   end if;
+  if (select count(*) from tumbo.pedidos where comprador_id = yo.id and creado > now() - interval '1 hour') >= 10 then
+    raise exception 'Has creado muchos pedidos en la última hora: inténtalo más tarde.';
+  end if;
   if p_envio_tipo = 'agencia' then
     v_dir := 'Agencia MRW La Candelaria, Caracas'; v_courier := 'MRW (demo)'; v_costo := 2.5;
   elsif p_envio_tipo = 'domicilio' then
@@ -140,14 +143,15 @@ begin
   end if;
 
   for r in
-    select c.cant, p.nombre, p.estado, p.stock_fis - p.stock_res as disp, s.estado as seller_estado
+    select c.cant, c.sku, p.nombre, p.estado, p.stock_fis - p.stock_res as disp, s.estado as seller_estado
     from tumbo.carrito_items c
     join tumbo.productos p on p.sku = c.sku
     join tumbo.sellers s on s.id = p.seller_id
     where c.usuario_id = yo.id
   loop
     if r.estado <> 'publicado' or r.seller_estado <> 'aprobado' then
-      raise exception '«%» ya no está disponible: quítalo del carrito.', r.nombre;
+      -- (por SKU: el nombre actual podría ser un cambio aún sin moderar)
+      raise exception 'El producto % ya no está disponible: quítalo del carrito.', r.sku;
     end if;
     if r.cant > r.disp then
       raise exception '«%» solo tiene % disponibles.', r.nombre, greatest(r.disp, 0);

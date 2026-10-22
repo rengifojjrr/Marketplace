@@ -191,10 +191,10 @@ begin
 
   if p_auditoria then
     insert into tumbo.auditoria (fecha, actor, accion, detalle) values
-      ('2026-08-20 09:00-04', 'Rosa Blanco', 'Liquidación ejecutada', 'LIQ-2026-008 → SEL-009 · $48.90'),
+      ('2026-08-20 09:00-04', 'Rosa Blanco (finanzas)', 'Liquidación ejecutada', 'LIQ-2026-008 → SEL-009 · $48.90'),
       ('2026-08-27 18:20-04', 'Sistema', 'Congelación de liquidación', 'TM-2026-00428 por DSP-0098'),
-      ('2026-08-27 18:20-04', 'María González', 'Apertura de disputa', 'DSP-0098 sobre TM-2026-00428'),
-      ('2026-08-28 20:15-04', 'Rosa Blanco', 'Conciliación de pago', 'PM-780331 → TM-2026-00434');
+      ('2026-08-27 18:20-04', 'María González (comprador)', 'Apertura de disputa', 'DSP-0098 sobre TM-2026-00428'),
+      ('2026-08-28 20:15-04', 'Rosa Blanco (finanzas)', 'Conciliación de pago', 'PM-780331 → TM-2026-00434');
   end if;
 
   -- Los identificadores nuevos continúan donde termina la semilla.
