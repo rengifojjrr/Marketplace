@@ -88,10 +88,12 @@
           <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>Volver al acceso</button>
         <h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Crear cuenta de comprador</h2>
         <p class="font-body-sm text-body-sm text-on-surface-variant mb-4">Los comercios no se registran aquí: el marketplace es curado y los sellers entran por invitación.</p>
-        <label class="block font-label-md text-label-md text-on-surface mb-1" for="rg-correo">Correo o teléfono</label>
-        <input id="rg-correo" placeholder="usuario@demo.ve o 0412-0000000" class="w-full h-11 px-3 mb-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>
+        <label class="block font-label-md text-label-md text-on-surface mb-1" for="rg-nombre">Nombre y apellido</label>
+        <input id="rg-nombre" autocomplete="name" placeholder="Ej.: Ana Pérez" class="w-full h-11 px-3 mb-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>
+        <label class="block font-label-md text-label-md text-on-surface mb-1" for="rg-correo">Correo</label>
+        <input id="rg-correo" type="email" autocomplete="email" placeholder="usuario@correo.com" class="w-full h-11 px-3 mb-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>
         <label class="block font-label-md text-label-md text-on-surface mb-1" for="rg-clave">Contraseña</label>
-        <input id="rg-clave" type="password" class="w-full h-11 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>
+        <input id="rg-clave" type="password" autocomplete="new-password" class="w-full h-11 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>
         <p class="font-body-sm text-body-sm text-on-surface-variant mt-1 mb-3">Mínimo 8 caracteres.</p>
         <label class="flex items-start gap-2 mb-4 cursor-pointer">
           <input id="rg-terminos" type="checkbox" class="mt-1 w-4 h-4 rounded border-outline text-secondary focus:ring-secondary/40"/>
@@ -114,17 +116,22 @@
     </div>
 
     <p class="text-center mt-5 font-body-sm text-body-sm text-on-surface-variant">
-      Versión beta · datos ficticios · sin cobros reales ·
+      Versión beta · datos de prueba · sin cobros reales ·
       <a class="text-secondary hover:underline" href="prototipo/index.html">prototipo de referencia</a></p>
   </div>
 </main>
 
+<script src="assets/js/tm-config.js"></script>
+<script src="assets/vendor/supabase-js-2.117.3.js"></script>
 <script src="assets/js/tm-datos.js"></script>
 <script src="assets/js/tm-store.js"></script>
+<script src="assets/js/tm-remoto.js"></script>
 <script>
 /* =========================================================================
-   Acceso: valida contra los usuarios demo, exige MFA donde corresponde y
-   entrega la sesión al armazón. `?volver=` regresa a la página protegida.
+   Acceso: inicia sesión (Supabase Auth con backend; cuentas demo en modo
+   local), exige el segundo factor donde corresponde y entrega la sesión al
+   armazón. `?volver=` regresa a la página protegida; `?mfa=1` retoma un
+   segundo factor pendiente.
    ========================================================================= */
 (function () {
   'use strict';
@@ -140,7 +147,6 @@
     superadmin: 'app/admin/panel.html', ops: 'app/admin/pedidos.html', finanzas: 'app/admin/conciliacion.html' };
 
   var usuarios = TM.estado.usuarios;
-  var pendiente = null;
   var pasos = {};
   document.querySelectorAll('[data-paso]').forEach(function (f) { pasos[f.getAttribute('data-paso')] = f; });
 
@@ -158,14 +164,20 @@
   }
   function limpiar() { ['ac-correo-err', 'ac-clave-err', 'ac-codigo-err', 'rg-err'].forEach(function (i) { error(i, ''); }); }
 
+  /* Solo se vuelve a páginas propias de la app y del área del rol. */
   function destino(rol) {
-    var volver = new URLSearchParams(location.search).get('volver');
-    if (volver && rol === 'comprador' && /^app\/tienda\//.test(volver)) return volver;
+    var volver = new URLSearchParams(location.search).get('volver') || '';
+    var area = { comprador: 'tienda', seller: 'seller', precios: 'seller', operador: 'seller',
+      superadmin: 'admin', ops: 'admin', finanzas: 'admin' }[rol];
+    if (/^app\/(tienda|seller|admin)\/[a-z]+\.html(\?[\w=&%.,-]*)?$/.test(volver) &&
+        (volver.indexOf('app/' + area + '/') === 0 || volver.indexOf('app/tienda/') === 0)) return volver;
     return INICIOS[rol];
   }
-  function entrar(u) {
-    TM.iniciarSesion(u.email);
-    location.href = destino(u.rol);
+  function entrar(s) { location.href = destino(s.rol); }
+
+  function ocupar(form, si) {
+    var b = form.querySelector('button[type=submit]');
+    if (b) { b.disabled = si; if (si) b.setAttribute('aria-busy', 'true'); else b.removeAttribute('aria-busy'); }
   }
 
   /* Cuentas de prueba agrupadas por superficie */
@@ -199,42 +211,68 @@
 
   pasos.credenciales.addEventListener('submit', function (ev) {
     ev.preventDefault(); limpiar();
+    var form = pasos.credenciales;
     var correo = document.getElementById('ac-correo').value.trim().toLowerCase();
     var clave = document.getElementById('ac-clave').value;
     if (!correo) { error('ac-correo-err', 'Escribe tu correo.'); return; }
-    var u = usuarios.find(function (x) { return x.email === correo; });
-    if (!u) { error('ac-correo-err', 'No hay ninguna cuenta demo con ese correo: usa las de abajo.'); return; }
-    if (clave !== u.clave) { error('ac-clave-err', 'La contraseña de las cuentas demo es demo1234.'); return; }
-    if (u.mfa) { pendiente = u; mostrar('mfa'); return; }
-    entrar(u);
+    if (!clave) { error('ac-clave-err', 'Escribe tu contraseña.'); return; }
+    ocupar(form, true);
+    TM.acceder(correo, clave).then(function (s) {
+      ocupar(form, false);
+      if (s.mfa) { mostrar('mfa'); return; }
+      entrar(s);
+    }, function (e) {
+      ocupar(form, false);
+      error(e && e.campo === 'clave' ? 'ac-clave-err' : 'ac-correo-err', (e && e.error) || 'No se pudo iniciar sesión.');
+    });
   });
 
   pasos.mfa.addEventListener('submit', function (ev) {
     ev.preventDefault(); limpiar();
-    if (document.getElementById('ac-codigo').value.trim() !== '123456') {
+    if (!TM.confirmarMfa(document.getElementById('ac-codigo').value)) {
       error('ac-codigo-err', 'Código incorrecto. En la demo es 123456.'); return;
     }
-    if (pendiente) entrar(pendiente);
+    entrar(TM.sesion());
   });
 
   pasos.registro.addEventListener('submit', function (ev) {
     ev.preventDefault(); limpiar();
-    var correo = document.getElementById('rg-correo').value.trim();
+    var form = pasos.registro;
+    var nombre = document.getElementById('rg-nombre').value.trim();
+    var correo = document.getElementById('rg-correo').value.trim().toLowerCase();
     var clave = document.getElementById('rg-clave').value;
-    if (!correo) { error('rg-err', 'Indica un correo o un teléfono.'); return; }
+    if (nombre.length < 2) { error('rg-err', 'Escribe tu nombre y apellido.'); return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(correo)) { error('rg-err', 'Escribe un correo válido.'); return; }
     if (clave.length < 8) { error('rg-err', 'La contraseña necesita al menos 8 caracteres.'); return; }
     if (!document.getElementById('rg-terminos').checked) { error('rg-err', 'Debes aceptar los términos para continuar.'); return; }
-    /* En la beta el registro entra con la cuenta demo de comprador. */
-    entrar(usuarios.find(function (x) { return x.rol === 'comprador'; }));
+    ocupar(form, true);
+    TM.registrar(nombre, correo, clave).then(entrar, function (e) {
+      ocupar(form, false);
+      error('rg-err', (e && e.error) || 'No se pudo crear la cuenta.');
+    });
   });
 
   document.querySelectorAll('[data-ir]').forEach(function (b) {
     b.addEventListener('click', function () { limpiar(); mostrar(b.getAttribute('data-ir')); });
   });
   document.querySelector('[data-invitado]').addEventListener('click', function () {
-    TM.cerrarSesion();
-    location.href = 'app/tienda/inicio.html';
+    TM.cerrarSesion().then(function () { location.href = 'app/tienda/inicio.html'; });
   });
+
+  /* Volver desde una página protegida con el segundo factor pendiente. */
+  if (new URLSearchParams(location.search).get('mfa') === '1') {
+    TM.listoSesion().then(function () {
+      if (TM.sesion() && TM.mfaPendiente()) mostrar('mfa');
+    });
+  }
+
+  /* En modo local el registro abre la cuenta demo de comprador. */
+  if (TM.modo !== 'remoto') {
+    var aviso = document.createElement('p');
+    aviso.className = 'font-body-sm text-body-sm text-on-surface-variant mb-3';
+    aviso.textContent = 'Modo sin conexión: el registro entra con la cuenta demo de comprador.';
+    pasos.registro.querySelector('h2').insertAdjacentElement('afterend', aviso);
+  }
 })();
 </script>
 </body>

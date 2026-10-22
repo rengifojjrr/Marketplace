@@ -177,19 +177,22 @@
 
   function despuesProducto(raiz, q, s) {
     var sku = q.get('sku');
-    function agregar(cb) {
+    function agregar(boton, cb) {
       var sel = raiz.querySelector('[data-cant]');
-      var r = TM.carritoAgregar(sku, sel ? parseInt(sel.value, 10) : 1);
-      if (!r.ok) { UI.toast('No se pudo agregar', r.error, 'error'); return; }
-      cb();
+      var cant = sel ? parseInt(sel.value, 10) : 1;
+      UI.accion(boton, function () { return TM.carritoAgregar(sku, cant); }, cb, 'No se pudo agregar');
     }
     var a = raiz.querySelector('[data-agregar]');
     if (a) a.addEventListener('click', function () {
-      agregar(function () { UI.toast('Agregado al carrito', TM.producto(sku).nombre, 'shopping_cart'); });
+      agregar(a, function () { UI.toast('Agregado al carrito', TM.producto(sku).nombre, 'shopping_cart'); });
     });
     var c = raiz.querySelector('[data-comprar]');
     if (c) c.addEventListener('click', function () {
-      agregar(function () { location.href = href('app/tienda/checkout.html'); });
+      agregar(c, function () {
+        var s = TM.sesion();
+        location.href = s && s.rol === 'comprador' ? href('app/tienda/checkout.html')
+          : href('index.html') + '?volver=' + encodeURIComponent('app/tienda/checkout.html');
+      });
     });
     var v = raiz.querySelector('[data-avisar]');
     if (v) v.addEventListener('click', function () {
@@ -234,19 +237,22 @@
   function despuesCarrito(raiz, q, s) {
     raiz.querySelectorAll('[data-mas]').forEach(function (b) {
       b.addEventListener('click', function () {
-        var it = TM.carrito().find(function (i) { return i.sku === b.getAttribute('data-mas'); });
-        TM.carritoCambiar(b.getAttribute('data-mas'), it.cant + 1);
+        var sku = b.getAttribute('data-mas');
+        var it = TM.carrito().find(function (i) { return i.sku === sku; });
+        UI.accion(b, function () { return TM.carritoCambiar(sku, it.cant + 1); });
       });
     });
     raiz.querySelectorAll('[data-menos]').forEach(function (b) {
       b.addEventListener('click', function () {
-        var it = TM.carrito().find(function (i) { return i.sku === b.getAttribute('data-menos'); });
-        if (it.cant <= 1) TM.carritoQuitar(b.getAttribute('data-menos'));
-        else TM.carritoCambiar(b.getAttribute('data-menos'), it.cant - 1);
+        var sku = b.getAttribute('data-menos');
+        var it = TM.carrito().find(function (i) { return i.sku === sku; });
+        UI.accion(b, function () { return it.cant <= 1 ? TM.carritoQuitar(sku) : TM.carritoCambiar(sku, it.cant - 1); });
       });
     });
     raiz.querySelectorAll('[data-quitar]').forEach(function (b) {
-      b.addEventListener('click', function () { TM.carritoQuitar(b.getAttribute('data-quitar')); });
+      b.addEventListener('click', function () {
+        UI.accion(b, function () { return TM.carritoQuitar(b.getAttribute('data-quitar')); });
+      });
     });
     var rail = raiz.querySelector('[data-rail-accion]');
     if (rail) {
@@ -276,7 +282,7 @@
         '<span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary-container text-on-primary text-[13px] font-bold">1</span>Entrega</h2>' +
         (dirs.length ? dirs.map(function (d, i) {
           return '<label class="flex items-start gap-2 p-3 rounded-btn border border-outline-variant mb-2 cursor-pointer has-[:checked]:border-secondary has-[:checked]:bg-secondary-container/30">' +
-            '<input type="radio" name="dir" value="' + esc(d.linea + ', ' + d.municipio) + '"' + (i === 0 ? ' checked' : '') + ' class="mt-1 text-secondary focus:ring-secondary/40"/>' +
+            '<input type="radio" name="dir" value="' + esc(d.id) + '"' + (i === 0 ? ' checked' : '') + ' class="mt-1 text-secondary focus:ring-secondary/40"/>' +
             '<span><span class="font-body-sm text-body-sm font-bold text-on-surface">' + esc(d.nombre) + '</span>' +
             '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(d.linea) + ', ' + esc(d.municipio) + ' · ' + esc(d.telefono) + '</span></span></label>';
         }).join('') : '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">No tienes direcciones guardadas: agrega una en <a class="text-secondary hover:underline" href="' + href('app/tienda/direcciones.html') + '">Direcciones</a> o usa retiro en agencia.</p>') +
@@ -332,21 +338,18 @@
         f.querySelector('[name=ref]').focus();
         return;
       }
+      err.classList.add('hidden');
       var dir = f.querySelector('[name=dir]:checked');
       var esAgencia = !dir || dir.value === '__agencia__';
-      var r;
-      try {
-        r = TM.crearPedido({
-          tipo: esAgencia ? 'agencia' : 'domicilio',
-          dir: esAgencia ? 'Agencia MRW La Candelaria, Caracas' : dir.value,
-          courier: esAgencia ? 'MRW (demo)' : 'Zoom (demo)',
-          costoUsd: esAgencia ? 2.5 : 4,
-          metodo: f.querySelector('[name=metodo]:checked').value,
-          ref: ref
-        });
-      } catch (e) { UI.toast('Stock insuficiente', e.error || 'Revisa las cantidades del carrito.', 'error'); return; }
-      if (!r.ok) { UI.toast('No se pudo crear el pedido', r.error, 'error'); return; }
-      location.href = href('app/tienda/confirmacion.html?ids=' + r.ids.join(','));
+      var datos = {
+        tipo: esAgencia ? 'agencia' : 'domicilio',
+        direccionId: esAgencia ? null : dir.value,
+        metodo: f.querySelector('[name=metodo]:checked').value,
+        ref: ref
+      };
+      UI.accion(this, function () { return TM.crearPedido(datos); }, function (ids) {
+        location.href = href('app/tienda/confirmacion.html?ids=' + ids.join(','));
+      }, 'No se pudo crear el pedido');
     });
   }
 
@@ -491,16 +494,17 @@
     var id = q.get('id');
     var r = raiz.querySelector('[data-recibir]');
     if (r) r.addEventListener('click', function () {
-      TM.confirmarEntrega(id);
-      UI.toast('¡Gracias!', 'Entrega confirmada: tienes ' + TM.estado.config.ventanaReclamoDias + ' días para reclamos.', 'check_circle');
+      UI.accion(r, function () { return TM.confirmarEntrega(id); }, function () {
+        UI.toast('¡Gracias!', 'Entrega confirmada: tienes ' + TM.estado.config.ventanaReclamoDias + ' días para reclamos.', 'check_circle');
+      });
     });
     var c = raiz.querySelector('[data-cancelar]');
     if (c) c.addEventListener('click', function () {
-      UI.confirmar('Cancelar el pedido', 'Se libera el stock y el reembolso queda en cola de Finanzas (demo).',
+      UI.confirmar('Cancelar el pedido', 'Se libera el stock reservado y, si el pago ya se había conciliado, el reembolso queda en cola de Finanzas (demo).',
         { accion: 'Cancelar pedido', peligro: true, motivo: 'Motivo (opcional)' }, function (motivo) {
-          var res = TM.cancelarPedido(id, motivo);
-          if (!res.ok) UI.toast('No se pudo cancelar', res.error, 'block');
-          else UI.toast('Pedido cancelado', 'El reembolso quedó en cola (demo).', 'cancel');
+          UI.accion(null, function () { return TM.cancelarPedido(id, motivo); }, function () {
+            UI.toast('Pedido cancelado', 'El stock quedó liberado y Finanzas fue notificada.', 'cancel');
+          }, 'No se pudo cancelar');
         });
     });
     var rec = raiz.querySelector('[data-recibo]');
@@ -580,14 +584,16 @@
         raiz.querySelector('[data-desc]').focus();
         return;
       }
-      var r = TM.abrirDisputa(q.get('id'), {
+      err.classList.add('hidden');
+      var datos = {
         motivo: raiz.querySelector('[name=motivo]:checked').value,
         descripcion: desc + ' · Preferencia: ' + raiz.querySelector('[name=pref]:checked').value + '.',
         evidencia: adjuntos
-      });
-      if (!r.ok) { UI.toast('No se pudo abrir el reclamo', r.error, 'error'); return; }
-      UI.toast('Reclamo ' + r.id + ' abierto', 'Operaciones lo revisará dentro del SLA.', 'gavel');
-      location.href = href('app/tienda/pedido.html?id=' + q.get('id'));
+      };
+      UI.accion(e, function () { return TM.abrirDisputa(q.get('id'), datos); }, function (id) {
+        UI.toast('Reclamo ' + id + ' abierto', 'Operaciones lo revisará dentro del SLA.', 'gavel');
+        location.href = href('app/tienda/pedido.html?id=' + q.get('id'));
+      }, 'No se pudo abrir el reclamo');
     });
   }
 
@@ -618,7 +624,7 @@
   function despuesCuenta(raiz) {
     raiz.querySelectorAll('[data-demo-mosaico]').forEach(function (b) {
       b.addEventListener('click', function () {
-        UI.toast('Disponible con el backend', 'Esta sección llega con la versión conectada.', 'science');
+        UI.toast('Próximamente', 'Esta sección llega en la siguiente versión de la beta.', 'science');
       });
     });
   }
@@ -659,14 +665,21 @@
               e.classList.remove('hidden');
               return;
             }
-            cerrar();
-            TM.agregarDireccion({ nombre: v.nombre, linea: v.linea, municipio: v.municipio, ciudad: 'Caracas', codigo: '1010', telefono: v.telefono || '—', predeterminada: false });
-            UI.toast('Dirección guardada', v.nombre, 'place');
+            UI.accion(velo.querySelector('[data-ok]'), function () {
+              return TM.agregarDireccion({ nombre: v.nombre, linea: v.linea, municipio: v.municipio, ciudad: 'Caracas', codigo: '1010', telefono: v.telefono || '—', predeterminada: false });
+            }, function () {
+              cerrar();
+              UI.toast('Dirección guardada', v.nombre, 'place');
+            }, 'No se pudo guardar la dirección');
           });
         });
     });
     raiz.querySelectorAll('[data-quitar-dir]').forEach(function (b) {
-      b.addEventListener('click', function () { TM.quitarDireccion(b.getAttribute('data-quitar-dir')); });
+      b.addEventListener('click', function () {
+        UI.accion(b, function () { return TM.quitarDireccion(b.getAttribute('data-quitar-dir')); }, function () {
+          UI.toast('Dirección eliminada', '', 'place');
+        }, 'No se pudo eliminar');
+      });
     });
   }
 

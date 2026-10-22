@@ -246,11 +246,36 @@
       });
   }
 
+  /* Ejecuta una acción asíncrona del almacén: bloquea el botón mientras
+     dura (evita dobles envíos) y muestra el error del servidor si falla. */
+  function mensajeError(e) {
+    return (e && (e.error || e.message)) || 'Inténtalo de nuevo en unos segundos.';
+  }
+  function accion(boton, fn, alExito, tituloError, alFallar) {
+    if (boton) {
+      if (boton.disabled) return;
+      boton.disabled = true;
+      boton.setAttribute('aria-busy', 'true');
+    }
+    function liberar() {
+      if (boton) { boton.disabled = false; boton.removeAttribute('aria-busy'); }
+    }
+    var p;
+    try { p = Promise.resolve(fn()); } catch (e) { p = Promise.reject(e); }
+    p.then(function (r) { liberar(); if (alExito) alExito(r); },
+      function (e) {
+        liberar();
+        toast(tituloError || 'No se pudo completar la acción', mensajeError(e), 'error');
+        if (alFallar) alFallar(e);
+      });
+  }
+
   window.UI = {
     esc: esc, ic: ic, href: href, base: base,
     badge: badge, nombreEstado: nombreEstado, estrellas: estrellas, precio: precio,
     imgProducto: imgProducto, tarjetaProducto: tarjetaProducto,
     kpi: kpi, vacio: vacio, tabla: tabla, td: td, btn: btn,
-    toast: toast, modal: modal, confirmar: confirmar, pedir2fa: pedir2fa
+    toast: toast, modal: modal, confirmar: confirmar, pedir2fa: pedir2fa,
+    accion: accion, mensajeError: mensajeError
   };
 })();

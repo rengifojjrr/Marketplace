@@ -1,13 +1,15 @@
 # Tumbo Market — beta funcional
 
 Marketplace curado de Venezuela: **tienda**, **Seller Center** y **Backoffice**
-funcionando como una sola aplicación. Sin backend todavía, pero con datos que
-fluyen de verdad: lo que el comprador compra llega a la cola del seller, lo que
-Finanzas concilia habilita la preparación, lo que Moderación aprueba aparece en
-la tienda.
+funcionando como una sola aplicación sobre un backend real (Supabase: Postgres,
+Auth y tiempo real). Lo que el comprador compra llega a la cola del seller, lo
+que Finanzas concilia habilita la preparación, lo que Moderación aprueba
+aparece en la tienda — para todos los usuarios a la vez.
 
-> **Beta de demostración.** Datos ficticios, pagos y envíos simulados. El
-> estado vive en tu navegador y se reinicia desde el menú de usuario.
+> **Beta.** Pagos y envíos simulados (no se mueve dinero ni se crean guías
+> reales). Con backend, los datos son compartidos y solo el superadministrador
+> puede reiniciarlos. Sin backend configurado, la app cae al modo local: cada
+> navegador guarda su propia copia.
 
 ## Enlace
 
@@ -31,7 +33,8 @@ Contraseña `demo1234`. Los perfiles **MFA** piden después el código `123456`.
 | Backoffice | Finanzas | `finanzas@tumbomarket.demo` | Sí |
 
 También puedes entrar **como invitado** (navegas la tienda y armas carrito) o
-**registrarte** como comprador.
+**registrarte** como comprador: la cuenta queda creada al instante y solo ve
+sus propios pedidos.
 
 ## Un recorrido que puedes probar completo
 
@@ -61,7 +64,9 @@ campanita de cada rol.
 - **Doble moneda**: Bs. como presentación, USD como referencia, tasa demo fija
   por pedido.
 - **Permisos por ocultación**: lo que tu rol no puede usar no aparece en el
-  menú; la URL directa devuelve un 403 explicado.
+  menú; la URL directa devuelve un 403 explicado. Y detrás, el servidor: RLS
+  en cada tabla y cada cambio de estado validado en Postgres
+  ([docs/BACKEND.md](docs/BACKEND.md)).
 - **Honestidad de demo**: toda operación financiera o logística declara que es
   simulada.
 
@@ -74,14 +79,18 @@ app/
   seller/              7 vistas — Seller Center
   admin/               8 vistas — Backoffice
 assets/js/
-  tm-datos.js         Datos semilla
-  tm-store.js         Almacén de estado y mutaciones del negocio
+  tm-config.js        Conexión con Supabase (vacía = modo local)
+  tm-datos.js         Datos semilla del modo local
+  tm-store.js         Almacén de estado: API común y motor local
+  tm-remoto.js        Motor remoto: caché + funciones tm_* de Supabase
   tm-ui.js            Componentes compartidos
   tm-app.js           Armazones, navegación por rol y RBAC
   tm-vistas-*.js      Las vistas de cada superficie
+assets/vendor/        supabase-js empaquetado (sin CDN)
+supabase/migrations/  Esquema, RLS, funciones de negocio y semilla
 prototipo/            El prototipo original de Google Stitch (referencia)
 docs/                 Investigación, especificación y arquitectura
-tools/                Generadores, subset de fuentes y verificación E2E
+tools/                Generadores, fuentes, verificación E2E y Supabase local
 ```
 
 ## Desarrollo
@@ -89,14 +98,19 @@ tools/                Generadores, subset de fuentes y verificación E2E
 ```bash
 python3 serve.py      # http://localhost:8000
 npm run build         # recompila estilos y regenera las páginas
-npm test              # 16 pruebas E2E en Chromium (flujos interconectados)
+npm test              # 20 pruebas E2E en Chromium (flujos interconectados)
 ```
 
 Las páginas de `app/` son cascarones generados: **no se editan a mano**. El
-contenido vive en `assets/js/tm-vistas-*.js`; los datos, en `tm-datos.js`.
+contenido vive en `assets/js/tm-vistas-*.js`.
+
+Para trabajar contra el backend sin tocar la nube hay un Supabase mínimo en
+local (Postgres + Auth + PostgREST, sin Docker): ver
+[docs/BACKEND.md](docs/BACKEND.md#probar-en-local-sin-la-nube).
 
 ## Documentación
 
+- [Backend: datos, seguridad y API](docs/BACKEND.md)
 - [Arquitectura de la beta funcional](docs/BETA-FUNCIONAL.md)
 - [Estudio de Amazon y adaptaciones](docs/INVESTIGACION-AMAZON.md)
 - [Especificación funcional](docs/ESPECIFICACION-FUNCIONAL.md)

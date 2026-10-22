@@ -2,7 +2,7 @@
   "name": "tumbo-market-beta",
   "version": "1.0.0-beta",
   "private": true,
-  "description": "Beta funcional de Tumbo Market: marketplace curado de Venezuela con tienda, Seller Center y Backoffice interconectados sobre un almacén local.",
+  "description": "Beta funcional de Tumbo Market: marketplace curado de Venezuela con tienda, Seller Center y Backoffice interconectados sobre Supabase (con modo local de respaldo).",
   "scripts": {
     "start": "python3 serve.py 8000",
     "build": "npm run build:css && npm run build:paginas",

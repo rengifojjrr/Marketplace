@@ -4,6 +4,13 @@
  *
  *   node tools/verificar-beta.js [urlBase]
  *
+ * Funciona con el modo que tenga el sitio (local o Supabase). Para probar el
+ * sitio contra otro backend sin tocar assets/js/tm-config.js:
+ *
+ *   TM_SUPABASE_URL=http://127.0.0.1:54321 TM_SUPABASE_KEY=<clave> node tools/verificar-beta.js
+ *
+ * Con backend, la prueba reinicia los datos de la demo (como superadmin).
+ *
  * Recorre el acceso, el RBAC por ocultación y —lo central— los recorridos
  * interconectados: una compra creada por el comprador atraviesa conciliación,
  * preparación, despacho, entrega, ventana y liquidación; un producto creado
@@ -30,20 +37,31 @@ const PAGINAS = {
 };
 
 (async () => {
-  const navegador = await chromium.launch();
+  /* Para un sitio publicado se sale por el proxy del entorno si lo hay. */
+  const externo = !/\/\/(localhost|127\.0\.0\.1)[:/]/.test(BASE);
+  const navegador = await chromium.launch(externo && process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY } } : {});
   const ctx = await navegador.newContext({ viewport: { width: 1440, height: 950 } });
+  if (process.env.TM_SUPABASE_URL) {
+    /* el stack local no trae servidor de tiempo real */
+    const cfg = 'window.TM_CONFIG = ' + JSON.stringify({ supabaseUrl: process.env.TM_SUPABASE_URL,
+      supabaseKey: process.env.TM_SUPABASE_KEY, tiempoReal: process.env.TM_TIEMPO_REAL === '1' }) + ';';
+    await ctx.route('**/assets/js/tm-config.js', (r) => r.fulfill({ contentType: 'application/javascript', body: cfg }));
+  }
   const p = await ctx.newPage();
+  let modo = 'local';
 
   const errores = [];
   p.on('pageerror', (e) => errores.push('JS: ' + e.message.split('\n')[0]));
   p.on('console', (m) => { if (m.type() === 'error') errores.push('consola: ' + m.text().slice(0, 140)); });
 
   const pruebas = [];
-  const prueba = async (n, fn) => {
+  /* `permitir`: errores de red esperados (p. ej. el 400 de un rechazo que la
+     prueba provoca a propósito). */
+  const prueba = async (n, fn, permitir) => {
     const antes = errores.length;
     try {
       await fn();
-      const nuevos = errores.slice(antes);
+      const nuevos = errores.slice(antes).filter((e) => !(permitir && permitir.test(e)));
       if (nuevos.length) throw new Error('errores de consola: ' + nuevos[0]);
       pruebas.push([n, true, '']);
       process.stdout.write(verde('✓ ') + n + '\n');
@@ -65,27 +83,45 @@ const PAGINAS = {
     await p.waitForSelector('[data-lista] button');
     await p.locator('[data-lista] button', { hasText: etiqueta }).first().click();
     await p.locator('form[data-paso=credenciales] button[type=submit]').click();
+    await Promise.race([
+      p.waitForURL(/\/app\//, { timeout: 15000 }),
+      p.locator('#ac-codigo').waitFor({ state: 'visible', timeout: 15000 })
+    ]);
     if (await p.locator('#ac-codigo').isVisible().catch(() => false)) {
       await p.fill('#ac-codigo', '123456');
       await p.locator('form[data-paso=mfa] button[type=submit]').click();
     }
-    await p.waitForSelector('#raiz > *', { timeout: 8000 });
+    await p.waitForSelector('#raiz > *', { timeout: 15000 });
     await p.waitForTimeout(150);
   };
 
+  /* Espera el aviso que confirma que la acción terminó (en modo remoto la
+     acción viaja al servidor: navegar antes la cortaría). */
+  const aviso = async (texto) => {
+    await p.locator('.tm-toast', { hasText: texto }).first().waitFor({ timeout: 15000 });
+  };
+
   const reset = async () => {
+    await p.goto(`${BASE}/index.html`, { waitUntil: 'domcontentloaded' });
+    modo = await p.evaluate(() => TM.modo);
+    if (modo === 'remoto') {
+      await login('Superadministrador');
+      await p.evaluate(() => TM.reiniciarDemo());
+    }
     await p.goto(`${BASE}/index.html`, { waitUntil: 'domcontentloaded' });
     await p.evaluate(() => { localStorage.clear(); });
   };
 
   /* ================= Acceso ================= */
   await reset();
+  console.log('Modo de datos: ' + modo + '\n');
 
   await prueba('login: credenciales inválidas y MFA se rechazan', async () => {
     await p.waitForSelector('[data-lista] button');
     await p.fill('#ac-correo', 'comprador@demo.ve');
     await p.fill('#ac-clave', 'mala');
     await p.locator('form[data-paso=credenciales] button[type=submit]').click();
+    await p.locator('#ac-clave-err:not(.hidden)').waitFor({ timeout: 15000 });
     const e1 = await p.locator('#ac-clave-err').innerText();
     if (!/demo1234/.test(e1)) throw new Error('no avisa de la contraseña');
     await p.locator('[data-lista] button', { hasText: 'Finanzas' }).first().click();
@@ -94,7 +130,7 @@ const PAGINAS = {
     await p.fill('#ac-codigo', '000000');
     await p.locator('form[data-paso=mfa] button[type=submit]').click();
     if (!/123456/.test(await p.locator('#ac-codigo-err').innerText())) throw new Error('acepta un código inválido');
-  });
+  }, /status of 400/);
 
   await prueba('cada rol entra a su inicio', async () => {
     const esperados = [
@@ -140,7 +176,7 @@ const PAGINAS = {
     await p.goto(`${BASE}/app/tienda/producto.html?sku=SKU-TEC-0450`, { waitUntil: 'domcontentloaded' });
     await p.waitForSelector('[data-agregar]');
     await p.locator('[data-agregar]').click();
-    await p.waitForTimeout(200);
+    await aviso('Agregado al carrito');
     await login('Comprador');
     await abrir('tienda/carrito');
     const t = await p.locator('#raiz').innerText();
@@ -164,7 +200,7 @@ const PAGINAS = {
     const fila = p.locator('#raiz tr', { hasText: pedidoNuevo });
     if (!await fila.count()) throw new Error(pedidoNuevo + ' no está en la cola de conciliación');
     await fila.locator('[data-conciliar]').click();
-    await p.waitForTimeout(300);
+    await aviso('Pago conciliado');
     await login('Seller principal');
     await abrir('seller/pedidos?estado=por_aceptar');
     if (!(await p.locator('#raiz').innerText()).includes(pedidoNuevo)) throw new Error('el seller no ve el pedido conciliado');
@@ -172,13 +208,13 @@ const PAGINAS = {
 
   await prueba('el seller acepta, prepara, genera guía y despacha', async () => {
     await abrir('seller/pedido?id=' + pedidoNuevo);
-    await p.locator('[data-aceptar]').click(); await p.waitForTimeout(250);
+    await p.locator('[data-aceptar]').click(); await aviso('Pedido aceptado');
     /* la guía exige el picking completo */
     await p.locator('[data-guia]').click(); await p.waitForTimeout(150);
     if (!(await p.locator('[data-err-pick]').innerText()).includes('picking')) throw new Error('permitió la guía sin picking');
     for (const c of await p.locator('[data-pick]').all()) await c.check();
-    await p.locator('[data-guia]').click(); await p.waitForTimeout(250);
-    await p.locator('[data-despachar]').click(); await p.waitForTimeout(250);
+    await p.locator('[data-guia]').click(); await aviso('generada');
+    await p.locator('[data-despachar]').click(); await aviso('Entregado al courier');
     const t = await p.locator('#raiz').innerText();
     if (!/En camino/.test(t)) throw new Error('el pedido no quedó despachado');
   });
@@ -189,7 +225,7 @@ const PAGINAS = {
     const t = await p.locator('#raiz').innerText();
     if (!/en tránsito|En camino/.test(t)) throw new Error('el comprador no ve el tracking');
     await p.locator('[data-recibir]').click();
-    await p.waitForTimeout(250);
+    await aviso('¡Gracias!');
     if (!/Entregado/.test(await p.locator('#raiz').innerText())) throw new Error('la entrega no se registró');
   });
 
@@ -199,14 +235,14 @@ const PAGINAS = {
     const fila = p.locator('#raiz tr', { hasText: pedidoNuevo });
     if (!await fila.count()) throw new Error('el pedido entregado no aparece con ventana abierta');
     await fila.locator('[data-cerrar-ventana]').click();
-    await p.waitForTimeout(300);
+    await aviso('Ventana cerrada');
     const boton = p.locator('[data-liquidar]').first();
     if (!await boton.count()) throw new Error('no hay corrida pendiente');
     await boton.click();
     await p.waitForSelector('.tm-modal [data-codigo]');
     await p.fill('.tm-modal [data-codigo]', '123456');
     await p.locator('.tm-modal [data-ok]').click();
-    await p.waitForTimeout(300);
+    await aviso('ejecutada');
     await login('Seller principal');
     await abrir('seller/finanzas');
     const t = await p.locator('#raiz').innerText();
@@ -220,7 +256,7 @@ const PAGINAS = {
     await abrir('seller/disputas');
     await p.fill('[data-resp="DSP-0098"]', 'El paquete salió verificado, con evidencia fotográfica del empaque.');
     await p.locator('[data-responder]').click();
-    await p.waitForTimeout(250);
+    await aviso('Respuesta enviada');
     await login('Operaciones');
     await abrir('admin/disputas');
     const t0 = await p.locator('#raiz').innerText();
@@ -228,7 +264,7 @@ const PAGINAS = {
     await p.locator('[data-resolver="reembolso"]').click();
     await p.waitForSelector('.tm-modal [data-ok]');
     await p.locator('.tm-modal [data-ok]').click();
-    await p.waitForTimeout(300);
+    await aviso('resuelta');
     await login('Comprador');
     await abrir('tienda/pedido?id=TM-2026-00428');
     const t = await p.locator('#raiz').innerText();
@@ -251,7 +287,7 @@ const PAGINAS = {
     const tarjeta = p.locator('#raiz article', { hasText: 'Compresor portátil' });
     if (!await tarjeta.count()) throw new Error('el producto no llegó a moderación');
     await tarjeta.locator('[data-aprobar]').click();
-    await p.waitForTimeout(300);
+    await aviso('Producto publicado');
     await login('Comprador');
     await abrir('tienda/resultados?q=compresor');
     if (!(await p.locator('#raiz').innerText()).includes('Compresor portátil')) throw new Error('el producto aprobado no aparece en la tienda');
@@ -260,14 +296,81 @@ const PAGINAS = {
   await prueba('el stock editado en línea se refleja en la tienda', async () => {
     await login('Operador');
     await abrir('seller/catalogo');
+    /* 8 en almacén, 1 reservado por TM-2026-00434: con 3 quedan 2 disponibles */
     const campo = p.locator('[data-stock="SKU-MOT-0777"]');
-    await campo.fill('2');
+    await campo.fill('3');
     await campo.blur();
-    await p.waitForTimeout(300);
+    await aviso('Stock actualizado');
     await login('Comprador');
     await abrir('tienda/producto?sku=SKU-MOT-0777');
     const t = await p.locator('#raiz').innerText();
     if (!/Solo quedan 2/.test(t)) throw new Error('la tienda no refleja el stock nuevo: ' + (t.match(/Solo quedan \d+|Disponible/) || ''));
+  });
+
+  await prueba('el stock no puede bajar de lo reservado', async () => {
+    await login('Operador');
+    await abrir('seller/catalogo');
+    const campo = p.locator('[data-stock="SKU-MOT-0777"]');
+    await campo.fill('0');
+    await campo.blur();
+    await aviso('No se guardó el cambio');
+    if (await campo.inputValue() !== '3') throw new Error('el campo no volvió a su valor: ' + await campo.inputValue());
+  }, /status of 400/);
+
+  await prueba('reclamo desde el asistente: congela fondos y llega al seller', async () => {
+    await login('Comprador');
+    await abrir('tienda/pedido?id=TM-2026-00431');
+    await p.locator('[data-recibir]').click();
+    await aviso('¡Gracias!');
+    await abrir('tienda/reclamo?id=TM-2026-00431');
+    await p.locator('[name=motivo][value="Producto incorrecto"]').check();
+    await p.fill('[data-desc]', 'Llegó un monitor de 22 pulgadas en lugar del de 24 que compré.');
+    await p.locator('[data-adjuntar]').click();
+    await p.locator('[data-enviar]').click();
+    await p.waitForURL('**/pedido.html?id=TM-2026-00431', { timeout: 15000 });
+    await p.waitForSelector('#raiz > *');
+    const t = await p.locator('#raiz').innerText();
+    if (!/Reclamo DSP-\d{4}/.test(t)) throw new Error('el pedido no muestra el reclamo');
+    await login('Seller principal');
+    await abrir('seller/finanzas');
+    const fila = p.locator('#raiz tr', { hasText: 'TM-2026-00431' });
+    if (!/Congelado/i.test(await fila.innerText())) throw new Error('los fondos no quedaron congelados');
+    await abrir('seller/disputas');
+    if (!(await p.locator('#raiz').innerText()).includes('monitor de 22 pulgadas')) throw new Error('el seller no ve el reclamo');
+  });
+
+  await prueba('el comprador cancela un pedido sin conciliar y libera stock', async () => {
+    await login('Comprador');
+    await abrir('tienda/pedido?id=TM-2026-00433');
+    await p.locator('[data-cancelar]').click();
+    await p.waitForSelector('.tm-modal [data-ok]');
+    await p.fill('.tm-modal [data-motivo]', 'Me equivoqué de modelo');
+    await p.locator('.tm-modal [data-ok]').click();
+    await aviso('Pedido cancelado');
+    if (!/Cancelado/.test(await p.locator('#raiz').innerText())) throw new Error('el pedido no quedó cancelado');
+    const disp = await p.evaluate(() => { const x = TM.producto('SKU-HOG-0234'); return x.stockFis - x.stockRes; });
+    if (disp !== 9) throw new Error('el stock reservado no se liberó (disponible ' + disp + ')');
+  });
+
+  await prueba('registro de comprador nuevo', async () => {
+    await p.goto(`${BASE}/index.html`, { waitUntil: 'domcontentloaded' });
+    await p.evaluate(() => TM.cerrarSesion());
+    await p.goto(`${BASE}/index.html`, { waitUntil: 'domcontentloaded' });
+    await p.locator('[data-ir=registro]').click();
+    const correo = 'prueba+' + Date.now() + '@correo-demo.ve';
+    await p.fill('#rg-nombre', 'Daniela Prueba');
+    await p.fill('#rg-correo', correo);
+    await p.fill('#rg-clave', 'clave-segura-1');
+    await p.locator('#rg-terminos').check();
+    await p.locator('form[data-paso=registro] button[type=submit]').click();
+    await p.waitForURL('**/tienda/inicio.html', { timeout: 15000 });
+    await p.waitForSelector('#raiz > *');
+    const esperado = modo === 'remoto' ? 'Hola, Daniela' : 'Hola, María';
+    if (!(await p.locator('#raiz header').innerText()).includes(esperado)) throw new Error('la cuenta nueva no quedó con sesión');
+    if (modo === 'remoto') {
+      await abrir('tienda/pedidos');
+      if (!/Aún no tienes pedidos/.test(await p.locator('#raiz').innerText())) throw new Error('la cuenta nueva ve pedidos ajenos');
+    }
   });
 
   await prueba('toda la actividad quedó en la auditoría', async () => {

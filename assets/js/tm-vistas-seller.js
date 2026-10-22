@@ -102,7 +102,9 @@
       var disponible = p.stockFis - p.stockRes;
       return td('<div class="flex items-center gap-2 min-w-[220px]">' + UI.imgProducto(p, 'w-10 h-10 object-cover shrink-0') +
           '<span><span class="block font-body-sm text-body-sm text-on-surface leading-snug">' + esc(p.nombre) + '</span>' +
-          '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(p.sku) + '</span></span></div>') +
+          '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(p.sku) + '</span>' +
+          (p.estado === 'rechazado' && p.motivoRechazo ? '<span class="block font-body-sm text-body-sm text-error">Motivo: ' + esc(p.motivoRechazo) + '</span>' : '') +
+          '</span></div>') +
         td(UI.badge(p.estado)) +
         td(esPrecios || s.rol === 'seller'
           ? '<label class="inline-flex items-center gap-1 font-data-mono text-data-mono">$<input data-precio="' + esc(p.sku) + '" type="number" min="0" step="0.5" value="' + p.precioUsd + '" class="w-20 h-9 px-2 rounded-btn border border-outline-variant bg-surface-container-low text-right focus:border-secondary outline-none"/></label>' +
@@ -134,35 +136,43 @@
     raiz.querySelectorAll('[data-nuevo]').forEach(function (b) {
       b.addEventListener('click', function () { location.href = href('app/seller/producto.html'); });
     });
-    raiz.querySelectorAll('[data-precio]').forEach(function (i) {
+    /* Edición en línea: se guarda al salir del campo; si el servidor la
+       rechaza, el campo vuelve a su valor. */
+    function enLinea(i, campo, exito) {
+      var original = i.value;
       i.addEventListener('change', function () {
-        TM.ajustarProducto(i.getAttribute('data-precio'), 'precioUsd', i.value);
-        UI.toast('Precio actualizado', i.getAttribute('data-precio') + ' → $' + i.value, 'sell');
+        var sku = i.getAttribute(campo === 'precioUsd' ? 'data-precio' : 'data-stock');
+        var valor = i.value;
+        UI.accion(null, function () { return TM.ajustarProducto(sku, campo, valor); },
+          function () { exito(sku, valor); }, 'No se guardó el cambio',
+          function () { i.value = original; });
       });
+    }
+    raiz.querySelectorAll('[data-precio]').forEach(function (i) {
+      enLinea(i, 'precioUsd', function (sku, v) { UI.toast('Precio actualizado', sku + ' → $' + v, 'sell'); });
     });
     raiz.querySelectorAll('[data-stock]').forEach(function (i) {
-      i.addEventListener('change', function () {
-        TM.ajustarProducto(i.getAttribute('data-stock'), 'stockFis', i.value);
-        UI.toast('Stock actualizado', i.getAttribute('data-stock') + ' → ' + i.value + ' unidades', 'inventory_2');
-      });
+      enLinea(i, 'stockFis', function (sku, v) { UI.toast('Stock actualizado', sku + ' → ' + v + ' unidades', 'inventory_2'); });
     });
     raiz.querySelectorAll('[data-pausar]').forEach(function (b) {
       b.addEventListener('click', function () {
-        TM.pausarProducto(b.getAttribute('data-pausar'), true);
-        UI.toast('Publicación pausada', 'El producto deja de verse en la tienda.', 'block');
+        UI.accion(b, function () { return TM.pausarProducto(b.getAttribute('data-pausar'), true); }, function () {
+          UI.toast('Publicación pausada', 'El producto deja de verse en la tienda.', 'block');
+        });
       });
     });
     raiz.querySelectorAll('[data-reanudar]').forEach(function (b) {
       b.addEventListener('click', function () {
-        TM.pausarProducto(b.getAttribute('data-reanudar'), false);
-        UI.toast('Publicación reanudada', 'El producto vuelve a la tienda.', 'check_circle');
+        UI.accion(b, function () { return TM.pausarProducto(b.getAttribute('data-reanudar'), false); }, function () {
+          UI.toast('Publicación reanudada', 'El producto vuelve a la tienda.', 'check_circle');
+        });
       });
     });
     raiz.querySelectorAll('[data-revision]').forEach(function (b) {
       b.addEventListener('click', function () {
-        var p = TM.producto(b.getAttribute('data-revision'));
-        TM.guardarProducto({ sku: p.sku }, true);
-        UI.toast('Enviado a revisión', 'Moderación lo aprobará o rechazará.', 'task_alt');
+        UI.accion(b, function () { return TM.guardarProducto({ sku: b.getAttribute('data-revision') }, true); }, function () {
+          UI.toast('Enviado a revisión', 'Moderación lo aprobará o rechazará.', 'task_alt');
+        });
       });
     });
   }
@@ -217,20 +227,18 @@
       err.classList.add('hidden');
       return true;
     }
-    raiz.querySelector('[data-borrador]').addEventListener('click', function () {
+    function guardar(boton, enviar) {
       var v = leer();
       if (!validar(v)) return;
-      var p = TM.guardarProducto(v, false);
-      UI.toast('Borrador guardado', p.sku, 'edit');
-      location.href = href('app/seller/catalogo.html');
-    });
-    raiz.querySelector('[data-enviar]').addEventListener('click', function () {
-      var v = leer();
-      if (!validar(v)) return;
-      var p = TM.guardarProducto(v, true);
-      UI.toast('Enviado a revisión', p.sku + ' quedó en cola de moderación.', 'task_alt');
-      location.href = href('app/seller/catalogo.html');
-    });
+      UI.accion(boton, function () { return TM.guardarProducto(v, enviar); }, function (sku) {
+        UI.toast(enviar ? 'Enviado a revisión' : 'Borrador guardado', enviar ? sku + ' quedó en cola de moderación.' : sku, enviar ? 'task_alt' : 'edit');
+        location.href = href('app/seller/catalogo.html');
+      }, 'No se pudo guardar');
+    }
+    var bb = raiz.querySelector('[data-borrador]');
+    var be = raiz.querySelector('[data-enviar]');
+    bb.addEventListener('click', function () { guardar(bb, false); });
+    be.addEventListener('click', function () { guardar(be, true); });
   }
 
   /* =====================================================================
@@ -330,8 +338,9 @@
     var id = q.get('id');
     var a = raiz.querySelector('[data-aceptar]');
     if (a) a.addEventListener('click', function () {
-      TM.aceptarPedido(id);
-      UI.toast('Pedido aceptado', 'La preparación queda en marcha.', 'check_circle');
+      UI.accion(a, function () { return TM.aceptarPedido(id); }, function () {
+        UI.toast('Pedido aceptado', 'La preparación queda en marcha.', 'check_circle');
+      });
     });
     var g = raiz.querySelector('[data-guia]');
     if (g) g.addEventListener('click', function () {
@@ -343,13 +352,16 @@
         e.classList.remove('hidden');
         return;
       }
-      TM.marcarListo(id, raiz.querySelector('[data-peso]').value);
-      UI.toast('Guía generada (demo)', 'Solicita la recogida del courier cuando quieras.', 'package_2');
+      var peso = raiz.querySelector('[data-peso]').value;
+      UI.accion(g, function () { return TM.marcarListo(id, peso); }, function (guia) {
+        UI.toast('Guía ' + (guia || '') + ' generada (demo)', 'Solicita la recogida del courier cuando quieras.', 'package_2');
+      });
     });
     var d = raiz.querySelector('[data-despachar]');
     if (d) d.addEventListener('click', function () {
-      TM.despachar(id);
-      UI.toast('Entregado al courier (demo)', 'El comprador ya ve el tracking.', 'local_shipping');
+      UI.accion(d, function () { return TM.despachar(id); }, function () {
+        UI.toast('Entregado al courier (demo)', 'El comprador ya ve el tracking.', 'local_shipping');
+      });
     });
   }
 
@@ -387,8 +399,9 @@
         var id = b.getAttribute('data-responder');
         var texto = raiz.querySelector('[data-resp="' + id + '"]').value.trim();
         if (texto.length < 10) { UI.toast('Falta tu versión', 'Describe qué pasó con al menos 10 caracteres.', 'error'); return; }
-        TM.responderDisputa(id, texto, ['evidencia-packing.jpg']);
-        UI.toast('Respuesta enviada', 'Operaciones la verá en el expediente.', 'forum');
+        UI.accion(b, function () { return TM.responderDisputa(id, texto, ['evidencia-packing.jpg']); }, function () {
+          UI.toast('Respuesta enviada', 'Operaciones la verá en el expediente.', 'forum');
+        });
       });
     });
   }

@@ -31,8 +31,11 @@ PLANTILLA = """<!DOCTYPE html>
 </head>
 <body class="bg-background text-on-background" data-vista="%(vista)s">
 <div id="raiz"></div>
+<script src="../../assets/js/tm-config.js"></script>
+<script src="../../assets/vendor/supabase-js-2.117.3.js"></script>
 <script src="../../assets/js/tm-datos.js"></script>
 <script src="../../assets/js/tm-store.js"></script>
+<script src="../../assets/js/tm-remoto.js"></script>
 <script src="../../assets/js/tm-ui.js"></script>
 <script src="../../assets/js/tm-app.js"></script>
 <script src="../../assets/js/tm-vistas-tienda.js"></script>

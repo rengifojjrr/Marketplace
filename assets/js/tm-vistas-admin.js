@@ -98,8 +98,9 @@
         UI.confirmar(nombres[decision] || decision, 'La decisión sobre ' + sid + ' queda registrada en la auditoría y se notifica al seller.',
           { accion: 'Confirmar', peligro: decision === 'suspendido', motivo: decision !== 'aprobado' ? 'Motivo (visible para el seller)' : null },
           function (motivo) {
-            TM.decidirKyc(sid, decision, motivo);
-            UI.toast('Decisión aplicada', sid + ' → ' + UI.nombreEstado(decision), 'verified_user');
+            UI.accion(null, function () { return TM.decidirKyc(sid, decision, motivo); }, function () {
+              UI.toast('Decisión aplicada', sid + ' → ' + UI.nombreEstado(decision), 'verified_user');
+            }, 'No se aplicó la decisión');
           });
       });
     });
@@ -131,8 +132,10 @@
   function despuesModeracion(raiz, q, s) {
     raiz.querySelectorAll('[data-aprobar]').forEach(function (b) {
       b.addEventListener('click', function () {
-        TM.moderarProducto(b.getAttribute('data-aprobar'), true);
-        UI.toast('Producto publicado', b.getAttribute('data-aprobar') + ' ya está visible en la tienda.', 'check_circle');
+        var sku = b.getAttribute('data-aprobar');
+        UI.accion(b, function () { return TM.moderarProducto(sku, true); }, function () {
+          UI.toast('Producto publicado', sku + ' ya está visible en la tienda.', 'check_circle');
+        });
       });
     });
     raiz.querySelectorAll('[data-rechazar]').forEach(function (b) {
@@ -140,8 +143,9 @@
         var sku = b.getAttribute('data-rechazar');
         UI.confirmar('Rechazar ' + sku, 'El seller verá el motivo y podrá corregir y reenviar.',
           { accion: 'Rechazar', peligro: true, motivo: 'Motivo del rechazo' }, function (motivo) {
-            TM.moderarProducto(sku, false, motivo || 'No cumple los requisitos de publicación.');
-            UI.toast('Producto rechazado', sku, 'cancel');
+            UI.accion(null, function () { return TM.moderarProducto(sku, false, motivo || 'No cumple los requisitos de publicación.'); }, function () {
+              UI.toast('Producto rechazado', sku, 'cancel');
+            });
           });
       });
     });
@@ -230,8 +234,9 @@
         UI.confirmar(titulos[decision], 'La decisión se aplica en las tres superficies y no se puede deshacer (demo).',
           { accion: 'Resolver', peligro: decision === 'reembolso', motivo: 'Nota de la resolución (opcional)' },
           function (nota) {
-            TM.resolverDisputa(id, decision, nota);
-            UI.toast('Disputa ' + id + ' resuelta', titulos[decision], 'gavel');
+            UI.accion(null, function () { return TM.resolverDisputa(id, decision, nota); }, function () {
+              UI.toast('Disputa ' + id + ' resuelta', titulos[decision], 'gavel');
+            }, 'No se resolvió la disputa');
           });
       });
     });
@@ -262,15 +267,19 @@
   function despuesConciliacion(raiz, q, s) {
     raiz.querySelectorAll('[data-conciliar]').forEach(function (b) {
       b.addEventListener('click', function () {
-        TM.conciliarPago(b.getAttribute('data-conciliar'));
-        UI.toast('Pago conciliado', b.getAttribute('data-conciliar') + ' pasó a «por aceptar».', 'fact_check');
+        var id = b.getAttribute('data-conciliar');
+        UI.accion(b, function () { return TM.conciliarPago(id); }, function () {
+          UI.toast('Pago conciliado', id + ' pasó a «por aceptar».', 'fact_check');
+        });
       });
     });
     var todo = raiz.querySelector('[data-conciliar-todo]');
     if (todo) todo.addEventListener('click', function () {
-      var cola = TM.estado.pedidos.filter(function (p) { return p.estado === 'pago_por_verificar'; });
-      cola.forEach(function (p) { TM.conciliarPago(p.id); });
-      UI.toast('Conciliación masiva', cola.length + ' pagos conciliados.', 'fact_check');
+      var ids = TM.estado.pedidos.filter(function (p) { return p.estado === 'pago_por_verificar'; })
+        .map(function (p) { return p.id; });
+      UI.accion(todo, function () { return TM.conciliarPagos(ids); }, function () {
+        UI.toast('Conciliación masiva', ids.length + ' pagos conciliados.', 'fact_check');
+      });
     });
   }
 
@@ -329,17 +338,18 @@
   function despuesLiquidaciones(raiz, q, s) {
     raiz.querySelectorAll('[data-cerrar-ventana]').forEach(function (b) {
       b.addEventListener('click', function () {
-        TM.cerrarVentana(b.getAttribute('data-cerrar-ventana'));
-        UI.toast('Ventana cerrada', 'Los fondos del pedido pasaron a elegibles.', 'lock_open');
+        UI.accion(b, function () { return TM.cerrarVentana(b.getAttribute('data-cerrar-ventana')); }, function () {
+          UI.toast('Ventana cerrada', 'Los fondos del pedido pasaron a elegibles.', 'lock_open');
+        });
       });
     });
     raiz.querySelectorAll('[data-liquidar]').forEach(function (b) {
       b.addEventListener('click', function () {
         var sid = b.getAttribute('data-liquidar');
         UI.pedir2fa('Ejecutar liquidación a ' + sid, function () {
-          var r = TM.ejecutarLiquidacion(sid);
-          if (r.ok) UI.toast('Liquidación ' + r.liq.id + ' ejecutada', 'Neto ' + TM.fmtUsd(r.liq.netoUsd) + ' · el seller ya ve su comprobante.', 'receipt_long');
-          else UI.toast('Sin pedidos elegibles', r.error, 'info');
+          UI.accion(null, function () { return TM.ejecutarLiquidacion(sid); }, function (liq) {
+            UI.toast('Liquidación ' + liq.id + ' ejecutada', 'Neto ' + TM.fmtUsd(Number(liq.netoUsd)) + ' · el seller ya ve su comprobante.', 'receipt_long');
+          }, 'No se ejecutó la liquidación');
         });
       });
     });

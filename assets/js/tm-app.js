@@ -49,6 +49,14 @@
   var VISTAS = {};
   function registrar(mapa) { Object.keys(mapa).forEach(function (k) { VISTAS[k] = mapa[k]; }); }
 
+  /* «Reiniciar demo»: en modo local cada navegador tiene su copia; con
+     backend los datos son compartidos y solo el superadministrador reinicia. */
+  function botonReiniciar(s) {
+    if (!TM.puedeReiniciar(s)) return '';
+    return '<button data-reiniciar class="block w-full text-left px-4 py-2 font-body-sm text-body-sm text-on-surface-variant hover:bg-surface-container-low">' +
+      (TM.modo === 'remoto' ? 'Reiniciar datos de la demo' : 'Reiniciar demo') + '</button>';
+  }
+
   /* ---------------------------------------------------------------------
      Cabecera de la tienda (patrón Amazon: buscador dominante)
      ------------------------------------------------------------------- */
@@ -58,13 +66,14 @@
     var cats = TM.estado.categorias;
     return '' +
     '<header class="bg-primary-container text-on-primary">' +
-      '<div class="max-w-[1280px] mx-auto px-3 sm:px-4 h-16 flex items-center gap-2 sm:gap-4">' +
+      '<div class="max-w-[1280px] mx-auto px-3 sm:px-4 py-2 sm:py-0 sm:h-16 flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-4">' +
         '<a class="flex items-center gap-2 shrink-0" href="' + href('app/tienda/inicio.html') + '">' +
           ic('storefront', 'text-[26px]') +
           '<span class="font-bold text-[18px] tracking-tight">Tumbo</span></a>' +
         '<span class="hidden md:inline-flex items-center gap-1 text-[12px] text-white/70 shrink-0">' +
           ic('place', 'text-[16px]') + 'Entregar en ' + esc(TM.estado.config.ciudadEntrega) + '</span>' +
-        '<form data-buscar class="flex-1 flex min-w-0" role="search">' +
+        '<span class="flex-1 sm:hidden"></span>' +
+        '<form data-buscar class="order-last basis-full sm:order-none sm:basis-auto flex-1 flex min-w-0" role="search">' +
           '<input name="q" type="search" placeholder="Buscar productos, marcas y más…" aria-label="Buscar en Tumbo" ' +
             'class="w-full min-w-0 h-10 px-3 rounded-l-btn bg-white text-on-surface font-body-sm text-body-sm outline-none focus:ring-2 focus:ring-warning"/>' +
           '<button class="h-10 px-3 rounded-r-btn bg-warning text-on-warning" aria-label="Buscar">' + ic('search') + '</button></form>' +
@@ -78,13 +87,14 @@
               '<a class="block px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low" href="' + href('app/tienda/cuenta.html') + '">Mi cuenta</a>' +
               '<a class="block px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low" href="' + href('app/tienda/direcciones.html') + '">Direcciones</a>' +
               '<hr class="my-2 border-outline-variant"/>' +
-              '<button data-reiniciar class="block w-full text-left px-4 py-2 font-body-sm text-body-sm text-on-surface-variant hover:bg-surface-container-low">Reiniciar demo</button>' +
+              botonReiniciar(s) +
               '<button data-salir class="block w-full text-left px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low">Cerrar sesión</button>'
             : '<a class="block mx-4 my-2 text-center rounded-btn bg-secondary text-on-secondary font-label-md text-label-md py-2" href="' + href('index.html') + '">Iniciar sesión</a>' +
               '<p class="px-4 pb-2 font-body-sm text-body-sm text-on-surface-variant">¿Nuevo aquí? El registro está en la misma pantalla.</p>') +
           '</div></div>' +
         (s ? '<a class="hidden sm:flex flex-col items-start leading-tight px-2 py-1 rounded hover:bg-white/10 shrink-0" href="' + href('app/tienda/pedidos.html') + '">' +
           '<span class="text-[11px] text-white/70">Devoluciones</span><span class="text-[13px] font-bold">y pedidos</span></a>' : '') +
+        (s ? '<div class="shrink-0">' + campanita(s) + '</div>' : '') +
         '<a class="relative flex items-end gap-1 px-2 py-1 rounded hover:bg-white/10 shrink-0" href="' + href('app/tienda/carrito.html') + '" aria-label="Carrito (' + nCarrito + ')">' +
           ic('shopping_cart', 'text-[26px]') +
           '<span class="absolute -top-1 left-4 min-w-[18px] text-center px-1 rounded-full bg-warning text-on-warning text-[11px] font-bold"' + (nCarrito ? '' : ' hidden') + '>' + nCarrito + '</span>' +
@@ -160,7 +170,9 @@
           '<span class="font-bold text-[15px] whitespace-nowrap">Tumbo · ' + marca + '</span>' +
           '<span class="hidden md:inline text-[12px] text-white/60 truncate">· ' + esc(sub) + '</span></span>' +
         '<span class="flex-1"></span>' +
-        '<span class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning text-on-warning text-[11px] font-bold">' + ic('science', 'text-[14px]') + 'DEMO</span>' +
+        '<span class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning text-on-warning text-[11px] font-bold" title="' +
+          (TM.modo === 'remoto' ? 'Datos compartidos en la base de datos de la beta' : 'Datos guardados solo en este navegador') + '">' +
+          ic(TM.modo === 'remoto' ? 'cloud_done' : 'science', 'text-[14px]') + (TM.modo === 'remoto' ? 'BETA' : 'DEMO') + '</span>' +
         campanita(s) +
         '<div class="relative" data-menu-cuenta>' +
           '<button data-cuenta-btn class="flex items-center gap-1 px-2 py-1.5 rounded hover:bg-white/10">' +
@@ -168,7 +180,7 @@
           '<div data-cuenta-panel hidden class="absolute right-0 top-full mt-1 w-56 rounded-card border border-outline-variant bg-surface-container-lowest text-on-surface shadow-nivel-3 py-2 z-50">' +
             '<p class="px-4 py-1 font-body-sm text-body-sm text-on-surface-variant">' + esc(s.nombre) + '<br/><span class="font-data-mono text-data-mono">' + esc(s.email) + '</span></p>' +
             '<hr class="my-2 border-outline-variant"/>' +
-            '<button data-reiniciar class="block w-full text-left px-4 py-2 font-body-sm text-body-sm text-on-surface-variant hover:bg-surface-container-low">Reiniciar demo</button>' +
+            botonReiniciar(s) +
             '<button data-salir class="block w-full text-left px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low">Cerrar sesión</button>' +
           '</div></div>' +
       '</div></header>' +
@@ -207,7 +219,7 @@
         var abrir = panel.hidden;
         document.querySelectorAll('[data-cuenta-panel],[data-notif-panel]').forEach(function (p) { p.hidden = true; });
         panel.hidden = !abrir;
-        if (abrir && caja.hasAttribute('data-menu-notif')) TM.marcarNotificacionesLeidas();
+        if (abrir && caja.hasAttribute('data-menu-notif')) TM.marcarNotificacionesLeidas().catch(function () { });
       });
     });
     document.addEventListener('click', function () {
@@ -230,14 +242,18 @@
 
     var salir = raiz.querySelector('[data-salir]');
     if (salir) salir.addEventListener('click', function () {
-      TM.cerrarSesion();
-      location.href = href('index.html');
+      salir.disabled = true;
+      TM.cerrarSesion().then(function () { location.href = href('index.html'); });
     });
     var reiniciar = raiz.querySelector('[data-reiniciar]');
     if (reiniciar) reiniciar.addEventListener('click', function () {
-      UI.confirmar('Reiniciar la demo', 'Se pierden los datos creados en esta sesión y todo vuelve al estado inicial.', { accion: 'Reiniciar', peligro: true }, function () {
-        TM.reiniciarDemo();
-        UI.toast('Demo reiniciada', 'Los datos volvieron al punto de partida.', 'restart_alt');
+      var texto = TM.modo === 'remoto'
+        ? 'Todos los pedidos, productos y movimientos vuelven a la semilla para TODOS los usuarios de la beta. Las cuentas se conservan.'
+        : 'Se pierden los datos creados en este navegador y todo vuelve al estado inicial.';
+      UI.confirmar('Reiniciar la demo', texto, { accion: 'Reiniciar', peligro: true }, function () {
+        UI.accion(null, function () { return TM.reiniciarDemo(); }, function () {
+          UI.toast('Demo reiniciada', 'Los datos volvieron al punto de partida.', 'restart_alt');
+        }, 'No se pudo reiniciar');
       });
     });
 
@@ -254,17 +270,62 @@
      ------------------------------------------------------------------- */
   function params() { return new URLSearchParams(location.search); }
 
+  /* Indicador de carga fuera de #raiz: #raiz solo recibe la vista ya lista. */
+  function indicadorCarga(mostrar) {
+    var c = document.querySelector('.tm-cargando');
+    if (!mostrar) { if (c) c.remove(); return; }
+    if (c) return;
+    c = document.createElement('div');
+    c.className = 'tm-cargando';
+    c.setAttribute('role', 'status');
+    c.innerHTML = '<span class="tm-cargando__giro" aria-hidden="true"></span><span>Cargando Tumbo…</span>';
+    document.body.appendChild(c);
+  }
+
+  function errorConexion(raiz, e, reintentar) {
+    raiz.innerHTML = '<div class="min-h-[70vh] flex items-center justify-center p-4"><div class="max-w-md text-center">' +
+      '<span class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-error-container text-on-error-container mb-4">' + ic('cloud_off', 'text-[30px]') + '</span>' +
+      '<h1 class="font-headline-md text-headline-md text-primary-container mb-2">No pudimos cargar Tumbo</h1>' +
+      '<p class="font-body-md text-body-md text-on-surface-variant mb-6">' + esc(UI.mensajeError(e)) + '</p>' +
+      UI.btn('Reintentar', { estilo: 'primario', icono: 'refresh', attr: 'data-reintentar' }) + '</div></div>';
+    raiz.querySelector('[data-reintentar]').addEventListener('click', reintentar);
+  }
+
+  /* No repintar mientras el usuario escribe, tiene un modal o un menú
+     abierto: los cambios de otros usuarios esperan a que termine. */
+  function ocupado(raiz) {
+    var a = document.activeElement;
+    if (document.querySelector('.tm-velo')) return true;
+    if (raiz.querySelector('[data-cuenta-panel]:not([hidden]),[data-notif-panel]:not([hidden])')) return true;
+    return !!(a && raiz.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
+  }
+
   function montar() {
     var vista = document.body.getAttribute('data-vista');
     var def = VISTAS[vista];
     var raiz = document.getElementById('raiz');
     if (!def || !raiz) return;
 
+    indicadorCarga(true);
+    TM.listo().then(function () {
+      indicadorCarga(false);
+      iniciar(def, vista, raiz);
+    }, function (e) {
+      indicadorCarga(false);
+      errorConexion(raiz, e, function () { location.reload(); });
+    });
+  }
+
+  function iniciar(def, vista, raiz) {
     var s = TM.sesion();
+    var volver = encodeURIComponent(location.pathname.split('/').slice(-3).join('/') + location.search);
+
+    /* Segundo factor pendiente: vuelve al acceso a completarlo. */
+    if (s && TM.mfaPendiente()) { location.replace(href('index.html') + '?mfa=1&volver=' + volver); return; }
 
     /* La tienda admite visitantes; los paneles exigen sesión con el rol justo. */
     if (!def.publico) {
-      if (!s) { location.replace(href('index.html') + '?volver=' + encodeURIComponent(location.pathname.split('/').slice(-3).join('/') + location.search)); return; }
+      if (!s) { location.replace(href('index.html') + '?volver=' + volver); return; }
       if (def.roles && def.roles.indexOf(s.rol) < 0) {
         document.title = 'Sin acceso · Tumbo Market';
         raiz.innerHTML = html403(s, def.titulo || vista);
@@ -288,7 +349,19 @@
     }
 
     pintar();
-    TM.suscribir(pintar);
+    var pendiente = false;
+    TM.suscribir(function (origen) {
+      if (origen === 'externo' && ocupado(raiz)) { pendiente = true; return; }
+      pendiente = false;
+      pintar();
+    });
+    function alLiberar() {
+      setTimeout(function () {
+        if (pendiente && !ocupado(raiz)) { pendiente = false; pintar(); }
+      }, 0);
+    }
+    document.addEventListener('focusout', alLiberar);
+    document.addEventListener('click', alLiberar);
   }
 
   window.APP = { ROLES: ROLES, registrar: registrar, params: params, montar: montar, html403: html403 };

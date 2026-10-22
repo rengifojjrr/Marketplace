@@ -1,13 +1,17 @@
 # Arquitectura de la beta funcional
 
 Cómo está construida la beta real: una aplicación coherente con tienda,
-Seller Center y Backoffice **interconectados**, sin backend todavía.
+Seller Center y Backoffice **interconectados**, sobre un backend Supabase
+(ver [BACKEND.md](BACKEND.md)).
 
 ## La idea central: un solo almacén de estado
 
-Todo vive en `assets/js/tm-store.js`, persistido en `localStorage`. No hay
-pantallas con datos pintados a mano: cada vista **lee** del almacén y cada
-acción **muta** el almacén. Por eso la información fluye de verdad:
+Las vistas leen `TM.estado` y cambian datos solo con las acciones de `TM`, que
+devuelven promesas. Detrás hay dos motores con la misma API: el **remoto**
+(`tm-remoto.js`, Supabase: cada acción es una función `tm_*` en Postgres y la
+caché se recarga con lo que el rol puede ver) y el **local** (`tm-store.js`,
+`localStorage`, para usar sin conexión). No hay pantallas con datos pintados a
+mano, por eso la información fluye de verdad:
 
 ```
 Comprador crea pedido ──► cola de conciliación (Finanzas)
@@ -20,15 +24,17 @@ Seller crea producto ───► cola de moderación ──► aprobado ──�
 ```
 
 Cada mutación agrega su evento a la **auditoría** (solo lectura) y genera las
-**notificaciones** del rol o usuario que corresponda. «Reiniciar demo» vuelve
-al estado semilla de `tm-datos.js`.
+**notificaciones** del rol o usuario que corresponda, en la misma transacción.
+«Reiniciar demo» vuelve a la semilla (con backend, solo el superadministrador).
 
 ## Módulos
 
 | Archivo | Responsabilidad |
 | --- | --- |
-| `assets/js/tm-datos.js` | Datos semilla: usuarios, sellers, productos, pedidos, disputas, liquidaciones |
-| `assets/js/tm-store.js` | Estado vivo, sesión, mutaciones del negocio, auditoría, notificaciones |
+| `assets/js/tm-config.js` | URL y clave publicable de Supabase (vacías = modo local) |
+| `assets/js/tm-datos.js` | Datos semilla del modo local (gemelos de la semilla SQL) |
+| `assets/js/tm-store.js` | API común, formato, consultas y motor local |
+| `assets/js/tm-remoto.js` | Motor remoto: sesión Supabase, caché por rol, acciones RPC, tiempo real |
 | `assets/js/tm-ui.js` | Componentes: insignias de estado, tablas, tarjetas, KPI, modales, avisos, 2FA |
 | `assets/js/tm-app.js` | Armazones (tienda / panel), navegación por rol, RBAC, montaje de vistas |
 | `assets/js/tm-vistas-tienda.js` | 11 vistas del comprador y visitante |
@@ -78,14 +84,17 @@ liquidación) piden reautenticación 2FA dentro de la sesión.
 
 ## Límites deliberados de la beta
 
-Sin backend no hay: multiusuario real (el estado es por navegador), carga real
-de imágenes, mensajería externa (WhatsApp/correo), pagos reales ni cierre
-automático de ventanas por tiempo (se cierra a mano desde Finanzas para poder
-demostrar el recorrido). Cada límite está señalado en la interfaz donde toca.
+Todavía no hay: carga real de imágenes (se usan marcadores), mensajería
+externa (WhatsApp/correo), pagos ni guías reales, MFA real (el segundo factor es
+un código de demostración) ni cierre automático de ventanas por tiempo (se
+cierra a mano desde Finanzas para poder demostrar el recorrido). Cada límite
+está señalado en la interfaz donde toca. En modo local, además, los datos son
+por navegador.
 
 ## Verificación
 
-`npm test` (`tools/verificar-beta.js`) ejecuta 16 pruebas E2E en Chromium,
+`npm test` (`tools/verificar-beta.js`) ejecuta 20 pruebas E2E en Chromium
+contra el modo que tenga el sitio (local o Supabase),
 incluidos los tres recorridos interconectados completos, el RBAC por
 ocultación, el barrido de todas las páginas por rol sin errores de consola y
 la revisión móvil a 390 px.

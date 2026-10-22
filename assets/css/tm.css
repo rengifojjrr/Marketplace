@@ -59,3 +59,21 @@ body { min-height: 100vh; }
 
 /* Icono relleno (eje FILL de Material Symbols) */
 .ic-lleno { font-variation-settings: 'FILL' 1; }
+
+/* Indicador de carga mientras llegan los datos del backend */
+.tm-cargando {
+  position: fixed; inset: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  font: 500 14px/1.4 Inter, system-ui, sans-serif; color: #44474e;
+  background: #f8fafc;
+  animation: tm-aparece .2s ease .15s both;
+}
+.tm-cargando__giro {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 3px solid #d8dde6; border-top-color: #0b2545;
+  animation: tm-gira .8s linear infinite;
+}
+@keyframes tm-gira { to { transform: rotate(360deg); } }
+@keyframes tm-aparece { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .tm-cargando__giro { animation-duration: 2.4s; } }
+button[aria-busy="true"] { opacity: .65; cursor: progress; }
