@@ -159,9 +159,8 @@ cambió, el servidor no repite la descarga) y se repinta solo si algo cambió �
 salvo que la persona esté escribiendo, tenga un formulario a medio llenar, un
 modal o un menú abierto: entonces espera a su próxima acción. Si la sesión
 cambió (venció, se cerró o se abrió otra cuenta en otra pestaña), la página
-se vuelve a montar con la identidad real. No se
-usa un canal público de Realtime: en un proyecto compartido delataría la
-actividad de Tumbo.
+se vuelve a montar con la identidad real. No se usa un canal público de
+Realtime: en un proyecto compartido delataría la actividad de Tumbo.
 
 ## Desplegar o actualizar
 
@@ -182,6 +181,10 @@ actividad de Tumbo.
    salen por el proceso de la prueba).
 
    Ambas reinician los datos de la demo.
+4. Publicar el sitio: GitHub Pages lo reconstruye desde `main` en cada
+   push. Si un push no dispara la publicación (no aparece un nuevo
+   «pages-build-deployment» en Actions), un commit hecho desde la web de
+   GitHub la vuelve a lanzar.
 
 > El proyecto usa el plan gratuito: si pasa 7 días sin actividad, Supabase lo
 > pausa. Si la beta muestra «No pudimos cargar Tumbo», hay que reactivarlo
