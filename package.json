@@ -11,6 +11,7 @@
     "build:prototipo": "python3 tools/build.py && python3 tools/generar_prototipo_indice.py",
     "build:fuentes": "python3 tools/fuentes.py",
     "test": "node tools/verificar-beta.js",
+    "test:nube": "TM_NUBE=1 node tools/verificar-beta.js https://rengifojjrr.github.io/Marketplace",
     "test:api": "node tools/verificar-rls.js"
   },
   "devDependencies": {

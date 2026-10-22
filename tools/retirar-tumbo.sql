@@ -1,23 +1,85 @@
--- Quita Tumbo Market de un proyecto Supabase sin tocar nada más: sus dos
--- esquemas y sus funciones public.tm_*, por nombre (una función tm_* de otra
--- aplicación no se borra).
-drop schema if exists tumbo cascade;
-drop schema if exists tumbo_privado cascade;
+-- Quita Tumbo Market de un proyecto Supabase sin tocar nada más.
+--
+-- Antes de borrar comprueba que los esquemas `tumbo` y `tumbo_privado` son
+-- los de Tumbo y que ningún objeto de fuera depende de ellos; si algo no
+-- cuadra, se detiene sin borrar nada. Las funciones public.tm_* se borran
+-- por firma exacta (una función de otra aplicación con el mismo nombre no se
+-- toca). Todo ocurre en una sola sentencia: o se borra todo o nada.
 do $$
-declare f record;
+declare
+  firmas text[] := array[
+    'public.tm_acceder(text,text)', 'public.tm_registrar(text,text,text)', 'public.tm_sesion(text)',
+    'public.tm_salir(text)', 'public.tm_cargar(text)', 'public.tm_cargar(text,text)',
+    'public.tm_auditoria(text,bigint,text)', 'public.tm_marcar_notificaciones_leidas(text)',
+    'public.tm_carrito_poner(text,text,integer)', 'public.tm_carrito_quitar(text,text)',
+    'public.tm_fusionar_carrito(text,jsonb)', 'public.tm_direccion_agregar(text,jsonb)',
+    'public.tm_direccion_quitar(text,uuid)', 'public.tm_crear_pedido(text,text,uuid,text,text)',
+    'public.tm_crear_pedido(text,text,uuid,text,text,numeric)', 'public.tm_conciliar_pago(text,text)',
+    'public.tm_rechazar_pago(text,text,text)', 'public.tm_aceptar_pedido(text,text)',
+    'public.tm_marcar_listo(text,text,numeric)', 'public.tm_despachar(text,text)',
+    'public.tm_confirmar_entrega(text,text)', 'public.tm_cancelar_pedido(text,text,text)',
+    'public.tm_abrir_disputa(text,text,text,text,text[])', 'public.tm_responder_disputa(text,text,text,text[])',
+    'public.tm_resolver_disputa(text,text,text,text)', 'public.tm_cerrar_devolucion(text,text,boolean)',
+    'public.tm_cerrar_ventana(text,text)', 'public.tm_ejecutar_liquidacion(text,text)',
+    'public.tm_ejecutar_liquidacion(text,text,text[])', 'public.tm_guardar_producto(text,jsonb,boolean)',
+    'public.tm_ajustar_producto(text,text,text,numeric)', 'public.tm_pausar_producto(text,text,boolean)',
+    'public.tm_moderar_producto(text,text,boolean,text)', 'public.tm_decidir_kyc(text,text,text,text)',
+    'public.tm_reiniciar_demo(text)'];
+  f text;
+  ajenos text;
 begin
-  for f in
-    select p.oid::regprocedure as firma
-    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public' and p.proname = any (array[
-      'tm_acceder', 'tm_registrar', 'tm_sesion', 'tm_salir', 'tm_cargar', 'tm_marcar_notificaciones_leidas',
-      'tm_carrito_poner', 'tm_carrito_quitar', 'tm_fusionar_carrito', 'tm_direccion_agregar', 'tm_direccion_quitar',
-      'tm_crear_pedido', 'tm_conciliar_pago', 'tm_rechazar_pago', 'tm_aceptar_pedido', 'tm_marcar_listo',
-      'tm_despachar', 'tm_confirmar_entrega', 'tm_cancelar_pedido', 'tm_abrir_disputa', 'tm_responder_disputa',
-      'tm_resolver_disputa', 'tm_cerrar_devolucion', 'tm_cerrar_ventana', 'tm_ejecutar_liquidacion',
-      'tm_guardar_producto', 'tm_ajustar_producto', 'tm_pausar_producto', 'tm_moderar_producto', 'tm_decidir_kyc',
-      'tm_reiniciar_demo'])
-  loop
-    execute format('drop function %s', f.firma);
+  if to_regnamespace('tumbo') is null and to_regnamespace('tumbo_privado') is null then
+    raise notice 'Tumbo no está instalado en esta base.';
+    return;
+  end if;
+  if to_regnamespace('tumbo') is null or to_regnamespace('tumbo_privado') is null
+     or coalesce(obj_description('tumbo'::regnamespace, 'pg_namespace'), '') not like 'Tumbo Market (beta)%'
+     or coalesce(obj_description('tumbo_privado'::regnamespace, 'pg_namespace'), '') not like 'Tumbo Market (beta)%'
+     or to_regclass('tumbo.usuarios') is null or to_regprocedure('tumbo_privado.sembrar(boolean)') is null then
+    raise exception 'Los esquemas «tumbo»/«tumbo_privado» de esta base no parecen ser los de Tumbo Market: no se borra nada.';
+  end if;
+
+  -- Objetos de fuera de Tumbo que dependen de algo de Tumbo: un CASCADE se
+  -- los llevaría por delante, así que se avisa y no se borra nada.
+  -- (los subobjetos —valores por omisión, disparadores, restricciones,
+  -- reglas de vistas, políticas— cuentan en el esquema de su tabla)
+  with dependientes as (
+    select d.classid, d.objid, d.objsubid
+    from pg_depend d
+    cross join lateral pg_identify_object(d.refclassid, d.refobjid, d.refobjsubid) ref
+    where d.deptype in ('n', 'a')
+      and (ref.schema in ('tumbo', 'tumbo_privado')
+           or (d.refclassid = 'pg_namespace'::regclass and d.refobjid in ('tumbo'::regnamespace, 'tumbo_privado'::regnamespace)))
+  ), ubicados as (
+    select x.*, coalesce(case x.classid
+      when 'pg_attrdef'::regclass then (select c.relnamespace from pg_attrdef a join pg_class c on c.oid = a.adrelid where a.oid = x.objid)
+      when 'pg_trigger'::regclass then (select c.relnamespace from pg_trigger t join pg_class c on c.oid = t.tgrelid where t.oid = x.objid)
+      when 'pg_constraint'::regclass then (select coalesce(c.relnamespace, ty.typnamespace, k.connamespace) from pg_constraint k
+                                           left join pg_class c on c.oid = k.conrelid left join pg_type ty on ty.oid = k.contypid
+                                           where k.oid = x.objid)
+      when 'pg_rewrite'::regclass then (select c.relnamespace from pg_rewrite r join pg_class c on c.oid = r.ev_class where r.oid = x.objid)
+      when 'pg_policy'::regclass then (select c.relnamespace from pg_policy pol join pg_class c on c.oid = pol.polrelid where pol.oid = x.objid)
+      when 'pg_class'::regclass then (select relnamespace from pg_class where oid = x.objid)
+      when 'pg_proc'::regclass then (select pronamespace from pg_proc where oid = x.objid)
+      when 'pg_type'::regclass then (select typnamespace from pg_type where oid = x.objid)
+    end, 0::oid) as esquema
+    from dependientes x
+  )
+  select string_agg(distinct pg_describe_object(u.classid, u.objid, u.objsubid), '; ') into ajenos
+  from ubicados u
+  where u.esquema not in ('tumbo'::regnamespace, 'tumbo_privado'::regnamespace)
+    and not (u.classid = 'pg_proc'::regclass and u.objid in (
+      select to_regprocedure(f2)::oid from unnest(firmas) f2 where to_regprocedure(f2) is not null));
+  if ajenos is not null then
+    raise exception 'Hay objetos de otras aplicaciones que dependen de Tumbo (%): revísalos antes de retirarlo.', ajenos;
+  end if;
+
+  foreach f in array firmas loop
+    if to_regprocedure(f) is not null then
+      execute format('drop function %s', to_regprocedure(f));
+    end if;
   end loop;
+  drop schema tumbo cascade;
+  drop schema tumbo_privado cascade;
+  raise notice 'Tumbo Market retirado.';
 end $$;

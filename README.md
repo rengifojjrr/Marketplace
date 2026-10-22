@@ -101,9 +101,9 @@ tools/                Generadores, fuentes, verificación E2E y Supabase local
 ```bash
 python3 serve.py      # http://localhost:8000
 npm run build         # recompila estilos y regenera las páginas
-npm test              # 24 pruebas E2E en Chromium (flujos interconectados)
+npm test              # 24 pruebas E2E en Chromium, en modo local (no toca la nube)
+npm run test:nube     # las mismas contra el sitio publicado (reinicia la demo compartida)
 npm run test:api      # permisos rol por rol contra la API (requiere backend)
-TM_LOCAL=1 npm test   # las mismas pruebas en modo local (sin backend)
 ```
 
 Las páginas de `app/` son cascarones generados: **no se editan a mano**. El

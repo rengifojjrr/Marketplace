@@ -36,6 +36,7 @@
   var turnoCarga = 0;
   var huella = '';
   var huellaServidor = null;
+  var propioPendiente = false;        /* hay una recarga tras una acción propia sin aplicar */
 
   /* ---------------------------------------------------------------------
      Utilidades
@@ -100,15 +101,21 @@
     }).then(function (r) {
       return r.text().then(function (texto) {
         var dato = null;
-        try { dato = texto ? JSON.parse(texto) : null; } catch (e) { dato = null; }
+        var legible = true;
+        try { dato = texto ? JSON.parse(texto) : null; } catch (e) { legible = false; }
         if (!r.ok) {
-          /* Una página de error del gateway (502, 520…) no se muestra cruda. */
-          var err = (dato && typeof dato === 'object') ? dato
+          /* Solo se muestra el mensaje de la base (SQLSTATE: los de negocio
+             ya vienen redactados); lo del gateway (502, 520, 401…) no. */
+          var propio = dato && typeof dato === 'object' && /^[0-9A-Z]{5}$/.test(dato.code || '') &&
+            (r.status < 500 || dato.code === '57014');
+          var err = propio ? dato
             : { message: r.status === 429 ? 'Demasiadas solicitudes seguidas. Espera unos segundos.'
-                : 'El servidor no está disponible (' + r.status + '). Inténtalo en unos segundos.' };
+                : r.status >= 500 ? 'El servidor no está disponible (' + r.status + '). Inténtalo en unos segundos.'
+                : 'No se pudo completar la acción (' + r.status + '). Inténtalo de nuevo.' };
           if (err.code === '28000') olvidarSesion();
           throw { error: traducir(err) };
         }
+        if (!legible) throw { error: 'El servidor respondió algo inesperado. Inténtalo en unos segundos.' };
         return dato;
       });
     }, function (err) { throw { error: traducir(err) }; });
@@ -196,7 +203,7 @@
           sku: r.sku, sellerId: r.seller_id, nombre: r.nombre, marca: r.marca, categoria: r.categoria,
           precioUsd: num(r.precio_usd), stockFis: r.stock_fis, stockRes: r.stock_res, estado: r.estado,
           img: r.img, rating: num(r.rating), resenas: r.resenas, descripcion: r.descripcion,
-          specs: r.specs || {}, motivoRechazo: r.motivo_rechazo || undefined
+          specs: r.specs || {}, motivoRechazo: r.motivo_rechazo || undefined, volverAPausa: !!r.volver_a_pausa
         };
       }),
       productosRef: {},
@@ -264,9 +271,8 @@
       return { id: r.id, para: r.para, texto: r.texto, icono: r.icono, enlace: r.enlace, fecha: fecha(r.fecha), leida: !!r.leida };
     });
 
-    e.eventos = (d.eventos || []).map(function (r) {
-      return { fecha: fecha(r.fecha), actor: r.actor, accion: r.accion, detalle: r.detalle };
-    });
+    e.eventos = (d.eventos || []).map(evento);
+    e.pendientesTruncados = !!d.pendientes_truncados;
 
     if (s && s.rol === 'comprador') {
       e.direcciones[s.email] = (d.direcciones || []).map(function (r) {
@@ -280,24 +286,34 @@
     return e;
   }
 
+  function evento(r) {
+    return { id: r.id, fecha: fecha(r.fecha), actor: r.actor, accion: r.accion, detalle: r.detalle };
+  }
+
   /* Recarga la caché. Si llegan dos recargas solapadas gana la última; una
-     recarga por tiempo real que no cambia nada no repinta. */
+     recarga por tiempo real que no cambia nada no repinta. Si la que gana
+     adelantó a la recarga de una acción propia, se aplica como propia (la
+     persona debe ver el resultado de lo que hizo). */
   function refrescar(origen) {
     var turno = ++turnoCarga;
+    if (origen !== 'externo') propioPendiente = true;
     /* En el sondeo, si nada cambió el servidor solo lo confirma. */
     var params = { p_sesion: token() };
-    if (origen === 'externo' && huellaServidor) params.p_huella = huellaServidor;
+    if (origen === 'externo' && huellaServidor && !propioPendiente) params.p_huella = huellaServidor;
     return llamar('tm_cargar', params).then(function (d) {
       if (turno !== turnoCarga) return;
+      var aviso = propioPendiente && origen === 'externo' ? 'propio' : origen;
+      propioPendiente = false;
+      if (!d || typeof d !== 'object') throw { error: 'El servidor respondió algo inesperado. Inténtalo en unos segundos.' };
       if (d.sin_cambios) return;
       huellaServidor = d.huella || null;
       if (d.sesion_invalida) olvidarSesion();
       sesionActual = perfil(d.yo);
       var e = construir(d);
       var nueva = JSON.stringify(e);
-      if (origen === 'externo' && nueva === huella) return;
+      if (aviso === 'externo' && nueva === huella) return;
       huella = nueva;
-      TM._fijarEstado(e, origen || 'propio');
+      TM._fijarEstado(e, aviso || 'propio');
     });
   }
 
@@ -455,6 +471,12 @@
   T.reiniciarDemo = function () { return rpc('tm_reiniciar_demo'); };
 
   T.misNotificaciones = misNotificaciones;
+  /* Historial completo de auditoría (200 por página, del más nuevo al más
+     antiguo): la caché trae solo las ventanas recientes. */
+  T.auditoria = function (antesId, texto) {
+    return llamar('tm_auditoria', { p_sesion: token(), p_antes: antesId || null, p_texto: texto || null })
+      .then(function (lista) { return (lista || []).map(evento); });
+  };
   T.marcarNotificacionesLeidas = marcarNotificacionesLeidas;
 
   T.carrito = carrito;
@@ -463,10 +485,12 @@
   T.carritoCambiar = carritoCambiar;
   T.carritoQuitar = carritoQuitar;
 
-  /* Con el subtotal que ve el comprador: si un precio cambió mientras
-     pagaba, el servidor no crea el pedido con otro monto. */
+  /* Con el subtotal que la pantalla le mostró al comprador (d.totalUsd): si
+     un precio cambió mientras pagaba, el servidor no crea el pedido con otro
+     monto. */
   T.crearPedido = function (d) {
-    var subtotal = carrito().reduce(function (t, i) { return t + TM.producto(i.sku).precioUsd * i.cant; }, 0);
+    var subtotal = d.totalUsd != null ? Number(d.totalUsd)
+      : carrito().reduce(function (t, i) { return t + TM.producto(i.sku).precioUsd * i.cant; }, 0);
     return rpc('tm_crear_pedido', {
       p_envio_tipo: d.tipo, p_direccion_id: d.tipo === 'agencia' ? null : (d.direccionId || null),
       p_metodo: d.metodo, p_ref: d.ref, p_total_usd: Math.round(subtotal * 100) / 100

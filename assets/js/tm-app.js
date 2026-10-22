@@ -219,7 +219,11 @@
         var abrir = panel.hidden;
         document.querySelectorAll('[data-cuenta-panel],[data-notif-panel]').forEach(function (p) { p.hidden = true; });
         panel.hidden = !abrir;
-        if (abrir && caja.hasAttribute('data-menu-notif')) TM.marcarNotificacionesLeidas().catch(function () { });
+        /* solo si queda algo sin leer: abrir la campana no es una escritura */
+        if (abrir && caja.hasAttribute('data-menu-notif') &&
+            TM.misNotificaciones().some(function (n) { return !n.leida; })) {
+          TM.marcarNotificacionesLeidas().catch(function () { });
+        }
       });
     });
     document.addEventListener('click', function () {
@@ -243,6 +247,7 @@
     var salir = raiz.querySelector('[data-salir]');
     if (salir) salir.addEventListener('click', function () {
       salir.disabled = true;
+      saliendo = true;            /* un sondeo en vuelo no debe recargar la página */
       TM.cerrarSesion().then(function () { location.href = href('index.html'); });
     });
     var reiniciar = raiz.querySelector('[data-reiniciar]');
@@ -291,12 +296,28 @@
     raiz.querySelector('[data-reintentar]').addEventListener('click', reintentar);
   }
 
+  var saliendo = false;
+
+  /* ¿Algún campo de la vista tiene un valor distinto del que se pintó? (el
+     buscador de la cabecera no cuenta). Así un formulario a medio llenar no
+     se borra, y uno que se vació vuelve a admitir repintados. */
+  function formularioModificado(raiz) {
+    return Array.prototype.some.call(raiz.querySelectorAll('input, textarea, select'), function (c) {
+      if (c.closest('[role=search]') || c.type === 'hidden' || c.type === 'button' || c.type === 'submit') return false;
+      if (c.type === 'checkbox' || c.type === 'radio') return c.checked !== c.defaultChecked;
+      if (c.tagName === 'SELECT') {
+        return Array.prototype.some.call(c.options, function (o) { return o.selected !== o.defaultSelected; });
+      }
+      return c.value !== c.defaultValue;
+    });
+  }
+
   /* No repintar mientras el usuario escribe, tiene un formulario a medio
      llenar, un modal o un menú abierto: los cambios de otros usuarios
-     esperan a su próxima acción. */
-  function ocupado(raiz, editado) {
+     esperan a que termine. */
+  function ocupado(raiz) {
     var a = document.activeElement;
-    if (editado) return true;
+    if (formularioModificado(raiz)) return true;
     if (document.querySelector('.tm-velo')) return true;
     if (raiz.querySelector('[data-cuenta-panel]:not([hidden]),[data-notif-panel]:not([hidden]),[data-velo-nav]:not([hidden])')) return true;
     return !!(a && raiz.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
@@ -354,28 +375,25 @@
       if (def.despues) def.despues(raiz, params(), s);
     }
 
-    var editado = false;
-    raiz.addEventListener('input', function () { editado = true; });
-    raiz.addEventListener('change', function () { editado = true; });
-
     pintar();
     var pendiente = false;
     TM.suscribir(function (origen) {
+      if (saliendo) return;
       /* La sesión cambió (venció, se cerró o se abrió otra cuenta en otra
          pestaña): la página se vuelve a montar con la identidad real. */
       if (!mismaIdentidad(s, TM.sesion())) { location.reload(); return; }
-      if (origen === 'externo' && ocupado(raiz, editado)) { pendiente = true; return; }
+      if (origen === 'externo' && ocupado(raiz)) { pendiente = true; return; }
       pendiente = false;
-      editado = false;
       pintar();
     });
     function alLiberar() {
       setTimeout(function () {
-        if (pendiente && !ocupado(raiz, editado)) { pendiente = false; pintar(); }
+        if (pendiente && !ocupado(raiz)) { pendiente = false; pintar(); }
       }, 0);
     }
     document.addEventListener('focusout', alLiberar);
     document.addEventListener('click', alLiberar);
+    document.addEventListener('input', alLiberar);
   }
 
   window.APP = { ROLES: ROLES, registrar: registrar, params: params, montar: montar, html403: html403 };

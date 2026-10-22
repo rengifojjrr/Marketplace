@@ -311,8 +311,14 @@
     if (!items.length) falla('El carrito está vacío.');
     var ref = String(datos.ref || '').trim().toUpperCase();
     if (ref.length < 5 || ref.length > 30) falla('Registra la referencia del pago (entre 5 y 30 caracteres).');
-    /* Una referencia bancaria corresponde a un solo pago. */
-    if (estado.pedidos.some(function (p) { return p.ref === ref && p.estado !== 'cancelado'; })) {
+    /* Una referencia bancaria corresponde a un solo pago (sin importar
+       guiones ni espacios); solo queda libre la de un pedido cancelado que
+       nunca se concilió. */
+    var clave = ref.replace(/[^A-Z0-9]/g, '');
+    if (estado.pedidos.some(function (p) {
+      return String(p.ref || '').toUpperCase().replace(/[^A-Z0-9]/g, '') === clave &&
+        (p.estado !== 'cancelado' || p.slaHoras != null);
+    })) {
       falla('La referencia ' + ref + ' ya está registrada en otro pedido: revisa el número del pago.');
     }
     if (estado.pedidos.filter(function (p) { return p.compradorEmail === s.email && p.estado === 'pago_por_verificar'; }).length >= 5) {
@@ -333,6 +339,7 @@
     items.forEach(function (i) {
       var p = producto(i.sku);
       var disponible = p.stockFis - p.stockRes;
+      if (i.cant > TOPE_UNIDADES) falla('Puedes llevar hasta ' + TOPE_UNIDADES + ' unidades de cada producto.');
       if (i.cant > disponible) falla('«' + p.nombre + '» solo tiene ' + Math.max(0, disponible) + ' disponibles.');
       (porSeller[p.sellerId] = porSeller[p.sellerId] || []).push({ sku: i.sku, cant: i.cant, precioUsd: p.precioUsd, nombre: p.nombre, img: p.img });
     });
@@ -632,7 +639,11 @@
     else if (p && enviarRevision && ['publicado', 'pausado'].indexOf(p.estado) >= 0) {
       falla('El producto ya pasó moderación: solo vuelve a revisión si cambias su contenido.');
     }
-    if (p && enviarRevision) p.volverAPausa = p.estado === 'pausado';
+    /* sale de pausado → volverá pausado; un rechazado o borrador que venía de
+       una pausa conserva la marca hasta que Moderación lo apruebe */
+    if (p && enviarRevision) {
+      p.volverAPausa = p.estado === 'pausado' || (['rechazado', 'borrador'].indexOf(p.estado) >= 0 && !!p.volverAPausa);
+    }
     if (!p) {
       if (estado.productos.filter(function (x) { return x.sellerId === s.sellerId; }).length >= 150) {
         falla('Tu catálogo llegó al tope de la beta (150 productos).');
@@ -695,7 +706,7 @@
     if (!p || p.estado !== 'en_revision') falla('El producto ' + sku + ' no está en revisión.');
     /* Si el seller lo tenía pausado, sigue pausado: aprobar no lo publica. */
     var pausado = !!p.volverAPausa;
-    delete p.volverAPausa;
+    if (aprobar) delete p.volverAPausa;      /* (al rechazar se conserva para el reenvío) */
     p.estado = aprobar ? (pausado ? 'pausado' : 'publicado') : 'rechazado';
     if (!aprobar) p.motivoRechazo = motivo || 'No cumple los requisitos de publicación.';
     notificar('seller:' + p.sellerId,
@@ -777,6 +788,8 @@
     totalPedidoUsd: totalPedidoUsd, catalogoPublico: catalogoPublico,
 
     misNotificaciones: misNotificaciones, marcarNotificacionesLeidas: marcarNotificacionesLeidas,
+    /* en modo local la caché ya tiene toda la auditoría */
+    auditoria: function () { return Promise.resolve([]); },
 
     carrito: carrito,
     carritoNoDisponible: carritoNoDisponible,

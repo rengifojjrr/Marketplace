@@ -4,12 +4,16 @@
  *
  *   node tools/verificar-beta.js [urlBase]
  *
- * Funciona con el modo que tenga el sitio (local o Supabase). Para probar el
- * sitio contra otro backend sin tocar assets/js/tm-config.js:
+ * Con el sitio servido en local, por omisión usa el modo local (datos en el
+ * navegador, sin backend). Para probarlo contra un backend sin tocar
+ * assets/js/tm-config.js:
  *
  *   TM_SUPABASE_URL=http://127.0.0.1:54321 TM_SUPABASE_KEY=<clave> node tools/verificar-beta.js
  *
- * y en modo local (datos en el navegador): TM_LOCAL=1 node tools/verificar-beta.js
+ * Contra el sitio publicado (que usa el backend compartido) hay que
+ * confirmarlo, porque la prueba reinicia la demo de todos:
+ *
+ *   TM_NUBE=1 node tools/verificar-beta.js https://rengifojjrr.github.io/Marketplace
  *
  * Con backend, la prueba reinicia los datos de la demo (como superadmin).
  *
@@ -41,6 +45,10 @@ const PAGINAS = {
 (async () => {
   /* Para un sitio publicado se sale por el proxy del entorno si lo hay. */
   const externo = !/\/\/(localhost|127\.0\.0\.1)[:/]/.test(BASE);
+  if (externo && process.env.TM_NUBE !== '1') {
+    console.error('Ese sitio usa el backend compartido y la prueba reinicia su demo para todos. Confírmalo con TM_NUBE=1.');
+    process.exit(2);
+  }
   const navegador = await chromium.launch(externo && process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY } } : {});
   const ctx = await navegador.newContext({ viewport: { width: 1440, height: 950 } });
   /* Sitio en local y backend en la nube detrás de un proxy: las llamadas a
@@ -55,7 +63,7 @@ const PAGINAS = {
       await r.fulfill({ status: res.status, headers: cab, body: Buffer.from(await res.arrayBuffer()) });
     });
   }
-  if (process.env.TM_LOCAL === '1') {
+  if (process.env.TM_LOCAL === '1' || (!externo && !process.env.TM_SUPABASE_URL)) {
     /* modo local: datos en el navegador, sin backend */
     await ctx.route('**/assets/js/tm-config.js', (r) => r.fulfill({ contentType: 'application/javascript',
       body: "window.TM_CONFIG = { supabaseUrl: '', supabaseKey: '' };" }));

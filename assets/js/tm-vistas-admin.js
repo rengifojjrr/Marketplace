@@ -121,20 +121,23 @@
             '<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">' + esc(p.descripcion) + '</p>' +
             '<p class="font-body-sm text-body-sm"><strong>' + esc(TM.fmtBs(p.precioUsd)) + '</strong> · stock ' + p.stockFis + '</p></div>' +
           '<div class="flex sm:flex-col gap-2 shrink-0">' +
-            btn('Aprobar y publicar', { estilo: 'exito', icono: 'check_circle', attr: 'data-aprobar="' + esc(p.sku) + '"' }) +
+            btn(p.volverAPausa ? 'Aprobar (seguirá pausado)' : 'Aprobar y publicar', { estilo: 'exito', icono: 'check_circle',
+              attr: 'data-aprobar="' + esc(p.sku) + '"' + (p.volverAPausa ? ' data-pausado' : '') }) +
             btn('Rechazar', { estilo: 'peligro', icono: 'cancel', attr: 'data-rechazar="' + esc(p.sku) + '"' }) +
           '</div></article>';
       }).join('')
       : UI.vacio('task_alt', 'Cola vacía', 'No hay productos esperando moderación. Los envíos de los sellers aparecen aquí al instante.')) +
-      '<p class="font-body-sm text-body-sm text-on-surface-variant">Al aprobar, el producto queda publicado y visible en la tienda de inmediato.</p>';
+      '<p class="font-body-sm text-body-sm text-on-surface-variant">Al aprobar, el producto queda publicado y visible en la tienda de inmediato, salvo que el seller lo tuviera pausado: entonces sigue pausado hasta que lo reanude.</p>';
   }
 
   function despuesModeracion(raiz, q, s) {
     raiz.querySelectorAll('[data-aprobar]').forEach(function (b) {
       b.addEventListener('click', function () {
         var sku = b.getAttribute('data-aprobar');
+        var pausado = b.hasAttribute('data-pausado');
         UI.accion(b, function () { return TM.moderarProducto(sku, true); }, function () {
-          UI.toast('Producto publicado', sku + ' ya está visible en la tienda.', 'check_circle');
+          if (pausado) UI.toast('Producto aprobado', sku + ' sigue pausado hasta que el seller lo reanude.', 'check_circle');
+          else UI.toast('Producto publicado', sku + ' ya está visible en la tienda.', 'check_circle');
         });
       });
     });
@@ -171,12 +174,19 @@
           ? btn('Confirmar entrega', { icono: 'check_circle', attr: 'data-entregado="' + esc(p.id) + '" title="Con la prueba de entrega del courier"' })
           : p.estado === 'devolucion' && (s.rol === 'ops' || s.rol === 'superadmin') ? botonesDevolucion(p.id) : '', 'text-right');
     });
-    return titulo('Pedidos del marketplace') +
+    return avisoRecorte() + titulo('Pedidos del marketplace') +
       '<form data-filtro class="mb-4 max-w-md flex" role="search">' +
         '<input name="q" value="' + esc(q.get('q') || '') + '" placeholder="Buscar por ID, seller o referencia…" class="flex-1 h-10 px-3 rounded-l-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm focus:border-secondary outline-none"/>' +
         '<button class="h-10 px-3 rounded-r-btn bg-secondary text-on-secondary">' + ic('search') + '</button></form>' +
       UI.tabla(['Pedido', 'Seller', 'Estado', 'Dinero', 'Logística', 'Total', ''], filas,
         UI.vacio('search_off', 'Sin coincidencias', 'Ningún pedido coincide con la búsqueda.'));
+  }
+
+  /* Con más de 2000 pendientes, la caché trae los más antiguos: se avisa. */
+  function avisoRecorte() {
+    if (!TM.estado.pendientesTruncados) return '';
+    return '<p class="flex items-center gap-1.5 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-4">' +
+      ic('info', 'text-[16px]') + 'Hay más de 2.000 pendientes: se muestran los más antiguos primero. Atiéndelos y la lista se completará.</p>';
   }
 
   /* Cierre de una devolución: el producto volvió (reembolso y stock) o no
@@ -300,7 +310,7 @@
           btn('Rechazar', { estilo: 'borde', icono: 'block', attr: 'data-rechazar-pago="' + esc(p.id) + '"' }) +
           btn('Conciliar', { estilo: 'primario', icono: 'fact_check', attr: 'data-conciliar="' + esc(p.id) + '"' }) + '</div>', 'text-right');
     });
-    return titulo('Conciliación de pagos',
+    return avisoRecorte() + titulo('Conciliación de pagos',
         cola.length > 1 ? btn('Conciliar todos (' + cola.length + ')', { estilo: 'marca', icono: 'fact_check',
           attr: 'data-conciliar-todo="' + esc(cola.map(function (p) { return p.id; }).join(',')) + '"' }) : '') +
       '<p class="flex items-center gap-1.5 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-4 max-w-2xl">' +
@@ -367,16 +377,18 @@
       '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Corridas pendientes</h2>' +
       (Object.keys(porSeller).length ? Object.keys(porSeller).map(function (sid) {
         var lista = porSeller[sid];
-        var b = lista.reduce(function (t, p) { return t + bruto(p); }, 0);
-        var comision = b * e.config.comisionPct / 100;
-        var neto = b - comision - e.config.tarifaFijaUsd * lista.length;
+        /* mismo redondeo que el servidor (en centavos) */
+        var b = Math.round(lista.reduce(function (t, p) { return t + bruto(p); }, 0) * 100) / 100;
+        var comision = Math.round(b * e.config.comisionPct) / 100;
+        var tarifas = Math.round(e.config.tarifaFijaUsd * lista.length * 100) / 100;
+        var neto = Math.round((b - comision - tarifas) * 100) / 100;
         return '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-3">' +
           '<div class="flex flex-wrap items-center gap-2 mb-1">' +
           '<span class="font-body-md text-body-md font-bold">' + esc(TM.seller(sid).nombre) + '</span>' +
           '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(sid) + '</span></div>' +
           '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">' + lista.length + ' pedido' + (lista.length === 1 ? '' : 's') + ' elegible' + (lista.length === 1 ? '' : 's') + ': ' +
           lista.map(function (p) { return p.id; }).join(', ') + '</p>' +
-          '<p class="font-body-sm text-body-sm mb-3">Bruto <strong class="font-data-mono">' + esc(TM.fmtUsd(b)) + '</strong> · comisión ' + e.config.comisionPct + ' % + tarifas <strong class="font-data-mono text-error">−' + esc(TM.fmtUsd(comision + e.config.tarifaFijaUsd * lista.length)) + '</strong> · neto <strong class="font-data-mono">' + esc(TM.fmtUsd(neto)) + '</strong></p>' +
+          '<p class="font-body-sm text-body-sm mb-3">Bruto <strong class="font-data-mono">' + esc(TM.fmtUsd(b)) + '</strong> · comisión ' + e.config.comisionPct + ' % + tarifas <strong class="font-data-mono text-error">−' + esc(TM.fmtUsd(comision + tarifas)) + '</strong> · neto <strong class="font-data-mono">' + esc(TM.fmtUsd(neto)) + '</strong></p>' +
           btn('Ejecutar liquidación (2FA)', { estilo: 'marca', icono: 'lock',
             attr: 'data-liquidar="' + esc(sid) + '" data-pedidos="' + esc(lista.map(function (p) { return p.id; }).join(',')) + '"' }) + '</div>';
       }).join('')
@@ -417,12 +429,20 @@
   /* =====================================================================
      Auditoría (superadmin + finanzas)
      ===================================================================== */
+  /* Eventos traídos del historial (búsqueda o «anteriores»), por filtro. */
+  var historial = { filtro: null, eventos: [], fin: false };
+
   function vAuditoria(q, s) {
     var texto = (q.get('q') || '').toLowerCase();
-    var lista = TM.estado.eventos.filter(function (ev) {
+    if (historial.filtro !== texto) historial = { filtro: texto, eventos: [], fin: false };
+    var vistos = {};
+    var lista = TM.estado.eventos.concat(historial.eventos).filter(function (ev) {
+      if (ev.id != null) { if (vistos[ev.id]) return false; vistos[ev.id] = true; }
       if (!texto) return true;
       return (ev.actor + ' ' + ev.accion + ' ' + ev.detalle).toLowerCase().indexOf(texto) >= 0;
     });
+    if (lista.length && lista[0].id != null) lista.sort(function (a, b) { return b.id - a.id; });
+    var remoto = TM.modo === 'remoto';
     return titulo('Auditoría', '<span class="font-body-sm text-body-sm text-on-surface-variant">' + lista.length + ' eventos</span>') +
       '<form data-filtro class="mb-4 max-w-md flex" role="search">' +
         '<input name="q" value="' + esc(q.get('q') || '') + '" placeholder="Filtrar por actor, acción o detalle…" class="flex-1 h-10 px-3 rounded-l-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm focus:border-secondary outline-none"/>' +
@@ -434,7 +454,35 @@
             td('<span class="text-on-surface-variant">' + esc(ev.detalle) + '</span>');
         }),
         UI.vacio('history', 'Sin eventos', 'Toda acción de la plataforma deja rastro aquí; el registro no se puede editar.')) +
-      '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Registro de solo lectura: los eventos se agregan, nunca se editan ni se borran.</p>';
+      (remoto && !historial.fin ? '<div class="mt-3">' + btn('Ver eventos anteriores', { icono: 'history', attr: 'data-anteriores' }) + '</div>' : '') +
+      '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Registro de solo lectura: los eventos se agregan, nunca se editan ni se borran.' +
+      (remoto ? ' La búsqueda recorre todo el historial.' : '') + '</p>';
+  }
+
+  function despuesAuditoria(raiz, q, s) {
+    despuesPedidosAdmin(raiz);
+    if (TM.modo !== 'remoto') return;
+    var texto = q.get('q') || '';
+    function traer(antes, boton) {
+      return UI.accion(boton, function () { return TM.auditoria(antes, texto); }, function (lista) {
+        if (historial.filtro !== texto.toLowerCase()) return;
+        historial.eventos = historial.eventos.concat(lista);
+        if (lista.length < 200) historial.fin = true;
+        TM._avisar('propio');               /* repinta sin volver a descargar */
+      }, 'No se pudo consultar la auditoría');
+    }
+    /* al buscar, la primera página del historial completo llega sola */
+    if (texto && !historial.eventos.length && !historial.fin && !historial.pedido) {
+      historial.pedido = true;
+      traer(null, null);
+    }
+    /* el historial se pagina desde el servidor, de forma contigua (la caché
+       trae ventanas por tipo de evento, que no lo son) */
+    var mas = raiz.querySelector('[data-anteriores]');
+    if (mas) mas.addEventListener('click', function () {
+      var ids = historial.eventos.map(function (ev) { return ev.id; });
+      traer(ids.length ? Math.min.apply(null, ids) : null, mas);
+    });
   }
 
   APP.registrar({
@@ -445,6 +493,6 @@
     'admin/disputas':      { titulo: 'Disputas',        roles: ['superadmin', 'ops'],      render: vDisputasAdmin, despues: despuesDisputasAdmin },
     'admin/conciliacion':  { titulo: 'Conciliación',    roles: ['superadmin', 'finanzas'], render: vConciliacion, despues: despuesConciliacion },
     'admin/liquidaciones': { titulo: 'Liquidaciones',   roles: ['superadmin', 'finanzas'], render: vLiquidaciones, despues: despuesLiquidaciones },
-    'admin/auditoria':     { titulo: 'Auditoría',       roles: ['superadmin', 'finanzas'], render: vAuditoria, despues: despuesPedidosAdmin }
+    'admin/auditoria':     { titulo: 'Auditoría',       roles: ['superadmin', 'finanzas'], render: vAuditoria, despues: despuesAuditoria }
   });
 })();

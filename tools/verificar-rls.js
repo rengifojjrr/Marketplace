@@ -181,11 +181,31 @@ const ESPERADO = {
     'el catálogo público no expone reservas, fechas internas ni motivos de rechazo');
   const igual = await rpc('tm_cargar', { p_sesion: null, p_huella: pub.dato.huella });
   ok(igual.ok && igual.dato.sin_cambios === true && !igual.dato.productos, 'sin cambios, el servidor no repite la descarga');
+  const h1 = await rpc('tm_cargar', { p_sesion: s.superadmin });
+  const h2 = await rpc('tm_cargar', { p_sesion: s.superadmin, p_huella: h1.dato.huella });
+  ok(h2.dato && h2.dato.sin_cambios === true, 'la huella es estable entre dos lecturas iguales');
+
+  /* Auditoría completa: paginada en el servidor y solo para su equipo. */
+  const au1 = await rpc('tm_auditoria', { p_sesion: s.finanzas });
+  const au2 = au1.ok && au1.dato.length ? await rpc('tm_auditoria', { p_sesion: s.finanzas, p_antes: au1.dato[au1.dato.length - 1].id }) : null;
+  ok(au1.ok && Array.isArray(au1.dato) && au1.dato.length > 0 && (!au2 || au2.dato.every((e) => e.id < au1.dato[au1.dato.length - 1].id)),
+    'finanzas pagina la auditoría completa', au1.texto.slice(0, 120));
+  const au3 = await rpc('tm_auditoria', { p_sesion: s.finanzas, p_texto: 'Conciliación' });
+  ok(au3.ok && au3.dato.every((e) => /conciliación/i.test(e.actor + e.accion + e.detalle)), 'la búsqueda de auditoría filtra en el servidor');
+  const au4 = await rpc('tm_auditoria', { p_sesion: s.comprador });
+  ok(!au4.ok, 'un comprador no consulta la auditoría', au4.texto.slice(0, 120));
+
+  /* La campana no consume la cuota de escrituras. */
+  for (let i = 0; i < 160; i++) await rpc('tm_marcar_notificaciones_leidas', { p_sesion: s.comprador });
+  const cq = await rpc('tm_carrito_poner', { p_sesion: s.comprador, p_sku: 'SKU-TEC-0450', p_cant: 1 });
+  await rpc('tm_carrito_quitar', { p_sesion: s.comprador, p_sku: 'SKU-TEC-0450' });
+  ok(cq.ok, 'abrir la campana muchas veces no agota la cuota de escrituras', cq.texto.slice(0, 120));
 
   /* El operador no recibe eventos de dinero ni de reclamos en la línea de tiempo. */
   const vop = await rpc('tm_cargar', { p_sesion: s.operador });
   const evOp = vop.dato.pedidos.flatMap((p) => p.pedido_eventos.map((e) => e.texto));
-  ok(!evOp.some((t) => /reclamo DSP|liquidación|fondos/i.test(t)), 'el operador no ve eventos de dinero ni de reclamos', evOp.filter((t) => /reclamo DSP|liquidación|fondos/i.test(t)).join(' | '));
+  const DINERO = /reclamo DSP|disputa|devoluci|reembols|liquidación|fondos/i;
+  ok(!evOp.some((t) => DINERO.test(t)), 'el operador no ve eventos de dinero ni de reclamos', evOp.filter((t) => DINERO.test(t)).join(' | '));
 
   /* Pedido: referencia única y precio que vio el comprador. */
   const comp2 = await rpc('tm_registrar', { p_email: 'precio-' + Date.now() + '@correo-demo.ve', p_clave: 'clave-precio-1', p_nombre: 'Prueba Precio' });
@@ -193,8 +213,8 @@ const ESPERADO = {
   ok(!!sp, 'segundo comprador de prueba creado', comp2.texto.slice(0, 100));
   if (sp) {
     await rpc('tm_carrito_poner', { p_sesion: sp, p_sku: 'SKU-HOG-0110', p_cant: 1 });
-    const d1 = await rpc('tm_crear_pedido', { p_sesion: sp, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'trf-91108' });
-    ok(!d1.ok && /ya está registrada/.test(d1.texto), 'una referencia de pago ya usada se rechaza', d1.texto.slice(0, 120));
+    const d1 = await rpc('tm_crear_pedido', { p_sesion: sp, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'trf 91108' });
+    ok(!d1.ok && /ya está registrada/.test(d1.texto), 'una referencia de pago ya usada se rechaza (aunque cambie el formato)', d1.texto.slice(0, 120));
     const d2 = await rpc('tm_crear_pedido', { p_sesion: sp, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'PM-PRECIO-1', p_total_usd: 1 });
     ok(!d2.ok && /precios de tu carrito cambiaron/.test(d2.texto), 'si el precio cambió, el pedido no se crea', d2.texto.slice(0, 120));
     const d3 = await rpc('tm_crear_pedido', { p_sesion: sp, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'PM-PRECIO-2', p_total_usd: 55 });
@@ -214,6 +234,9 @@ const ESPERADO = {
   ok(dv1.ok && dv2.ok && p428 && p428.estado === 'reembolsado' && p428.liquidacion === 'reembolsado',
     'la devolución recibida termina en reembolso', [dv1.texto, dv2.texto].join(' ').slice(0, 160));
   ok(caucho && caucho.stock_fis === stockCaucho + 2, 'el producto devuelto vuelve al inventario', caucho && `${stockCaucho} → ${caucho.stock_fis}`);
+  const vop2 = await rpc('tm_cargar', { p_sesion: s.operador });
+  const evOp2 = vop2.dato.pedidos.flatMap((p) => p.pedido_eventos.map((e) => e.texto));
+  ok(!evOp2.some((t) => DINERO.test(t)), 'tampoco tras resolver un reclamo con devolución', evOp2.filter((t) => DINERO.test(t)).join(' | '));
 
   /* Y lo permitido funciona. */
   const a1 = await rpc('tm_conciliar_pago', { p_sesion: s.finanzas, p_id: 'TM-2026-00433' });
