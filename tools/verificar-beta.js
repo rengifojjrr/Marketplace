@@ -352,6 +352,68 @@ const PAGINAS = {
     if (disp !== 9) throw new Error('el stock reservado no se liberó (disponible ' + disp + ')');
   });
 
+  await prueba('finanzas rechaza un pago que no llegó y el stock vuelve', async () => {
+    await login('Comprador');
+    await abrir('tienda/producto?sku=SKU-HOG-0110');
+    await p.locator('[data-agregar]').click();
+    await aviso('Agregado al carrito');
+    await abrir('tienda/checkout');
+    await p.fill('#chk-ref', 'PM-RECHAZO-1');
+    await p.locator('[data-confirmar]').click();
+    await p.waitForURL('**/confirmacion.html*', { timeout: 15000 });
+    const id = new URL(p.url()).searchParams.get('ids');
+    await login('Finanzas');
+    const fila = p.locator('#raiz tr', { hasText: id });
+    await fila.locator('[data-rechazar-pago]').click();
+    await p.waitForSelector('.tm-modal [data-ok]');
+    await p.fill('.tm-modal [data-motivo]', 'La referencia no aparece en el banco');
+    await p.locator('.tm-modal [data-ok]').click();
+    await aviso('Pago rechazado');
+    await login('Comprador');
+    await abrir('tienda/pedido?id=' + id);
+    const t = await p.locator('#raiz').innerText();
+    if (!/Cancelado/.test(t) || !/referencia no aparece/.test(t)) throw new Error('el comprador no ve el rechazo con su motivo');
+    const disp = await p.evaluate(() => { const x = TM.producto('SKU-HOG-0110'); return x.stockFis - x.stockRes; });
+    if (disp !== 18) throw new Error('la reserva no se liberó (disponible ' + disp + ')');
+  });
+
+  await prueba('operaciones confirma una entrega con la prueba del courier', async () => {
+    await login('Operador');
+    await abrir('seller/pedido?id=TM-2026-00434');
+    await p.locator('[data-aceptar]').click(); await aviso('Pedido aceptado');
+    for (const c of await p.locator('[data-pick]').all()) await c.check();
+    await p.locator('[data-guia]').click(); await aviso('generada');
+    await p.locator('[data-despachar]').click(); await aviso('Entregado al courier');
+    await login('Operaciones');
+    await abrir('admin/pedidos?q=00434');
+    await p.locator('[data-entregado="TM-2026-00434"]').click();
+    await p.waitForSelector('.tm-modal [data-ok]');
+    await p.locator('.tm-modal [data-ok]').click();
+    await aviso('Entrega confirmada');
+    await login('Comprador');
+    await abrir('tienda/pedido?id=TM-2026-00434');
+    const t = await p.locator('#raiz').innerText();
+    if (!/prueba del courier/.test(t)) throw new Error('el comprador no ve la confirmación del courier');
+    if (!(await p.locator('a[href*="reclamo.html?id=TM-2026-00434"]').count())) throw new Error('el comprador no puede reclamar en la ventana');
+  });
+
+  await prueba('cambiar el contenido de un producto publicado lo devuelve a moderación', async () => {
+    await login('Seller principal');
+    await abrir('seller/producto?sku=SKU-TEC-0301');
+    await p.fill('[data-campo=nombre]', 'Monitor 24" FHD 75Hz con parlantes');
+    await p.locator('[data-borrador]').click();
+    await p.waitForURL('**/catalogo.html', { timeout: 15000 });
+    await login('Comprador');
+    await abrir('tienda/producto?sku=SKU-TEC-0301');
+    if (!/no disponible/i.test(await p.locator('#raiz').innerText())) throw new Error('el cambio se publicó sin moderación');
+    await login('Superadministrador');
+    await abrir('admin/moderacion');
+    const tarjeta = p.locator('#raiz article', { hasText: 'con parlantes' });
+    if (!await tarjeta.count()) throw new Error('el cambio no llegó a moderación');
+    await tarjeta.locator('[data-aprobar]').click();
+    await aviso('Producto publicado');
+  });
+
   await prueba('registro de comprador nuevo', async () => {
     await p.goto(`${BASE}/index.html`, { waitUntil: 'domcontentloaded' });
     await p.evaluate(() => TM.cerrarSesion());

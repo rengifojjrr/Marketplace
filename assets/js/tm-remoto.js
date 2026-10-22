@@ -2,16 +2,20 @@
    Tumbo Market — Motor remoto (Supabase)
    -------------------------------------------------------------------------
    Se activa cuando `TM_CONFIG` trae la URL y la clave publicable del
-   proyecto. Sustituye las acciones de `TM` por llamadas a las funciones
-   `tm_*` de Postgres y mantiene `TM.estado` como caché de lo que el rol puede
-   ver (RLS decide qué filas llegan). Las vistas no cambian: leen la misma
-   forma de datos que el modo local.
+   proyecto. Sustituye las acciones de `TM` por las funciones `tm_*` de
+   Postgres y mantiene `TM.estado` como caché de lo que el rol puede ver. Las
+   vistas no cambian: leen la misma forma de datos que el modo local.
 
-   · Lectura: tras iniciar y tras cada acción se recarga la caché completa
-     (los volúmenes de la beta son pequeños; así nunca hay datos a medias).
-   · Escritura: siempre por RPC; el servidor valida rol, propiedad y estado.
-   · Tiempo real: los cambios de otros usuarios recargan la caché y la
-     pantalla se repinta cuando no interrumpe al usuario.
+   · Identidad: Tumbo tiene sus propias cuentas y sesiones (no usa Supabase
+     Auth). El token de sesión vive en este navegador y viaja como parámetro
+     de cada función; el servidor guarda solo su hash.
+   · Lectura: `tm_cargar` devuelve de una vez todo lo que el rol puede ver.
+     Se recarga al iniciar y tras cada acción (los volúmenes de la beta son
+     pequeños; así nunca hay datos a medias).
+   · Escritura: siempre por funciones; el servidor valida rol, propiedad y
+     estado, y responde con mensajes listos para mostrar.
+   · Tiempo real: el servidor emite «algo cambió» por un canal sin datos; la
+     pantalla recarga su caché y se repinta cuando no interrumpe al usuario.
    ========================================================================= */
 (function () {
   'use strict';
@@ -19,17 +23,19 @@
   var C = window.TM_CONFIG || {};
   if (!C.supabaseUrl || !C.supabaseKey) return;
   if (!window.supabase || !window.supabase.createClient) {
-    console.error('Tumbo: falta la librería de Supabase (assets/vendor/supabase.js).');
+    console.error('Tumbo: falta la librería de Supabase (assets/vendor/supabase-js-*.js).');
     return;
   }
 
+  /* Sin Supabase Auth: la clave publicable basta para invocar las funciones. */
   var cliente = window.supabase.createClient(C.supabaseUrl, C.supabaseKey, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'tm.auth.v1' }
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'tm.sb.sin-auth' }
   });
 
+  var SESION = 'tm.sesion.remota.v1';
   var INVITADO = 'tm.carrito.invitado.v1';
   var MFA = 'tm.mfa.v4';
-  var sesionActual = null;
+  var sesionActual = null;            /* { uid, email, nombre, rol, sellerId, mfa } */
   var promesaSesion = null;
   var promesaDatos = null;
   var turnoCarga = 0;
@@ -48,6 +54,7 @@
     } catch (e) { }
   }
   function num(v) { return v == null ? null : Number(v); }
+  function token() { var s = leer(SESION); return s && s.token ? s.token : null; }
 
   var FORMATO = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Caracas', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -64,41 +71,50 @@
     var m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
     return m ? m[3] + '/' + m[2] + '/' + m[1] : '—';
   }
-  function ms(iso) { return new Date(iso).getTime(); }
 
-  /* Errores de PostgREST/GoTrue → texto para el usuario. */
+  /* Errores de PostgREST → texto para el usuario. Los de negocio ya llegan
+     redactados por el servidor. */
   function traducir(err) {
-    var m = (err && (err.message || err.error_description || err.error)) || '';
-    if (/JWT expired|invalid JWT|refresh token/i.test(m)) return 'Tu sesión expiró: vuelve a iniciar sesión.';
+    var m = (err && (err.message || err.error)) || '';
     if (/Failed to fetch|NetworkError|Load failed|fetch failed/i.test(m)) return 'Sin conexión con el servidor. Revisa tu internet e inténtalo de nuevo.';
     if (/permission denied/i.test(m)) return 'Tu rol no permite esta acción.';
     if (/violates check constraint/i.test(m)) return 'Algún dato no es válido. Revísalo e inténtalo de nuevo.';
+    if (/canceling statement due to statement timeout/i.test(m)) return 'El servidor tardó demasiado. Inténtalo de nuevo.';
     return m || 'No se pudo completar la acción.';
   }
-  function fallo(err) { return { error: traducir(err) }; }
 
-  function datos(respuesta) {
-    if (respuesta.error) throw respuesta.error;
-    return respuesta.data;
+  function olvidarSesion() {
+    escribir(SESION, null);
+    escribir(MFA, null);
+    sesionActual = null;
+  }
+
+  function perfil(u) {
+    return u ? { uid: u.id, email: u.email, nombre: u.nombre, rol: u.rol, sellerId: u.sellerId, mfa: !!u.mfa } : null;
+  }
+
+  /* Llamada cruda a una función. Si la sesión venció, se olvida aquí mismo
+     para que la siguiente pantalla pida acceso. */
+  function llamar(nombre, params) {
+    return Promise.resolve(cliente.rpc(nombre, params || {})).then(function (r) {
+      if (r.error) {
+        if (r.error.code === '28000') olvidarSesion();
+        throw { error: traducir(r.error) };
+      }
+      return r.data;
+    }, function (err) { throw { error: traducir(err) }; });
   }
 
   /* ---------------------------------------------------------------------
      Sesión
      ------------------------------------------------------------------- */
   function cargarSesion() {
-    return cliente.auth.getSession().then(function (r) {
-      var s = r && r.data && r.data.session;
-      if (!s) { sesionActual = null; return null; }
-      return cliente.from('perfiles').select('*').eq('id', s.user.id).maybeSingle().then(function (rp) {
-        var p = rp.data;
-        if (rp.error || !p) {
-          /* token de un usuario que ya no existe: se descarta en este navegador */
-          sesionActual = null;
-          return cliente.auth.signOut({ scope: 'local' }).then(function () { return null; }, function () { return null; });
-        }
-        sesionActual = { uid: p.id, email: p.email, nombre: p.nombre, rol: p.rol, sellerId: p.seller_id, mfa: !!p.mfa };
-        return sesionActual;
-      });
+    var t = token();
+    if (!t) { sesionActual = null; return Promise.resolve(null); }
+    return llamar('tm_sesion', { p_sesion: t }).then(function (u) {
+      if (!u) { olvidarSesion(); return null; }
+      sesionActual = perfil(u);
+      return sesionActual;
     });
   }
 
@@ -109,45 +125,34 @@
 
   function invitado() { return leer(INVITADO) || []; }
 
+  /* Tras abrir sesión: el carrito de invitado se fusiona con el del comprador. */
+  function entrar(respuesta) {
+    if (!respuesta || respuesta.error) throw { error: (respuesta && respuesta.error) || 'No se pudo iniciar sesión.', campo: 'clave' };
+    escribir(SESION, { token: respuesta.sesion });
+    escribir(MFA, null);
+    sesionActual = perfil(respuesta.usuario);
+    promesaSesion = Promise.resolve(sesionActual);
+    var inv = invitado();
+    if (sesionActual.rol !== 'comprador' || !inv.length) return sesionActual;
+    return llamar('tm_fusionar_carrito', { p_sesion: respuesta.sesion, p_items: inv })
+      .then(function () { escribir(INVITADO, null); }, function () { /* el carrito de invitado se conserva */ })
+      .then(function () { return sesionActual; });
+  }
+
   function acceder(email, clave) {
-    var correo = String(email || '').trim().toLowerCase();
-    return cliente.auth.signInWithPassword({ email: correo, password: clave || '' }).then(function (r) {
-      if (r.error) {
-        var credenciales = /invalid login credentials|invalid credentials/i.test(r.error.message || '');
-        throw { error: credenciales ? 'Correo o contraseña incorrectos. Las cuentas demo usan demo1234.' : traducir(r.error), campo: 'clave' };
-      }
-      escribir(MFA, null);
-      promesaSesion = cargarSesion();
-      return promesaSesion;
-    }).then(function (s) {
-      if (!s) throw { error: 'La cuenta no tiene un perfil activo en Tumbo.', campo: 'correo' };
-      var pasos = Promise.resolve();
-      var inv = invitado();
-      if (s.rol === 'comprador' && inv.length) {
-        pasos = cliente.rpc('tm_fusionar_carrito', { p_items: inv }).then(function (r) {
-          if (!r.error) escribir(INVITADO, null);
-        });
-      }
-      return pasos
-        .then(function () { return cliente.rpc('tm_registrar_acceso'); })
-        .then(function () { return s; });
-    });
+    return llamar('tm_acceder', { p_email: String(email || '').trim().toLowerCase(), p_clave: clave || '' }).then(entrar);
   }
 
   function registrar(nombre, email, clave) {
-    return cliente.rpc('tm_registrar', { p_email: email, p_clave: clave, p_nombre: nombre }).then(function (r) {
-      if (r.error) throw { error: traducir(r.error) };
-      return acceder(email, clave);
-    });
+    return llamar('tm_registrar', { p_email: email, p_clave: clave, p_nombre: nombre }).then(entrar);
   }
 
-  /* scope local: las cuentas demo son compartidas; cerrar aquí no debe
-     expulsar a otra persona que use la misma cuenta. */
   function cerrarSesion() {
-    escribir(MFA, null);
-    sesionActual = null;
+    var t = token();
+    olvidarSesion();
     promesaSesion = Promise.resolve(null);
-    return cliente.auth.signOut({ scope: 'local' }).then(function () { }, function () { });
+    if (!t) return Promise.resolve();
+    return llamar('tm_salir', { p_sesion: t }).then(function () { }, function () { });
   }
 
   function confirmarMfa(codigo) {
@@ -160,44 +165,8 @@
   }
 
   /* ---------------------------------------------------------------------
-     Carga de la caché
+     Caché
      ------------------------------------------------------------------- */
-  function consultar() {
-    var s = sesionActual;
-    var rol = s && s.rol;
-    function en(lista) { return lista.indexOf(rol) >= 0; }
-    var t = {
-      config: cliente.from('config').select('*').maybeSingle(),
-      categorias: cliente.from('categorias').select('*').order('orden'),
-      sellers: cliente.from('sellers').select('*').order('id'),
-      productos: cliente.from('productos').select('*').order('creado', { ascending: false }).order('sku')
-    };
-    if (s) {
-      t.pedidos = cliente.from('pedidos').select('*, pedido_items(*), pedido_eventos(*)').order('creado', { ascending: false });
-      t.notificaciones = cliente.from('notificaciones').select('*, notificaciones_leidas(usuario_id)')
-        .order('fecha', { ascending: false }).order('id', { ascending: false }).limit(60);
-      if (en(['comprador', 'seller', 'superadmin', 'ops'])) t.disputas = cliente.from('disputas').select('*').order('creado', { ascending: false });
-      if (en(['seller', 'superadmin', 'finanzas'])) {
-        t.liquidaciones = cliente.from('liquidaciones').select('*').order('fecha', { ascending: false }).order('id', { ascending: false });
-        t.kyc = cliente.from('sellers_kyc').select('*');
-      }
-      if (en(['seller', 'superadmin'])) t.docs = cliente.from('seller_documentos').select('*').order('orden');
-      if (en(['superadmin', 'finanzas'])) {
-        t.eventos = cliente.from('auditoria').select('*').order('fecha', { ascending: false }).order('id', { ascending: false }).limit(300);
-      }
-      if (rol === 'comprador') {
-        t.direcciones = cliente.from('direcciones').select('*').order('creado');
-        t.carrito = cliente.from('carrito_items').select('sku, cant').order('agregado');
-      }
-    }
-    var claves = Object.keys(t);
-    return Promise.all(claves.map(function (k) { return t[k]; })).then(function (rs) {
-      var d = {};
-      claves.forEach(function (k, i) { d[k] = datos(rs[i]); });
-      return d;
-    });
-  }
-
   function construir(d) {
     var s = sesionActual;
     var cfg = d.config || {};
@@ -238,36 +207,35 @@
       };
     });
 
-    var propios = {};
-    e.productos.forEach(function (p) { propios[p.sku] = true; });
+    var visibles = {};
+    e.productos.forEach(function (p) { visibles[p.sku] = true; });
 
     e.pedidos = (d.pedidos || []).map(function (r) {
       var items = (r.pedido_items || []).map(function (i) {
         return { sku: i.sku, cant: i.cant, precioUsd: num(i.precio_usd), nombre: i.nombre, img: i.img };
-      }).sort(function (a, b) { return a.sku < b.sku ? -1 : 1; });
+      });
       /* Copia de las líneas para los productos que este rol ya no ve. */
       items.forEach(function (i) {
-        if (!propios[i.sku] && !e.productosRef[i.sku]) {
+        if (!visibles[i.sku] && !e.productosRef[i.sku]) {
           e.productosRef[i.sku] = { sku: i.sku, nombre: i.nombre, img: i.img, estado: 'no_disponible', sellerId: r.seller_id,
             precioUsd: i.precioUsd, stockFis: 0, stockRes: 0, categoria: '', marca: '', descripcion: '', specs: {}, rating: null, resenas: 0 };
         }
       });
       return {
-        id: r.id, compradorId: r.comprador_id, compradorEmail: s && r.comprador_id === s.uid ? s.email : null,
+        id: r.id, compradorEmail: s && r.mio ? s.email : null,
         sellerId: r.seller_id, estado: r.estado, liquidacion: r.liquidacion,
         envio: { tipo: r.envio_tipo, dir: r.envio_dir, courier: r.courier, costoUsd: num(r.costo_envio_usd) },
         tasa: num(r.tasa), metodo: r.metodo, ref: r.ref, guia: r.guia, peso: num(r.peso), slaHoras: r.sla_horas,
         disputaId: r.disputa_id, liquidacionId: r.liquidacion_id,
         creado: fecha(r.creado), entregadoEl: fecha(r.entregado_el),
         items: items,
-        timeline: (r.pedido_eventos || []).slice().sort(function (a, b) { return (ms(a.fecha) - ms(b.fecha)) || (a.id - b.id); })
-          .map(function (t) { return { fecha: fecha(t.fecha), actor: t.actor, texto: t.texto, icono: t.icono }; })
+        timeline: (r.pedido_eventos || []).map(function (t) { return { fecha: fecha(t.fecha), actor: t.actor, texto: t.texto, icono: t.icono }; })
       };
     });
 
     e.disputas = (d.disputas || []).map(function (r) {
       return {
-        id: r.id, pedidoId: r.pedido_id, compradorEmail: s && r.comprador_id === s.uid ? s.email : null,
+        id: r.id, pedidoId: r.pedido_id, compradorEmail: s && r.mio ? s.email : null,
         sellerId: r.seller_id, motivo: r.motivo, descripcion: r.descripcion, evidencia: r.evidencia || [],
         montoUsd: num(r.monto_usd), estado: r.estado, creado: fecha(r.creado),
         respuestaSeller: r.respuesta_texto ? { texto: r.respuesta_texto, evidencia: r.respuesta_evidencia || [], fecha: fecha(r.respuesta_fecha) } : null,
@@ -284,8 +252,7 @@
     });
 
     e.notificaciones = (d.notificaciones || []).map(function (r) {
-      return { id: r.id, para: r.para, texto: r.texto, icono: r.icono, enlace: r.enlace, fecha: fecha(r.fecha),
-        leida: (r.notificaciones_leidas || []).length > 0 };
+      return { id: r.id, para: r.para, texto: r.texto, icono: r.icono, enlace: r.enlace, fecha: fecha(r.fecha), leida: !!r.leida };
     });
 
     e.eventos = (d.eventos || []).map(function (r) {
@@ -308,8 +275,10 @@
      recarga por tiempo real que no cambia nada no repinta. */
   function refrescar(origen) {
     var turno = ++turnoCarga;
-    return consultar().then(function (d) {
+    return llamar('tm_cargar', { p_sesion: token() }).then(function (d) {
       if (turno !== turnoCarga) return;
+      if (d.sesion_invalida) olvidarSesion();
+      sesionActual = perfil(d.yo);
       var e = construir(d);
       var nueva = JSON.stringify(e);
       if (origen === 'externo' && nueva === huella) return;
@@ -320,28 +289,23 @@
 
   function listo() {
     if (!promesaDatos) {
-      promesaDatos = listoSesion()
-        .then(function () { return refrescar('inicial'); })
-        .then(function () { tiempoReal(); });
+      promesaDatos = refrescar('inicial').then(function () { tiempoReal(); });
       promesaDatos.catch(function () { promesaDatos = null; });
     }
     return promesaDatos;
   }
 
   /* ---------------------------------------------------------------------
-     Tiempo real
+     Tiempo real (canal público sin datos: solo avisa que hay cambios)
      ------------------------------------------------------------------- */
   var canal = null;
   function tiempoReal() {
     if (canal || !cliente.channel || C.tiempoReal === false) return;
     var espera = null;
-    function cambio() {
+    canal = cliente.channel('tumbo');
+    canal.on('broadcast', { event: 'cambio' }, function () {
       clearTimeout(espera);
-      espera = setTimeout(function () { refrescar('externo').catch(function () { }); }, 500);
-    }
-    canal = cliente.channel('tm-cambios');
-    ['pedidos', 'productos', 'disputas', 'liquidaciones', 'notificaciones', 'sellers'].forEach(function (tabla) {
-      canal.on('postgres_changes', { event: '*', schema: 'public', table: tabla }, cambio);
+      espera = setTimeout(function () { refrescar('externo').catch(function () { }); }, 400);
     });
     try { canal.subscribe(); } catch (e) { /* sin websockets: la app funciona igual, sin avisos en vivo */ }
   }
@@ -349,55 +313,52 @@
   /* ---------------------------------------------------------------------
      Acciones
      ------------------------------------------------------------------- */
+  /* Función de negocio con la sesión actual; al terminar, recarga la caché. */
   function rpc(nombre, params) {
-    return Promise.resolve(cliente.rpc(nombre, params || {})).then(function (r) {
-      if (r.error) throw fallo(r.error);
-      return refrescar('propio').then(function () { return r.data; });
-    }, function (err) { throw fallo(err); });
+    var p = Object.assign({ p_sesion: token() }, params || {});
+    return llamar(nombre, p).then(function (dato) {
+      return refrescar('propio').then(function () { return dato; });
+    });
   }
 
-  function exigirComprador() {
-    return sesionActual && sesionActual.rol === 'comprador' ? sesionActual : null;
+  function esComprador() { return !!(sesionActual && sesionActual.rol === 'comprador'); }
+
+  function disponibleDe(sku) {
+    var p = TM.producto(sku);
+    if (!p || p.estado !== 'publicado') throw { error: 'Producto no disponible.' };
+    return p.stockFis - p.stockRes;
   }
 
   /* Carrito: el del comprador vive en la base; el del invitado, en este
      navegador hasta que se identifique. */
-  function validarCantidad(sku, cant, actual) {
-    var p = TM.producto(sku);
-    if (!p || p.estado !== 'publicado') throw { error: 'Producto no disponible.' };
-    var disponible = p.stockFis - p.stockRes;
-    var nueva = actual + (cant || 1);
-    if (nueva > disponible) throw { error: 'Solo quedan ' + disponible + ' unidades disponibles.' };
-    return Math.min(99, nueva);
-  }
-
-  function aplicarCarritoLocal(lista) {
+  function aplicarInvitado(lista) {
     escribir(INVITADO, lista);
     TM.estado.carritos.invitado = lista;
     TM._avisar('propio');
   }
 
-  function recargarCarrito(s) {
-    return cliente.from('carrito_items').select('sku, cant').order('agregado').then(function (r) {
-      if (r.error) throw fallo(r.error);
-      TM.estado.carritos[s.email] = r.data;
-      TM._avisar('propio');
+  function carrito() {
+    var lista = esComprador() ? (TM.estado.carritos[sesionActual.email] || []) : (TM.estado.carritos.invitado || invitado());
+    return lista.filter(function (i) {
+      var p = TM.producto(i.sku);
+      return p && p.estado === 'publicado';
     });
+  }
+
+  function poner(sku, cant) {
+    if (esComprador()) return rpc('tm_carrito_poner', { p_sku: sku, p_cant: cant });
+    var lista = invitado().filter(function (i) { return i.sku !== sku; });
+    lista.push({ sku: sku, cant: cant });
+    aplicarInvitado(lista);
   }
 
   function carritoAgregar(sku, cant) {
     return Promise.resolve().then(function () {
-      var s = exigirComprador();
-      var items = TM.carrito();
-      var ya = items.find(function (i) { return i.sku === sku; });
-      var nueva = validarCantidad(sku, cant, ya ? ya.cant : 0);
-      if (!s) {
-        var lista = invitado().filter(function (i) { return i.sku !== sku; });
-        lista.push({ sku: sku, cant: nueva });
-        return aplicarCarritoLocal(lista);
-      }
-      return cliente.from('carrito_items').upsert({ usuario_id: s.uid, sku: sku, cant: nueva }, { onConflict: 'usuario_id,sku' })
-        .then(function (r) { if (r.error) throw fallo(r.error); return recargarCarrito(s); });
+      var ya = carrito().find(function (i) { return i.sku === sku; });
+      var disponible = disponibleDe(sku);
+      var nueva = (ya ? ya.cant : 0) + (cant || 1);
+      if (nueva > disponible) throw { error: 'Solo quedan ' + disponible + ' unidades disponibles.' };
+      return poner(sku, Math.min(99, nueva));
     });
   }
 
@@ -405,31 +366,14 @@
     return Promise.resolve().then(function () {
       var p = TM.producto(sku);
       var disponible = p ? p.stockFis - p.stockRes : 0;
-      var nueva = Math.max(1, Math.min(cant, disponible || 1, 99));
-      var s = exigirComprador();
-      if (!s) {
-        return aplicarCarritoLocal(invitado().map(function (i) { return i.sku === sku ? { sku: sku, cant: nueva } : i; }));
-      }
-      return cliente.from('carrito_items').update({ cant: nueva }).eq('usuario_id', s.uid).eq('sku', sku)
-        .then(function (r) { if (r.error) throw fallo(r.error); return recargarCarrito(s); });
+      return poner(sku, Math.max(1, Math.min(cant, disponible || 1, 99)));
     });
   }
 
   function carritoQuitar(sku) {
     return Promise.resolve().then(function () {
-      var s = exigirComprador();
-      if (!s) return aplicarCarritoLocal(invitado().filter(function (i) { return i.sku !== sku; }));
-      return cliente.from('carrito_items').delete().eq('usuario_id', s.uid).eq('sku', sku)
-        .then(function (r) { if (r.error) throw fallo(r.error); return recargarCarrito(s); });
-    });
-  }
-
-  function carrito() {
-    var s = exigirComprador();
-    var lista = s ? (TM.estado.carritos[s.email] || []) : (TM.estado.carritos.invitado || invitado());
-    return lista.filter(function (i) {
-      var p = TM.producto(i.sku);
-      return p && p.estado === 'publicado';
+      if (esComprador()) return rpc('tm_carrito_quitar', { p_sku: sku });
+      aplicarInvitado(invitado().filter(function (i) { return i.sku !== sku; }));
     });
   }
 
@@ -438,7 +382,7 @@
   function marcarNotificacionesLeidas() {
     TM.estado.notificaciones.forEach(function (n) { n.leida = true; });
     /* sin repintar: el panel recién abierto debe seguir abierto */
-    return Promise.resolve(cliente.rpc('tm_marcar_notificaciones_leidas')).then(function () { }, function () { });
+    return llamar('tm_marcar_notificaciones_leidas', { p_sesion: token() }).then(function () { }, function () { });
   }
 
   function guardarProducto(d, enviar) {
@@ -454,34 +398,17 @@
     return rpc('tm_guardar_producto', { p_datos: p, p_enviar: !!enviar });
   }
 
-  function agregarDireccion(d) {
-    var s = exigirComprador();
-    if (!s) return Promise.reject({ error: 'Inicia sesión como comprador.' });
-    return Promise.resolve(cliente.from('direcciones').insert({
-      usuario_id: s.uid, nombre: d.nombre, linea: d.linea, municipio: d.municipio,
-      ciudad: d.ciudad || 'Caracas', codigo: d.codigo || '1010', telefono: d.telefono || '—', predeterminada: !!d.predeterminada
-    })).then(function (r) {
-      if (r.error) throw fallo(r.error);
-      return refrescar('propio');
-    });
-  }
-
-  function quitarDireccion(id) {
-    return Promise.resolve(cliente.from('direcciones').delete().eq('id', id)).then(function (r) {
-      if (r.error) throw fallo(r.error);
-      return refrescar('propio');
-    });
-  }
-
   /* Conciliación masiva: cada pago se valida por separado en el servidor. */
   function conciliarPagos(ids) {
-    return Promise.all(ids.map(function (id) { return cliente.rpc('tm_conciliar_pago', { p_id: id }); }))
-      .then(function (rs) {
-        var errores = rs.filter(function (r) { return r.error; });
-        return refrescar('propio').then(function () {
-          if (errores.length) throw fallo(errores[0].error);
-        });
+    var t = token();
+    return Promise.all(ids.map(function (id) {
+      return llamar('tm_conciliar_pago', { p_sesion: t, p_id: id }).then(function () { return null; }, function (e) { return e; });
+    })).then(function (errores) {
+      return refrescar('propio').then(function () {
+        var e = errores.filter(Boolean)[0];
+        if (e) throw e;
       });
+    });
   }
 
   /* ---------------------------------------------------------------------
@@ -518,6 +445,7 @@
   };
   T.conciliarPago = function (id) { return rpc('tm_conciliar_pago', { p_id: id }); };
   T.conciliarPagos = conciliarPagos;
+  T.rechazarPago = function (id, motivo) { return rpc('tm_rechazar_pago', { p_id: id, p_motivo: motivo || null }); };
   T.aceptarPedido = function (id) { return rpc('tm_aceptar_pedido', { p_id: id }); };
   T.marcarListo = function (id, peso) { return rpc('tm_marcar_listo', { p_id: id, p_peso: parseFloat(peso) || null }); };
   T.despachar = function (id) { return rpc('tm_despachar', { p_id: id }); };
@@ -549,6 +477,6 @@
     return rpc('tm_decidir_kyc', { p_seller: id, p_decision: decision, p_motivo: motivo || null });
   };
 
-  T.agregarDireccion = agregarDireccion;
-  T.quitarDireccion = quitarDireccion;
+  T.agregarDireccion = function (d) { return rpc('tm_direccion_agregar', { p_datos: d }); };
+  T.quitarDireccion = function (id) { return rpc('tm_direccion_quitar', { p_id: id }); };
 })();

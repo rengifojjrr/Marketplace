@@ -9,7 +9,7 @@
    cambia el otro.
    ========================================================================= */
 window.TM_SEED = {
-  version: 4,
+  version: 5,
 
   config: {
     tasa: 36.20,               /* Bs. por USD — tasa demo, fuente «BCV (demo)» */
@@ -233,8 +233,8 @@ window.TM_SEED = {
   ],
 
   notificaciones: [
-    { para: 'seller:SEL-014', texto: 'Nuevo pedido TM-2026-00434 pendiente de aceptar', icono: 'shopping_cart', fecha: '28/08/2026 08:15 pm', leida: false, enlace: 'seller/pedidos.html' },
-    { para: 'seller:SEL-014', texto: 'Reclamo DSP-0098 abierto sobre TM-2026-00428: responde con tu evidencia', icono: 'gavel', fecha: '27/08/2026 06:20 pm', leida: false, enlace: 'seller/disputas.html' },
+    { para: 'seller:SEL-014', roles: ['seller', 'operador'], texto: 'Nuevo pedido TM-2026-00434 pendiente de aceptar', icono: 'shopping_cart', fecha: '28/08/2026 08:15 pm', leida: false, enlace: 'seller/pedidos.html' },
+    { para: 'seller:SEL-014', roles: ['seller'], texto: 'Reclamo DSP-0098 abierto sobre TM-2026-00428: responde con tu evidencia', icono: 'gavel', fecha: '27/08/2026 06:20 pm', leida: false, enlace: 'seller/disputas.html' },
     { para: 'rol:ops',        texto: 'Disputa DSP-0098 en cola: producto dañado, Bs. 2.534,00', icono: 'gavel', fecha: '27/08/2026 06:20 pm', leida: false, enlace: 'admin/disputas.html' },
     { para: 'rol:finanzas',   texto: 'Pago TRF-91108 pendiente de conciliar (TM-2026-00433)', icono: 'fact_check', fecha: '28/08/2026 05:35 pm', leida: false, enlace: 'admin/conciliacion.html' },
     { para: 'rol:superadmin', texto: 'Seller SEL-021 (Farma Andina) espera revisión KYC', icono: 'verified_user', fecha: '27/08/2026 09:00 am', leida: false, enlace: 'admin/sellers.html' },

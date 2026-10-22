@@ -201,12 +201,18 @@
         TM.estado.categorias.map(function (c) {
           return '<option value="' + c.id + '"' + (p && p.categoria === c.id ? ' selected' : '') + '>' + esc(c.nombre) + '</option>';
         }).join('') + '</select></label>' +
-        campo('Precio (USD)', 'precioUsd', p ? p.precioUsd : '', 'number', 'min="0" step="0.5"') +
+        /* El operador fija el precio inicial; después lo cambian el seller o el gestor de precios. */
+        campo('Precio (USD)', 'precioUsd', p ? p.precioUsd : '', 'number',
+          'min="0" step="0.5"' + (p && s.rol === 'operador' ? ' readonly title="Lo gestionan el seller principal o el gestor de precios"' : '')) +
         campo('Stock físico', 'stockFis', p ? p.stockFis : '', 'number', 'min="0"') + '</div>' +
       campo('Descripción', 'descripcion', p && p.descripcion, 'area') +
       '<div class="rounded-card border border-dashed border-outline-variant bg-surface-container-low p-4 text-center">' +
         ic('photo_camera', 'text-[28px] text-outline') +
         '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Las imágenes usan marcadores del sistema en la beta; la carga real llega con el backend.</p></div>' +
+      (p && (p.estado === 'publicado' || p.estado === 'pausado')
+        ? '<p class="flex items-start gap-1.5 font-body-sm text-body-sm text-on-secondary-container bg-secondary-container rounded-btn px-3 py-2">' +
+          ic('info', 'text-[16px] mt-0.5') + 'Si cambias el nombre, la marca, la categoría o la descripción, el producto vuelve a moderación antes de mostrarse otra vez. Precio y stock se actualizan al instante.</p>'
+        : '') +
       '<p data-err class="hidden font-body-sm text-body-sm text-error"></p>' +
       '<div class="flex flex-wrap gap-2">' +
         btn('Guardar borrador', { icono: 'edit', attr: 'data-borrador' }) +

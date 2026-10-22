@@ -208,9 +208,12 @@
     if (estado.eventos.length > 200) estado.eventos.length = 200;
   }
 
-  function notificar(para, texto, icono, enlace) {
+  /* Igual que el backend: un aviso a un comercio es solo para su seller
+     principal salvo que `roles` amplíe la audiencia. */
+  function notificar(para, texto, icono, enlace, roles) {
     estado.notificaciones.unshift({ para: para, texto: texto, icono: icono || 'info',
-      fecha: ahora(), leida: false, enlace: enlace || null });
+      fecha: ahora(), leida: false, enlace: enlace || null,
+      roles: roles || (/^seller:/.test(para) ? ['seller'] : null) });
     if (estado.notificaciones.length > 120) estado.notificaciones.length = 120;
   }
 
@@ -218,6 +221,7 @@
     var s = sesion();
     if (!s) return [];
     return estado.notificaciones.filter(function (n) {
+      if (n.roles && n.roles.indexOf(s.rol) < 0) return false;
       if (n.para === s.email) return true;
       if (n.para === 'rol:' + s.rol) return true;
       if (s.sellerId && n.para === 'seller:' + s.sellerId) return true;
@@ -295,6 +299,9 @@
     if (!items.length) falla('El carrito está vacío.');
     var ref = String(datos.ref || '').trim().toUpperCase();
     if (ref.length < 5 || ref.length > 30) falla('Registra la referencia del pago (entre 5 y 30 caracteres).');
+    if (estado.pedidos.filter(function (p) { return p.compradorEmail === s.email && p.estado === 'pago_por_verificar'; }).length >= 5) {
+      falla('Tienes 5 pedidos con el pago por verificar: espera la conciliación o cancela alguno.');
+    }
 
     var envio;
     if (datos.tipo === 'agencia') {
@@ -351,9 +358,21 @@
     p.estado = 'por_aceptar';
     p.slaHoras = 24;
     p.timeline.push({ fecha: ahora(), actor: 'Finanzas', texto: 'Pago conciliado · pendiente de aceptación del seller', icono: 'fact_check' });
-    notificar('seller:' + p.sellerId, 'Nuevo pedido ' + id + ' pendiente de aceptar', 'shopping_cart', 'seller/pedidos.html');
+    notificar('seller:' + p.sellerId, 'Nuevo pedido ' + id + ' pendiente de aceptar', 'shopping_cart', 'seller/pedidos.html', ['seller', 'operador']);
     notificar(p.compradorEmail, 'Confirmamos el pago de tu pedido ' + id, 'check_circle', 'tienda/pedido.html?id=' + id);
     auditar(actor(), 'Conciliación de pago', (p.ref || '') + ' → ' + id);
+    guardar();
+  }
+
+  function rechazarPago(id, motivo) {
+    var p = exigirPedido(id, 'pago_por_verificar', 'El pedido ' + id + ' ya no está pendiente de conciliación.');
+    var m = motivo || 'el pago no se pudo verificar';
+    p.estado = 'cancelado';
+    p.liquidacion = null;
+    p.items.forEach(function (i) { var pr = producto(i.sku); if (pr) pr.stockRes = Math.max(0, pr.stockRes - i.cant); });
+    p.timeline.push({ fecha: ahora(), actor: 'Finanzas', texto: 'Pago rechazado (' + m + ') · pedido cancelado y stock liberado', icono: 'block' });
+    notificar(p.compradorEmail, 'No pudimos verificar el pago de tu pedido ' + id + ': ' + m, 'block', 'tienda/pedido.html?id=' + id);
+    auditar(actor(), 'Pago rechazado', (p.ref || '') + ' → ' + id + ' · ' + m);
     guardar();
   }
 
@@ -396,13 +415,18 @@
     guardar();
   }
 
+  /* La confirma el comprador o, con la prueba del courier, Operaciones. */
   function confirmarEntrega(id) {
     var p = exigirPedido(id, 'despachado', 'El pedido ' + id + ' no está en camino.');
+    var s = sesion();
+    var porCourier = s && s.rol !== 'comprador';
     p.estado = 'entregado';
     p.entregadoEl = ahora();
     p.liquidacion = 'retenido';
-    p.timeline.push({ fecha: ahora(), actor: actor(), texto: 'Entrega confirmada · abre la ventana de reclamo (' + estado.config.ventanaReclamoDias + ' días)', icono: 'check_circle' });
+    p.timeline.push({ fecha: ahora(), actor: porCourier ? 'Operaciones (prueba del courier)' : actor(),
+      texto: 'Entrega confirmada · abre la ventana de reclamo (' + estado.config.ventanaReclamoDias + ' días)', icono: 'check_circle' });
     notificar('seller:' + p.sellerId, 'El pedido ' + id + ' fue entregado: fondos en retención hasta cerrar la ventana', 'lock', 'seller/finanzas.html');
+    if (porCourier) notificar(p.compradorEmail, 'Tu pedido ' + id + ' figura entregado: tienes ' + estado.config.ventanaReclamoDias + ' días para reclamar', 'check_circle', 'tienda/pedido.html?id=' + id);
     auditar(actor(), 'Entrega confirmada', id);
     guardar();
   }
@@ -418,7 +442,7 @@
     p.liquidacion = null;
     p.items.forEach(function (i) { var pr = producto(i.sku); if (pr) pr.stockRes = Math.max(0, pr.stockRes - i.cant); });
     p.timeline.push({ fecha: ahora(), actor: actor(), texto: 'Pedido cancelado (' + (motivo || 'sin motivo') + ') · stock liberado' + (conPago ? ' y reembolso en cola' : ''), icono: 'cancel' });
-    if (conPago) notificar('seller:' + p.sellerId, 'El comprador canceló el pedido ' + id, 'cancel', 'seller/pedidos.html?estado=');
+    if (conPago) notificar('seller:' + p.sellerId, 'El comprador canceló el pedido ' + id, 'cancel', 'seller/pedidos.html?estado=', ['seller', 'operador']);
     notificar('rol:finanzas', 'Cancelación de ' + id + ': procesar reembolso demo', 'undo', 'admin/conciliacion.html');
     auditar(actor(), 'Cancelación', id + (motivo ? ' · ' + motivo : ''));
     guardar();
@@ -514,6 +538,7 @@
     var comision = Math.round(bruto * estado.config.comisionPct) / 100;
     var tarifa = Math.round(estado.config.tarifaFijaUsd * elegibles.length * 100) / 100;
     var neto = Math.round((bruto - comision - tarifa) * 100) / 100;
+    if (neto <= 0) falla('El neto sería ' + fmtUsd(neto) + ': acumula más pedidos antes de liquidar.');
     var num = siguienteId('LIQ-2026', estado.liquidaciones);
     var liq = {
       id: 'LIQ-2026-' + String(num).padStart(3, '0'), sellerId: sellerId,
@@ -543,8 +568,19 @@
     if (datos.sku && (!p || p.sellerId !== s.sellerId)) falla('Producto ' + datos.sku + ' no encontrado.');
     if (datos.nombre !== undefined && String(datos.nombre).trim().length < 4) falla('El nombre necesita al menos 4 caracteres.');
     if (datos.precioUsd !== undefined && !(parseFloat(datos.precioUsd) > 0)) falla('El precio debe ser mayor que cero.');
+    if (p && s.rol === 'operador' && datos.precioUsd !== undefined && parseFloat(datos.precioUsd) !== p.precioUsd) {
+      falla('El precio lo gestionan el seller principal o el gestor de precios.');
+    }
     if (p && datos.stockFis !== undefined && (parseInt(datos.stockFis, 10) || 0) < p.stockRes) {
       falla('No puedes dejar el stock por debajo de lo reservado por pedidos en curso (' + p.stockRes + ').');
+    }
+    /* Cambiar el contenido de un producto ya moderado lo devuelve a moderación. */
+    var contenido = !!p && ['nombre', 'marca', 'categoria', 'descripcion'].some(function (k) {
+      return datos[k] !== undefined && String(datos[k]).trim() !== String(p[k] == null ? '' : p[k]);
+    });
+    if (p && ['publicado', 'pausado'].indexOf(p.estado) >= 0 && contenido) enviarRevision = true;
+    if (p && enviarRevision && ['publicado', 'pausado', 'en_revision'].indexOf(p.estado) >= 0 && !contenido) {
+      falla('El producto ya pasó moderación: solo vuelve a revisión si cambias su contenido.');
     }
     if (!p) {
       /* Mismo esquema que el backend: SKU-CAT-1101, 1102… */
@@ -608,7 +644,7 @@
     notificar('seller:' + p.sellerId,
       aprobar ? 'Tu producto ' + p.sku + ' fue aprobado y ya está publicado'
               : 'Tu producto ' + p.sku + ' fue rechazado: ' + p.motivoRechazo,
-      aprobar ? 'check_circle' : 'cancel', 'seller/catalogo.html');
+      aprobar ? 'check_circle' : 'cancel', 'seller/catalogo.html', ['seller', 'precios', 'operador']);
     auditar(actor(), aprobar ? 'Producto aprobado' : 'Producto rechazado', sku + (aprobar ? '' : ' · ' + p.motivoRechazo));
     guardar();
   }
@@ -693,6 +729,7 @@
     crearPedido: asincrona(crearPedido),
     conciliarPago: asincrona(conciliarPago),
     conciliarPagos: asincrona(conciliarPagos),
+    rechazarPago: asincrona(rechazarPago),
     aceptarPedido: asincrona(aceptarPedido),
     marcarListo: asincrona(marcarListo),
     despachar: asincrona(despachar),

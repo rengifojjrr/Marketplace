@@ -1,16 +1,18 @@
 -- =========================================================================
--- Tumbo Market — Semilla de la demo y reinicio
+-- Tumbo Market — Semilla de la demo, reinicio y privilegios
 -- -------------------------------------------------------------------------
--- Mismos datos ficticios que assets/js/tm-datos.js. `privado.sembrar()` deja
--- el negocio en su punto de partida; `public.tm_reiniciar_demo()` permite al
--- superadministrador volver a él desde la aplicación.
--- Cuentas demo: contraseña demo1234 (ver README).
+-- Mismos datos ficticios que assets/js/tm-datos.js. tumbo_privado.sembrar()
+-- deja el negocio en su punto de partida; public.tm_reiniciar_demo() permite
+-- al superadministrador volver a él desde la aplicación (las cuentas y la
+-- auditoría se conservan).
+-- Cuentas demo: contraseña demo1234 (ver README). Son cuentas de Tumbo, no
+-- de Supabase Auth: no sirven para entrar en ninguna otra aplicación.
 -- =========================================================================
 
 -- ---------------------------------------------------------------------------
 -- Cuentas demo (idempotente). UUID fijos para que la semilla las referencie.
 -- ---------------------------------------------------------------------------
-create function privado.sembrar_usuarios() returns void
+create function tumbo_privado.sembrar_usuarios() returns void
 language plpgsql security definer set search_path = '' as $$
 declare
   u record;
@@ -26,43 +28,33 @@ begin
       ('a0000000-0000-4000-8000-000000000007'::uuid, 'finanzas@tumbomarket.demo',    'Rosa Blanco',    'finanzas',   null,      true)
     ) as t (id, email, nombre, rol, seller_id, mfa)
   loop
-    if not exists (select 1 from auth.users where id = u.id) then
-      insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
-                              raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
-                              confirmation_token, recovery_token, email_change_token_new, email_change)
-      values ('00000000-0000-0000-0000-000000000000', u.id, 'authenticated', 'authenticated', u.email,
-              extensions.crypt('demo1234', extensions.gen_salt('bf')), now(),
-              '{"provider":"email","providers":["email"]}'::jsonb,
-              jsonb_build_object('nombre', u.nombre), now(), now(), '', '', '', '');
-      insert into auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
-      values (gen_random_uuid(), u.id, u.id::text,
-              jsonb_build_object('sub', u.id::text, 'email', u.email, 'email_verified', true),
-              'email', now(), now(), now());
+    -- bcrypt solo para las cuentas nuevas: el reinicio no vuelve a calcularlo
+    if exists (select 1 from tumbo.usuarios where id = u.id) then
+      update tumbo.usuarios
+      set email = u.email, nombre = u.nombre, rol = u.rol, seller_id = u.seller_id, mfa = u.mfa, activo = true
+      where id = u.id;
+    else
+      insert into tumbo.usuarios (id, email, clave_hash, nombre, rol, seller_id, mfa)
+      values (u.id, u.email, extensions.crypt('demo1234', extensions.gen_salt('bf', 10)), u.nombre, u.rol, u.seller_id, u.mfa);
     end if;
-    -- El trigger crea el perfil como comprador; aquí se fija el rol real.
-    insert into public.perfiles (id, email, nombre, rol, seller_id, mfa)
-    values (u.id, u.email, u.nombre, u.rol, u.seller_id, u.mfa)
-    on conflict (id) do update
-      set email = excluded.email, nombre = excluded.nombre, rol = excluded.rol,
-          seller_id = excluded.seller_id, mfa = excluded.mfa;
   end loop;
 end $$;
 
 -- ---------------------------------------------------------------------------
 -- Datos de negocio
 -- ---------------------------------------------------------------------------
-create function privado.sembrar() returns void
+create function tumbo_privado.sembrar(p_auditoria boolean) returns void
 language plpgsql security definer set search_path = '' as $$
 declare
   maria constant uuid := 'a0000000-0000-4000-8000-000000000001';
 begin
-  insert into public.config (id, tasa, comision_pct, tarifa_fija_usd, ventana_reclamo_dias, ciudad_entrega)
+  insert into tumbo.config (id, tasa, comision_pct, tarifa_fija_usd, ventana_reclamo_dias, ciudad_entrega)
   values (true, 36.20, 10, 0.60, 3, 'Caracas 1010')
   on conflict (id) do update set tasa = excluded.tasa, comision_pct = excluded.comision_pct,
     tarifa_fija_usd = excluded.tarifa_fija_usd, ventana_reclamo_dias = excluded.ventana_reclamo_dias,
     ciudad_entrega = excluded.ciudad_entrega;
 
-  insert into public.categorias (id, nombre, icono, orden) values
+  insert into tumbo.categorias (id, nombre, icono, orden) values
     ('automotriz', 'Automotriz', 'directions_car', 1),
     ('tecnologia', 'Tecnología', 'devices', 2),
     ('hogar', 'Hogar', 'kitchen', 3),
@@ -70,7 +62,7 @@ begin
     ('moda', 'Moda', 'checkroom', 5)
   on conflict (id) do update set nombre = excluded.nombre, icono = excluded.icono, orden = excluded.orden;
 
-  insert into public.sellers (id, nombre, ciudad, estado, rating, resenas, desde, descripcion) values
+  insert into tumbo.sellers (id, nombre, ciudad, estado, rating, resenas, desde, descripcion) values
     ('SEL-014', 'TechElectro, C.A.', 'Caracas', 'aprobado', 4.8, 142, '2026-03-02', 'Repuestos automotrices y tecnología con garantía nacional.'),
     ('SEL-009', 'Hogar Total, C.A.', 'Valencia', 'aprobado', 4.5, 87, '2026-01-15', 'Todo para el hogar: cocina, limpieza y organización.'),
     ('SEL-021', 'Farma Andina, C.A.', 'Mérida', 'en_revision', null, 0, '2026-08-27', 'Productos de salud y cuidado personal.'),
@@ -79,15 +71,15 @@ begin
     rating = excluded.rating, resenas = excluded.resenas, desde = excluded.desde, descripcion = excluded.descripcion;
 
   -- Las cuentas del Seller Center referencian a su comercio: van después de los sellers.
-  perform privado.sembrar_usuarios();
+  perform tumbo_privado.sembrar_usuarios();
 
-  insert into public.sellers_kyc (seller_id, rif, observacion) values
+  insert into tumbo.sellers_kyc (seller_id, rif, observacion) values
     ('SEL-014', 'J-40881234-5', null),
     ('SEL-009', 'J-31220987-1', null),
     ('SEL-021', 'J-50778812-3', null),
     ('SEL-017', 'J-29455610-9', 'El registro mercantil está vencido: se solicitó la renovación.');
 
-  insert into public.seller_documentos (seller_id, orden, nombre, estado)
+  insert into tumbo.seller_documentos (seller_id, orden, nombre, estado)
   select s.id, d.orden, d.nombre,
          case
            when s.id = 'SEL-021' and d.orden = 2 then 'en_revision'
@@ -98,7 +90,7 @@ begin
   cross join (values (1, 'RIF vigente'), (2, 'Registro mercantil'), (3, 'Cédula del representante'), (4, 'Cuenta de liquidación')) d (orden, nombre);
 
   -- Lo reservado (stock_res) corresponde a los pedidos sembrados aún sin despachar.
-  insert into public.productos (sku, seller_id, nombre, marca, categoria, precio_usd, stock_fis, stock_res, estado, img, rating, resenas, descripcion, specs) values
+  insert into tumbo.productos (sku, seller_id, nombre, marca, categoria, precio_usd, stock_fis, stock_res, estado, img, rating, resenas, descripcion, specs) values
     ('SKU-MOT-0832', 'SEL-014', 'Caucho Rin 14 · 185/60 R14', 'Bridgestone', 'automotriz', 70, 15, 0, 'publicado', 'producto-01', 4.7, 96,
      'Caucho radial para rin 14, compuesto de larga duración y agarre en pavimento húmedo. Garantía de 5 años contra defectos de fabricación.',
      '{"Medida": "185/60 R14", "Índice de carga": "82H", "Origen": "Nacional", "Garantía": "5 años"}'),
@@ -127,11 +119,11 @@ begin
      'Juego de ollas con recubrimiento antiadherente y tapas de vidrio templado.',
      '{"Piezas": "7", "Material": "Aluminio antiadherente"}');
 
-  insert into public.direcciones (id, usuario_id, nombre, linea, municipio, ciudad, codigo, telefono, predeterminada) values
+  insert into tumbo.direcciones (id, usuario_id, nombre, linea, municipio, ciudad, codigo, telefono, predeterminada) values
     ('d0000000-0000-4000-8000-000000000001', maria, 'Casa', 'Av. Francisco de Miranda, Res. El Parque, Torre B, Apto 4-2', 'Chacao', 'Caracas', '1060', '0412-5550101', true),
     ('d0000000-0000-4000-8000-000000000002', maria, 'Oficina', 'Torre Polar, piso 6, ofic. 6-C, Plaza Venezuela', 'Libertador', 'Caracas', '1050', '0212-7810202', false);
 
-  insert into public.pedidos (id, comprador_id, seller_id, estado, liquidacion, envio_tipo, envio_dir, courier, costo_envio_usd,
+  insert into tumbo.pedidos (id, comprador_id, seller_id, estado, liquidacion, envio_tipo, envio_dir, courier, costo_envio_usd,
                               tasa, metodo, ref, guia, sla_horas, disputa_id, liquidacion_id, creado, entregado_el) values
     ('TM-2026-00415', maria, 'SEL-014', 'cerrado', 'elegible', 'domicilio', 'Av. Francisco de Miranda, Res. El Parque, Torre B, Apto 4-2, Chacao', 'Zoom (demo)', 3,
      36.20, 'Pago Móvil', 'PM-771204', 'TM-GUIA-88410', null, null, null, '2026-08-21 10:12-04', '2026-08-24 15:40-04'),
@@ -146,7 +138,7 @@ begin
     ('TM-2026-00434', maria, 'SEL-014', 'por_aceptar', null, 'domicilio', 'Av. Francisco de Miranda, Res. El Parque, Torre B, Apto 4-2, Chacao', 'Zoom (demo)', 4,
      36.20, 'Pago Móvil', 'PM-780331', null, 24, null, null, '2026-08-28 19:58-04', null);
 
-  insert into public.pedido_items (pedido_id, sku, nombre, img, cant, precio_usd) values
+  insert into tumbo.pedido_items (pedido_id, sku, nombre, img, cant, precio_usd) values
     ('TM-2026-00415', 'SKU-TEC-0450', 'Audífonos Bluetooth con estuche', 'producto-06', 1, 25),
     ('TM-2026-00422', 'SKU-HOG-0110', 'Licuadora 600W vaso de vidrio', 'producto-02', 1, 55),
     ('TM-2026-00428', 'SKU-MOT-0832', 'Caucho Rin 14 · 185/60 R14', 'producto-01', 2, 70),
@@ -154,7 +146,7 @@ begin
     ('TM-2026-00433', 'SKU-HOG-0234', 'Juego de ollas 7 piezas antiadherente', 'producto-03', 1, 80),
     ('TM-2026-00434', 'SKU-MOT-0777', 'Batería 12V 65Ah libre de mantenimiento', 'producto-02', 1, 95);
 
-  insert into public.pedido_eventos (pedido_id, fecha, actor, texto, icono) values
+  insert into tumbo.pedido_eventos (pedido_id, fecha, actor, texto, icono) values
     ('TM-2026-00415', '2026-08-21 10:12-04', 'María González', 'Pedido creado y pago registrado (Pago Móvil ref. PM-771204)', 'shopping_cart'),
     ('TM-2026-00415', '2026-08-21 11:05-04', 'Finanzas', 'Pago conciliado', 'fact_check'),
     ('TM-2026-00415', '2026-08-21 14:30-04', 'SEL-014', 'Pedido aceptado, preparación iniciada', 'inventory_2'),
@@ -181,73 +173,81 @@ begin
     ('TM-2026-00434', '2026-08-28 19:58-04', 'María González', 'Pedido creado y pago registrado (Pago Móvil ref. PM-780331)', 'shopping_cart'),
     ('TM-2026-00434', '2026-08-28 20:15-04', 'Finanzas', 'Pago conciliado · pendiente de aceptación del seller', 'fact_check');
 
-  insert into public.disputas (id, pedido_id, comprador_id, seller_id, motivo, descripcion, evidencia, monto_usd, estado, creado) values
+  insert into tumbo.disputas (id, pedido_id, comprador_id, seller_id, motivo, descripcion, evidencia, monto_usd, estado, creado) values
     ('DSP-0098', 'TM-2026-00428', maria, 'SEL-014', 'Producto dañado',
      'Uno de los dos cauchos llegó con una deformación visible en el talón. Adjunto fotos y el video de la apertura del paquete.',
      array['foto-talon-1.jpg', 'foto-talon-2.jpg', 'video-apertura.mp4'], 70, 'abierta', '2026-08-27 18:20-04');
 
-  insert into public.liquidaciones (id, seller_id, periodo, pedidos, bruto_usd, comision_usd, tarifa_usd, neto_usd, estado, fecha, comprobante) values
+  insert into tumbo.liquidaciones (id, seller_id, periodo, pedidos, bruto_usd, comision_usd, tarifa_usd, neto_usd, estado, fecha, comprobante) values
     ('LIQ-2026-008', 'SEL-009', '01/08/2026 – 15/08/2026', array['TM-2026-00422'], 55, 5.5, 0.6, 48.9, 'pagada', '2026-08-20', 'CPR-2026-008');
 
-  insert into public.notificaciones (para, texto, icono, fecha, enlace) values
-    ('seller:SEL-014', 'Nuevo pedido TM-2026-00434 pendiente de aceptar', 'shopping_cart', '2026-08-28 20:15-04', 'seller/pedidos.html'),
-    ('seller:SEL-014', 'Reclamo DSP-0098 abierto sobre TM-2026-00428: responde con tu evidencia', 'gavel', '2026-08-27 18:20-04', 'seller/disputas.html'),
-    ('rol:ops', 'Disputa DSP-0098 en cola: producto dañado, Bs. 2.534,00', 'gavel', '2026-08-27 18:20-04', 'admin/disputas.html'),
-    ('rol:finanzas', 'Pago TRF-91108 pendiente de conciliar (TM-2026-00433)', 'fact_check', '2026-08-28 17:35-04', 'admin/conciliacion.html'),
-    ('rol:superadmin', 'Seller SEL-021 (Farma Andina) espera revisión KYC', 'verified_user', '2026-08-27 09:00-04', 'admin/sellers.html'),
-    ('usr:' || maria::text, 'Tu pedido TM-2026-00431 va en camino', 'local_shipping', '2026-08-28 11:45-04', 'tienda/pedido.html?id=TM-2026-00431');
+  insert into tumbo.notificaciones (para, roles, texto, icono, fecha, enlace) values
+    ('seller:SEL-014', array['seller', 'operador'], 'Nuevo pedido TM-2026-00434 pendiente de aceptar', 'shopping_cart', '2026-08-28 20:15-04', 'seller/pedidos.html'),
+    ('seller:SEL-014', array['seller'], 'Reclamo DSP-0098 abierto sobre TM-2026-00428: responde con tu evidencia', 'gavel', '2026-08-27 18:20-04', 'seller/disputas.html'),
+    ('rol:ops', null, 'Disputa DSP-0098 en cola: producto dañado, Bs. 2.534,00', 'gavel', '2026-08-27 18:20-04', 'admin/disputas.html'),
+    ('rol:finanzas', null, 'Pago TRF-91108 pendiente de conciliar (TM-2026-00433)', 'fact_check', '2026-08-28 17:35-04', 'admin/conciliacion.html'),
+    ('rol:superadmin', null, 'Seller SEL-021 (Farma Andina) espera revisión KYC', 'verified_user', '2026-08-27 09:00-04', 'admin/sellers.html'),
+    ('usr:' || maria::text, null, 'Tu pedido TM-2026-00431 va en camino', 'local_shipping', '2026-08-28 11:45-04', 'tienda/pedido.html?id=TM-2026-00431');
 
-  insert into public.auditoria (fecha, actor, accion, detalle) values
-    ('2026-08-20 09:00-04', 'Rosa Blanco', 'Liquidación ejecutada', 'LIQ-2026-008 → SEL-009 · $48.90'),
-    ('2026-08-27 18:20-04', 'Sistema', 'Congelación de liquidación', 'TM-2026-00428 por DSP-0098'),
-    ('2026-08-27 18:20-04', 'María González', 'Apertura de disputa', 'DSP-0098 sobre TM-2026-00428'),
-    ('2026-08-28 20:15-04', 'Rosa Blanco', 'Conciliación de pago', 'PM-780331 → TM-2026-00434');
+  if p_auditoria then
+    insert into tumbo.auditoria (fecha, actor, accion, detalle) values
+      ('2026-08-20 09:00-04', 'Rosa Blanco', 'Liquidación ejecutada', 'LIQ-2026-008 → SEL-009 · $48.90'),
+      ('2026-08-27 18:20-04', 'Sistema', 'Congelación de liquidación', 'TM-2026-00428 por DSP-0098'),
+      ('2026-08-27 18:20-04', 'María González', 'Apertura de disputa', 'DSP-0098 sobre TM-2026-00428'),
+      ('2026-08-28 20:15-04', 'Rosa Blanco', 'Conciliación de pago', 'PM-780331 → TM-2026-00434');
+  end if;
 
   -- Los identificadores nuevos continúan donde termina la semilla.
-  perform setval('privado.seq_pedido', 434);
-  perform setval('privado.seq_disputa', 98);
-  perform setval('privado.seq_liquidacion', 8);
-  perform setval('privado.seq_guia', 88710);
-  perform setval('privado.seq_sku', 1100);
+  perform setval('tumbo_privado.seq_pedido', 434);
+  perform setval('tumbo_privado.seq_disputa', 98);
+  perform setval('tumbo_privado.seq_liquidacion', 8);
+  perform setval('tumbo_privado.seq_guia', 88710);
+  perform setval('tumbo_privado.seq_sku', 1100);
 end $$;
 
 -- ---------------------------------------------------------------------------
--- Reinicio desde la aplicación (solo superadministrador)
+-- Reinicio desde la aplicación (solo superadministrador). Conserva cuentas,
+-- sesiones y auditoría.
 -- ---------------------------------------------------------------------------
-create function public.tm_reiniciar_demo() returns void
+create function public.tm_reiniciar_demo(p_sesion text) returns void
 language plpgsql security definer set search_path = '' as $$
 declare
-  yo public.perfiles := privado.exigir(array['superadmin']);
+  yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['superadmin']);
 begin
-  truncate public.notificaciones_leidas, public.notificaciones, public.auditoria, public.liquidaciones,
-           public.disputas, public.pedido_eventos, public.pedido_items, public.pedidos,
-           public.carrito_items, public.direcciones restart identity;
-  delete from public.productos;
-  delete from public.seller_documentos;
-  delete from public.sellers_kyc;
-  perform privado.sembrar();
-  insert into public.auditoria (actor_id, actor, accion, detalle)
-  values (yo.id, yo.nombre, 'Demo reiniciada', 'Datos de negocio restaurados a la semilla');
+  truncate tumbo.notificaciones_leidas, tumbo.notificaciones, tumbo.liquidaciones,
+           tumbo.disputas, tumbo.pedido_eventos, tumbo.pedido_items, tumbo.pedidos,
+           tumbo.carrito_items, tumbo.direcciones restart identity;
+  -- (con WHERE explícito: el proyecto usa pg-safeupdate, que rechaza DELETE sin condición)
+  delete from tumbo.productos where sku is not null;
+  delete from tumbo.seller_documentos where seller_id is not null;
+  delete from tumbo.sellers_kyc where seller_id is not null;
+  perform tumbo_privado.sembrar(false);
+  perform tumbo_privado.auditar(yo, 'Demo reiniciada', 'Datos de negocio restaurados a la semilla');
+  perform tumbo_privado.senal();
 end $$;
 
-revoke execute on function public.tm_reiniciar_demo() from public, anon;
-grant execute on function public.tm_reiniciar_demo() to authenticated;
-revoke execute on all functions in schema privado from public, anon, authenticated;
-grant execute on function privado.rol(), privado.seller_id(), privado.tiene_rol(text[]) to anon, authenticated;
+-- ---------------------------------------------------------------------------
+-- Privilegios: nada de tumbo/tumbo_privado es accesible desde la API; solo
+-- las funciones public.tm_* (la sesión de Tumbo va como parámetro, por eso
+-- las puede invocar el rol anon de la clave publicable).
+-- ---------------------------------------------------------------------------
+revoke all on schema tumbo, tumbo_privado from public, anon, authenticated;
+revoke execute on all functions in schema tumbo_privado from public, anon, authenticated;
 
--- ---------------------------------------------------------------------------
--- Tiempo real: los cambios llegan a las pantallas abiertas (RLS incluida).
--- ---------------------------------------------------------------------------
 do $$
+declare f record;
 begin
-  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    alter publication supabase_realtime add table
-      public.pedidos, public.productos, public.disputas, public.liquidaciones,
-      public.notificaciones, public.sellers;
-  end if;
+  for f in
+    select p.oid::regprocedure as firma
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname like 'tm\_%'
+  loop
+    execute format('revoke execute on function %s from public', f.firma);
+    execute format('grant execute on function %s to anon, authenticated', f.firma);
+  end loop;
 end $$;
 
 -- ---------------------------------------------------------------------------
 -- Carga inicial
 -- ---------------------------------------------------------------------------
-select privado.sembrar();
+select tumbo_privado.sembrar(true);

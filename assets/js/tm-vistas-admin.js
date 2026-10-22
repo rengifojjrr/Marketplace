@@ -166,17 +166,31 @@
         td(UI.badge(p.estado)) +
         td(p.liquidacion ? UI.badge(p.liquidacion) : '<span class="text-on-surface-variant">—</span>') +
         td('<span class="font-data-mono text-data-mono">' + esc(p.envio.courier) + (p.guia ? ' · ' + esc(p.guia) : '') + '</span>') +
-        td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtBs(TM.totalPedidoUsd(p))) + '</span>', 'text-right');
+        td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtBs(TM.totalPedidoUsd(p))) + '</span>', 'text-right') +
+        td(p.estado === 'despachado' && (s.rol === 'ops' || s.rol === 'superadmin')
+          ? btn('Confirmar entrega', { icono: 'check_circle', attr: 'data-entregado="' + esc(p.id) + '" title="Con la prueba de entrega del courier"' })
+          : '', 'text-right');
     });
     return titulo('Pedidos del marketplace') +
       '<form data-filtro class="mb-4 max-w-md flex" role="search">' +
         '<input name="q" value="' + esc(q.get('q') || '') + '" placeholder="Buscar por ID, seller o referencia…" class="flex-1 h-10 px-3 rounded-l-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm focus:border-secondary outline-none"/>' +
         '<button class="h-10 px-3 rounded-r-btn bg-secondary text-on-secondary">' + ic('search') + '</button></form>' +
-      UI.tabla(['Pedido', 'Seller', 'Estado', 'Dinero', 'Logística', 'Total'], filas,
+      UI.tabla(['Pedido', 'Seller', 'Estado', 'Dinero', 'Logística', 'Total', ''], filas,
         UI.vacio('search_off', 'Sin coincidencias', 'Ningún pedido coincide con la búsqueda.'));
   }
 
   function despuesPedidosAdmin(raiz) {
+    raiz.querySelectorAll('[data-entregado]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var id = b.getAttribute('data-entregado');
+        UI.confirmar('Confirmar la entrega de ' + id, 'Úsalo con la prueba de entrega del courier: abre la ventana de reclamo del comprador y retiene los fondos del seller hasta que cierre.',
+          { accion: 'Confirmar entrega' }, function () {
+            UI.accion(null, function () { return TM.confirmarEntrega(id); }, function () {
+              UI.toast('Entrega confirmada', id + ': el comprador ya puede reclamar durante la ventana.', 'check_circle');
+            }, 'No se confirmó la entrega');
+          });
+      });
+    });
     var f = raiz.querySelector('[data-filtro]');
     if (f) f.addEventListener('submit', function (ev) {
       ev.preventDefault();
@@ -253,7 +267,9 @@
         td(esc(p.metodo || 'Pago Móvil')) +
         td('<span class="font-data-mono text-data-mono">' + esc(TM.fmtBs(TM.totalPedidoUsd(p))) + '</span>') +
         td('<span class="inline-flex items-center gap-1 font-body-sm text-body-sm text-tertiary">' + ic('check_circle', 'text-[16px]') + 'monto coincide</span>') +
-        td(btn('Conciliar', { estilo: 'primario', icono: 'fact_check', attr: 'data-conciliar="' + esc(p.id) + '"' }), 'text-right');
+        td('<div class="flex gap-2 justify-end">' +
+          btn('Rechazar', { estilo: 'borde', icono: 'block', attr: 'data-rechazar-pago="' + esc(p.id) + '"' }) +
+          btn('Conciliar', { estilo: 'primario', icono: 'fact_check', attr: 'data-conciliar="' + esc(p.id) + '"' }) + '</div>', 'text-right');
     });
     return titulo('Conciliación de pagos',
         cola.length > 1 ? btn('Conciliar todos (' + cola.length + ')', { estilo: 'marca', icono: 'fact_check', attr: 'data-conciliar-todo' }) : '') +
@@ -261,7 +277,7 @@
         ic('science', 'text-[16px]') + 'Modo demo: las referencias se validan contra los pedidos, no contra un banco real.</p>' +
       UI.tabla(['Referencia', 'Pedido', 'Método', 'Monto esperado', 'Verificación', ''], filas,
         UI.vacio('task_alt', 'Nada por conciliar', 'Cada compra nueva del marketplace aparece aquí con su referencia hasta que la concilies.')) +
-      '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Conciliar confirma el pedido: el seller recibe la tarea de aceptarlo y el comprador la notificación.</p>';
+      '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Conciliar confirma el pedido: el seller recibe la tarea de aceptarlo y el comprador la notificación. Rechazar cancela el pedido y libera su stock reservado.</p>';
   }
 
   function despuesConciliacion(raiz, q, s) {
@@ -271,6 +287,17 @@
         UI.accion(b, function () { return TM.conciliarPago(id); }, function () {
           UI.toast('Pago conciliado', id + ' pasó a «por aceptar».', 'fact_check');
         });
+      });
+    });
+    raiz.querySelectorAll('[data-rechazar-pago]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var id = b.getAttribute('data-rechazar-pago');
+        UI.confirmar('Rechazar el pago de ' + id, 'El pedido se cancela, su stock reservado se libera y el comprador recibe el motivo.',
+          { accion: 'Rechazar pago', peligro: true, motivo: 'Motivo (visible para el comprador)' }, function (motivo) {
+            UI.accion(null, function () { return TM.rechazarPago(id, motivo); }, function () {
+              UI.toast('Pago rechazado', id + ' quedó cancelado y su stock liberado.', 'block');
+            }, 'No se rechazó el pago');
+          });
       });
     });
     var todo = raiz.querySelector('[data-conciliar-todo]');

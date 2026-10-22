@@ -10,27 +10,60 @@ La beta funciona en dos modos con la **misma interfaz y las mismas pantallas**:
 En modo remoto el distintivo del encabezado de los paneles dice **BETA** con
 una nube; en modo local, **DEMO**.
 
+## Dónde vive: aislado dentro de un proyecto compartido
+
+Tumbo se aloja en el proyecto Supabase **cotizaciones-interactivas**, que
+también usan otras aplicaciones. Está montado para que **nadie más lo vea** y
+para **no tocar nada** de lo que ya hay:
+
+- **Esquema propio y oculto.** Los datos están en el esquema `tumbo`
+  (ayudantes y semilla en `tumbo_privado`). La API no expone esos esquemas y
+  los roles `anon` y `authenticated` no tienen ni permiso de uso: no se pueden
+  leer ni listar por `/rest/v1`, por GraphQL ni desde el panel de otra app.
+- **Cuentas propias.** Tumbo no usa Supabase Auth: tiene `tumbo.usuarios`
+  (contraseñas con bcrypt) y `tumbo.sesiones` (token aleatorio de 32 bytes; en
+  la base solo su SHA-256). Así:
+  - no crea filas en `auth.users`, por lo que no dispara los disparadores de
+    alta de las otras aplicaciones;
+  - las cuentas demo de Tumbo (con contraseña pública) **no sirven** para
+    entrar en ninguna otra aplicación del proyecto;
+  - los usuarios de las otras aplicaciones no tienen cuenta en Tumbo.
+- **Una sola puerta.** Lo único visible son las funciones `public.tm_*`. Cada
+  una recibe el token de sesión, valida rol, propiedad y estado, y responde
+  solo con lo que ese rol puede ver.
+
+Para quitar Tumbo del proyecto basta con:
+
+```sql
+drop schema tumbo cascade;
+drop schema tumbo_privado cascade;
+-- y las funciones public.tm_* (ver tools/supabase-local/reaplicar.sh)
+```
+
 ## Piezas
 
 ```
 supabase/migrations/
-  20261022170000_tumbo_esquema.sql     tablas, índices, auditoría inmutable, secuencias de IDs
-  20261022170100_tumbo_seguridad.sql   ayudantes de rol, alta de perfil, RLS y privilegios
-  20261022170200_tumbo_funciones.sql   API de negocio: funciones public.tm_*
-  20261022170300_tumbo_semilla.sql     datos de la demo, reinicio y tiempo real
+  20261022170000_tumbo_esquema.sql     esquemas, tablas, auditoría inmutable, IDs, RLS de respaldo
+  20261022170100_tumbo_nucleo.sql      sesiones, ayudantes y lectura por rol (tm_cargar)
+  20261022170200_tumbo_funciones.sql   operaciones de negocio tm_*
+  20261022170300_tumbo_semilla.sql     datos de la demo, reinicio y privilegios
 assets/js/tm-config.js                 URL y clave publicable del proyecto
 assets/js/tm-remoto.js                 motor remoto (sustituye las acciones de TM)
 assets/vendor/supabase-js-2.117.3.js   cliente oficial de Supabase (MIT), sin CDN
-tools/supabase-local/                  Supabase mínimo en local para probar sin la nube
+tools/supabase-local/                  Postgres + PostgREST en local para probar sin la nube
+tools/verificar-rls.js                 permisos rol por rol contra la API
+tools/verificar-beta.js                recorridos completos en navegador
 ```
 
 ## Modelo de seguridad
 
-1. **Identidad**: Supabase Auth (correo y contraseña). Cada usuario tiene una
-   fila en `perfiles` con su **rol** y, si es personal de un comercio, su
-   `seller_id`. Un registro desde la web **siempre** nace `comprador`: el rol
-   nunca se toma de los datos que envía el navegador.
-2. **Lectura**: RLS en las 17 tablas. Cada rol ve solo lo que necesita:
+1. **Identidad**: `tm_acceder(correo, clave)` devuelve un token de sesión que
+   vive 7 días (se renueva con el uso) y se invalida con `tm_salir`. Tras 8
+   intentos fallidos en 15 minutos, la cuenta se frena. Un registro desde la
+   web **siempre** nace `comprador` (el rol nunca viene del navegador) y hay un
+   tope de altas por minuto.
+2. **Lectura**: `tm_cargar(sesión)` devuelve de una vez lo que el rol puede ver:
 
    | Rol | Ve |
    | --- | --- |
@@ -43,67 +76,83 @@ tools/supabase-local/                  Supabase mínimo en local para probar sin
    | Operaciones | pedidos y disputas de todo el marketplace |
    | Finanzas | pedidos, liquidaciones, KYC fiscal y auditoría |
 
-3. **Escritura**: las tablas de negocio no tienen privilegio de escritura para
-   los usuarios. Todo cambio pasa por una función `public.tm_*` (`SECURITY
-   DEFINER`, `search_path` vacío) que, en una sola transacción:
+   Los pedidos que ve un seller no traen el identificador del comprador, y
+   los avisos a un comercio declaran qué roles los ven (dinero y reclamos: solo
+   el seller principal).
+3. **Escritura**: cada cambio pasa por una función `tm_*` (`SECURITY DEFINER`,
+   `search_path` vacío) que, en una sola transacción:
    - exige el rol y la propiedad del recurso (un pedido ajeno responde «no
      encontrado»);
    - bloquea la fila (`FOR UPDATE`) y valida el estado de origen;
    - aplica el cambio, la línea de tiempo, las notificaciones y la auditoría.
-
-   Solo `direcciones` y `carrito_items` admiten escritura directa, limitada por
-   RLS a las filas del propio usuario.
-4. **Auditoría** de solo agregar: un trigger impide editar o borrar eventos.
-5. **Segundo factor**: en la beta es un código fijo (`123456`) verificado en el
+4. **Reglas de negocio que el servidor hace cumplir**: un pedido por seller y
+   reserva de stock atómica; tope de 5 pagos sin conciliar por comprador;
+   Finanzas puede rechazar un pago y liberar la reserva; el stock nunca baja de
+   lo reservado; el precio vigente solo lo cambian el seller principal y el
+   gestor de precios; cambiar el contenido de un producto publicado lo devuelve
+   a moderación; el reclamo solo dentro de la ventana; la entrega la confirma
+   el comprador u Operaciones con la prueba del courier; no se liquida un neto
+   negativo.
+5. **Auditoría** de solo agregar: los disparadores impiden editar, borrar o
+   vaciar eventos (también al reiniciar la demo).
+6. **Segundo factor**: en la beta es un código fijo (`123456`) verificado en el
    navegador. Es una puerta de demostración, no una defensa. Para producción:
-   MFA TOTP de Supabase Auth y políticas que exijan `aal2` en las funciones
-   financieras.
+   TOTP en el servidor exigido por las funciones financieras.
+7. **Defensa en profundidad**: RLS activo y sin políticas en todas las tablas
+   de `tumbo`; aunque alguien expusiera el esquema por error, ninguna fila
+   sería legible.
 
-## API de negocio
+## API
 
-| Función | Rol | Efecto |
+| Función | Quién | Efecto |
 | --- | --- | --- |
-| `tm_registrar(email, clave, nombre)` | visitante | crea la cuenta de comprador, activa al instante |
-| `tm_crear_pedido(tipo, direccion, metodo, ref)` | comprador | un pedido por seller, reserva stock, vacía el carrito |
-| `tm_conciliar_pago(id)` | superadmin, finanzas | pago por verificar → por aceptar |
+| `tm_acceder(email, clave)` · `tm_registrar(email, clave, nombre)` · `tm_salir` · `tm_sesion` | cualquiera | sesión |
+| `tm_cargar(sesión)` | cualquiera | la caché del rol (visitante sin sesión) |
+| `tm_carrito_poner` · `tm_carrito_quitar` · `tm_fusionar_carrito` · `tm_direccion_agregar` · `tm_direccion_quitar` | comprador | carrito y direcciones |
+| `tm_crear_pedido(tipo, dirección, método, ref)` | comprador | un pedido por seller, reserva stock, vacía el carrito |
+| `tm_conciliar_pago` · `tm_rechazar_pago` | superadmin, finanzas | por aceptar, o cancelado con la reserva liberada |
 | `tm_aceptar_pedido` · `tm_marcar_listo` · `tm_despachar` | seller, operador | preparación y salida; el despacho descuenta el stock |
-| `tm_confirmar_entrega(id)` | comprador | abre la ventana de reclamo, fondos retenidos |
-| `tm_cancelar_pedido(id, motivo)` | comprador | antes del despacho; libera la reserva |
-| `tm_abrir_disputa` | comprador | dentro de la ventana; congela los fondos |
-| `tm_responder_disputa` | seller | respuesta con evidencia |
-| `tm_resolver_disputa` | superadmin, ops | reembolso, devolución o liberar |
+| `tm_confirmar_entrega` | comprador, ops, superadmin | abre la ventana de reclamo, fondos retenidos |
+| `tm_cancelar_pedido` | comprador | antes del despacho; libera la reserva |
+| `tm_abrir_disputa` · `tm_responder_disputa` · `tm_resolver_disputa` | comprador · seller · superadmin y ops | reclamo con fondos congelados hasta la decisión |
 | `tm_cerrar_ventana` · `tm_ejecutar_liquidacion` | superadmin, finanzas | fondos elegibles → liquidación con comisión y comprobante |
 | `tm_guardar_producto` · `tm_pausar_producto` | seller, operador | alta, edición, revisión, pausa |
-| `tm_ajustar_producto(sku, campo, valor)` | precio: seller, precios · stock: seller, operador | edición en línea, nunca por debajo de lo reservado |
+| `tm_ajustar_producto` | precio: seller, precios · stock: seller, operador | edición en línea |
 | `tm_moderar_producto` · `tm_decidir_kyc` | superadmin | publicación y homologación |
-| `tm_reiniciar_demo()` | superadmin | vuelve los datos de negocio a la semilla (las cuentas se conservan) |
+| `tm_marcar_notificaciones_leidas` | con sesión | lectura individual de avisos |
+| `tm_reiniciar_demo` | superadmin | vuelve los datos de negocio a la semilla (cuentas y auditoría se conservan) |
 
 ## Tiempo real
 
-`pedidos`, `productos`, `disputas`, `liquidaciones`, `notificaciones` y
-`sellers` están en la publicación `supabase_realtime`. Cuando otro usuario
-cambia algo, las pantallas abiertas recargan su caché y se repintan — salvo
-que la persona esté escribiendo o tenga un modal abierto: entonces esperan.
-Supabase aplica RLS también a estos avisos.
+Cada operación emite un aviso «algo cambió» (`realtime.send`) por el canal
+público `tumbo`, **sin datos**. Las pantallas abiertas recargan su propia
+caché con su sesión y se repintan — salvo que la persona esté escribiendo o
+tenga un modal abierto: entonces esperan. Si Realtime no está disponible, la
+operación no se ve afectada.
 
-## Desplegar en un proyecto nuevo
+## Desplegar o actualizar
 
-1. Crear el proyecto en Supabase (región `us-east-1`).
-2. Aplicar las cuatro migraciones en orden (SQL Editor, `supabase db push` o el
-   conector MCP). La última siembra las cuentas demo y los datos.
-3. Copiar la **Project URL** y la **publishable key** en
+1. Aplicar las cuatro migraciones en orden (SQL Editor, `supabase db push` o
+   el conector MCP). La última siembra las cuentas demo y los datos.
+2. Poner la **Project URL** y la **publishable key** en
    `assets/js/tm-config.js` y publicar.
-4. `node tools/verificar-beta.js https://rengifojjrr.github.io/Marketplace`
-   recorre la app completa contra el backend (reinicia los datos de la demo).
+3. Verificar:
 
-> Los proyectos del plan gratuito se **pausan tras 7 días sin uso**. Si la beta
-> deja de cargar con «No pudimos cargar Tumbo», hay que reactivar el proyecto
+   ```bash
+   NODE_USE_ENV_PROXY=1 TM_SUPABASE_URL=… TM_SUPABASE_KEY=… node tools/verificar-rls.js
+   node tools/verificar-beta.js https://rengifojjrr.github.io/Marketplace
+   ```
+
+   Ambas reinician los datos de la demo.
+
+> El proyecto usa el plan gratuito: si pasa 7 días sin actividad, Supabase lo
+> pausa. Si la beta muestra «No pudimos cargar Tumbo», hay que reactivarlo
 > desde el panel de Supabase.
 
 ## Probar en local sin la nube
 
 ```bash
-tools/supabase-local/iniciar.sh            # Postgres + Auth + PostgREST + pasarela
+tools/supabase-local/iniciar.sh            # Postgres + PostgREST + pasarela (y Auth, que Tumbo no usa)
 python3 -m http.server 8099                # el sitio
 TM_SUPABASE_URL=http://127.0.0.1:54321 \
 TM_SUPABASE_KEY=$(node tools/supabase-local/pasarela.js --clave) \
@@ -111,5 +160,5 @@ node tools/verificar-beta.js http://127.0.0.1:8099
 tools/supabase-local/reaplicar.sh          # vuelve a aplicar las migraciones desde cero
 ```
 
-El stack local usa los binarios oficiales de Supabase Auth y PostgREST y el
-mismo esquema `auth`; no incluye el servidor de tiempo real.
+El stack local usa el binario oficial de PostgREST y reproduce los roles y
+tiempos límite del proyecto; no incluye el servidor de tiempo real.
