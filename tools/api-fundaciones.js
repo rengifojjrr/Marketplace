@@ -558,8 +558,10 @@ const pdfDe = (bytes) => Buffer.concat([PDF, Buffer.alloc(Math.max(0, bytes - PD
   }
   if (BD) {
     const cot = JSON.parse(psql(`select tumbo_privado.cotizar_envio('SEL-014', '{}', '[]')`));
-    ok(cot.length === 2 && cot[0].tipo === 'agencia' && cot[0].costo_usd === 2.5 && cot[1].tipo === 'domicilio' && cot[1].costo_usd === 4 &&
-       cot.every((o) => o.dias_min > 0 && o.dias_max >= o.dias_min), 'cotizar_envio devuelve agencia (2,5 USD) y domicilio (4 USD) con días estimados');
+    /* La logística (ola 1) cotiza de verdad; aquí solo se comprueba el contrato. */
+    ok(cot.length >= 2 && cot.some((o) => o.tipo === 'agencia') && cot.some((o) => o.tipo === 'domicilio') &&
+       cot.every((o) => typeof o.costo_usd === 'number' && o.dias_min > 0 && o.dias_max >= o.dias_min),
+      'cotizar_envio devuelve opciones de agencia y domicilio con su costo y días estimados');
     const pro = JSON.parse(psql(`select tumbo_privado.aplicar_promociones(null, '[{"sku": "SKU-MOT-0832", "cant": 2}]', 'CUPON')`));
     const vigente = Number((await rpc('tm_cargar', {})).dato.productos.find((x) => x.sku === 'SKU-MOT-0832').precio_usd);
     ok(pro.descuento_usd === 0 && pro.lineas.length === 1 && pro.lineas[0].precio_usd === vigente && pro.total_usd === vigente * 2,

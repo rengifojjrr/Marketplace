@@ -35,7 +35,21 @@ declare
     'public.tm_ajustes_publicos()', 'public.tm_ajuste_guardar(text,text,jsonb)',
     'public.tm_archivo_preparar(text,text,text,text,bigint,text)', 'public.tm_archivo_confirmar(text,uuid)',
     'public.tm_archivo_acceso(text,uuid)', 'public.tm_salida_listar(text,text,bigint)',
-    'public.tm_salida_marcar(text,bigint,text,text)', 'public.tm_reembolsos(text)', 'public.tm_archivos_limpiar()'];
+    'public.tm_salida_marcar(text,bigint,text,text)', 'public.tm_reembolsos(text)', 'public.tm_archivos_limpiar()',
+    -- ola 1 (logística)
+    'public.tm_envio_referencias()', 'public.tm_logistica_admin(text)', 'public.tm_envio_config(text)',
+    'public.tm_envio_promesa(text,text,text)', 'public.tm_envios_cola(text)', 'public.tm_pedido_envio(text,text)',
+    'public.tm_envio_etiquetas(text,text[])', 'public.tm_envio_metricas(text,text)', 'public.tm_envio_config_guardar(text,jsonb)',
+    'public.tm_despachar_guia(text,text,jsonb)', 'public.tm_despachar_lote(text,jsonb,uuid)', 'public.tm_envio_en_agencia(text,text,bigint)',
+    'public.tm_incidencia_reportar(text,text,text,text)', 'public.tm_cancelar_seller(text,text,text,text)',
+    'public.tm_cancelacion_responder(text,text,boolean,text)', 'public.tm_cancelar_ops(text,text,text,text)',
+    'public.tm_incidencia_registrar(text,text,text,text,jsonb)', 'public.tm_incidencia_resolver(text,bigint,text)',
+    'public.tm_entrega_confirmar(text,text,uuid,text)', 'public.tm_devolucion_instrucciones(text,text,jsonb)',
+    'public.tm_devolucion_guia(text,text,text,text)', 'public.tm_devolucion_inspeccionar(text,text,text,text,uuid)',
+    'public.tm_operaciones_asignar(text,text,uuid)', 'public.tm_nota_interna(text,text,text)', 'public.tm_pedido_360(text,text)',
+    'public.tm_operaciones_panel(text,jsonb)', 'public.tm_courier_guardar(text,jsonb)', 'public.tm_tarifa_guardar(text,jsonb)',
+    'public.tm_oficina_guardar(text,jsonb)', 'public.tm_zona_estado(text,text,text)',
+    'public.tm_feriado_guardar(text,date,text,boolean)', 'public.tm_sla_revisar(text)'];
   f text;
   ajenos text;
   b text;
@@ -109,6 +123,15 @@ begin
         raise notice 'El bucket «%» no quedó vacío: se conserva.', b;
       end if;
     end loop;
+  end if;
+
+  -- La tarea programada de logística (si el proyecto tiene pg_cron).
+  if to_regnamespace('cron') is not null then
+    begin
+      execute $c$select cron.unschedule(jobid) from cron.job where jobname = 'tumbo-sla'$c$;
+    exception when others then
+      raise notice 'No se pudo quitar la tarea programada «tumbo-sla» (%): quítala desde el panel.', sqlerrm;
+    end;
   end if;
 
   foreach f in array firmas loop

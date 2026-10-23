@@ -24,6 +24,7 @@
  * congela fondos y su resolución reembolsa al comprador.
  */
 const { iniciar, ETIQUETAS } = require('./e2e-comun');
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 
 const PAGINAS = {
   comprador: ['tienda/inicio', 'tienda/resultados', 'tienda/producto?sku=SKU-MOT-0832', 'tienda/carrito',
@@ -43,6 +44,7 @@ const PAGINAS = {
      datos y da login, abrir, aviso, reset, prueba y resumen. */
   const t = await iniciar();
   const { p, ctx, BASE, errores, prueba, abrir, login, aviso, reset } = t;
+  const conServidor = () => t.modo === 'remoto';
 
   /* ================= Acceso ================= */
   await reset();
@@ -151,6 +153,7 @@ const PAGINAS = {
     if (!(await p.locator('[data-err-pick]').innerText()).includes('picking')) throw new Error('permitió la guía sin picking');
     for (const c of await p.locator('[data-pick]').all()) await c.check();
     await p.locator('[data-guia]').click(); await aviso('generada');
+    if (conServidor()) await p.fill('[data-guia-numero]', 'ZM-1000001');   /* con backend, la guía real del courier */
     await p.locator('[data-despachar]').click(); await aviso('Entregado al courier');
     const t = await p.locator('#raiz').innerText();
     if (!/En camino/.test(t)) throw new Error('el pedido no quedó despachado');
@@ -338,11 +341,16 @@ const PAGINAS = {
     await p.locator('[data-aceptar]').click(); await aviso('Pedido aceptado');
     for (const c of await p.locator('[data-pick]').all()) await c.check();
     await p.locator('[data-guia]').click(); await aviso('generada');
+    if (conServidor()) await p.fill('[data-guia-numero]', 'ZM-1000002');
     await p.locator('[data-despachar]').click(); await aviso('Entregado al courier');
     await login('Operaciones');
     await abrir('admin/pedidos?q=00434');
     await p.locator('[data-entregado="TM-2026-00434"]').click();
     await p.waitForSelector('.tm-modal [data-ok]');
+    if (conServidor()) {   /* con backend, la entrega a mano lleva la foto de la prueba */
+      await p.locator('.tm-modal input[data-tm-archivo-input]').first().setInputFiles({ name: 'prueba.png', mimeType: 'image/png', buffer: PNG });
+      await p.locator('.tm-modal [data-tm-archivo-estado]', { hasText: 'Archivo listo' }).waitFor({ timeout: 15000 });
+    }
     await p.locator('.tm-modal [data-ok]').click();
     await aviso('Entrega confirmada');
     await login('Comprador');
