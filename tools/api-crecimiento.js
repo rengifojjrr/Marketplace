@@ -269,6 +269,18 @@ const idDe = (email) => psql(`select id from tumbo.usuarios where email = ${lit(
         limitado = limitado || !!(r.dato && r.dato.limitado);
       }
       ok(reg > 0 && reg <= 120 && limitado, 'cada red registra hasta 120 eventos por minuto: el resto se descarta en silencio', reg);
+      /* y, de respaldo, un tope total por minuto (también sin la cabecera del borde) */
+      psql(`update tumbo.ajustes set valor = valor || '{"eventos_minuto_total": 100}' where clave = 'analitica'`);
+      const yaVan = Number(psql(`select coalesce(sum(n), 0) from tumbo.topes_crecimiento where red = '*' and tipo = 'analitica' and ventana = date_bin(interval '1 minute', now(), timestamptz '2000-01-01')`));
+      let regT = 0, limT = false;
+      for (let i = 0; i < 6; i++) {
+        const r = await rpc('tm_analitica_registrar', { p_eventos: Array.from({ length: 20 }, () => ({ tipo: 'busqueda', texto: 'tope total', visitante: 'prueba0003' })) },
+          { 'cf-connecting-ip': '198.51.100.' + (10 + i) });
+        regT += (r.dato && r.dato.registrados) || 0;
+        limT = limT || !!(r.dato && r.dato.limitado);
+      }
+      ok(limT && regT <= Math.max(100 - yaVan, 0) + 20, 'el tope total por minuto frena aunque cada red esté bajo su tope', regT);
+      psql(`update tumbo.ajustes set valor = ${lit(ORIG.analitica)}::jsonb where clave = 'analitica'`);
       const est = await rpc('tm_seller_estadisticas', { p_sesion: s.seller, p_filtros: { agrupar: 'dia' } });
       const fila = est.ok && est.dato.por_producto.find((p) => p.sku === 'SKU-TEC-0450');
       ok(est.ok && est.dato.visitas.vistas >= 1 && fila && fila.vistas >= 1 && fila.agregados >= 1 && est.dato.busquedas.some((b) => b.texto === 'audifonos') &&

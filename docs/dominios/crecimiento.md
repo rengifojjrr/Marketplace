@@ -187,8 +187,8 @@ vendedor y el aviso cuando una categoría está en pausa o hay una incidencia.
   checkout y pago reportado. Sin cuenta, sin red, sin correo: el visitante
   es un número al azar de la pestaña; el texto de una búsqueda se guarda
   normalizado y sin correos ni números de 6 cifras o más. Respeta «No
-  rastrear». Tope de 120 eventos por minuto y red (lo demás se descarta en
-  silencio); se conservan 400 días.
+  rastrear». Tope de 120 eventos por minuto y red y, de respaldo, 6.000 por
+  minuto en total (lo demás se descarta en silencio); se conservan 400 días.
 
 ## API (funciones públicas)
 

@@ -69,8 +69,8 @@ insert into tumbo.ajustes (clave, valor, tipo, vaciable, publico, descripcion) v
   ('promociones', '{"ofertas_activas_seller": 50, "cupones_activos_seller": 20, "descuento_max_pct": 70,
                     "relampago_max_horas": 72, "referencia_dias": 7}', 'object', false, false,
    'Topes de las promociones: ofertas y cupones activos por comercio, descuento máximo, duración de una oferta relámpago y días sin subir el precio antes de usarlo como precio anterior tachado.'),
-  ('analitica', '{"eventos_minuto_red": 120, "dias_conservar": 400}', 'object', false, false,
-   'Analítica de eventos sin datos personales: eventos por minuto que acepta cada red y días que se conservan.'),
+  ('analitica', '{"eventos_minuto_red": 120, "eventos_minuto_total": 6000, "dias_conservar": 400}', 'object', false, false,
+   'Analítica de eventos sin datos personales: eventos por minuto que acepta cada red y en total, y días que se conservan.'),
   ('niveles', '{"ventana_dias": 90, "requiere_kyc": true, "niveles": [
       {"id": "lider", "nombre": "Tumbo Líder", "ventas_min": 10, "gmv_min_usd": 300, "cancelacion_max_pct": 5,
        "disputas_perdidas_max_pct": 3, "a_tiempo_min_pct": 90, "descuento_comision_pts": 0.5},
@@ -107,7 +107,7 @@ insert into tumbo.ajustes_meta (clave, grupo, etiqueta, ayuda, doble_aprobacion,
   ('promociones', 'Topes', 'Promociones', null, false,
    '{"ofertas_activas_seller": {"tipo": "number", "min": 1, "max": 1000, "entero": true, "etiqueta": "Ofertas activas por comercio"}, "cupones_activos_seller": {"tipo": "number", "min": 0, "max": 500, "entero": true, "etiqueta": "Cupones activos por comercio"}, "descuento_max_pct": {"tipo": "number", "min": 5, "max": 90, "etiqueta": "Descuento máximo (%)"}, "relampago_max_horas": {"tipo": "number", "min": 1, "max": 336, "entero": true, "etiqueta": "Duración máxima de una relámpago (h)"}, "referencia_dias": {"tipo": "number", "min": 0, "max": 60, "entero": true, "etiqueta": "Días sin subir el precio para tacharlo"}}', 51),
   ('analitica', 'Topes', 'Analítica', null, false,
-   '{"eventos_minuto_red": {"tipo": "number", "min": 10, "max": 10000, "entero": true, "etiqueta": "Eventos por minuto y red"}, "dias_conservar": {"tipo": "number", "min": 30, "max": 1000, "entero": true, "etiqueta": "Días que se conservan"}}', 52),
+   '{"eventos_minuto_red": {"tipo": "number", "min": 10, "max": 10000, "entero": true, "etiqueta": "Eventos por minuto y red"}, "eventos_minuto_total": {"tipo": "number", "min": 100, "max": 1000000, "entero": true, "etiqueta": "Eventos por minuto en total"}, "dias_conservar": {"tipo": "number", "min": 30, "max": 1000, "entero": true, "etiqueta": "Días que se conservan"}}', 52),
   ('riesgo', 'Riesgo', 'Reglas de riesgo', 'Puntaje de 0 a 100 por pago; desde el umbral de retención sus pedidos no se liquidan hasta revisarlo.', false,
    '{"umbral_alerta": {"tipo": "number", "min": 1, "max": 100, "entero": true, "etiqueta": "Puntaje de alerta"}, "umbral_retencion": {"tipo": "number", "min": 1, "max": 100, "entero": true, "etiqueta": "Puntaje de retención preventiva"}, "cuenta_nueva_dias": {"tipo": "number", "min": 0, "max": 365, "entero": true, "etiqueta": "Días de una cuenta nueva"}, "monto_alto_usd": {"tipo": "number", "min": 1, "max": 100000, "etiqueta": "Monto alto (USD)"}, "compras_hora": {"tipo": "number", "min": 1, "max": 100, "entero": true, "etiqueta": "Compras en una hora"}, "compras_dia": {"tipo": "number", "min": 1, "max": 500, "entero": true, "etiqueta": "Compras en un día"}, "rechazos_30d": {"tipo": "number", "min": 1, "max": 50, "entero": true, "etiqueta": "Pagos rechazados en 30 días"}, "pico_factor": {"tipo": "number", "min": 1.5, "max": 50, "etiqueta": "Pico de ventas (veces el promedio)"}, "pico_minimo": {"tipo": "number", "min": 1, "max": 1000, "entero": true, "etiqueta": "Ventas mínimas del pico"}, "disputas_seller": {"tipo": "number", "min": 1, "max": 100, "entero": true, "etiqueta": "Reclamos abiertos del comercio"}}', 60),
   ('moderacion', 'Moderación', 'Moderación automática', null, false,
@@ -3527,13 +3527,17 @@ language sql immutable set search_path = '' as $$
 $$;
 
 -- Registra hasta 20 eventos del navegador (cualquiera, sin sesión). Tope por
--- red (ajuste analitica.eventos_minuto_red): lo que lo pasa se descarta en
--- silencio (la analítica nunca molesta a quien compra).
+-- red (ajuste analitica.eventos_minuto_red) y, de respaldo, en total
+-- (eventos_minuto_total, también sin la cabecera del borde): lo que los pasa
+-- se descarta en silencio (la analítica nunca molesta a quien compra).
 create function public.tm_analitica_registrar(p_eventos jsonb) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   cfg jsonb := coalesce(tumbo_privado.ajuste('analitica'), '{}'::jsonb);
   v_tope integer := tumbo_privado.numero(cfg -> 'eventos_minuto_red', 120)::integer;
+  v_total integer := tumbo_privado.numero(cfg -> 'eventos_minuto_total', 6000)::integer;
+  v_lote integer;
+  v_cuenta integer;
   e jsonb;
   p tumbo.productos;
   v_raiz text;
@@ -3544,7 +3548,15 @@ begin
   if jsonb_typeof(p_eventos) <> 'array' or jsonb_array_length(p_eventos) = 0 then
     return jsonb_build_object('registrados', 0);
   end if;
-  if tumbo_privado.tope_red('analitica', 1, v_tope, least(jsonb_array_length(p_eventos), 20)) then
+  v_lote := least(jsonb_array_length(p_eventos), 20);
+  if tumbo_privado.tope_red('analitica', 1, v_tope, v_lote) then
+    return jsonb_build_object('registrados', 0, 'limitado', true);
+  end if;
+  insert into tumbo.topes_crecimiento as t (red, tipo, ventana, n)
+  values ('*', 'analitica', date_bin(interval '1 minute', now(), timestamptz '2000-01-01'), v_lote)
+  on conflict (red, tipo, ventana) do update set n = t.n + v_lote
+  returning n into v_cuenta;
+  if v_cuenta > v_total then
     return jsonb_build_object('registrados', 0, 'limitado', true);
   end if;
   for e in select x from jsonb_array_elements(p_eventos) x limit 20 loop
