@@ -69,6 +69,10 @@
     var m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
     return m ? m[3] + '/' + m[2] + '/' + m[1] : '—';
   }
+  /* URL pública de Storage (el servidor la da relativa al proyecto). */
+  function urlPublica(ruta) {
+    return ruta ? String(C.supabaseUrl).replace(/\/+$/, '') + ruta : null;
+  }
 
   /* Errores de PostgREST → texto para el usuario. Los de negocio ya llegan
      redactados por el servidor. */
@@ -231,8 +235,28 @@
           sku: r.sku, sellerId: r.seller_id, nombre: r.nombre, marca: r.marca, categoria: r.categoria,
           precioUsd: num(r.precio_usd), stockFis: r.stock_fis, stockRes: r.stock_res, estado: r.estado,
           img: r.img, rating: num(r.rating), resenas: r.resenas, descripcion: r.descripcion,
-          specs: r.specs || {}, motivoRechazo: r.motivo_rechazo || undefined, volverAPausa: !!r.volver_a_pausa
+          specs: r.specs || {}, motivoRechazo: r.motivo_rechazo || undefined, volverAPausa: !!r.volver_a_pausa,
+          /* catálogo (ola 1): galería, variantes, atributos y ficha completa */
+          imagenes: (r.imagenes || []).map(function (i) { return { id: i.id, url: urlPublica(i.url) }; }),
+          padreSku: r.padre_sku || null, variantesPor: r.variantes_por || [], atributos: r.atributos || {},
+          condicion: r.condicion || 'nuevo', garantiaMeses: r.garantia_meses == null ? null : r.garantia_meses,
+          garantiaQuien: r.garantia_quien || null, origen: r.origen || '', contenidoCaja: r.contenido_caja || '',
+          pesoKg: num(r.peso_kg), largoCm: num(r.largo_cm), anchoCm: num(r.ancho_cm), altoCm: num(r.alto_cm),
+          iva: r.iva || 'general', precioMinimo: num(r.precio_minimo), stockMinimo: r.stock_minimo == null ? null : r.stock_minimo
         };
+      }),
+      /* catálogo (ola 1): árbol de categorías, atributos, más vendidos, favoritos y avisos */
+      categoriasTodas: ((d.catalogo || {}).categorias || []).map(function (c) {
+        return { id: c.id, nombre: c.nombre, icono: c.icono, padre: c.padre || null, orden: c.orden };
+      }),
+      atributosCategoria: (d.catalogo || {}).atributos || [],
+      masVendidos: d.mas_vendidos || [],
+      favoritos: (d.favoritos || []).map(function (f) {
+        return { sku: f.sku, nombre: f.nombre, img: f.img, imagen: urlPublica(f.imagen), visible: !!f.visible,
+          precioUsd: num(f.precio_usd), creado: fecha(f.creado) };
+      }),
+      alertas: (d.alertas || []).map(function (a) {
+        return { id: a.id, sku: a.sku, tipo: a.tipo, precioRef: num(a.precio_ref), creado: fecha(a.creado) };
       }),
       productosRef: {},
       direcciones: {}, carritos: {}, pedidos: [], disputas: [], liquidaciones: [], notificaciones: [], eventos: []
@@ -241,13 +265,24 @@
     var kyc = {};
     (d.kyc || []).forEach(function (k) { kyc[k.seller_id] = k; });
     var docs = {};
-    (d.docs || []).forEach(function (x) { (docs[x.seller_id] = docs[x.seller_id] || []).push({ nombre: x.nombre, estado: x.estado }); });
+    (d.docs || []).forEach(function (x) {
+      (docs[x.seller_id] = docs[x.seller_id] || []).push({ nombre: x.nombre, estado: x.estado,
+        /* KYC real (ola 1): archivo, observación y revisión por documento */
+        orden: x.orden, archivoId: x.archivo_listo ? x.archivo_id : null, archivoListo: !!x.archivo_listo, archivoNombre: x.archivo_nombre || '',
+        archivoTipo: x.archivo_tipo || '', observacion: x.observacion || '', revisadoPor: x.revisado_por || '',
+        actualizado: fecha(x.actualizado) });
+    });
     e.sellers = (d.sellers || []).map(function (r) {
       var k = kyc[r.id] || {};
       return {
         id: r.id, nombre: r.nombre, ciudad: r.ciudad, estado: r.estado, rating: num(r.rating), resenas: r.resenas,
         desde: dia(r.desde), descripcion: r.descripcion, rif: k.rif || '', observacion: k.observacion || undefined,
-        docs: docs[r.id] || []
+        docs: docs[r.id] || [],
+        /* KYC real y tienda pública (ola 1) */
+        desdeIso: r.desde || null, kycVerificado: !!r.kyc_verificado, horario: r.horario || '', politicas: r.politicas || '',
+        logo: urlPublica(r.logo_url), portada: urlPublica(r.portada_url),
+        razonSocial: k.razon_social || '', direccionFiscal: k.direccion_fiscal || '', ciudadDespacho: k.ciudad_despacho || '',
+        telefono: k.telefono || '', expediente: k.expediente || null, enviado: fecha(k.enviado)
       };
     });
 

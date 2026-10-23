@@ -9,7 +9,7 @@
    cambia el otro.
    ========================================================================= */
 window.TM_SEED = {
-  version: 5,
+  version: 6,
 
   config: {
     tasa: 36.20,               /* Bs. por USD — tasa demo, fuente «BCV (demo)» */
@@ -39,7 +39,7 @@ window.TM_SEED = {
 
   sellers: [
     { id: 'SEL-014', nombre: 'TechElectro, C.A.', rif: 'J-40881234-5', ciudad: 'Caracas',
-      estado: 'aprobado', rating: 4.8, resenas: 142, desde: '02/03/2026',
+      estado: 'aprobado', rating: null, resenas: 0, desde: '02/03/2026',
       descripcion: 'Repuestos automotrices y tecnología con garantía nacional.',
       docs: [
         { nombre: 'RIF vigente',            estado: 'aprobado' },
@@ -48,7 +48,7 @@ window.TM_SEED = {
         { nombre: 'Cuenta de liquidación',  estado: 'aprobado' }
       ] },
     { id: 'SEL-009', nombre: 'Hogar Total, C.A.', rif: 'J-31220987-1', ciudad: 'Valencia',
-      estado: 'aprobado', rating: 4.5, resenas: 87, desde: '15/01/2026',
+      estado: 'aprobado', rating: null, resenas: 0, desde: '15/01/2026',
       descripcion: 'Todo para el hogar: cocina, limpieza y organización.',
       docs: [
         { nombre: 'RIF vigente',            estado: 'aprobado' },
@@ -66,7 +66,7 @@ window.TM_SEED = {
         { nombre: 'Cuenta de liquidación',  estado: 'pendiente' }
       ] },
     { id: 'SEL-017', nombre: 'Moda Urbana 21, C.A.', rif: 'J-29455610-9', ciudad: 'Maracaibo',
-      estado: 'observado', rating: 4.1, resenas: 23, desde: '11/06/2026',
+      estado: 'observado', rating: null, resenas: 0, desde: '11/06/2026',
       descripcion: 'Ropa y accesorios urbanos.',
       observacion: 'El registro mercantil está vencido: se solicitó la renovación.',
       docs: [
@@ -80,12 +80,12 @@ window.TM_SEED = {
   productos: [
     { sku: 'SKU-MOT-0832', nombre: 'Caucho Rin 14 · 185/60 R14', marca: 'Bridgestone',
       categoria: 'automotriz', precioUsd: 70, stockFis: 15, stockRes: 0, estado: 'publicado',
-      sellerId: 'SEL-014', img: 'producto-01', rating: 4.7, resenas: 96,
+      sellerId: 'SEL-014', img: 'producto-01', rating: null, resenas: 0,
       descripcion: 'Caucho radial para rin 14, compuesto de larga duración y agarre en pavimento húmedo. Garantía de 5 años contra defectos de fabricación.',
       specs: { 'Medida': '185/60 R14', 'Índice de carga': '82H', 'Origen': 'Nacional', 'Garantía': '5 años' } },
     { sku: 'SKU-MOT-0777', nombre: 'Batería 12V 65Ah libre de mantenimiento', marca: 'Duncan',
       categoria: 'automotriz', precioUsd: 95, stockFis: 8, stockRes: 1, estado: 'publicado',
-      sellerId: 'SEL-014', img: 'producto-02', rating: 4.6, resenas: 61,
+      sellerId: 'SEL-014', img: 'producto-02', rating: null, resenas: 0,
       descripcion: 'Batería sellada de 65 amperios, arranque en frío garantizado. Incluye instalación gratuita en Caracas.',
       specs: { 'Voltaje': '12 V', 'Capacidad': '65 Ah', 'Polaridad': 'Izquierda', 'Garantía': '18 meses' } },
     { sku: 'SKU-ELE-1045', nombre: 'Alternador Bosch 12V 90A', marca: 'Bosch',
@@ -95,17 +95,17 @@ window.TM_SEED = {
       specs: { 'Amperaje': '90 A', 'Voltaje': '12 V', 'Condición': 'Nuevo' } },
     { sku: 'SKU-MAN-0021', nombre: 'Filtro de aceite sintético', marca: 'Mann',
       categoria: 'automotriz', precioUsd: 15, stockFis: 0, stockRes: 0, estado: 'pausado',
-      sellerId: 'SEL-014', img: 'producto-04', rating: 4.4, resenas: 33,
+      sellerId: 'SEL-014', img: 'producto-04', rating: null, resenas: 0,
       descripcion: 'Filtro de aceite de alto flujo para motores a gasolina.',
       specs: { 'Rosca': '3/4-16', 'Compatibilidad': 'Ver tabla del fabricante' } },
     { sku: 'SKU-TEC-0301', nombre: 'Monitor 24" FHD 75Hz', marca: 'Samsung',
       categoria: 'tecnologia', precioUsd: 140, stockFis: 12, stockRes: 0, estado: 'publicado',
-      sellerId: 'SEL-014', img: 'producto-05', rating: 4.8, resenas: 210,
+      sellerId: 'SEL-014', img: 'producto-05', rating: null, resenas: 0,
       descripcion: 'Monitor Full HD de 24 pulgadas, panel VA, 75 Hz, bordes ultradelgados. Ideal para oficina y estudio.',
       specs: { 'Resolución': '1920×1080', 'Tasa': '75 Hz', 'Puertos': 'HDMI, VGA', 'Garantía': '1 año' } },
     { sku: 'SKU-TEC-0450', nombre: 'Audífonos Bluetooth con estuche', marca: 'Xiaomi',
       categoria: 'tecnologia', precioUsd: 25, stockFis: 40, stockRes: 0, estado: 'publicado',
-      sellerId: 'SEL-014', img: 'producto-06', rating: 4.3, resenas: 154,
+      sellerId: 'SEL-014', img: 'producto-06', rating: null, resenas: 0,
       descripcion: 'Audífonos inalámbricos con cancelación pasiva y 20 horas de autonomía con el estuche.',
       specs: { 'Bluetooth': '5.3', 'Autonomía': '20 h', 'Carga': 'USB-C' } },
     { sku: 'SKU-TEC-0512', nombre: 'Teclado mecánico retroiluminado', marca: 'Redragon',
@@ -115,12 +115,12 @@ window.TM_SEED = {
       specs: { 'Switch': 'Rojo', 'Formato': 'TKL 87' } },
     { sku: 'SKU-HOG-0110', nombre: 'Licuadora 600W vaso de vidrio', marca: 'Oster',
       categoria: 'hogar', precioUsd: 55, stockFis: 18, stockRes: 0, estado: 'publicado',
-      sellerId: 'SEL-009', img: 'producto-02', rating: 4.5, resenas: 78,
+      sellerId: 'SEL-009', img: 'producto-02', rating: null, resenas: 0,
       descripcion: 'Licuadora de 600 W con vaso de vidrio de 1,5 L y cuchillas de acero inoxidable.',
       specs: { 'Potencia': '600 W', 'Vaso': 'Vidrio 1,5 L', 'Velocidades': '3 + pulso' } },
     { sku: 'SKU-HOG-0234', nombre: 'Juego de ollas 7 piezas antiadherente', marca: 'Tramontina',
       categoria: 'hogar', precioUsd: 80, stockFis: 9, stockRes: 1, estado: 'publicado',
-      sellerId: 'SEL-009', img: 'producto-03', rating: 4.6, resenas: 45,
+      sellerId: 'SEL-009', img: 'producto-03', rating: null, resenas: 0,
       descripcion: 'Juego de ollas con recubrimiento antiadherente y tapas de vidrio templado.',
       specs: { 'Piezas': '7', 'Material': 'Aluminio antiadherente' } }
   ],

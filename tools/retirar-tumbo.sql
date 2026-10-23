@@ -52,7 +52,18 @@ declare
     'public.tm_admin_bloquear(text,uuid,boolean,text)', 'public.tm_admin_recuperacion(text,uuid)',
     'public.tm_admin_rol(text,uuid,text)', 'public.tm_admin_2fa_quitar(text,uuid,text)', 'public.tm_admin_baja(text,uuid,text)',
     'public.tm_direccion_editar(text,uuid,jsonb)',
-    'public.tm_direccion_predeterminada(text,uuid)'];
+    'public.tm_direccion_predeterminada(text,uuid)',
+    -- ola 1 (catálogo)
+    'public.tm_buscar(text,jsonb,text,integer)', 'public.tm_busquedas_sin_resultado(text)',
+    'public.tm_favorito(text,text,boolean)', 'public.tm_alerta(text,text,text,boolean)',
+    'public.tm_ajustar_precio(text,text,numeric,boolean)', 'public.tm_precios_masivo(text,jsonb,boolean)',
+    'public.tm_precios_deshacer(text,uuid)', 'public.tm_precio_minimo(text,text,numeric)',
+    'public.tm_precio_historial(text,text)', 'public.tm_stock_movimiento(text,text,text,integer,text)',
+    'public.tm_stock_umbral(text,text,integer)', 'public.tm_kardex(text,text,bigint)',
+    'public.tm_importar_productos(text,jsonb,text,boolean,boolean,boolean)', 'public.tm_moderar_lote(text,text[],boolean,text)',
+    'public.tm_kyc_guardar(text,jsonb)', 'public.tm_kyc_documento(text,integer,uuid)', 'public.tm_kyc_enviar(text)',
+    'public.tm_kyc_revisar(text,text,integer,text,text)', 'public.tm_tienda_guardar(text,jsonb)',
+    'public.tm_kyc_archivo(text,text,integer)'];
   f text;
   ajenos text;
   b text;

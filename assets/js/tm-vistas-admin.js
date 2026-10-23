@@ -59,101 +59,8 @@
       }).join('') + '</div>';
   }
 
-  /* =====================================================================
-     Sellers y KYC (superadmin)
-     ===================================================================== */
-  function vSellers(q, s) {
-    var lista = TM.estado.sellers;
-    return titulo('Sellers y homologación') +
-      lista.map(function (x) {
-        var pendiente = x.estado === 'en_revision' || x.estado === 'observado';
-        return '<article class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-4">' +
-          '<div class="flex flex-wrap items-center gap-2 mb-1">' +
-            '<span class="font-body-md text-body-md font-bold text-on-surface">' + esc(x.nombre) + '</span>' +
-            '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(x.id) + ' · ' + esc(x.rif) + '</span>' +
-            UI.badge(x.estado) + '</div>' +
-          '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">' + esc(x.ciudad) + ' · en el marketplace desde ' + esc(x.desde) + ' · ' + esc(x.descripcion) + '</p>' +
-          (x.observacion ? '<p class="font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-2">' + esc(x.observacion) + '</p>' : '') +
-          '<div class="flex flex-wrap gap-2 mb-3">' + x.docs.map(function (d) {
-            return '<span class="inline-flex items-center gap-1 px-2 py-1 rounded-btn border border-outline-variant font-body-sm text-body-sm">' +
-              ic({ aprobado: 'check_circle', en_revision: 'schedule', pendiente: 'schedule', observado: 'warning' }[d.estado] || 'description',
-                'text-[16px] ' + ({ aprobado: 'text-tertiary', observado: 'text-warning' }[d.estado] || 'text-on-surface-variant')) +
-              esc(d.nombre) + '</span>';
-          }).join('') + '</div>' +
-          '<div class="flex flex-wrap gap-2">' +
-          (pendiente ? btn('Aprobar homologación', { estilo: 'exito', icono: 'verified', attr: 'data-kyc="aprobado" data-sid="' + esc(x.id) + '"' }) : '') +
-          (x.estado !== 'observado' && x.estado !== 'aprobado' ? btn('Observar', { icono: 'warning', attr: 'data-kyc="observado" data-sid="' + esc(x.id) + '"' }) : '') +
-          (x.estado === 'aprobado' ? btn('Suspender', { estilo: 'peligro', icono: 'block', attr: 'data-kyc="suspendido" data-sid="' + esc(x.id) + '"' }) : '') +
-          (x.estado === 'suspendido' ? btn('Reactivar', { estilo: 'exito', icono: 'check_circle', attr: 'data-kyc="aprobado" data-sid="' + esc(x.id) + '"' }) : '') +
-          '</div></article>';
-      }).join('') +
-      '<p class="font-body-sm text-body-sm text-on-surface-variant">Suspender oculta el catálogo del seller en la tienda y bloquea ventas nuevas; no borra su historial. Toda decisión queda en auditoría.</p>';
-  }
-
-  function despuesSellers(raiz, q, s) {
-    raiz.querySelectorAll('[data-kyc]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var decision = b.getAttribute('data-kyc');
-        var sid = b.getAttribute('data-sid');
-        var nombres = { aprobado: 'Aprobar homologación', observado: 'Observar expediente', suspendido: 'Suspender seller' };
-        UI.confirmar(nombres[decision] || decision, 'La decisión sobre ' + sid + ' queda registrada en la auditoría y se notifica al seller.',
-          { accion: 'Confirmar', peligro: decision === 'suspendido', motivo: decision !== 'aprobado' ? 'Motivo (visible para el seller)' : null },
-          function (motivo) {
-            UI.accion(null, function () { return TM.decidirKyc(sid, decision, motivo); }, function () {
-              UI.toast('Decisión aplicada', sid + ' → ' + UI.nombreEstado(decision), 'verified_user');
-            }, 'No se aplicó la decisión');
-          });
-      });
-    });
-  }
-
-  /* =====================================================================
-     Moderación de productos (superadmin)
-     ===================================================================== */
-  function vModeracion(q, s) {
-    var cola = TM.estado.productos.filter(function (p) { return p.estado === 'en_revision'; });
-    return titulo('Moderación de productos', '<span class="font-body-sm text-body-sm text-on-surface-variant">' + cola.length + ' en cola</span>') +
-      (cola.length ? cola.map(function (p) {
-        return '<article class="flex flex-wrap sm:flex-nowrap gap-4 rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-4">' +
-          UI.imgProducto(p, 'w-24 h-24 object-cover shrink-0') +
-          '<div class="flex-1 min-w-0">' +
-            '<p class="font-body-md text-body-md font-bold text-on-surface">' + esc(p.nombre) + '</p>' +
-            '<p class="font-data-mono text-data-mono text-on-surface-variant mb-1">' + esc(p.sku) + ' · ' + esc(TM.seller(p.sellerId).nombre) + '</p>' +
-            '<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">' + esc(p.descripcion) + '</p>' +
-            '<p class="font-body-sm text-body-sm"><strong>' + esc(TM.fmtBs(p.precioUsd)) + '</strong> · stock ' + p.stockFis + '</p></div>' +
-          '<div class="flex sm:flex-col gap-2 shrink-0">' +
-            btn(p.volverAPausa ? 'Aprobar (seguirá pausado)' : 'Aprobar y publicar', { estilo: 'exito', icono: 'check_circle',
-              attr: 'data-aprobar="' + esc(p.sku) + '"' + (p.volverAPausa ? ' data-pausado' : '') }) +
-            btn('Rechazar', { estilo: 'peligro', icono: 'cancel', attr: 'data-rechazar="' + esc(p.sku) + '"' }) +
-          '</div></article>';
-      }).join('')
-      : UI.vacio('task_alt', 'Cola vacía', 'No hay productos esperando moderación. Los envíos de los sellers aparecen aquí al instante.')) +
-      '<p class="font-body-sm text-body-sm text-on-surface-variant">Al aprobar, el producto queda publicado y visible en la tienda de inmediato, salvo que el seller lo tuviera pausado: entonces sigue pausado hasta que lo reanude.</p>';
-  }
-
-  function despuesModeracion(raiz, q, s) {
-    raiz.querySelectorAll('[data-aprobar]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var sku = b.getAttribute('data-aprobar');
-        var pausado = b.hasAttribute('data-pausado');
-        UI.accion(b, function () { return TM.moderarProducto(sku, true); }, function () {
-          if (pausado) UI.toast('Producto aprobado', sku + ' sigue pausado hasta que el seller lo reanude.', 'check_circle');
-          else UI.toast('Producto publicado', sku + ' ya está visible en la tienda.', 'check_circle');
-        });
-      });
-    });
-    raiz.querySelectorAll('[data-rechazar]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var sku = b.getAttribute('data-rechazar');
-        UI.confirmar('Rechazar ' + sku, 'El seller verá el motivo y podrá corregir y reenviar.',
-          { accion: 'Rechazar', peligro: true, motivo: 'Motivo del rechazo' }, function (motivo) {
-            UI.accion(null, function () { return TM.moderarProducto(sku, false, motivo || 'No cumple los requisitos de publicación.'); }, function () {
-              UI.toast('Producto rechazado', sku, 'cancel');
-            });
-          });
-      });
-    });
-  }
+  /* Sellers y KYC, y moderación de productos: los registra el módulo de
+     catálogo (assets/js/tm-mod-catalogo-admin.js, ola 1). */
 
   /* =====================================================================
      Pedidos globales (superadmin + ops)
@@ -500,8 +407,6 @@
 
   APP.registrar({
     'admin/panel':         { titulo: 'Panel ejecutivo', roles: ['superadmin'],             render: vPanel },
-    'admin/sellers':       { titulo: 'Sellers y KYC',   roles: ['superadmin'],             render: vSellers, despues: despuesSellers },
-    'admin/moderacion':    { titulo: 'Moderación',      roles: ['superadmin'],             render: vModeracion, despues: despuesModeracion },
     'admin/pedidos':       { titulo: 'Pedidos globales', roles: ['superadmin', 'ops'],     render: vPedidosAdmin, despues: despuesPedidosAdmin },
     'admin/disputas':      { titulo: 'Disputas',        roles: ['superadmin', 'ops'],      render: vDisputasAdmin, despues: despuesDisputasAdmin },
     'admin/conciliacion':  { titulo: 'Conciliación',    roles: ['superadmin', 'finanzas'], render: vConciliacion, despues: despuesConciliacion },
