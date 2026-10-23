@@ -174,6 +174,17 @@
     if (inv.userChoice) inv.userChoice.then(refrescar, refrescar); else refrescar();
   });
 
+  /* Al lanzar (TM_CONFIG.demo = false) el acceso deja de ofrecer las cuentas
+     de prueba y los avisos de la beta ([data-cuentas] se oculta —su script lo
+     sigue usando—; [data-solo-demo] se quita). */
+  if (C.demo === false) {
+    var quitarDemo = function () {
+      document.querySelectorAll('[data-cuentas]').forEach(function (el) { el.style.display = 'none'; el.setAttribute('aria-hidden', 'true'); });
+      document.querySelectorAll('[data-solo-demo]').forEach(function (el) { el.remove(); });
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', quitarDemo); else quitarDemo();
+  }
+
   window.TM_PWA = {
     raiz: RAIZ,
     instalable: function () { return !!invitacion; },

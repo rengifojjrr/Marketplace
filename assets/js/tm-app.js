@@ -10,6 +10,9 @@
 (function () {
   'use strict';
   var esc = UI.esc, ic = UI.ic, href = UI.href;
+  /* La demo (cuentas de prueba, datos ficticios): con TM_CONFIG.demo = false
+     (al lanzar, ver docs/PRODUCCION.md) la interfaz deja de decir «beta». */
+  var DEMO = !(window.TM_CONFIG && window.TM_CONFIG.demo === false);
 
   /* ---------------------------------------------------------------------
      Roles y navegación
@@ -194,7 +197,8 @@
       '<div class="max-w-[1280px] mx-auto px-4 py-8 grid sm:grid-cols-3 gap-6 font-body-sm text-body-sm">' +
       '<div><p class="font-bold text-white mb-2">Tumbo Market</p><p>Marketplace curado de Venezuela. Sellers homologados, precios en Bs. con referencia en USD y protección en cada compra.</p></div>' +
       '<div><p class="font-bold text-white mb-2">Ayuda</p><p>Compras, entregas y devoluciones se gestionan desde «Mis pedidos». Cada pedido tiene su línea de tiempo y su botón de reclamo.</p></div>' +
-      '<div><p class="font-bold text-white mb-2">Versión beta</p><p>Datos ficticios y operaciones simuladas: aquí no se mueve dinero real ni se crean envíos reales.</p></div>' +
+      (DEMO ? '<div><p class="font-bold text-white mb-2">Versión beta</p><p>Datos ficticios y operaciones simuladas: aquí no se mueve dinero real ni se crean envíos reales.</p></div>'
+            : '<div><p class="font-bold text-white mb-2">Compra protegida</p><p>Pagas a Tumbo y el comercio cobra cuando confirmas que recibiste tu pedido.</p></div>') +
       '</div>' +
       (enlaces.length ? '<nav data-pie-enlaces aria-label="Más de Tumbo" class="max-w-[1280px] mx-auto px-4 pb-6 flex flex-wrap gap-x-5 gap-y-2 font-body-sm text-body-sm">' +
         enlaces.map(function (i) {
@@ -204,7 +208,7 @@
       '<div class="max-w-[1280px] mx-auto px-4 pb-4"><button type="button" data-instalar hidden ' +
         'class="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-btn border border-white/30 text-white font-label-md text-label-md hover:bg-white/10">' +
         ic('install_mobile', 'text-[18px]') + 'Instalar la app de Tumbo</button></div>' +
-      '<div class="border-t border-white/10 py-3 text-center font-body-sm text-body-sm">© 2026 Tumbo Market · beta de demostración</div></footer>';
+      '<div class="border-t border-white/10 py-3 text-center font-body-sm text-body-sm">© 2026 Tumbo Market' + (DEMO ? ' · beta de demostración' : '') + '</div></footer>';
   }
 
   /* ---------------------------------------------------------------------

@@ -83,7 +83,7 @@
   function estrellas(rating, resenas) {
     if (rating == null) return '<span class="font-body-sm text-body-sm text-on-surface-variant">Sin reseñas aún</span>';
     var html = '<span class="inline-flex items-center gap-1" title="' + rating + ' de 5">' +
-      '<span class="inline-flex text-warning">';
+      '<span class="tm-estrellas inline-flex text-warning">';
     for (var i = 1; i <= 5; i++) {
       var llena = rating >= i - 0.25, media = !llena && rating >= i - 0.75;
       html += ic(media ? 'star_half' : 'star',
