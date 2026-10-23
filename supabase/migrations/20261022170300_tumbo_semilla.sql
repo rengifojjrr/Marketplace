@@ -233,24 +233,29 @@ end $$;
 revoke all on schema tumbo, tumbo_privado from public, anon, authenticated;
 revoke execute on all functions in schema tumbo_privado from public, anon, authenticated;
 
+-- por firma exacta: una función tm_* de otra aplicación del proyecto (o una
+-- sobrecarga con el mismo nombre) no se toca
 do $$
-declare f record;
+declare f regprocedure;
 begin
-  for f in
-    select p.oid::regprocedure as firma
-    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-    -- por nombre: una función tm_* de otra aplicación del proyecto no se toca
-    where n.nspname = 'public' and p.proname = any (array[
-      'tm_acceder', 'tm_registrar', 'tm_sesion', 'tm_salir', 'tm_cargar', 'tm_marcar_notificaciones_leidas',
-      'tm_carrito_poner', 'tm_carrito_quitar', 'tm_fusionar_carrito', 'tm_direccion_agregar', 'tm_direccion_quitar',
-      'tm_crear_pedido', 'tm_conciliar_pago', 'tm_rechazar_pago', 'tm_aceptar_pedido', 'tm_marcar_listo',
-      'tm_despachar', 'tm_confirmar_entrega', 'tm_cancelar_pedido', 'tm_abrir_disputa', 'tm_responder_disputa',
-      'tm_resolver_disputa', 'tm_cerrar_ventana', 'tm_ejecutar_liquidacion',
-      'tm_guardar_producto', 'tm_ajustar_producto', 'tm_pausar_producto', 'tm_moderar_producto', 'tm_decidir_kyc',
-      'tm_reiniciar_demo'])
+  foreach f in array array[
+    'public.tm_acceder(text,text)', 'public.tm_registrar(text,text,text)', 'public.tm_sesion(text)',
+    'public.tm_salir(text)', 'public.tm_cargar(text)', 'public.tm_marcar_notificaciones_leidas(text)',
+    'public.tm_carrito_poner(text,text,integer)', 'public.tm_carrito_quitar(text,text)',
+    'public.tm_fusionar_carrito(text,jsonb)', 'public.tm_direccion_agregar(text,jsonb)',
+    'public.tm_direccion_quitar(text,uuid)', 'public.tm_crear_pedido(text,text,uuid,text,text)',
+    'public.tm_conciliar_pago(text,text)', 'public.tm_rechazar_pago(text,text,text)',
+    'public.tm_aceptar_pedido(text,text)', 'public.tm_marcar_listo(text,text,numeric)',
+    'public.tm_despachar(text,text)', 'public.tm_confirmar_entrega(text,text)',
+    'public.tm_cancelar_pedido(text,text,text)', 'public.tm_abrir_disputa(text,text,text,text,text[])',
+    'public.tm_responder_disputa(text,text,text,text[])', 'public.tm_resolver_disputa(text,text,text,text)',
+    'public.tm_cerrar_ventana(text,text)', 'public.tm_ejecutar_liquidacion(text,text)',
+    'public.tm_guardar_producto(text,jsonb,boolean)', 'public.tm_ajustar_producto(text,text,text,numeric)',
+    'public.tm_pausar_producto(text,text,boolean)', 'public.tm_moderar_producto(text,text,boolean,text)',
+    'public.tm_decidir_kyc(text,text,text,text)', 'public.tm_reiniciar_demo(text)']::regprocedure[]
   loop
-    execute format('revoke execute on function %s from public', f.firma);
-    execute format('grant execute on function %s to anon, authenticated', f.firma);
+    execute format('revoke execute on function %s from public', f);
+    execute format('grant execute on function %s to anon, authenticated', f);
   end loop;
 end $$;
 

@@ -310,19 +310,25 @@
     if (fuera) falla('El producto ' + fuera.sku + ' ya no está disponible: quítalo del carrito.');
     if (!items.length) falla('El carrito está vacío.');
     var ref = String(datos.ref || '').trim().toUpperCase();
-    if (ref.length < 5 || ref.length > 30) falla('Registra la referencia del pago (entre 5 y 30 caracteres).');
-    /* Una referencia bancaria corresponde a un solo pago (sin importar
-       guiones ni espacios); solo queda libre la de un pedido cancelado que
-       nunca se concilió. */
-    var clave = ref.replace(/[^A-Z0-9]/g, '');
+    /* Solo caracteres de una referencia bancaria; el pago se identifica por
+       su número (sin ceros a la izquierda) y método. */
+    var numero = ref.replace(/[^0-9]/g, '').replace(/^0+/, '');
+    if (ref.length < 5 || ref.length > 30 || !/^[A-Z0-9 .\/_-]+$/.test(ref) || numero.length < 4) {
+      falla('Registra la referencia del pago: entre 5 y 30 caracteres, con al menos 4 dígitos.');
+    }
+    /* Un pago corresponde a un solo pedido; solo queda libre el de un pedido
+       cancelado que nunca se concilió. */
     if (estado.pedidos.some(function (p) {
-      return String(p.ref || '').toUpperCase().replace(/[^A-Z0-9]/g, '') === clave &&
+      return p.metodo === datos.metodo && String(p.ref || '').replace(/[^0-9]/g, '').replace(/^0+/, '') === numero &&
         (p.estado !== 'cancelado' || p.slaHoras != null);
     })) {
       falla('La referencia ' + ref + ' ya está registrada en otro pedido: revisa el número del pago.');
     }
     if (estado.pedidos.filter(function (p) { return p.compradorEmail === s.email && p.estado === 'pago_por_verificar'; }).length >= 5) {
       falla('Tienes 5 pedidos con el pago por verificar: espera la conciliación o cancela alguno.');
+    }
+    if (estado.pedidos.filter(function (p) { return p.compradorEmail === s.email && p.creadoMs > Date.now() - 3600000; }).length >= 10) {
+      falla('Has creado muchos pedidos en la última hora: inténtalo más tarde.');
     }
 
     var envio;
@@ -352,7 +358,7 @@
         id: id, compradorEmail: s.email, sellerId: sid,
         items: porSeller[sid], envio: clonar(envio),
         tasa: estado.config.tasa, estado: 'pago_por_verificar', liquidacion: null,
-        ref: ref, metodo: datos.metodo, creado: ahora(),
+        ref: ref, metodo: datos.metodo, creado: ahora(), creadoMs: Date.now(),
         timeline: [{ fecha: ahora(), actor: s.nombre,
           texto: 'Pedido creado y pago registrado (' + datos.metodo + ' ref. ' + ref + ')', icono: 'shopping_cart' }]
       };
@@ -587,7 +593,8 @@
     if (elegibles.length !== ids.filter(function (x, i) { return ids.indexOf(x) === i; }).length) {
       falla('La corrida cambió (algún pedido ya no está elegible): recarga la página y revísala.');
     }
-    var bruto = elegibles.reduce(function (t, p) { return t + totalPedidoUsd(p) - (p.envio.costoUsd || 0); }, 0);
+    /* en centavos, como la vista previa y el servidor */
+    var bruto = Math.round(elegibles.reduce(function (t, p) { return t + totalPedidoUsd(p) - (p.envio.costoUsd || 0); }, 0) * 100) / 100;
     var comision = Math.round(bruto * estado.config.comisionPct) / 100;
     var tarifa = Math.round(estado.config.tarifaFijaUsd * elegibles.length * 100) / 100;
     var neto = Math.round((bruto - comision - tarifa) * 100) / 100;
@@ -789,7 +796,7 @@
 
     misNotificaciones: misNotificaciones, marcarNotificacionesLeidas: marcarNotificacionesLeidas,
     /* en modo local la caché ya tiene toda la auditoría */
-    auditoria: function () { return Promise.resolve([]); },
+    auditoria: function () { return Promise.resolve({ eventos: [], siguiente: null }); },
 
     carrito: carrito,
     carritoNoDisponible: carritoNoDisponible,

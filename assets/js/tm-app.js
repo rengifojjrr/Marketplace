@@ -305,9 +305,8 @@
     return Array.prototype.some.call(raiz.querySelectorAll('input, textarea, select'), function (c) {
       if (c.closest('[role=search]') || c.type === 'hidden' || c.type === 'button' || c.type === 'submit') return false;
       if (c.type === 'checkbox' || c.type === 'radio') return c.checked !== c.defaultChecked;
-      if (c.tagName === 'SELECT') {
-        return Array.prototype.some.call(c.options, function (o) { return o.selected !== o.defaultSelected; });
-      }
+      /* un select se compara con el valor que tenía al pintarse */
+      if (c.tagName === 'SELECT') return c.dataset.inicial !== undefined && c.value !== c.dataset.inicial;
       return c.value !== c.defaultValue;
     });
   }
@@ -363,6 +362,13 @@
     /* Un usuario de panel que cae en la tienda navega como cliente igual. */
 
     function pintar() {
+      /* lo escrito en un buscador sin enviar sobrevive al repintado */
+      var buscadores = {};
+      var enfocado = document.activeElement && document.activeElement.closest && document.activeElement.closest('[role=search]')
+        ? document.activeElement.name : null;
+      raiz.querySelectorAll('[role=search] input[name]').forEach(function (c) {
+        if (c.value !== c.defaultValue) buscadores[c.name] = c.value;
+      });
       var contenido = def.render(params(), s);
       if (def.armazon === 'tienda') {
         raiz.innerHTML = cabeceraTienda(s && s.rol === 'comprador' ? s : null) +
@@ -373,6 +379,11 @@
       document.title = (def.titulo || 'Tumbo Market') + ' · Tumbo Market';
       conectarComunes(raiz);
       if (def.despues) def.despues(raiz, params(), s);
+      raiz.querySelectorAll('select').forEach(function (c) { c.dataset.inicial = c.value; });
+      raiz.querySelectorAll('[role=search] input[name]').forEach(function (c) {
+        if (buscadores[c.name] !== undefined) c.value = buscadores[c.name];
+        if (enfocado && c.name === enfocado) c.focus();
+      });
     }
 
     pintar();

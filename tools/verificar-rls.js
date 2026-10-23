@@ -16,6 +16,11 @@
 const URL_BASE = process.env.TM_SUPABASE_URL;
 const CLAVE = process.env.TM_SUPABASE_KEY;
 if (!URL_BASE || !CLAVE) { console.error('Faltan TM_SUPABASE_URL y TM_SUPABASE_KEY'); process.exit(2); }
+/* Contra un backend que no es local (el compartido) hay que confirmarlo: la prueba reinicia su demo. */
+if (!/\/\/(localhost|127\.0\.0\.1)[:/]/.test(URL_BASE) && process.env.TM_NUBE !== '1') {
+  console.error('Ese backend no es local y la prueba reinicia su demo para todos. Confírmalo con TM_NUBE=1.');
+  process.exit(2);
+}
 
 const verde = (s) => `\x1b[32m${s}\x1b[0m`;
 const rojo = (s) => `\x1b[31m${s}\x1b[0m`;
@@ -160,7 +165,7 @@ const ESPERADO = {
     const lote = [];
     for (let i = 0; i < 6; i++) {
       lote.push(rpc('tm_carrito_poner', { p_sesion: sc, p_sku: 'SKU-TEC-0450', p_cant: 2 + i }));
-      lote.push(rpc('tm_crear_pedido', { p_sesion: sc, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'PM-CARRERA-' + i }));
+      lote.push(rpc('tm_crear_pedido', { p_sesion: sc, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'PM-77770' + i }));
     }
     await Promise.all(lote);
   }
@@ -187,11 +192,12 @@ const ESPERADO = {
 
   /* Auditoría completa: paginada en el servidor y solo para su equipo. */
   const au1 = await rpc('tm_auditoria', { p_sesion: s.finanzas });
-  const au2 = au1.ok && au1.dato.length ? await rpc('tm_auditoria', { p_sesion: s.finanzas, p_antes: au1.dato[au1.dato.length - 1].id }) : null;
-  ok(au1.ok && Array.isArray(au1.dato) && au1.dato.length > 0 && (!au2 || au2.dato.every((e) => e.id < au1.dato[au1.dato.length - 1].id)),
+  const ev1 = (au1.dato && au1.dato.eventos) || [];
+  const au2 = ev1.length ? await rpc('tm_auditoria', { p_sesion: s.finanzas, p_antes: ev1[ev1.length - 1].id }) : null;
+  ok(au1.ok && ev1.length > 0 && 'siguiente' in au1.dato && (!au2 || au2.dato.eventos.every((e) => e.id < ev1[ev1.length - 1].id)),
     'finanzas pagina la auditoría completa', au1.texto.slice(0, 120));
   const au3 = await rpc('tm_auditoria', { p_sesion: s.finanzas, p_texto: 'Conciliación' });
-  ok(au3.ok && au3.dato.every((e) => /conciliación/i.test(e.actor + e.accion + e.detalle)), 'la búsqueda de auditoría filtra en el servidor');
+  ok(au3.ok && au3.dato.eventos.every((e) => /conciliación/i.test(e.actor + e.accion + e.detalle)), 'la búsqueda de auditoría filtra en el servidor');
   const au4 = await rpc('tm_auditoria', { p_sesion: s.comprador });
   ok(!au4.ok, 'un comprador no consulta la auditoría', au4.texto.slice(0, 120));
 
@@ -213,11 +219,11 @@ const ESPERADO = {
   ok(!!sp, 'segundo comprador de prueba creado', comp2.texto.slice(0, 100));
   if (sp) {
     await rpc('tm_carrito_poner', { p_sesion: sp, p_sku: 'SKU-HOG-0110', p_cant: 1 });
-    const d1 = await rpc('tm_crear_pedido', { p_sesion: sp, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'trf 91108' });
+    const d1 = await rpc('tm_crear_pedido', { p_sesion: sp, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Transferencia', p_ref: 'trf 091108' });
     ok(!d1.ok && /ya está registrada/.test(d1.texto), 'una referencia de pago ya usada se rechaza (aunque cambie el formato)', d1.texto.slice(0, 120));
-    const d2 = await rpc('tm_crear_pedido', { p_sesion: sp, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'PM-PRECIO-1', p_total_usd: 1 });
+    const d2 = await rpc('tm_crear_pedido', { p_sesion: sp, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'PM-555001', p_total_usd: 1 });
     ok(!d2.ok && /precios de tu carrito cambiaron/.test(d2.texto), 'si el precio cambió, el pedido no se crea', d2.texto.slice(0, 120));
-    const d3 = await rpc('tm_crear_pedido', { p_sesion: sp, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'PM-PRECIO-2', p_total_usd: 55 });
+    const d3 = await rpc('tm_crear_pedido', { p_sesion: sp, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'PM-555002', p_total_usd: 55 });
     ok(d3.ok, 'con el precio que vio, el pedido se crea', d3.texto.slice(0, 120));
   }
 

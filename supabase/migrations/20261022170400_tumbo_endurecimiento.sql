@@ -989,28 +989,20 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- Privilegios: solo las funciones de Tumbo, por nombre (una función tm_* de
--- otra aplicación del proyecto no se toca).
+-- Privilegios de las funciones nuevas o recreadas, por firma exacta (una
+-- función tm_* de otra aplicación, o una sobrecarga, no se toca).
 -- ---------------------------------------------------------------------------
 revoke execute on all functions in schema tumbo_privado from public, anon, authenticated;
 
 do $$
-declare f record;
+declare f regprocedure;
 begin
-  for f in
-    select p.oid::regprocedure as firma
-    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public' and p.proname = any (array[
-      'tm_acceder', 'tm_registrar', 'tm_sesion', 'tm_salir', 'tm_cargar', 'tm_marcar_notificaciones_leidas',
-      'tm_carrito_poner', 'tm_carrito_quitar', 'tm_fusionar_carrito', 'tm_direccion_agregar', 'tm_direccion_quitar',
-      'tm_crear_pedido', 'tm_conciliar_pago', 'tm_rechazar_pago', 'tm_aceptar_pedido', 'tm_marcar_listo',
-      'tm_despachar', 'tm_confirmar_entrega', 'tm_cancelar_pedido', 'tm_abrir_disputa', 'tm_responder_disputa',
-      'tm_resolver_disputa', 'tm_cerrar_devolucion', 'tm_cerrar_ventana', 'tm_ejecutar_liquidacion',
-      'tm_guardar_producto', 'tm_ajustar_producto', 'tm_pausar_producto', 'tm_moderar_producto', 'tm_decidir_kyc',
-      'tm_reiniciar_demo'])
+  foreach f in array array[
+    'public.tm_cargar(text,text)', 'public.tm_crear_pedido(text,text,uuid,text,text,numeric)',
+    'public.tm_cerrar_devolucion(text,text,boolean)', 'public.tm_ejecutar_liquidacion(text,text,text[])']::regprocedure[]
   loop
-    execute format('revoke execute on function %s from public', f.firma);
-    execute format('grant execute on function %s to anon, authenticated', f.firma);
+    execute format('revoke execute on function %s from public', f);
+    execute format('grant execute on function %s to anon, authenticated', f);
   end loop;
 end $$;
 

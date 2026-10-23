@@ -217,7 +217,8 @@
       '<div class="flex flex-wrap gap-2">' +
         btn('Guardar borrador', { icono: 'edit', attr: 'data-borrador' }) +
         btn('Enviar a revisión', { estilo: 'primario', icono: 'task_alt', attr: 'data-enviar' }) + '</div>' +
-      '<p class="font-body-sm text-body-sm text-on-surface-variant">Al enviarlo, Moderación lo revisa; si lo aprueba, aparece publicado en la tienda.</p></div>';
+      '<p class="font-body-sm text-body-sm text-on-surface-variant">Al enviarlo, Moderación lo revisa; si lo aprueba, ' +
+        (p && (p.estado === 'pausado' || p.volverAPausa) ? 'seguirá pausado hasta que lo reanudes.' : 'aparece publicado en la tienda.') + '</p></div>';
   }
 
   function despuesProductoForm(raiz, q, s) {

@@ -37,6 +37,7 @@
   var huella = '';
   var huellaServidor = null;
   var propioPendiente = false;        /* hay una recarga tras una acción propia sin aplicar */
+  var cargaVigente = null;            /* promesa de la recarga más reciente */
 
   /* ---------------------------------------------------------------------
      Utilidades
@@ -107,7 +108,7 @@
           /* Solo se muestra el mensaje de la base (SQLSTATE: los de negocio
              ya vienen redactados); lo del gateway (502, 520, 401…) no. */
           var propio = dato && typeof dato === 'object' && /^[0-9A-Z]{5}$/.test(dato.code || '') &&
-            (r.status < 500 || dato.code === '57014');
+            (r.status < 500 || /^(57014|40P01|55P03)$/.test(dato.code));
           var err = propio ? dato
             : { message: r.status === 429 ? 'Demasiadas solicitudes seguidas. Espera unos segundos.'
                 : r.status >= 500 ? 'El servidor no está disponible (' + r.status + '). Inténtalo en unos segundos.'
@@ -273,6 +274,7 @@
 
     e.eventos = (d.eventos || []).map(evento);
     e.pendientesTruncados = !!d.pendientes_truncados;
+    e.colasRecortadas = d.colas_recortadas || [];
 
     if (s && s.rol === 'comprador') {
       e.direcciones[s.email] = (d.direcciones || []).map(function (r) {
@@ -297,12 +299,15 @@
   function refrescar(origen) {
     var turno = ++turnoCarga;
     if (origen !== 'externo') propioPendiente = true;
+    /* un sondeo que sale con una recarga propia en vuelo la reemplaza */
+    var heredado = origen === 'externo' && propioPendiente;
     /* En el sondeo, si nada cambió el servidor solo lo confirma. */
     var params = { p_sesion: token() };
     if (origen === 'externo' && huellaServidor && !propioPendiente) params.p_huella = huellaServidor;
-    return llamar('tm_cargar', params).then(function (d) {
-      if (turno !== turnoCarga) return;
-      var aviso = propioPendiente && origen === 'externo' ? 'propio' : origen;
+    var carga = llamar('tm_cargar', params).then(function (d) {
+      /* adelantada por otra recarga: el resultado lo decide la más nueva */
+      if (turno !== turnoCarga) return cargaVigente;
+      var aviso = heredado ? 'propio' : origen;
       propioPendiente = false;
       if (!d || typeof d !== 'object') throw { error: 'El servidor respondió algo inesperado. Inténtalo en unos segundos.' };
       if (d.sin_cambios) return;
@@ -314,7 +319,15 @@
       if (aviso === 'externo' && nueva === huella) return;
       huella = nueva;
       TM._fijarEstado(e, aviso || 'propio');
+    }, function (err) {
+      if (turno !== turnoCarga) return cargaVigente;
+      if (origen !== 'externo' || heredado) propioPendiente = false;
+      /* si falló el sondeo que reemplazaba a la recarga propia, se reintenta */
+      if (heredado) return refrescar('propio');
+      throw err;
     });
+    cargaVigente = carga;
+    return carga;
   }
 
   function listo() {
@@ -345,8 +358,9 @@
   /* Función de negocio con la sesión actual; al terminar, recarga la caché. */
   function rpc(nombre, params) {
     var p = Object.assign({ p_sesion: token() }, params || {});
+    /* la acción ya se hizo: si la recarga falla, el sondeo la traerá */
     return llamar(nombre, p).then(function (dato) {
-      return refrescar('propio').then(function () { return dato; });
+      return refrescar('propio').then(function () { return dato; }, function () { return dato; });
     });
   }
 
@@ -475,7 +489,7 @@
      antiguo): la caché trae solo las ventanas recientes. */
   T.auditoria = function (antesId, texto) {
     return llamar('tm_auditoria', { p_sesion: token(), p_antes: antesId || null, p_texto: texto || null })
-      .then(function (lista) { return (lista || []).map(evento); });
+      .then(function (r) { return { eventos: ((r && r.eventos) || []).map(evento), siguiente: r ? r.siguiente : null }; });
   };
   T.marcarNotificacionesLeidas = marcarNotificacionesLeidas;
 

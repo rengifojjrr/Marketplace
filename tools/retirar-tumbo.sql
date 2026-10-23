@@ -35,7 +35,7 @@ begin
   if to_regnamespace('tumbo') is null or to_regnamespace('tumbo_privado') is null
      or coalesce(obj_description('tumbo'::regnamespace, 'pg_namespace'), '') not like 'Tumbo Market (beta)%'
      or coalesce(obj_description('tumbo_privado'::regnamespace, 'pg_namespace'), '') not like 'Tumbo Market (beta)%'
-     or to_regclass('tumbo.usuarios') is null or to_regprocedure('tumbo_privado.sembrar(boolean)') is null then
+     or to_regclass('tumbo.usuarios') is null then
     raise exception 'Los esquemas «tumbo»/«tumbo_privado» de esta base no parecen ser los de Tumbo Market: no se borra nada.';
   end if;
 

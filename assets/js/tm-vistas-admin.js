@@ -182,11 +182,13 @@
         UI.vacio('search_off', 'Sin coincidencias', 'Ningún pedido coincide con la búsqueda.'));
   }
 
-  /* Con más de 2000 pendientes, la caché trae los más antiguos: se avisa. */
-  function avisoRecorte() {
-    if (!TM.estado.pendientesTruncados) return '';
+  /* Con más de 500 pendientes en una cola, la caché trae los más antiguos
+     de esa cola: la vista que la muestra lo avisa. */
+  function avisoRecorte(colas) {
+    var recortadas = (TM.estado.colasRecortadas || []).filter(function (c) { return !colas || colas.indexOf(c) >= 0; });
+    if (!recortadas.length) return '';
     return '<p class="flex items-center gap-1.5 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-4">' +
-      ic('info', 'text-[16px]') + 'Hay más de 2.000 pendientes: se muestran los más antiguos primero. Atiéndelos y la lista se completará.</p>';
+      ic('info', 'text-[16px]') + 'Esta cola tiene más de 500 casos: se muestran los más antiguos primero. Atiéndelos y la lista se completará.</p>';
   }
 
   /* Cierre de una devolución: el producto volvió (reembolso y stock) o no
@@ -310,7 +312,7 @@
           btn('Rechazar', { estilo: 'borde', icono: 'block', attr: 'data-rechazar-pago="' + esc(p.id) + '"' }) +
           btn('Conciliar', { estilo: 'primario', icono: 'fact_check', attr: 'data-conciliar="' + esc(p.id) + '"' }) + '</div>', 'text-right');
     });
-    return avisoRecorte() + titulo('Conciliación de pagos',
+    return avisoRecorte(['pago_por_verificar']) + titulo('Conciliación de pagos',
         cola.length > 1 ? btn('Conciliar todos (' + cola.length + ')', { estilo: 'marca', icono: 'fact_check',
           attr: 'data-conciliar-todo="' + esc(cola.map(function (p) { return p.id; }).join(',')) + '"' }) : '') +
       '<p class="flex items-center gap-1.5 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-4 max-w-2xl">' +
@@ -361,7 +363,7 @@
     e.pedidos.filter(function (p) { return p.liquidacion === 'elegible'; })
       .forEach(function (p) { (porSeller[p.sellerId] = porSeller[p.sellerId] || []).push(p); });
 
-    return titulo('Liquidaciones a sellers') +
+    return avisoRecorte(['fondos_retenido', 'fondos_elegible']) + titulo('Liquidaciones a sellers') +
       '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Ventanas de reclamo abiertas</h2>' +
       (retenidos.length ? UI.tabla(['Pedido', 'Seller', 'Entregado', 'Bruto', ''],
         retenidos.map(function (p) {
@@ -464,10 +466,20 @@
     if (TM.modo !== 'remoto') return;
     var texto = q.get('q') || '';
     function traer(antes, boton) {
-      return UI.accion(boton, function () { return TM.auditoria(antes, texto); }, function (lista) {
+      /* pide tramos hasta encontrar algo que no esté ya en pantalla */
+      function pedir(cursor, vueltas) {
+        return TM.auditoria(cursor, texto).then(function (r) {
+          var vistos = {};
+          TM.estado.eventos.concat(historial.eventos).forEach(function (ev) { vistos[ev.id] = true; });
+          var nuevos = r.eventos.filter(function (ev) { return !vistos[ev.id]; });
+          historial.eventos = historial.eventos.concat(nuevos);
+          historial.cursor = r.siguiente;
+          historial.fin = r.siguiente == null;
+          if (!nuevos.length && !historial.fin && vueltas < 10) return pedir(r.siguiente, vueltas + 1);
+        });
+      }
+      return UI.accion(boton, function () { return pedir(antes, 0); }, function () {
         if (historial.filtro !== texto.toLowerCase()) return;
-        historial.eventos = historial.eventos.concat(lista);
-        if (lista.length < 200) historial.fin = true;
         TM._avisar('propio');               /* repinta sin volver a descargar */
       }, 'No se pudo consultar la auditoría');
     }
@@ -479,10 +491,7 @@
     /* el historial se pagina desde el servidor, de forma contigua (la caché
        trae ventanas por tipo de evento, que no lo son) */
     var mas = raiz.querySelector('[data-anteriores]');
-    if (mas) mas.addEventListener('click', function () {
-      var ids = historial.eventos.map(function (ev) { return ev.id; });
-      traer(ids.length ? Math.min.apply(null, ids) : null, mas);
-    });
+    if (mas) mas.addEventListener('click', function () { traer(historial.cursor || null, mas); });
   }
 
   APP.registrar({

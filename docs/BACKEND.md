@@ -43,8 +43,9 @@ ya estuviera ocupado por otra aplicación, falla en vez de adueñarse de él.
 
 Las migraciones solo agregan sobre la base compartida (el conector de
 Supabase pide confirmación humana para borrar o reescribir). Por eso, desde
-la migración 6, `tumbo.cuotas` y el índice `tumbo.pedidos_ref_idx` quedaron
-sin uso; se pueden borrar a mano cuando convenga.
+la migración 6, `tumbo.cuotas` y los índices `tumbo.pedidos_ref_idx` y
+`tumbo.pedidos_ref_clave_idx` (y su columna `ref_clave`) quedaron sin uso; se
+pueden borrar a mano cuando convenga.
 
 Los avisos del *Security Advisor* de Supabase sobre Tumbo son esperados:
 «RLS sin políticas» en `tumbo.*` (nadie lee filas directamente, a propósito)
@@ -61,6 +62,7 @@ supabase/migrations/
   20261022170300_tumbo_semilla.sql     datos de la demo, reinicio y privilegios
   20261022170400_tumbo_endurecimiento.sql  topes, vencimientos, devoluciones y lectura acotada
   20261022170500_tumbo_ajustes.sql     topes por red, auditoría completa, referencia única y sin interbloqueos
+  20261022170600_tumbo_cuentas_demo.sql  cuentas demo compartidas, colas de trabajo y auditoría por tramos
 assets/js/tm-config.js                 URL y clave publicable del proyecto
 assets/js/tm-remoto.js                 motor remoto: llama a /rest/v1/rpc/tm_* con fetch (sin librerías)
 tools/retirar-tumbo.sql                quita Tumbo del proyecto sin tocar nada más
@@ -77,12 +79,14 @@ tools/verificar-beta.js                recorridos completos en navegador
    minutos, esa conexión queda frenada para esa cuenta (quien ataca desde su
    red no bloquea al dueño en la suya). Hay además topes por conexión y por
    cuenta, y este último no frena al dueño en una red desde la que entró o se
-   registró esa semana. Los accesos correctos de una cuenta desde una misma
-   red también tienen tope (60 cada 15 minutos, con su propio mensaje), y un
-   techo global de 120 comprobaciones de contraseña por minuto acota el coste
-   de bcrypt en la base compartida. La conexión se identifica con
-   `cf-connecting-ip`, que fija el borde de Supabase; en IPv6 se agrupa por
-   /64 (y una IPv4 escrita como IPv6 cuenta como la IPv4). Un registro desde
+   registró esa semana; en las cuentas demo, cuya contraseña es pública, ese
+   techo no existe (solo serviría para bloquearlas). Los accesos correctos de
+   una cuenta desde una misma red también tienen tope (60 cada 15 minutos,
+   con su propio mensaje), y un techo global de 120 comprobaciones de
+   contraseña por minuto acota el coste de bcrypt en la base compartida. La
+   conexión se identifica con `cf-connecting-ip`, que fija el borde de
+   Supabase; en IPv6 se agrupa por /56 —lo que un proveedor entrega a un
+   hogar— y una IPv4 escrita como IPv6 cuenta como la IPv4. Un registro desde
    la web **siempre** nace `comprador` (el rol nunca viene del navegador) y
    tiene freno por conexión y un techo global.
 2. **Lectura**: `tm_cargar(sesión)` devuelve de una vez lo que el rol puede ver:
@@ -102,14 +106,18 @@ tools/verificar-beta.js                recorridos completos en navegador
    los avisos a un comercio declaran qué roles los ven (dinero y reclamos: solo
    el seller principal; al operador tampoco le llegan esos eventos en la línea
    de tiempo). Fuera del equipo del comercio, un producto muestra lo
-   disponible, no sus reservas ni fechas internas. Lo pendiente (pagos por
-   verificar, pedidos en curso, fondos retenidos o elegibles, reclamos
-   abiertos) llega de más antiguo a más nuevo, hasta 2.000 (si hay más, el
-   backoffice lo avisa); el historial cerrado, los 150 más recientes. La
+   disponible, no sus reservas ni fechas internas. Lo pendiente llega por
+   cola de trabajo (pagos por verificar, por aceptar, en preparación, listos,
+   despachados, devoluciones y fondos retenidos, congelados o elegibles):
+   hasta 500 por cola, priorizando los más antiguos, y si una cola tiene más,
+   la vista que la muestra lo avisa; los reclamos abiertos, hasta 2.000; el
+   historial cerrado, los 150 más recientes. La
    auditoría llega en tres ventanas que no se tapan entre sí —decisiones del
    equipo y del sistema (300), acciones de comercios y compradores (150) e
    inicios de sesión (50)— y el historial completo se busca y se pagina con
-   `tm_auditoria`.
+   `tm_auditoria`, que recorre tramos de 20.000 eventos por llamada (nunca la
+   tabla entera) y devuelve el cursor para seguir. Los vencimientos de pago
+   dejan un solo asiento por tanda.
 3. **Escritura**: cada cambio pasa por una función `tm_*` (`SECURITY DEFINER`,
    `search_path` vacío) que, en una sola transacción:
    - exige el rol y la propiedad del recurso (un pedido ajeno responde «no
@@ -127,10 +135,14 @@ tools/verificar-beta.js                recorridos completos en navegador
    serializan, así que dos pestañas a la vez no descuadran las reservas.
    Además: hasta 10 unidades por producto (también al crear el pedido); un
    pago sin verificar vence a las 48 horas y libera su reserva —en la
-   siguiente lectura u operación de carrito— y ya no se puede conciliar; una
-   referencia de pago no se reutiliza (sin importar guiones ni espacios, ni
-   aunque se cancele un pedido ya conciliado; dos compras simultáneas con la
-   misma referencia se ordenan con un candado); el pedido se crea con el
+   siguiente lectura u operación de carrito— y ya no se puede conciliar; la
+   referencia de pago solo admite caracteres de una referencia bancaria, debe
+   tener al menos 4 dígitos y no se reutiliza: se compara por su número (sin
+   ceros a la izquierda) y método, aunque se cancele un pedido ya conciliado,
+   y dos compras simultáneas con el mismo pago se ordenan con un candado; en
+   las cuentas demo, los topes de 5 pagos por verificar y 10 pedidos por hora
+   cuentan por red (con un respaldo de 100 por hora para la cuenta); el
+   pedido se crea con el
    subtotal que la pantalla le mostró al comprador (si un precio cambió, se le
    avisa y el checkout se repinta con el precio vigente); la liquidación paga
    exactamente los pedidos mostrados; una devolución se cierra con el
@@ -142,11 +154,21 @@ tools/verificar-beta.js                recorridos completos en navegador
 5. **Topes contra el abuso** (las cuentas demo tienen contraseña pública y
    las comparte cualquiera que visite la beta, así que los topes cuentan por
    cuenta **y por red**: quien los agota se frena a sí mismo, no a los demás):
-   150 escrituras cada 10 minutos por cuenta y red (abrir la campana de avisos
-   no cuenta), 10 sesiones por cuenta y red y 200 por cuenta (se cierran las
-   que llevan más tiempo sin usarse), 150 productos por comercio, un «Inicio
-   de sesión» auditado por cuenta cada 10 minutos y sin auditar datos
-   triviales del comprador.
+   150 escrituras cada 10 minutos por cuenta y red, con un respaldo de 600 por
+   cuenta (abrir la campana de avisos no cuenta), 50 sesiones por cuenta y
+   red y 200 por cuenta (se cierran las que llevan más tiempo sin usarse; el
+   uso se anota cada minuto), 150 productos por comercio, un «Inicio de
+   sesión» auditado por cuenta cada 10 minutos y sin auditar datos triviales
+   del comprador.
+
+   **Límite inherente**: una cuenta con contraseña pública la comparten
+   todos. Cada tope por cuenta es también una forma de que un visitante
+   frene a los demás, y cada tope por red se puede esquivar con muchas
+   redes. Los topes de arriba equilibran las dos cosas para una beta de
+   demostración. Para un uso real hay dos caminos: que cada visitante pruebe
+   con su propia cuenta (el registro ya existe; faltarían cuentas de prueba
+   de seller y backoffice creadas por visitante) o que las cuentas demo sean
+   de solo lectura.
 6. **Auditoría** de solo agregar: los disparadores impiden editar, borrar o
    vaciar eventos (también al reiniciar la demo).
 7. **Segundo factor**: en la beta es un código fijo (`123456`) verificado en el
@@ -162,7 +184,7 @@ tools/verificar-beta.js                recorridos completos en navegador
 | --- | --- | --- |
 | `tm_acceder(email, clave)` · `tm_registrar(email, clave, nombre)` · `tm_salir` · `tm_sesion` | cualquiera | sesión |
 | `tm_cargar(sesión, huella)` | cualquiera | la caché del rol (visitante sin sesión); con la huella de la última respuesta, `sin_cambios` si nada cambió |
-| `tm_auditoria(sesión, antes, texto)` | superadmin, finanzas | historial completo de auditoría, 200 por página, con búsqueda |
+| `tm_auditoria(sesión, antes, texto)` | superadmin, finanzas | historial completo de auditoría por tramos: `{eventos, siguiente}` (hasta 200 por llamada), con búsqueda |
 | `tm_carrito_poner` · `tm_carrito_quitar` · `tm_fusionar_carrito` · `tm_direccion_agregar` · `tm_direccion_quitar` | comprador | carrito y direcciones |
 | `tm_crear_pedido(tipo, dirección, método, ref, total)` | comprador | un pedido por seller, reserva stock, vacía el carrito |
 | `tm_conciliar_pago` · `tm_rechazar_pago` | superadmin, finanzas | por aceptar, o cancelado con la reserva liberada |

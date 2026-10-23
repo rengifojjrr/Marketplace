@@ -18,3 +18,7 @@ alter default privileges in schema public grant all on sequences to anon, authen
 grant usage on schema auth to anon, authenticated, service_role, postgres;
 alter role supabase_auth_admin set search_path = auth;
 create publication supabase_realtime;
+
+-- Tiempos límite por rol, como en Supabase.
+alter role anon set statement_timeout = '3s';
+alter role authenticated set statement_timeout = '8s';

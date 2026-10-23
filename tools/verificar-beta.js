@@ -25,7 +25,7 @@
  */
 const { chromium } = require('playwright');
 
-const BASE = process.argv[2] || 'http://localhost:8099';
+const BASE = process.argv[2] || 'http://localhost:8000';
 const verde = (s) => `\x1b[32m${s}\x1b[0m`;
 const rojo = (s) => `\x1b[31m${s}\x1b[0m`;
 
@@ -45,8 +45,10 @@ const PAGINAS = {
 (async () => {
   /* Para un sitio publicado se sale por el proxy del entorno si lo hay. */
   const externo = !/\/\/(localhost|127\.0\.0\.1)[:/]/.test(BASE);
-  if (externo && process.env.TM_NUBE !== '1') {
-    console.error('Ese sitio usa el backend compartido y la prueba reinicia su demo para todos. Confírmalo con TM_NUBE=1.');
+  /* Un backend que no es local es el compartido: la prueba reinicia su demo. */
+  const apiNube = process.env.TM_SUPABASE_URL && !/\/\/(localhost|127\.0\.0\.1)[:/]/.test(process.env.TM_SUPABASE_URL);
+  if ((externo || apiNube) && process.env.TM_NUBE !== '1') {
+    console.error('Esa prueba usa el backend compartido y reinicia su demo para todos. Confírmalo con TM_NUBE=1.');
     process.exit(2);
   }
   const navegador = await chromium.launch(externo && process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY } } : {});
@@ -402,7 +404,7 @@ const PAGINAS = {
     await p.locator('[data-agregar]').click();
     await aviso('Agregado al carrito');
     await abrir('tienda/checkout');
-    await p.fill('#chk-ref', 'PM-RECHAZO-1');
+    await p.fill('#chk-ref', 'PM-777001');
     await p.locator('[data-confirmar]').click();
     await p.waitForURL('**/confirmacion.html*', { timeout: 15000 });
     const id = new URL(p.url()).searchParams.get('ids');
