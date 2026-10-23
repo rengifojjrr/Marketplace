@@ -15,7 +15,7 @@
      que no está y no se puede bajar lleva a sin-conexion.html.
    ========================================================================= */
 'use strict';
-var VERSION = 'tumbo-d28e1ccb8189a191';
+var VERSION = 'tumbo-06310a495446122f';
 var PRECACHE = [
   "index.html",
   "sin-conexion.html",

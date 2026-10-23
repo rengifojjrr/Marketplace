@@ -576,6 +576,16 @@
     }
 
     pintar();
+    /* lo que una vista pinta después (al llegar sus datos) también pasa por la
+       revisión de accesibilidad (solo cambios de nodos: la revisión cambia
+       atributos y no se vuelve a disparar) */
+    if (window.MutationObserver) {
+      var revision = null;
+      new MutationObserver(function () {
+        if (revision) return;
+        revision = setTimeout(function () { revision = null; accesibilidad(raiz); }, 120);
+      }).observe(raiz, { childList: true, subtree: true });
+    }
     var pendiente = false;
     TM.suscribir(function (origen) {
       if (saliendo) return;
@@ -599,7 +609,7 @@
   window.APP = {
     ROLES: ROLES, registrar: registrar, params: params, montar: montar, html403: html403,
     nav: nav, navDe: navDe, enlace: enlace, gancho: gancho, ganchos: ganchos, trasPintar: trasPintar,
-    meta: meta
+    meta: meta, accesibilidad: accesibilidad
   };
   /* montar() lo invoca cada página después de cargar sus vistas. */
 })();

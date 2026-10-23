@@ -140,7 +140,8 @@
      cabecera vacía (la columna de botones) se nombra para los lectores. */
   function tabla(cabeceras, filasHtml, vacioHtml) {
     if (!filasHtml.length) return vacioHtml || vacio('search_off', 'Sin registros', 'No hay datos que mostrar todavía.');
-    return '<div class="overflow-x-auto rounded-card border border-outline-variant bg-surface-container-lowest" data-tabla>' +
+    /* (relative: el nombre oculto de la columna no se sale de la región que se desplaza) */
+    return '<div class="relative overflow-x-auto rounded-card border border-outline-variant bg-surface-container-lowest" data-tabla>' +
       '<table class="w-full text-body-sm font-body-sm"><thead><tr class="border-b border-outline-variant bg-surface-container-low">' +
       cabeceras.map(function (c) {
         return '<th class="text-left px-4 py-3 font-label-caps text-label-caps uppercase tracking-[0.05em] text-on-surface-variant whitespace-nowrap">' +

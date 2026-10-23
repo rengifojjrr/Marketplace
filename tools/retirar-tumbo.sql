@@ -98,7 +98,10 @@ declare
     'public.tm_operaciones_asignar(text,text,uuid)', 'public.tm_nota_interna(text,text,text)', 'public.tm_pedido_360(text,text)',
     'public.tm_operaciones_panel(text,jsonb)', 'public.tm_courier_guardar(text,jsonb)', 'public.tm_tarifa_guardar(text,jsonb)',
     'public.tm_oficina_guardar(text,jsonb)', 'public.tm_zona_estado(text,text,text)',
-    'public.tm_feriado_guardar(text,date,text,boolean)', 'public.tm_logistica_plazos_guardar(text,jsonb)', 'public.tm_sla_revisar(text)'];
+    'public.tm_feriado_guardar(text,date,text,boolean)', 'public.tm_logistica_plazos_guardar(text,jsonb)', 'public.tm_sla_revisar(text)',
+    -- plataforma (ola 2)
+    'public.tm_salud()', 'public.tm_error_cliente(jsonb)', 'public.tm_sistema(text)', 'public.tm_tarea_correr(text,text)',
+    'public.tm_tareas_programar(text)'];
   f text;
   ajenos text;
   b text;
@@ -175,7 +178,7 @@ begin
   end if;
 
   -- Las tareas programadas de Tumbo (pg_cron), si existe: solo las suyas
-  -- (pagos: tumbo-pagos-*; logística: tumbo-sla).
+  -- (todas se llaman «tumbo-…»: pagos, logística y las de la plataforma).
   if exists (select 1 from pg_extension where extname = 'pg_cron') then
     begin
       for b in execute $q$select jobid::text from cron.job where jobname like 'tumbo-%'$q$ loop
