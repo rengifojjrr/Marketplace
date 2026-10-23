@@ -450,6 +450,10 @@
       '<a class="inline-flex mt-4 font-label-md text-label-md text-secondary hover:underline" href="' + href('app/tienda/resultados.html') + '">Seguir comprando</a></div>';
   }
 
+  /* Mis pedidos y el seguimiento del pedido: los vuelve a registrar el módulo
+     de logística (assets/js/tm-mod-logistica-tienda.js, ola 1). */
+  var vPedidos, vPedido, despuesPedido;
+
   /* =====================================================================
      Asistente de reclamo (el hueco que el prototipo nunca tuvo)
      ===================================================================== */
@@ -636,7 +640,8 @@
     'tienda/carrito':      { armazon: 'tienda', publico: true, titulo: 'Carrito', render: vCarrito, despues: despuesCarrito },
     'tienda/checkout':     { armazon: 'tienda', roles: ['comprador'], titulo: 'Finalizar compra', render: vCheckout, despues: despuesCheckout },
     'tienda/confirmacion': { armazon: 'tienda', roles: ['comprador'], titulo: 'Pedido registrado', render: vConfirmacion },
-    /* 'tienda/pedidos' y 'tienda/pedido': assets/js/tm-mod-logistica-tienda.js */
+    'tienda/pedidos':      { armazon: 'tienda', roles: ['comprador'], titulo: 'Mis pedidos', render: vPedidos },
+    'tienda/pedido':       { armazon: 'tienda', roles: ['comprador'], titulo: 'Seguimiento', render: vPedido, despues: despuesPedido },
     'tienda/reclamo':      { armazon: 'tienda', roles: ['comprador'], titulo: 'Reclamo', render: vReclamo, despues: despuesReclamo },
     'tienda/cuenta':       { armazon: 'tienda', roles: ['comprador'], titulo: 'Mi cuenta', render: vCuenta, despues: despuesCuenta },
     'tienda/direcciones':  { armazon: 'tienda', roles: ['comprador'], titulo: 'Direcciones', render: vDirecciones, despues: despuesDirecciones }

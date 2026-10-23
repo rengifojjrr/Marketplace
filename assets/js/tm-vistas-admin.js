@@ -155,6 +155,10 @@
     });
   }
 
+  /* Pedidos globales: los vuelve a registrar el módulo de logística
+     (assets/js/tm-mod-logistica-ops.js, ola 1). */
+  var vPedidosAdmin;
+
   /* Con más de 500 pendientes en una cola, la caché trae los más antiguos
      de esa cola: la vista que la muestra lo avisa. */
   function avisoRecorte(colas) {
@@ -186,6 +190,29 @@
             }, 'No se cerró la devolución');
           });
       });
+    });
+  }
+
+  function despuesPedidosAdmin(raiz) {
+    conectarDevoluciones(raiz);
+    raiz.querySelectorAll('[data-entregado]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var id = b.getAttribute('data-entregado');
+        UI.confirmar('Confirmar la entrega de ' + id, 'Úsalo con la prueba de entrega del courier: abre la ventana de reclamo del comprador y retiene los fondos del seller hasta que cierre.',
+          { accion: 'Confirmar entrega' }, function () {
+            UI.accion(null, function () { return TM.confirmarEntrega(id); }, function () {
+              UI.toast('Entrega confirmada', id + ': el comprador ya puede reclamar durante la ventana.', 'check_circle');
+            }, 'No se confirmó la entrega');
+          });
+      });
+    });
+    var f = raiz.querySelector('[data-filtro]');
+    if (f) f.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var u = new URLSearchParams(location.search);
+      var v = f.querySelector('[name=q]').value.trim();
+      if (v) u.set('q', v); else u.delete('q');
+      location.search = u.toString();
     });
   }
 
@@ -412,14 +439,7 @@
   }
 
   function despuesAuditoria(raiz, q, s) {
-    var f = raiz.querySelector('[data-filtro]');
-    if (f) f.addEventListener('submit', function (ev) {
-      ev.preventDefault();
-      var u = new URLSearchParams(location.search);
-      var v = f.querySelector('[name=q]').value.trim();
-      if (v) u.set('q', v); else u.delete('q');
-      location.search = u.toString();
-    });
+    despuesPedidosAdmin(raiz);
     if (TM.modo !== 'remoto') return;
     var texto = q.get('q') || '';
     function traer(antes, boton) {
@@ -458,7 +478,7 @@
     'admin/panel':         { titulo: 'Panel ejecutivo', roles: ['superadmin'],             render: vPanel },
     'admin/sellers':       { titulo: 'Sellers y KYC',   roles: ['superadmin'],             render: vSellers, despues: despuesSellers },
     'admin/moderacion':    { titulo: 'Moderación',      roles: ['superadmin'],             render: vModeracion, despues: despuesModeracion },
-    /* 'admin/pedidos': assets/js/tm-mod-logistica-ops.js */
+    'admin/pedidos':       { titulo: 'Pedidos globales', roles: ['superadmin', 'ops'],     render: vPedidosAdmin, despues: despuesPedidosAdmin },
     'admin/disputas':      { titulo: 'Disputas',        roles: ['superadmin', 'ops'],      render: vDisputasAdmin, despues: despuesDisputasAdmin },
     'admin/conciliacion':  { titulo: 'Conciliación',    roles: ['superadmin', 'finanzas'], render: vConciliacion, despues: despuesConciliacion },
     'admin/liquidaciones': { titulo: 'Liquidaciones',   roles: ['superadmin', 'finanzas'], render: vLiquidaciones, despues: despuesLiquidaciones },

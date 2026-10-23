@@ -35,12 +35,24 @@
     return Number(o.costo_usd) ? TM.fmtUsd(o.costo_usd) : 'sin costo';
   }
 
+  /* «1 día hábil», «3 días hábiles», «1–2 días hábiles» */
+  function diasTexto(min, max) {
+    if (min === max) return min + (min === 1 ? ' día hábil' : ' días hábiles');
+    return min + '–' + max + ' días hábiles';
+  }
+  /* Entrega en el estado del comprador (courier o delivery); el retiro en
+     tienda es en la ciudad del comercio. */
+  function enDestino(o) { return o.en_destino != null ? !!o.en_destino : o.courier_codigo !== 'tienda'; }
+
   function promesaHtml(r) {
     if (!r) return '<p class="flex items-center gap-1.5 font-body-sm text-body-sm text-on-surface-variant">' + ic('local_shipping', 'text-[18px]') + 'Calculando el envío…</p>';
     if (r.error) return '<p class="font-body-sm text-body-sm text-on-surface-variant">No pudimos calcular el envío: ' + esc(r.error) + '</p>';
     var ops = r.opciones || [];
-    var o = ops[0];
+    /* la promesa sale solo de lo que llega al estado del comprador */
+    var o = ops.filter(enDestino)[0];
+    var tienda = ops.filter(function (x) { return !enDestino(x); })[0];
     var destino = r.destino || {};
+    var ciudad = (r.origen || {}).ciudad || '';
     var lista = L.estados();
     var html = '';
     if (r.vacaciones) {
@@ -48,19 +60,24 @@
         ic('beach_access', 'text-[18px] shrink-0') + '<span>El comercio está de vacaciones' + (r.vacaciones.hasta ? ' hasta el ' + esc(L.fecha(r.vacaciones.hasta, true)) : '') +
         ' y no recibe pedidos por ahora.' + (r.vacaciones.mensaje ? ' «' + esc(r.vacaciones.mensaje) + '»' : '') + '</span></p>';
     }
-    html += '<p class="flex items-start gap-1.5 font-body-sm text-body-sm text-tertiary font-semibold" data-promesa-texto>' + ic('local_shipping', 'text-[18px] shrink-0') + '<span>' +
-      'Envía desde ' + esc((r.origen || {}).ciudad || '') +
-      (o ? ' · llega en ' + o.dias_min + (o.dias_max !== o.dias_min ? '–' + o.dias_max : '') + ' días hábiles a ' + esc(destino.estado || 'tu estado')
-        : ' · por ahora no tiene envíos a ' + esc(destino.estado || 'tu estado')) + '</span></p>';
+    html += '<p class="flex items-start gap-1.5 font-body-sm text-body-sm text-tertiary font-semibold" data-promesa-texto>' + ic(o || !tienda ? 'local_shipping' : 'storefront', 'text-[18px] shrink-0') + '<span>' +
+      (o ? 'Envía desde ' + esc(ciudad) + ' · llega en ' + diasTexto(o.dias_min, o.dias_max) + ' a ' + esc(destino.estado || 'tu estado')
+        : tienda ? 'Solo para retirar en ' + esc(ciudad) + ': no envía a ' + esc(destino.estado || 'tu estado') + ' · listo en ' + diasTexto(tienda.dias_min, tienda.dias_max)
+        : 'Envía desde ' + esc(ciudad) + ' · por ahora no tiene envíos a ' + esc(destino.estado || 'tu estado')) + '</span></p>';
     if (o) {
-      var propio = o.courier_codigo === 'propio' || o.courier_codigo === 'tienda';
+      var propio = o.courier_codigo === 'propio';
       html += '<p class="font-body-sm text-body-sm text-on-surface-variant ml-6">Entre el ' + esc(L.fecha(o.fecha_min)) + ' y el ' + esc(L.fecha(o.fecha_max)) + ' con ' +
         esc(o.servicio.toLowerCase()) + ' (' + (propio ? '' : esc(o.courier) + ', ') + esc(costoTexto(o)) + ').</p>';
+    }
+    if (tienda) {
+      html += '<p class="font-body-sm text-body-sm text-on-surface-variant ml-6" data-promesa-tienda>' + (o ? 'O retíralo sin costo en su tienda de ' : 'Retiro sin costo en su tienda de ') +
+        esc(ciudad) + ', listo en ' + diasTexto(tienda.dias_min, tienda.dias_max) + ' (entre el ' + esc(L.fecha(tienda.fecha_min)) + ' y el ' + esc(L.fecha(tienda.fecha_max)) + ').</p>';
     }
     if (ops.length > 1 || (r.delivery_municipios || []).length) {
       html += '<details class="mt-1 ml-6 font-body-sm text-body-sm"><summary class="cursor-pointer text-secondary">Ver opciones de envío (' + ops.length + ')</summary>' +
         '<ul class="mt-1 space-y-1">' + ops.map(function (x) {
-          return '<li>' + esc(x.servicio) + (x.courier_codigo === 'propio' || x.courier_codigo === 'tienda' ? '' : ' · ' + esc(x.courier)) + ' · <strong>' + esc(costoTexto(x)) + '</strong> · ' + x.dias_min + '–' + x.dias_max + ' días hábiles</li>';
+          return '<li>' + esc(x.servicio) + (x.courier_codigo === 'propio' || x.courier_codigo === 'tienda' ? (enDestino(x) ? '' : ' en ' + esc(ciudad)) : ' · ' + esc(x.courier)) +
+            ' · <strong>' + esc(costoTexto(x)) + '</strong> · ' + diasTexto(x.dias_min, x.dias_max) + '</li>';
         }).join('') + '</ul>' +
         ((r.delivery_municipios || []).length ? '<p class="mt-1 text-on-surface-variant">Delivery propio en: ' + esc(r.delivery_municipios.join(', ')) + '.</p>' : '') +
         (r.gratis_desde_usd ? '<p class="mt-1 text-on-surface-variant">Envío gratis desde ' + esc(TM.fmtUsd(r.gratis_desde_usd)) + '.</p>' : '') +

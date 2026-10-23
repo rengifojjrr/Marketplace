@@ -82,9 +82,9 @@
           (e && p.estado === 'por_aceptar' ? '<span class="block">' + L.cuenta(e.aceptar_antes, 'acepta en', 'vencido hace') + '</span>' : '') +
           (e && (p.estado === 'preparando' || p.estado === 'listo') ? '<span class="block">' + L.cuenta(e.despachar_antes, 'despacha en', 'vencido hace') + '</span>' : '') +
           (e && e.responsable ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + ic('person', 'text-[14px] align-middle') + ' ' + esc(e.responsable) + '</span>' : '')) +
-        td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtBs(TM.totalPedidoUsd(p))) + '</span>', 'text-right') +
+        td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtBs(TM.totalPedidoUsd(p), p.tasa)) + '</span>', 'text-right') +
         td('<div class="flex flex-wrap gap-2 justify-end">' +
-          (p.estado === 'despachado' && puede ? btn('Confirmar entrega', { icono: 'check_circle', attr: 'data-entregado="' + esc(p.id) + '" title="Con la prueba de entrega del courier"' }) : '') +
+          (p.estado === 'despachado' && puede && !p.disputaId ? btn('Confirmar entrega', { icono: 'check_circle', attr: 'data-entregado="' + esc(p.id) + '" title="Con la prueba de entrega del courier"' }) : '') +
           (p.estado === 'devolucion' && puede && !L.remoto() ? btn('Devolución recibida', { icono: 'assignment_return', attr: 'data-devolucion="' + esc(p.id) + '" data-recibida="1"' }) +
             btn('No llegó', { icono: 'lock_open', attr: 'data-devolucion="' + esc(p.id) + '" data-recibida="0"' }) : '') +
           (L.remoto() ? '<a class="inline-flex items-center gap-1 min-h-[40px] px-3 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary" href="' +
@@ -163,16 +163,23 @@
       (tiene('en_agencia') ? btn('Avisar: llegó a la agencia', { icono: 'storefront', attr: 'data-360="agencia"', clase: 'w-full' }) : '') +
       (tiene('novedad') ? btn('Registrar novedad del courier', { icono: 'local_shipping', attr: 'data-360="novedad"', clase: 'w-full' }) : '') +
       (tiene('devolucion_instrucciones') ? btn('Instrucciones de devolución', { icono: 'edit_note', attr: 'data-360="instrucciones"', clase: 'w-full' }) : '') +
-      (tiene('devolucion_inspeccionar') ? btn('Registrar devolución recibida', { icono: 'fact_check', attr: 'data-360="inspeccionar"', clase: 'w-full' }) : '') +
-      (tiene('devolucion_cerrar') ? btn('Cerrar devolución con reembolso', { icono: 'undo', attr: 'data-360="cerrar-si"', clase: 'w-full' }) +
-        btn('Cerrar: no llegó (fondos al comercio)', { icono: 'lock_open', attr: 'data-360="cerrar-no"', clase: 'w-full' }) : '') +
+      (tiene('devolucion_inspeccionar') ? btn(d.devolucion && d.devolucion.estado === 'recibida' ? 'Corregir la inspección' : 'Registrar devolución recibida',
+        { icono: 'fact_check', attr: 'data-360="inspeccionar"', clase: 'w-full' }) : '') +
+      (tiene('devolucion_reembolsar') ? btn('Cerrar devolución con reembolso', { icono: 'undo', attr: 'data-360="cerrar-si"', clase: 'w-full' }) : '') +
+      (tiene('devolucion_no_llego') ? btn('Cerrar: no llegó (fondos al comercio)', { icono: 'lock_open', attr: 'data-360="cerrar-no"', clase: 'w-full' }) +
+        '<p class="font-body-sm text-body-sm text-on-surface-variant">El reembolso se habilita al registrar la inspección de la devolución recibida.</p>' : '') +
       (tiene('etiqueta') ? '<a class="inline-flex w-full items-center justify-center gap-1.5 min-h-[40px] px-4 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary" href="' +
         href('app/admin/imprimir.html?tipo=etiquetas&ids=' + ped.id) + '">' + ic('print', 'text-[18px]') + 'Imprimir etiqueta</a>' : '') +
       (tiene('cancelar') ? btn('Cancelar por Operaciones', { estilo: 'peligro', icono: 'cancel', attr: 'data-360="cancelar"', clase: 'w-full' }) : '') +
       (tiene('cancelar_perdida') ? btn('Cancelar por pérdida en el courier', { estilo: 'peligro', icono: 'report', attr: 'data-360="perdida"', clase: 'w-full' }) : '');
 
+    /* con un reclamo abierto, la entrega y la pérdida se deciden en Disputas */
+    var reclamo = d.disputa && d.disputa.estado !== 'resuelta'
+      ? '<p class="flex flex-wrap items-center gap-2 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-4" data-reclamo-360>' +
+        ic('gavel', 'text-[18px]') + '<span>Reclamo <strong>' + esc(d.disputa.id) + '</strong> (' + esc(d.disputa.motivo) + ') abierto: los fondos siguen congelados y la entrega, la pérdida o el reembolso se deciden en ' +
+        '<a class="underline font-semibold" href="' + href('app/admin/disputas.html') + '">Disputas</a>.</span></p>' : '';
     return volver + titulo('Pedido ' + ped.id, '<span class="flex flex-wrap items-center gap-2">' + sla + UI.badge(ped.estado) +
-        (ped.liquidacion ? UI.badge(ped.liquidacion) : '') + '</span>') +
+        (ped.liquidacion ? UI.badge(ped.liquidacion) : '') + '</span>') + reclamo +
       '<div class="grid lg:grid-cols-[1fr_340px] gap-6 items-start"><div class="space-y-4 min-w-0">' +
         '<div class="grid sm:grid-cols-2 gap-4">' +
           L.tarjeta('Comercio y comprador', '<dl>' + L.fila('Comercio', esc(d.seller.nombre) + ' <span class="font-data-mono text-data-mono">' + esc(d.seller.id) + '</span>') +
@@ -336,7 +343,7 @@
             instrucciones: velo.querySelector('[name=instrucciones]').value.trim() } }).then(function () { UI.toast('Instrucciones guardadas', 'El comprador ya las ve.', 'assignment_return'); });
         });
     }
-    if (que === 'inspeccionar') return TM.log.inspeccionar(id);
+    if (que === 'inspeccionar') return TM.log.inspeccionar(id, (d.devolucion || {}).estado);
     if (que === 'cerrar-si' || que === 'cerrar-no') {
       var si = que === 'cerrar-si';
       var dv2 = d.devolucion || {};
@@ -498,9 +505,13 @@
           '<label class="flex items-center gap-2 h-10 font-body-sm text-body-sm"><input type="checkbox" name="activo" checked class="rounded border-outline text-secondary"/>Cuenta</label>' +
           btn('Guardar feriado', { estilo: 'primario', tipo: 'submit', icono: 'event' }) + '</form>' : '');
     } else {
-      var a = d.ajustes || {};
+      var a = d.ajustes || {}, rg = d.rangos || {};
       var n = function (k, t, ayuda) {
-        return L.campo(t, '<input name="' + k + '" type="number" min="0" step="1" value="' + esc(a[k] != null ? String(a[k]) : '') + '" class="' + L.CLASE_INPUT + '"' + dis + '/>', ayuda);
+        var r = rg[k] || [];
+        var paso = k === 'peso_defecto_kg' ? '0.1' : '1';
+        return L.campo(t, '<input name="' + k + '" type="number" step="' + paso + '"' + (r.length ? ' min="' + r[0] + '" max="' + r[1] + '"' : '') +
+          ' value="' + esc(a[k] != null ? String(a[k]) : '') + '" class="' + L.CLASE_INPUT + '"' + dis + '/>',
+          (ayuda ? ayuda + ' ' : '') + (r.length ? 'Entre ' + String(r[0]).replace('.', ',') + ' y ' + String(r[1]).replace('.', ',') + '.' : ''));
       };
       html = '<form data-plazos class="grid sm:grid-cols-2 gap-x-4 max-w-3xl">' +
         n('aceptar_horas', 'Horas para aceptar', 'El SLA de aceptación del comercio.') +
@@ -512,7 +523,8 @@
         n('reclamo_no_llego_habiles', 'Días hábiles de gracia del reclamo «no llegó»') +
         n('sin_novedad_dias', 'Días sin novedades de un despacho (semáforo)') +
         n('peso_defecto_kg', 'Peso por omisión de un producto (kg)') +
-        (ed ? '<div class="sm:col-span-2">' + btn('Guardar plazos', { estilo: 'primario', tipo: 'submit', icono: 'save' }) + '</div>' : '') + '</form>';
+        (ed ? '<div class="sm:col-span-2 flex flex-wrap items-center gap-3">' + btn('Guardar plazos', { estilo: 'primario', tipo: 'submit', icono: 'save' }) +
+          '<p data-err-plazos role="alert" class="hidden font-body-sm text-body-sm text-error"></p></div>' : '') + '</form>';
     }
     return cab +
       (!ed ? '<p class="flex items-start gap-2 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-4" data-solo-lectura>' + ic('lock', 'text-[18px] shrink-0') +
@@ -612,10 +624,13 @@
     var fp = raiz.querySelector('[data-plazos]');
     if (fp) fp.addEventListener('submit', function (ev) {
       ev.preventDefault();
-      var valor = Object.assign({}, d.ajustes);
+      var valor = {};
+      var err = fp.querySelector('[data-err-plazos]');
+      if (err) err.classList.add('hidden');
       fp.querySelectorAll('input[name]').forEach(function (i) { if (i.value !== '') valor[i.name] = Number(i.value); });
-      UI.accion(fp.querySelector('button[type=submit]'), function () { return L.accion('tm_ajuste_guardar', { p_clave: 'logistica', p_valor: valor }); },
-        function () { UI.toast('Plazos guardados', 'Aplican a partir de la próxima revisión de SLA.', 'schedule'); }, 'No se guardaron los plazos');
+      UI.accion(fp.querySelector('button[type=submit]'), function () { return L.accion('tm_logistica_plazos_guardar', { p_valor: valor }); },
+        function () { UI.toast('Plazos guardados', 'Aplican a partir de la próxima revisión de SLA.', 'schedule'); }, 'No se guardaron los plazos',
+        function (e) { if (err) { err.textContent = UI.mensajeError(e); err.classList.remove('hidden'); } });
     });
   }
 

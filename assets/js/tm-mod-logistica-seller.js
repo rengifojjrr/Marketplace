@@ -96,7 +96,7 @@
         td('<span class="font-body-sm text-body-sm">' + esc(e ? (e.courier_nombre || '') + ' · ' + (e.servicio || '') : p.envio.courier) + '</span>' +
           (e && e.guia ? '<span class="block font-data-mono text-data-mono text-on-surface-variant">' + esc(e.guia) + '</span>' : '') +
           (e && e.destino_estado ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">→ ' + esc(e.destino_estado) + '</span>' : '')) +
-        td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtBs(TM.totalPedidoUsd(p))) + '</span>') +
+        td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtBs(TM.totalPedidoUsd(p), p.tasa)) + '</span>') +
         td('<a class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline" href="' + href('app/seller/pedido.html?id=' + p.id) + '">Gestionar' + ic('arrow_forward', 'text-[16px]') + '</a>', 'text-right');
     });
 
@@ -201,7 +201,10 @@
       var cour = L.courier(e.courier);
       var tienda = e.courier === 'tienda';
       html += '<form data-form-despacho class="space-y-2">' +
-        (tienda ? '<p class="font-body-sm text-body-sm text-on-surface-variant">El comprador retira en tu tienda: confirma cuando le entregues el paquete.</p>'
+        (tienda ? '<p class="font-body-sm text-body-sm text-on-surface-variant">El comprador retira en tu tienda: confirma cuando le entregues el paquete.</p>' +
+            '<span class="block font-label-md text-label-md text-on-surface mb-1">Constancia de entrega</span>' +
+            TM.archivos.selector({ proposito: 'guia', entidad: p.id, texto: 'Foto de la nota de entrega firmada', nombre: 'foto',
+              ayuda: 'Obligatoria: la nota de entrega firmada por el comprador te respalda si después hay un reclamo.' })
           : L.campo('Courier', L.selectCourier('courier', e.courier || null, { attr: 'data-courier' })) +
             L.campo('Número de guía', '<input name="guia" data-guia-numero maxlength="40" autocomplete="off" placeholder="La que te dio ' + esc((cour && cour.nombre) || 'el courier') +
               '" class="' + L.CLASE_INPUT + ' font-data-mono"/>', 'Obligatorio con courier; con tu delivery puedes dejar una referencia.') +
@@ -214,8 +217,11 @@
       html += btn('Avisar: llegó a la agencia', { icono: 'storefront', attr: 'data-en-agencia', clase: 'w-full' }) +
         '<p class="font-body-sm text-body-sm text-on-surface-variant">Úsalo cuando el courier confirme que el paquete está en la agencia de destino.</p>';
     }
-    if (p.estado === 'devolucion' && d && d.devolucion && d.devolucion.estado !== 'cerrada' && !d.devolucion.inspeccion) {
+    /* la devolución se registra como recibida cuando el comprador ya la envió */
+    if (p.estado === 'devolucion' && d && d.devolucion && d.devolucion.estado === 'en_transito') {
       html += btn('Registrar devolución recibida', { icono: 'fact_check', attr: 'data-inspeccionar', clase: 'w-full' });
+    } else if (p.estado === 'devolucion' && d && d.devolucion && d.devolucion.estado === 'instrucciones') {
+      html += '<p class="font-body-sm text-body-sm text-on-surface-variant" data-devolucion-espera>Cuando el comprador registre el envío de la devolución podrás registrarla como recibida. Si te llegó sin guía, avísale a Operaciones.</p>';
     }
     if (['por_aceptar', 'preparando', 'listo', 'despachado'].indexOf(p.estado) >= 0) {
       html += btn('Reportar incidencia', { icono: 'report', attr: 'data-incidencia', clase: 'w-full' });
@@ -298,11 +304,12 @@
               L.fila('Entrega prometida', e.fecha_prometida ? 'hasta el ' + esc(L.fecha(e.fecha_prometida)) : '') + '</dl>' +
               (e.guia ? '<p class="mb-2">' + L.rastreo(e) + '</p>' : '') +
               '<h3 class="font-label-caps text-label-caps uppercase text-on-surface-variant mt-3 mb-1">Destinatario</h3>' + L.destinatario(d.destinatario)
+            /* con servidor, el destinatario llega con tm_pedido_envio (solo con el pedido activo) */
+            : L.remoto() ? L.cargandoHtml('Cargando el envío…')
             : '<p class="font-body-sm text-body-sm"><strong>' + (p.envio.tipo === 'agencia' ? 'Retiro en agencia' : 'Domicilio') + '</strong></p>' +
               '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(p.envio.dir) + '</p>' +
               '<p class="font-body-sm text-body-sm mt-1"><strong>Courier:</strong> ' + esc(p.envio.courier) + '</p>' +
-              (p.guia ? '<p class="font-body-sm text-body-sm"><strong>Guía:</strong> <span class="font-data-mono text-data-mono">' + esc(p.guia) + '</span></p>' : '') +
-              (L.remoto() ? L.cargandoHtml('Cargando el envío…') : '')) +
+              (p.guia ? '<p class="font-body-sm text-body-sm"><strong>Guía:</strong> <span class="font-data-mono text-data-mono">' + esc(p.guia) + '</span></p>' : '')) +
           '<p class="font-body-sm text-body-sm mt-2 text-on-surface-variant">Los datos del destinatario solo se muestran mientras el pedido está activo.</p></div>' +
         '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 space-y-2" data-acciones-seller>' +
           '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Acciones</h2>' +
@@ -434,13 +441,17 @@
     if (ins) ins.addEventListener('click', function () { inspeccionar(id); });
   }
 
-  /* Inspección de una devolución recibida (también la usa Operaciones). */
-  function inspeccionar(id) {
+  /* Inspección de una devolución recibida (también la usa Operaciones, que
+     puede registrarla sin guía de vuelta o corregirla dejando la nota). */
+  function inspeccionar(id, estado) {
     var L = TM.log;
-    L.modalFormulario('Devolución recibida de ' + id,
+    var conNota = estado === 'instrucciones' || estado === 'recibida';
+    L.modalFormulario(estado === 'recibida' ? 'Corregir la inspección de ' + id : 'Devolución recibida de ' + id,
+      (estado === 'instrucciones' ? '<p class="font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-3">El comprador no registró la guía de vuelta: cuenta en la nota cómo llegó la devolución.</p>' : '') +
       L.campo('¿Cómo llegó el producto?', '<select name="resultado" class="' + L.CLASE_SELECT + '"><option value="apto">Apto: en buen estado y completo</option>' +
         '<option value="danado">Dañado</option><option value="incompleto">Incompleto</option></select>') +
-      L.campo('Nota', '<textarea name="nota" rows="2" maxlength="500" class="' + L.CLASE_AREA + '" placeholder="Obligatoria si llegó dañado o incompleto"></textarea>') +
+      L.campo('Nota', '<textarea name="nota" rows="2" maxlength="500" class="' + L.CLASE_AREA + '" placeholder="' +
+        (conNota ? 'Obligatoria (al menos 10 caracteres)' : 'Obligatoria si llegó dañado o incompleto') + '"></textarea>') +
       TM.archivos.selector({ proposito: 'entrega', entidad: id, texto: 'Foto de la inspección', nombre: 'foto', ayuda: 'Opcional.' }),
       'Registrar inspección', function (velo) {
         if (velo.querySelector('[data-tm-archivo][aria-busy]')) return L.falla('Espera a que termine de subir la foto.');
@@ -454,14 +465,17 @@
   /* =====================================================================
      Configuración de envíos
      ===================================================================== */
-  function filaDelivery(x, editable) {
+  /* Cada zona lleva su estado (Libertador, Sucre o Bolívar se repiten en
+     varios estados); por omisión, el de origen del comercio. */
+  function filaDelivery(x, editable, origen) {
     var L = TM.log;
     x = x || {};
     var dis = editable ? '' : ' disabled';
+    var estado = x.estado || origen || '';
     return '<div class="grid grid-cols-2 sm:grid-cols-[1.4fr_1.2fr_.8fr_.6fr_auto] gap-2 items-end mb-2" data-delivery-fila>' +
       '<label class="block col-span-2 sm:col-span-1"><span class="block font-label-sm text-label-sm mb-1">Municipio</span><input data-d="municipio" maxlength="60" value="' + esc(x.municipio || '') + '" class="' + L.CLASE_INPUT + '"' + dis + '/></label>' +
-      '<label class="block"><span class="block font-label-sm text-label-sm mb-1">Estado</span><select data-d="estado" class="' + L.CLASE_SELECT + '"' + dis + '><option value="">—</option>' +
-        L.estados().map(function (e) { return '<option' + (e.estado === x.estado ? ' selected' : '') + '>' + esc(e.estado) + '</option>'; }).join('') + '</select></label>' +
+      '<label class="block"><span class="block font-label-sm text-label-sm mb-1">Estado</span><select data-d="estado" class="' + L.CLASE_SELECT + '"' + dis + '>' +
+        L.estados().map(function (e) { return '<option' + (e.estado === estado ? ' selected' : '') + '>' + esc(e.estado) + '</option>'; }).join('') + '</select></label>' +
       '<label class="block"><span class="block font-label-sm text-label-sm mb-1">Tarifa (USD)</span><input data-d="costo_usd" type="number" min="0" max="100" step="0.5" value="' + esc(x.costo_usd != null ? String(x.costo_usd) : '') + '" class="' + L.CLASE_INPUT + '"' + dis + '/></label>' +
       '<label class="block"><span class="block font-label-sm text-label-sm mb-1">Días</span><input data-d="dias" type="number" min="0" max="5" value="' + esc(x.dias != null ? String(x.dias) : '1') + '" class="' + L.CLASE_INPUT + '"' + dis + '/></label>' +
       (editable ? '<button type="button" data-quitar-delivery class="h-10 px-2 text-error hover:underline font-label-md text-label-md">Quitar</button>' : '<span></span>') + '</div>';
@@ -507,15 +521,15 @@
         '<span>Ofrecer <strong>cobro en destino</strong>: el comprador paga el envío al retirar en la agencia' + (conCobro.length ? ' (' + esc(conCobro.join(', ')) + ')' : '') + '.</span></label>') +
       L.tarjeta('Delivery propio',
         '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Los municipios a los que llevas con tu propio repartidor, con su tarifa.</p>' +
-        '<div data-delivery>' + (c.delivery || []).map(function (x) { return filaDelivery(x, ed); }).join('') + '</div>' +
+        '<div data-delivery>' + (c.delivery || []).map(function (x) { return filaDelivery(x, ed, c.origen_estado); }).join('') + '</div>' +
         (ed ? btn('Agregar municipio', { icono: 'add', attr: 'data-agregar-delivery' }) : '')) +
       L.tarjeta('Retiro en tienda',
         '<label class="flex items-center gap-2 font-body-sm text-body-sm mb-3"><input type="checkbox" name="retiro_tienda"' + (c.retiro_tienda ? ' checked' : '') + dis + ' class="rounded border-outline text-secondary"/>El comprador puede retirar en mi local</label>' +
         L.campo('Dirección del local', '<input name="retiro_direccion" maxlength="300" value="' + esc(c.retiro_direccion || '') + '" class="' + L.CLASE_INPUT + '"' + dis + '/>') +
         L.campo('Horario', '<input name="retiro_horario" maxlength="120" value="' + esc(c.retiro_horario || '') + '" placeholder="Lun a vie, 9 am a 5 pm" class="' + L.CLASE_INPUT + '"' + dis + '/>')) +
       L.tarjeta('Modo vacaciones',
-        '<label class="flex items-center gap-2 font-body-sm text-body-sm mb-3"><input type="checkbox" name="vacaciones"' + (c.vacaciones ? ' checked' : '') + dis + ' class="rounded border-outline text-secondary"/>Pausar las ventas (los compradores ven el aviso)</label>' +
-        L.campo('De vacaciones hasta el', '<input name="vacaciones_hasta" type="date" value="' + esc(c.vacaciones_hasta || '') + '" class="' + L.CLASE_INPUT + '"' + dis + '/>', 'Opcional: al día siguiente vuelves a recibir pedidos sin hacer nada.') +
+        '<label class="flex items-center gap-2 font-body-sm text-body-sm mb-3"><input type="checkbox" name="vacaciones"' + (d.vacaciones_activas ? ' checked' : '') + dis + ' class="rounded border-outline text-secondary"/>Pausar las ventas (los compradores ven el aviso)</label>' +
+        L.campo('De vacaciones hasta el', '<input name="vacaciones_hasta" type="date" value="' + esc(d.vacaciones_activas ? c.vacaciones_hasta || '' : '') + '" class="' + L.CLASE_INPUT + '"' + dis + '/>', 'Opcional: al día siguiente vuelves a recibir pedidos sin hacer nada.') +
         L.campo('Mensaje para los compradores', '<input name="vacaciones_mensaje" maxlength="200" value="' + esc(c.vacaciones_mensaje || '') + '" class="' + L.CLASE_INPUT + '"' + dis + '/>')) +
       (ed ? '<div class="lg:col-span-2 flex items-center gap-3">' + btn('Guardar configuración', { estilo: 'primario', icono: 'save', tipo: 'submit', attr: 'data-guardar-envios' }) +
         '<p data-err-envios role="alert" class="hidden font-body-sm text-body-sm text-error"></p></div>' : '') +
@@ -536,7 +550,8 @@
     enlazarQuitar();
     var ad = f.querySelector('[data-agregar-delivery]');
     if (ad) ad.addEventListener('click', function () {
-      cont.insertAdjacentHTML('beforeend', filaDelivery({}, true));
+      var origen = f.querySelector('[name=origen_estado]');
+      cont.insertAdjacentHTML('beforeend', filaDelivery({}, true, origen ? origen.value : ''));
       enlazarQuitar();
       var u = cont.querySelector('[data-delivery-fila]:last-child [data-d=municipio]');
       if (u) u.focus();

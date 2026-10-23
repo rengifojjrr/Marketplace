@@ -12,11 +12,21 @@
  * En modo local comprueba que lo nuevo avisa que necesita el servidor y que
  * los flujos de siempre siguen ahí.
  */
+const { spawnSync } = require('child_process');
 const { iniciar } = require('./e2e-comun');
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 const CASA = 'd0000000-0000-4000-8000-000000000001';
 const SEMILLA = 'TM-2026-00434';
+/* Con TM_PGDATABASE (solo en local) se mueven fechas por SQL para lo que
+   depende del tiempo; sin ella esas pruebas se informan como omitidas. */
+const BD = process.env.TM_PGDATABASE || '';
+function psql(consulta) {
+  const r = spawnSync('psql', ['-h', process.env.PGHOST || '/tmp', '-p', process.env.PGPORT || '54322', '-U', 'postgres',
+    '-d', BD, '-X', '-At', '-v', 'ON_ERROR_STOP=1'], { input: consulta, encoding: 'utf8' });
+  if (r.status !== 0) throw new Error((r.stderr || '').trim());
+  return r.stdout.trim();
+}
 
 (async () => {
   const t = await iniciar();
@@ -88,7 +98,7 @@ const SEMILLA = 'TM-2026-00434';
     await abrir('tienda/producto?sku=SKU-MOT-0832');
     await esperar('[data-promesa-texto]');
     const t1 = await texto('[data-promesa-texto]');
-    if (!/Envía desde Caracas · llega en \d+(–\d+)? días hábiles a Miranda/.test(t1)) throw new Error('promesa inesperada: ' + t1);
+    if (!/Envía desde Caracas · llega en \d+(–\d+)? días? hábil(es)? a Miranda/.test(t1)) throw new Error('promesa inesperada: ' + t1);
     if (!/delivery propio/i.test(await texto('[data-tm-envio-promesa]'))) throw new Error('no ofrece el delivery propio del comercio en Chacao');
     await p.selectOption('[data-promesa-estado]', 'Zulia');
     await p.locator('[data-promesa-texto]', { hasText: 'a Zulia' }).waitFor({ timeout: 15000 });
@@ -123,6 +133,36 @@ const SEMILLA = 'TM-2026-00434';
     await aviso('Configuración guardada');
     await p.locator('[data-vacaciones-activas]').waitFor({ state: 'detached', timeout: 15000 });
   }, /status of 400/);
+
+  await pruebaSolo('remoto', 'con retiro en tienda la ficha promete el envío al estado del comprador y ofrece el retiro aparte; el delivery lleva su estado', async () => {
+    await login('seller');
+    await abrir('seller/envios');
+    await esperar('[data-form-envios]');
+    await p.locator('[data-agregar-delivery]').click();
+    const fila = p.locator('[data-delivery-fila]').last();
+    if ((await fila.locator('[data-d=estado]').inputValue()) !== 'Distrito Capital') throw new Error('la zona nueva no toma el estado de origen');
+    if (await fila.locator('[data-d=estado] option[value=""]').count()) throw new Error('la zona de delivery se puede dejar sin estado');
+    await fila.locator('[data-quitar-delivery]').click();
+    await p.locator('[name=retiro_tienda]').check();
+    await p.fill('[name=retiro_direccion]', 'Av. Principal de Pruebas, local 4');
+    await p.locator('[data-guardar-envios]').click();
+    await aviso('Configuración guardada');
+    await login('comprador');
+    await abrir('tienda/producto?sku=SKU-MOT-0832');
+    await esperar('[data-promesa-estado]');
+    await p.selectOption('[data-promesa-estado]', 'Zulia');
+    await p.locator('[data-promesa-texto]', { hasText: 'a Zulia' }).waitFor({ timeout: 15000 });
+    const t1 = await texto('[data-promesa-texto]');
+    if (!/Envía desde Caracas · llega en \d+(–\d+)? días? hábil(es)? a Zulia/.test(t1) || /1 días/.test(t1)) throw new Error('promesa inesperada: ' + t1);
+    if (!/retíralo sin costo en su tienda de Caracas/i.test(await texto('[data-promesa-tienda]'))) throw new Error('el retiro en tienda no aparece aparte');
+    await p.evaluate(() => localStorage.removeItem('tm.envio.estado.v1'));
+    await login('seller');
+    await abrir('seller/envios');
+    await esperar('[data-form-envios]');
+    await p.locator('[name=retiro_tienda]').uncheck();
+    await p.locator('[data-guardar-envios]').click();
+    await aviso('Configuración guardada');
+  });
 
   await pruebaSolo('remoto', 'el operador ve la configuración de envíos sin poder cambiarla', async () => {
     await login('operador');
@@ -336,6 +376,68 @@ const SEMILLA = 'TM-2026-00434';
     await abrir('admin/pedidos?q=ZM-2000001');
     await esperar('#raiz tr a[href*="admin/pedido.html?id=' + SEMILLA + '"]');
     if ((await p.locator('#raiz tbody tr').count()) !== 1) throw new Error('el filtro por guía no deja solo el pedido');
+  });
+
+  const noLlego = 'con un reclamo «no llegó» abierto nadie confirma la entrega: el comprador no ve «Confirmar recepción» y Operaciones no confirma ni cancela por pérdida';
+  if (BD || t.modo !== 'remoto') {
+    await pruebaSolo('remoto', noLlego, async () => {
+      psql(`update tumbo.envios set fecha_prometida = tumbo_privado.hoy() - 10 where pedido_id = 'TM-2026-00431'`);
+      await login('comprador');
+      await abrir('tienda/pedido?id=TM-2026-00431');
+      await esperar('[data-no-llego]');
+      await p.locator('[data-no-llego]').click();
+      await p.fill('.tm-modal [name=descripcion]', 'El paquete no ha llegado y el rastreo no se mueve.');
+      await p.locator('.tm-modal [data-ok]').click();
+      await aviso('Reclamo DSP-');
+      await esperar('[data-reclamo-abierto]');
+      if (await p.locator('[data-recibir]').count()) throw new Error('el comprador puede confirmar la recepción con el reclamo abierto');
+      await login('ops');
+      await abrir('admin/pedido?id=TM-2026-00431');
+      await esperar('[data-reclamo-360]');
+      if (await p.locator('[data-360="confirmar"], [data-360="perdida"]').count()) throw new Error('el 360 ofrece confirmar o cancelar por pérdida con el reclamo abierto');
+      await abrir('admin/pedidos?q=00431');
+      await esperar('#raiz tbody tr a[href*="TM-2026-00431"]');
+      if (await p.locator('[data-entregado="TM-2026-00431"]').count()) throw new Error('la lista ofrece confirmar la entrega con el reclamo abierto');
+    });
+  } else process.stdout.write('\x1b[33m– \x1b[0m' + noLlego + '\x1b[33m  (sin TM_PGDATABASE)\x1b[0m\n');
+
+  await pruebaSolo('remoto', 'la devolución: el comercio la registra recibida cuando el comprador la envía y el reembolso se habilita tras la inspección', async () => {
+    await login('ops');
+    const r = await p.evaluate(() => TM.api('tm_resolver_disputa', { p_id: 'DSP-0098', p_decision: 'devolucion', p_nota: null }).then(() => 'ok', (e) => String(e && e.message || e)));
+    if (r !== 'ok') throw new Error('no se resolvió la disputa: ' + r);
+    await login('seller');
+    await abrir('seller/pedido?id=TM-2026-00428');
+    await esperar('[data-devolucion-espera]');
+    if (await p.locator('[data-inspeccionar]').count()) throw new Error('el comercio puede registrar la devolución antes de que el comprador la envíe');
+    await login('comprador');
+    await abrir('tienda/pedido?id=TM-2026-00428');
+    await esperar('[data-devolucion-guia]');
+    await p.selectOption('[data-devolucion-guia] [name=courier]', 'mrw');
+    await p.fill('[data-devolucion-guia] [name=guia]', 'MRW-DEV-4001');
+    await p.locator('[data-devolucion-guia] button[type=submit]').click();
+    await aviso('Guía registrada');
+    await login('seller');
+    await abrir('seller/pedido?id=TM-2026-00428');
+    await esperar('[data-inspeccionar]');
+    await p.locator('[data-inspeccionar]').click();
+    await esperar('.tm-modal [name=resultado]');
+    await p.locator('.tm-modal [data-ok]').click();
+    await aviso('Inspección registrada');
+    await login('ops');
+    await abrir('admin/pedido?id=TM-2026-00428');
+    await esperar('[data-360="cerrar-si"]');
+    if (await p.locator('[data-360="cerrar-no"]').count()) throw new Error('se puede cerrar como «no llegó» una devolución ya recibida');
+    await p.locator('[data-360="cerrar-si"]').click();
+    await p.waitForSelector('.tm-modal [data-ok]');
+    await p.locator('.tm-modal [data-ok]').click();
+    await aviso('Devolución cerrada');
+  });
+
+  await pruebaSolo('remoto', 'en un pedido cerrado el comercio no ve la dirección ni el contacto del comprador', async () => {
+    await login('seller');
+    await abrir('seller/pedido?id=TM-2026-00415');
+    await p.locator('#raiz', { hasText: 'Los datos de contacto se ocultan' }).waitFor({ timeout: 15000 });
+    if (/Francisco de Miranda/.test(await texto())) throw new Error('el comercio ve la dirección de un pedido cerrado');
   });
 
   await t.resumen('pruebas E2E de logística en verde.');

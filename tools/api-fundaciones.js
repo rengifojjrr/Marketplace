@@ -539,6 +539,8 @@ const pdfDe = (bytes) => Buffer.concat([PDF, Buffer.alloc(Math.max(0, bytes - PD
   const ad = await rpc('tm_abrir_disputa', { p_sesion: s.comprador, p_pedido: 'TM-2026-00431', p_motivo: 'Producto incorrecto',
     p_descripcion: 'Llegó otro modelo de monitor distinto al comprado.', p_evidencia: [] });
   await rpc('tm_resolver_disputa', { p_sesion: s.ops, p_id: ad.dato, p_decision: 'devolucion', p_nota: null });
+  /* (logística: el reembolso de una devolución va después de su inspección) */
+  await rpc('tm_devolucion_inspeccionar', { p_sesion: s.ops, p_id: 'TM-2026-00431', p_resultado: 'apto', p_nota: 'Llegó completo a la oficina del comercio', p_foto: null });
   const dv = await rpc('tm_cerrar_devolucion', { p_sesion: s.ops, p_id: 'TM-2026-00431', p_recibida: true });
   const rf2 = await rpc('tm_reembolsos', { p_sesion: s.superadmin });
   const r431 = (rf2.dato || []).find((r) => r.pedido_id === 'TM-2026-00431');

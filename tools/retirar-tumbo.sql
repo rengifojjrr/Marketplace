@@ -49,7 +49,7 @@ declare
     'public.tm_operaciones_asignar(text,text,uuid)', 'public.tm_nota_interna(text,text,text)', 'public.tm_pedido_360(text,text)',
     'public.tm_operaciones_panel(text,jsonb)', 'public.tm_courier_guardar(text,jsonb)', 'public.tm_tarifa_guardar(text,jsonb)',
     'public.tm_oficina_guardar(text,jsonb)', 'public.tm_zona_estado(text,text,text)',
-    'public.tm_feriado_guardar(text,date,text,boolean)', 'public.tm_sla_revisar(text)'];
+    'public.tm_feriado_guardar(text,date,text,boolean)', 'public.tm_logistica_plazos_guardar(text,jsonb)', 'public.tm_sla_revisar(text)'];
   f text;
   ajenos text;
   b text;

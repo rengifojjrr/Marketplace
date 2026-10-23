@@ -22,9 +22,9 @@
 --     notas internas, asignación de responsables y el panel de Operaciones;
 --   · la tarea programada tumbo_privado.tarea_sla() (pg_cron si existe).
 -- Solo agrega: crea tablas, índices, funciones y disparadores; las funciones
--- existentes que redefine (tm_marcar_listo, tm_despachar, tm_cancelar_pedido,
--- tm_cerrar_devolucion y tm_abrir_disputa) parten de su última definición y
--- conservan su comportamiento.
+-- existentes que redefine (tm_marcar_listo, tm_despachar, tm_confirmar_entrega,
+-- tm_cancelar_pedido, tm_cerrar_devolucion y tm_abrir_disputa) parten de su
+-- última definición y conservan su comportamiento de base.
 -- =========================================================================
 
 create extension if not exists unaccent with schema extensions;
@@ -39,9 +39,28 @@ insert into tumbo.ajustes (clave, valor, tipo, vaciable, publico, descripcion) v
    'Plazos de la operación: horas para aceptar, recordar y cancelar un pedido sin aceptar; horas para que el comercio responda una solicitud de cancelación; días para dar por recibida una entrega y para avisarlo antes; días hábiles de gracia del reclamo «no llegó»; días sin novedades de un despacho y peso por omisión de un producto (kg).')
 on conflict (clave) do nothing;
 
+-- Mínimo y máximo de cada plazo: tm_logistica_plazos_guardar rechaza lo que
+-- se sale de ahí y, si el ajuste se cambiara por otra vía, la lectura lo
+-- lleva al límite (un 0 nunca cancela ni autoconfirma todo de inmediato).
+create function tumbo_privado.logistica_rango(p_clave text) returns numeric[]
+language sql immutable set search_path = '' as $$
+  select case p_clave
+    when 'aceptar_horas' then array[2, 72]
+    when 'recordar_horas' then array[1, 24]
+    when 'cancelar_horas' then array[24, 168]
+    when 'solicitud_horas' then array[2, 72]
+    when 'autoconfirmar_dias' then array[3, 30]
+    when 'aviso_autoconfirmar_dias' then array[1, 7]
+    when 'reclamo_no_llego_habiles' then array[0, 10]
+    when 'sin_novedad_dias' then array[1, 30]
+    when 'peso_defecto_kg' then array[0.1, 50] end::numeric[]
+$$;
+
 create function tumbo_privado.logistica(p_clave text, p_omision numeric) returns numeric
 language sql stable security definer set search_path = '' as $$
-  select tumbo_privado.numero(coalesce(tumbo_privado.ajuste('logistica'), '{}'::jsonb) -> p_clave, p_omision)
+  select case when x.r is null or x.v is null then x.v else greatest(x.r[1], least(x.r[2], x.v)) end
+  from (select tumbo_privado.numero(coalesce(tumbo_privado.ajuste('logistica'), '{}'::jsonb) -> p_clave, p_omision) as v,
+               tumbo_privado.logistica_rango(p_clave) as r) x
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -572,6 +591,14 @@ language sql immutable set search_path = '' as $$
               else '••••' || right(regexp_replace(p, '[^0-9A-Za-z]', '', 'g'), p_visibles) end
 $$;
 
+-- El reclamo sin resolver de un pedido (o null). Mientras exista, el dinero
+-- del pedido se decide por el reclamo: ni la entrega confirmada ni una
+-- cancelación lo descongelan o lo reembolsan por su cuenta.
+create function tumbo_privado.disputa_abierta(p_pedido text) returns text
+language sql stable security definer set search_path = '' as $$
+  select d.id from tumbo.disputas d where d.pedido_id = p_pedido and d.estado <> 'resuelta' order by d.creado desc limit 1
+$$;
+
 -- ---------------------------------------------------------------------------
 -- Configuración efectiva de un comercio y cotización
 -- ---------------------------------------------------------------------------
@@ -653,7 +680,10 @@ language sql stable set search_path = '' as $$
     'fecha_min', tumbo_privado.sumar_habiles(tumbo_privado.hoy(), p_dmin),
     'fecha_max', tumbo_privado.sumar_habiles(tumbo_privado.hoy(), p_dmax),
     'retiro', p_retiro, 'descripcion', p_descripcion, 'tarifa_referencia', coalesce(p_referencia, false),
-    'alcance', p_alcance, 'rastreo', p_courier.url_rastreo is not null)
+    'alcance', p_alcance, 'rastreo', p_courier.url_rastreo is not null,
+    -- llega al estado del comprador (courier o delivery); el retiro en tienda
+    -- es en la ciudad del comercio
+    'en_destino', p_courier.tipo is distinct from 'tienda')
 $$;
 
 -- Todas las opciones de envío de un comercio a un destino para unas líneas.
@@ -719,12 +749,15 @@ begin
     end if;
   end loop;
 
-  -- Delivery propio: solo en los municipios que el comercio cubre.
+  -- Delivery propio: solo en los municipios que el comercio cubre, del mismo
+  -- estado (Libertador, Sucre o Bolívar se repiten en varios estados). Una
+  -- zona guardada sin estado es del estado de origen; con un destino de
+  -- estado desconocido no se ofrece.
   select * into pr from tumbo.couriers where codigo = 'propio' and activo;
-  if pr.codigo is not null and coalesce(v_muni, v_ciudad) is not null then
+  if pr.codigo is not null and v_estado is not null and coalesce(v_muni, v_ciudad) is not null then
     for d in select x from jsonb_array_elements(c.delivery) x loop
       if tumbo_privado.lugar_clave(d ->> 'municipio') in (v_muni, v_ciudad)
-         and (d ->> 'estado' is null or v_estado is null or d ->> 'estado' = v_estado) then
+         and coalesce(nullif(d ->> 'estado', ''), c.origen_estado) = v_estado then
         v_ops := v_ops || tumbo_privado.opcion_envio('propio:domicilio', 'domicilio', pr, 'Delivery propio',
           (d ->> 'costo_usd')::numeric, v_prep, v_prep + coalesce((d ->> 'dias')::integer, 1), false,
           'Entrega en ' || (d ->> 'municipio') || ' con el delivery de ' || s.nombre, v_gratis, false, null, false, 'local');
@@ -739,9 +772,13 @@ begin
       'Retiras en la tienda de ' || s.nombre || ' en ' || c.origen_ciudad, false, false, null, false, 'local');
   end if;
 
-  -- las de cobro en destino (costo 0 en el checkout) van después de las que se pagan ahora
-  select coalesce(jsonb_agg(o order by (o ->> 'cobro_destino')::boolean, (o ->> 'costo_usd')::numeric, (o ->> 'dias_max')::integer,
-                                       o ->> 'codigo'), '[]'::jsonb)
+  -- primero las que llegan al estado del comprador y se pagan ahora; después
+  -- las de cobro en destino (costo 0 en el checkout porque se pagan al
+  -- retirar) y al final el retiro en la tienda del comercio (en su ciudad):
+  -- ni la promesa de la ficha ni la opción por omisión del checkout salen de
+  -- una opción que no entrega en el destino
+  select coalesce(jsonb_agg(o order by not (o ->> 'en_destino')::boolean, (o ->> 'cobro_destino')::boolean, (o ->> 'costo_usd')::numeric,
+                                       (o ->> 'dias_max')::integer, o ->> 'codigo'), '[]'::jsonb)
     into v_ops from jsonb_array_elements(v_ops) o;
 
   return jsonb_build_object(
@@ -751,7 +788,8 @@ begin
                                   'estimado', v_estado is null),
     'alcance', v_alcance, 'peso_kg', round(v_peso, 2), 'subtotal_usd', v_sub,
     'gratis_desde_usd', c.gratis_desde_usd, 'dias_preparacion', v_prep,
-    'delivery_municipios', coalesce((select jsonb_agg(x ->> 'municipio') from jsonb_array_elements(c.delivery) x), '[]'::jsonb),
+    'delivery_municipios', coalesce((select jsonb_agg((x ->> 'municipio') || ' (' || coalesce(nullif(x ->> 'estado', ''), c.origen_estado) || ')')
+                                     from jsonb_array_elements(c.delivery) x), '[]'::jsonb),
     'retiro_tienda', c.retiro_tienda,
     'vacaciones', case when tumbo_privado.vacaciones_activas(c) then jsonb_build_object(
                     'hasta', c.vacaciones_hasta, 'mensaje', c.vacaciones_mensaje,
@@ -856,6 +894,21 @@ begin
   end if;
   return null;
 end $$;
+
+-- Contrato para quien arme la lista de pedidos del comercio (tm_cargar, de
+-- Catálogo): recibe el pedido y el JSON que se iba a entregar y, si quien
+-- mira es el seller o su operador y el pedido ya no está activo, quita la
+-- foto del destino y deja en envio_dir solo la ciudad y el estado. El mismo
+-- mínimo privilegio que tm_pedido_envio.
+create function tumbo_privado.pedido_comercio_json(p_rol text, v tumbo.pedidos, j jsonb) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select case
+    when p_rol in ('seller', 'operador') and v.estado not in ('por_aceptar', 'preparando', 'listo', 'despachado') then
+      (j - 'destino') || jsonb_build_object('envio_dir',
+        coalesce(nullif(concat_ws(', ', x.d ->> 'ciudad', x.d ->> 'estado'), ''), 'Dirección oculta: el pedido ya no está activo'))
+    else j end
+  from (select tumbo_privado.destinatario_pedido(v) as d) x
+$$;
 
 -- El envío del pedido; si aún no tiene fila (pedidos de antes de esta ola o
 -- sembrados por otro dominio), se crea con la opción que corresponde a su
@@ -1152,7 +1205,13 @@ declare
                              when 'sistema' then 'automáticamente' else 'por el comprador' end;
   v_texto text := tumbo_privado.texto_motivo(p_motivo);
   v_desc text;
+  v_disp text := tumbo_privado.disputa_abierta(v.id);
 begin
+  -- con un reclamo abierto, el reembolso lo decide el reclamo (si no, se
+  -- reembolsaría dos veces al resolverlo)
+  if v_disp is not null then
+    raise exception 'El pedido % tiene abierto el reclamo %: resuélvelo desde Disputas (con reembolso si corresponde) en vez de cancelarlo.', v.id, v_disp;
+  end if;
   v_desc := case when p_motivo = 'solicitud_comprador' and p_por = 'sistema' then 'a pedido del comprador (el comercio no respondió a tiempo)'
                  when p_motivo = 'solicitud_comprador' then 'a pedido del comprador (aprobado por el comercio)'
                  else v_quien || ' (' || v_texto || ')' end;
@@ -1213,6 +1272,11 @@ begin
   if p_exigir and k.tipo = 'courier' and v_guia is null then
     raise exception 'Escribe el número de guía que te dio % al recibir el paquete.', k.nombre;
   end if;
+  -- la entrega en la tienda no tiene courier que la respalde: queda la
+  -- constancia (foto de la nota de entrega firmada por el comprador)
+  if p_exigir and k.tipo = 'tienda' and p_foto is null then
+    raise exception 'Adjunta la constancia de la entrega en la tienda: la foto de la nota de entrega firmada por el comprador.';
+  end if;
   if v_guia is not null and exists (select 1 from tumbo.envios x where x.courier = k.codigo and x.guia = v_guia and x.pedido_id <> v.id) then
     raise exception 'Esa guía de % ya está registrada en otro pedido: revisa el número.', k.nombre;
   end if;
@@ -1253,7 +1317,13 @@ create function tumbo_privado.confirmar_entrega_interna(p_yo tumbo.usuarios, v t
 language plpgsql security definer set search_path = '' as $$
 declare
   cfg tumbo.config;
+  v_disp text := tumbo_privado.disputa_abierta(v.id);
 begin
+  -- con un reclamo abierto («no llegó») los fondos siguen congelados: el
+  -- caso se cierra por el reclamo
+  if v_disp is not null then
+    raise exception 'El pedido % tiene abierto el reclamo %: resuélvelo desde Disputas (si el paquete llegó, liberando los fondos).', v.id, v_disp;
+  end if;
   select * into cfg from tumbo.config;
   update tumbo.pedidos set estado = 'entregado', entregado_el = now(), liquidacion = 'retenido' where id = v.id;
   perform tumbo_privado.evento(v.id, p_actor, p_texto || ' · abre la ventana de reclamo (' || cfg.ventana_reclamo_dias || ' días)', 'check_circle');
@@ -1293,15 +1363,47 @@ begin
   return v_ref;
 end $$;
 
--- Despacho (desde la migración 4): con el courier de la opción elegida y,
--- si ya se registró, su guía. La versión con guía y foto es tm_despachar_guia.
+-- Despacho (desde la migración 4) con el courier de la opción elegida. Las
+-- mismas reglas que el despacho con guía (tm_despachar_guia): un courier
+-- exige su número de guía y la entrega en la tienda, su constancia, así que
+-- por aquí solo sale el delivery propio; lo demás pide tm_despachar_guia.
 create or replace function public.tm_despachar(p_sesion text, p_id text) returns void
 language plpgsql security definer set search_path = '' as $$
 declare
   yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['seller', 'operador']);
   v tumbo.pedidos := tumbo_privado.bloquear_pedido(p_id, yo);
 begin
-  perform tumbo_privado.despachar_envio(yo, v, null, null, null, false);
+  perform tumbo_privado.despachar_envio(yo, v, null, null, null, true);
+end $$;
+
+-- Confirmación de entrega (desde la migración 2). La del comprador, como
+-- siempre; Operaciones confirma sin el comprador solo con la foto de la
+-- prueba del courier (tm_entrega_confirmar). Con un reclamo abierto sobre el
+-- pedido («no llegó») no se confirma: el dinero lo decide el reclamo.
+create or replace function public.tm_confirmar_entrega(p_sesion text, p_id text) returns void
+language plpgsql security definer set search_path = '' as $$
+declare
+  yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['comprador', 'ops', 'superadmin']);
+  v tumbo.pedidos := tumbo_privado.bloquear_pedido(p_id, yo);
+  cfg tumbo.config;
+  v_disp text;
+begin
+  select * into cfg from tumbo.config;
+  if v.estado <> 'despachado' then
+    raise exception 'El pedido % no está en camino.', p_id;
+  end if;
+  if yo.rol <> 'comprador' then
+    raise exception 'Para confirmar una entrega sin el comprador adjunta la foto de la prueba del courier (confirmar entrega con prueba).';
+  end if;
+  v_disp := tumbo_privado.disputa_abierta(p_id);
+  if v_disp is not null then
+    raise exception 'Tienes abierto el reclamo % sobre este pedido: si ya te llegó, avísale a soporte para que Operaciones cierre el reclamo.', v_disp;
+  end if;
+  update tumbo.pedidos set estado = 'entregado', entregado_el = now(), liquidacion = 'retenido' where id = p_id;
+  perform tumbo_privado.evento(p_id, 'Comprador', 'Entrega confirmada · abre la ventana de reclamo (' || cfg.ventana_reclamo_dias || ' días)', 'check_circle');
+  perform tumbo_privado.notificar('seller:' || v.seller_id,
+    'El pedido ' || p_id || ' fue entregado: fondos en retención hasta cerrar la ventana', 'lock', 'seller/finanzas.html');
+  perform tumbo_privado.auditar(yo, 'Entrega confirmada', p_id);
 end $$;
 
 -- Cancelación del comprador (desde la de fundaciones): antes de que el
@@ -1332,7 +1434,7 @@ begin
     v_vence := now() + make_interval(hours => tumbo_privado.logistica('solicitud_horas', 24)::integer);
     insert into tumbo.solicitudes_cancelacion (pedido_id, seller_id, motivo, vence)
     values (p_id, v.seller_id, v_motivo, v_vence);
-    perform tumbo_privado.evento(p_id, yo.nombre, 'Solicitud de cancelación enviada al comercio (' || coalesce(v_motivo, 'sin motivo') ||
+    perform tumbo_privado.evento(p_id, 'Comprador', 'Solicitud de cancelación enviada al comercio (' || coalesce(v_motivo, 'sin motivo') ||
       ') · si no responde, se aprueba sola el ' || tumbo_privado.fecha_hora_ve(v_vence), 'pending');
     perform tumbo_privado.notificar('seller:' || v.seller_id, 'El comprador pidió cancelar el pedido ' || p_id || ': respóndele antes de despacharlo',
       'cancel', 'seller/pedido.html?id=' || p_id, array['seller', 'operador']);
@@ -1343,7 +1445,7 @@ begin
   update tumbo.pedidos set estado = 'cancelado', liquidacion = null where id = p_id;
   update tumbo.productos p set stock_res = greatest(0, p.stock_res - i.cant), actualizado = now()
   from tumbo.pedido_items i where i.pedido_id = p_id and i.sku = p.sku;
-  perform tumbo_privado.evento(p_id, yo.nombre,
+  perform tumbo_privado.evento(p_id, 'Comprador',
     'Pedido cancelado (' || coalesce(v_motivo, 'sin motivo') || ') · stock liberado' ||
     case when v.estado = 'pago_por_verificar' then '' else ' y reembolso en cola' end, 'cancel');
   if v.estado <> 'pago_por_verificar' then
@@ -1359,8 +1461,9 @@ begin
 end $$;
 
 -- Cierre de devolución (desde la de fundaciones): si el producto volvió se
--- reembolsa; el stock se repone salvo que la inspección lo encontrara dañado
--- o incompleto.
+-- reembolsa, siempre después de la inspección al recibirlo (el stock se
+-- repone solo si llegó apto); si no volvió en el plazo, los fondos pasan al
+-- comercio, salvo que ya se haya recibido.
 create or replace function public.tm_cerrar_devolucion(p_sesion text, p_id text, p_recibida boolean) returns void
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -1375,8 +1478,15 @@ begin
   if p_recibida is null then
     raise exception 'Indica si el producto volvió.';
   end if;
-  select * into dv from tumbo.devoluciones where pedido_id = p_id;
-  v_reponer := coalesce(dv.inspeccion, 'apto') = 'apto';
+  perform tumbo_privado.devolucion_crear(p_id);
+  select * into dv from tumbo.devoluciones where pedido_id = p_id for update;
+  if p_recibida and (dv.estado is distinct from 'recibida' or dv.inspeccion is null) then
+    raise exception 'Antes de reembolsar registra la inspección de la devolución de % (cómo llegó el producto) en el detalle del pedido.', p_id;
+  end if;
+  if not p_recibida and dv.estado = 'recibida' then
+    raise exception 'La devolución de % ya se recibió e inspeccionó: ciérrala con el reembolso.', p_id;
+  end if;
+  v_reponer := dv.inspeccion = 'apto';
   if p_recibida then
     perform tumbo_privado.bloquear_stock(p_id);
     update tumbo.pedidos set estado = 'reembolsado', liquidacion = 'reembolsado' where id = p_id;
@@ -1401,7 +1511,7 @@ begin
   end if;
   update tumbo.devoluciones set estado = 'cerrada', cerrada_en = now(), actualizado = now() where pedido_id = p_id;
   perform tumbo_privado.auditar(yo, 'Cierre de devolución', p_id || ' → ' ||
-    case when p_recibida then 'recibida, reembolso' || case when v_reponer then '' else ' sin reponer stock' end
+    case when p_recibida then 'recibida (' || dv.inspeccion || '), reembolso' || case when v_reponer then '' else ' sin reponer stock' end
          else 'no recibida, fondos al seller' end);
 end $$;
 
@@ -1430,6 +1540,10 @@ begin
       raise exception 'El reclamo «No llegó» es para un pedido despachado que no recibiste.';
     end if;
     e := tumbo_privado.envio_asegurar(v.id);
+    -- el retiro en tienda se entregó en mano, con la constancia firmada
+    if e.courier = 'tienda' then
+      raise exception 'Este pedido se entregó en la tienda del comercio con una constancia firmada: el reclamo «No llegó» es para envíos. Si no lo retiraste, escríbele a soporte.';
+    end if;
     v_desde := tumbo_privado.fin_dia(tumbo_privado.sumar_habiles(coalesce(e.fecha_prometida, tumbo_privado.hoy()),
                                                                  tumbo_privado.logistica('reclamo_no_llego_habiles', 2)::integer));
     if now() < v_desde then
@@ -1456,7 +1570,7 @@ begin
   insert into tumbo.disputas (id, pedido_id, comprador_id, seller_id, motivo, descripcion, evidencia, monto_usd, estado)
   values (v_id, v.id, v.comprador_id, v.seller_id, p_motivo, v_desc, v_evid, tumbo_privado.bruto_pedido(v.id), 'abierta');
   update tumbo.pedidos set disputa_id = v_id, liquidacion = 'congelado' where id = v.id;
-  perform tumbo_privado.evento(v.id, yo.nombre, 'Reclamo ' || v_id || ' abierto' ||
+  perform tumbo_privado.evento(v.id, 'Comprador', 'Reclamo ' || v_id || ' abierto' ||
     case when v_no_llego then ': el pedido no llegó' else '' end || ' · liquidación congelada', 'gavel');
   perform tumbo_privado.notificar('seller:' || v.seller_id, 'Reclamo ' || v_id || ' abierto sobre ' || v.id ||
     case when v_no_llego then ' (no llegó)' else '' end || ': responde con tu evidencia', 'gavel', 'seller/disputas.html');
@@ -1496,6 +1610,9 @@ begin
     'feriados', coalesce((select jsonb_agg(to_jsonb(f) order by f.fecha) from tumbo.feriados f
                           where f.fecha >= tumbo_privado.hoy() - 31), '[]'::jsonb),
     'ajustes', coalesce(tumbo_privado.ajuste('logistica'), '{}'::jsonb),
+    'rangos', (select jsonb_object_agg(k, to_jsonb(tumbo_privado.logistica_rango(k)))
+               from unnest(array['aceptar_horas', 'recordar_horas', 'cancelar_horas', 'solicitud_horas', 'autoconfirmar_dias',
+                                 'aviso_autoconfirmar_dias', 'reclamo_no_llego_habiles', 'sin_novedad_dias', 'peso_defecto_kg']) k),
     'tarea_sla', (select to_jsonb(t) from tumbo.tareas_registro t where t.tarea = 'sla'),
     'editable', not tumbo_privado.cuenta_demo(yo.email));
 end $$;
@@ -1686,7 +1803,7 @@ begin
     'origen', jsonb_build_object('ciudad', c.origen_ciudad, 'estado', c.origen_estado),
     'tienda', case when e.courier = 'tienda' then jsonb_build_object('direccion', c.retiro_direccion, 'horario', c.retiro_horario) end,
     'destinatario', tumbo_privado.destinatario_visible(yo, v),
-    'no_llego', case when v_comprador and v.estado = 'despachado' and v.disputa_id is null then
+    'no_llego', case when v_comprador and v.estado = 'despachado' and v.disputa_id is null and e.courier is distinct from 'tienda' then
                   jsonb_build_object('puede', now() >= v_desde, 'desde', (v_desde at time zone 'America/Caracas')::date) end,
     'cancelable', case when v_comprador then v_cancelable end,
     'solicitudes', coalesce((select jsonb_agg(jsonb_build_object('id', s.id, 'estado', s.estado, 'motivo', s.motivo,
@@ -1710,7 +1827,8 @@ end $$;
 create or replace function public.tm_envio_etiquetas(p_sesion text, p_ids text[]) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
-  yo tumbo.usuarios := tumbo_privado.exigir_rol(p_sesion, array['seller', 'operador', 'superadmin', 'ops']);
+  -- escribe en la auditoría: con la cuota de escrituras de la cuenta
+  yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['seller', 'operador', 'superadmin', 'ops']);
   v tumbo.pedidos;
   e tumbo.envios;
   c tumbo.envio_config;
@@ -1782,6 +1900,7 @@ declare
   v_delivery jsonb := '[]'::jsonb;
   x jsonb;
   v_muni text;
+  v_muni_estado text;
   v_costo numeric;
   v_dias integer;
   v_prep integer;
@@ -1827,11 +1946,18 @@ begin
     if v_dias < 0 or v_dias > 5 then
       raise exception 'El delivery en % debe tardar entre 0 y 5 días hábiles.', v_muni;
     end if;
-    if exists (select 1 from jsonb_array_elements(v_delivery) z where tumbo_privado.lugar_clave(z ->> 'municipio') = tumbo_privado.lugar_clave(v_muni)) then
-      raise exception 'El municipio % está repetido en el delivery.', v_muni;
+    -- cada zona lleva su estado (muchos municipios se repiten en varios
+    -- estados); sin indicarlo, el de origen del comercio
+    v_muni_estado := case when nullif(btrim(coalesce(x ->> 'estado', '')), '') is null then v_estado
+                          else tumbo_privado.lugar_estado(x ->> 'estado', array['estado']) end;
+    if v_muni_estado is null then
+      raise exception 'Elige de la lista el estado del delivery en %.', v_muni;
     end if;
-    v_delivery := v_delivery || jsonb_build_object('municipio', v_muni, 'costo_usd', v_costo, 'dias', v_dias,
-      'estado', tumbo_privado.lugar_estado(x ->> 'estado', array['estado']));
+    if exists (select 1 from jsonb_array_elements(v_delivery) z
+               where tumbo_privado.lugar_clave(z ->> 'municipio') = tumbo_privado.lugar_clave(v_muni) and z ->> 'estado' = v_muni_estado) then
+      raise exception 'El municipio % (%) está repetido en el delivery.', v_muni, v_muni_estado;
+    end if;
+    v_delivery := v_delivery || jsonb_build_object('municipio', v_muni, 'costo_usd', v_costo, 'dias', v_dias, 'estado', v_muni_estado);
   end loop;
   if v_retiro and char_length(coalesce(v_dir, '')) < 10 then
     raise exception 'Para el retiro en tienda escribe la dirección del local (al menos 10 caracteres).';
@@ -1842,7 +1968,8 @@ begin
   begin
     v_prep := coalesce((d ->> 'dias_preparacion')::integer, 1);
     v_gratis := nullif(round((d ->> 'gratis_desde_usd')::numeric, 2), 0);
-    v_hasta := nullif(d ->> 'vacaciones_hasta', '')::date;
+    -- la fecha de regreso solo cuenta con el modo vacaciones activado
+    v_hasta := case when v_vac then nullif(d ->> 'vacaciones_hasta', '')::date end;
   exception when others then
     raise exception 'Revisa los días de preparación, el monto del envío gratis y la fecha de regreso.';
   end;
@@ -1851,6 +1978,12 @@ begin
   end if;
   if v_gratis is not null and (v_gratis < 1 or v_gratis > 100000) then
     raise exception 'El envío gratis se ofrece desde 1 hasta 100.000 USD.';
+  end if;
+  -- unas vacaciones que ya terminaron (se reenvía la fecha guardada, que ya
+  -- pasó) se dan por terminadas: el comercio sigue guardando sus cambios
+  if v_vac and v_hasta is not null and v_hasta < tumbo_privado.hoy() and v_hasta = antes.vacaciones_hasta then
+    v_vac := false;
+    v_hasta := null;
   end if;
   if v_hasta is not null and (v_hasta < tumbo_privado.hoy() or v_hasta > tumbo_privado.hoy() + 90) then
     raise exception 'La fecha de regreso de las vacaciones debe estar entre hoy y los próximos 90 días.';
@@ -2219,6 +2352,10 @@ begin
   if v.estado <> 'despachado' then
     raise exception 'El pedido % no está en camino.', p_id;
   end if;
+  if tumbo_privado.disputa_abierta(p_id) is not null then
+    raise exception 'El pedido % tiene abierto el reclamo %: resuélvelo desde Disputas (si el paquete llegó, liberando los fondos).',
+      p_id, tumbo_privado.disputa_abierta(p_id);
+  end if;
   if p_foto is null or not exists (select 1 from tumbo.archivos a where a.id = p_foto and a.proposito = 'entrega'
                                     and a.entidad = p_id and a.estado = 'listo') then
     raise exception 'Adjunta la foto de la prueba de entrega del courier.';
@@ -2297,7 +2434,7 @@ begin
   end if;
   update tumbo.devoluciones set estado = 'en_transito', courier = k.codigo, guia = v_guia, enviada_en = now(), actualizado = now()
   where pedido_id = p_id;
-  perform tumbo_privado.evento(p_id, yo.nombre, 'Devolución enviada con ' || k.nombre || ' · guía ' || v_guia, 'assignment_return');
+  perform tumbo_privado.evento(p_id, 'Comprador', 'Devolución enviada con ' || k.nombre || ' · guía ' || v_guia, 'assignment_return');
   perform tumbo_privado.notificar('seller:' || v.seller_id, 'El comprador envió la devolución de ' || p_id || ' con ' || k.nombre || ' (guía ' || v_guia || ')',
     'assignment_return', 'seller/pedido.html?id=' || p_id, array['seller', 'operador']);
   perform tumbo_privado.notificar('rol:ops', 'Devolución de ' || p_id || ' en tránsito con ' || k.nombre, 'assignment_return', 'admin/pedido.html?id=' || p_id);
@@ -2330,13 +2467,29 @@ begin
   if dv.estado = 'cerrada' then
     raise exception 'La devolución de % ya está cerrada.', p_id;
   end if;
+  -- El comercio la registra cuando el comprador ya la envió (con su guía) y
+  -- una sola vez. Operaciones puede registrarla sin guía (llegó por otra vía)
+  -- o corregir una inspección, siempre dejando la nota de lo que pasó.
+  if yo.rol in ('seller', 'operador') then
+    if dv.estado = 'instrucciones' then
+      raise exception 'El comprador aún no registra el envío de la devolución de %: regístrala como recibida cuando llegue (si llegó sin guía, avísale a Operaciones).', p_id;
+    elsif dv.estado = 'recibida' then
+      raise exception 'La devolución de % ya se inspeccionó: si hay que corregirla, avísale a Operaciones.', p_id;
+    end if;
+  elsif dv.estado in ('instrucciones', 'recibida') and char_length(coalesce(v_nota, '')) < 10 then
+    raise exception '%', case when dv.estado = 'instrucciones'
+      then 'El comprador no registró la guía de vuelta: deja una nota (al menos 10 caracteres) de cómo llegó la devolución.'
+      else 'Para corregir la inspección deja una nota (al menos 10 caracteres) con el motivo.' end;
+  end if;
   update tumbo.devoluciones
   set estado = 'recibida', recibida_en = coalesce(recibida_en, now()), inspeccion = p_resultado, inspeccion_nota = v_nota,
       inspeccion_foto = coalesce(p_foto, inspeccion_foto), inspeccionada_por = yo.nombre || ' (' || yo.rol || ')', actualizado = now()
   where pedido_id = p_id;
+  -- (con el ícono de las devoluciones, que tm_cargar no le muestra al
+  -- operador: como el resto de los eventos de reclamos y dinero)
   perform tumbo_privado.evento(p_id, case when yo.rol in ('ops', 'superadmin') then 'Operaciones' else v.seller_id end,
     'Devolución recibida e inspeccionada: ' || case p_resultado when 'apto' then 'el producto llegó en buen estado'
-      when 'danado' then 'el producto llegó dañado' else 'el producto llegó incompleto' end || ' · Operaciones cierra el caso', 'fact_check');
+      when 'danado' then 'el producto llegó dañado' else 'el producto llegó incompleto' end || ' · Operaciones cierra el caso', 'assignment_return');
   perform tumbo_privado.notificar('rol:ops', 'Devolución de ' || p_id || ' inspeccionada: ' || p_resultado || ' (falta cerrarla)',
     'assignment_return', 'admin/pedido.html?id=' || p_id);
   perform tumbo_privado.auditar(yo, 'Inspección de devolución', p_id || ' · ' || p_resultado);
@@ -2448,10 +2601,21 @@ begin
     where e.asignado_en is not null
   ) y;
 
-  if v.estado = 'despachado' then v_acciones := v_acciones || array['confirmar_entrega', 'novedad', 'cancelar_perdida']; end if;
+  -- con un reclamo abierto, la entrega y la cancelación por pérdida se
+  -- deciden en Disputas (los fondos siguen congelados)
+  if v.estado = 'despachado' then
+    v_acciones := v_acciones || 'novedad'::text;
+    if d.id is null or d.estado = 'resuelta' then v_acciones := v_acciones || array['confirmar_entrega', 'cancelar_perdida']; end if;
+  end if;
   if v.estado = 'despachado' and e.retiro and e.courier <> 'tienda' and e.en_agencia_en is null then v_acciones := v_acciones || 'en_agencia'::text; end if;
   if v.estado in ('por_aceptar', 'preparando', 'listo') then v_acciones := v_acciones || 'cancelar'::text; end if;
-  if v.estado = 'devolucion' then v_acciones := v_acciones || array['devolucion_instrucciones', 'devolucion_inspeccionar', 'devolucion_cerrar']; end if;
+  -- devolución: el reembolso, solo después de la inspección; «no llegó», solo
+  -- si aún no se recibió
+  if v.estado = 'devolucion' then
+    v_acciones := v_acciones || array['devolucion_instrucciones', 'devolucion_inspeccionar'];
+    if dv.estado = 'recibida' and dv.inspeccion is not null then v_acciones := v_acciones || 'devolucion_reembolsar'::text;
+    else v_acciones := v_acciones || 'devolucion_no_llego'::text; end if;
+  end if;
   if v.estado in ('preparando', 'listo', 'despachado') then v_acciones := v_acciones || 'etiqueta'::text; end if;
   v_acciones := v_acciones || array['nota', 'asignar'];
 
@@ -2783,6 +2947,63 @@ begin
     case when coalesce(p_activo, true) then '' else ' (inactivo)' end);
 end $$;
 
+-- Los plazos de la operación (ajuste «logistica»): superadmin y Operaciones
+-- con sesión elevada, cada uno dentro de su rango y coherentes entre sí (el
+-- recordatorio antes del vencimiento, la cancelación después de él y el
+-- aviso antes de la autoconfirmación).
+create or replace function public.tm_logistica_plazos_guardar(p_sesion text, p_valor jsonb) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['superadmin', 'ops']);
+  d jsonb := case when jsonb_typeof(p_valor) = 'object' then p_valor else '{}'::jsonb end;
+  antes jsonb;
+  v jsonb;
+  k text;
+  r numeric[];
+  n numeric;
+  v_nombres constant jsonb := '{"aceptar_horas": "Las horas para aceptar", "recordar_horas": "El recordatorio",
+    "cancelar_horas": "La cancelación sin aceptar", "solicitud_horas": "Las horas para responder una solicitud de cancelación",
+    "autoconfirmar_dias": "Los días para dar por recibida una entrega", "aviso_autoconfirmar_dias": "El aviso previo",
+    "reclamo_no_llego_habiles": "Los días de gracia del reclamo «no llegó»", "sin_novedad_dias": "Los días sin novedades",
+    "peso_defecto_kg": "El peso por omisión"}';
+begin
+  perform tumbo_privado.exigir_elevada(yo);
+  select a.valor into antes from tumbo.ajustes a where a.clave = 'logistica' for update;
+  if antes is null then
+    raise exception 'El ajuste de los plazos no existe.';
+  end if;
+  v := antes;
+  for k in select jsonb_object_keys(d) loop
+    r := tumbo_privado.logistica_rango(k);
+    if r is null then
+      raise exception 'Ese plazo no existe.';
+    end if;
+    if jsonb_typeof(d -> k) <> 'number' then
+      raise exception '% debe ser un número.', v_nombres ->> k;
+    end if;
+    n := (d ->> k)::numeric;
+    if k <> 'peso_defecto_kg' and n <> trunc(n) then
+      raise exception '% debe ser un número entero.', v_nombres ->> k;
+    end if;
+    if n < r[1] or n > r[2] then
+      raise exception '% va de % a %.', v_nombres ->> k, replace(r[1]::text, '.', ','), replace(r[2]::text, '.', ',');
+    end if;
+    v := v || jsonb_build_object(k, n);
+  end loop;
+  if tumbo_privado.numero(v -> 'recordar_horas', 6) >= tumbo_privado.numero(v -> 'aceptar_horas', 24) then
+    raise exception 'El recordatorio debe llegar antes de que venza el plazo para aceptar.';
+  end if;
+  if tumbo_privado.numero(v -> 'cancelar_horas', 48) <= tumbo_privado.numero(v -> 'aceptar_horas', 24) then
+    raise exception 'La cancelación sin aceptar debe ser después del plazo para aceptar.';
+  end if;
+  if tumbo_privado.numero(v -> 'aviso_autoconfirmar_dias', 2) >= tumbo_privado.numero(v -> 'autoconfirmar_dias', 10) then
+    raise exception 'El aviso previo debe llegar antes de dar por recibida la entrega.';
+  end if;
+  update tumbo.ajustes set valor = v, actualizado = now(), por = yo.nombre || ' (' || yo.rol || ')' where clave = 'logistica';
+  perform tumbo_privado.auditar(yo, 'Plazos de logística', left(antes::text, 400) || ' → ' || left(v::text, 400));
+  return v;
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- Tarea programada: SLA, solicitudes y autoconfirmación
 -- ---------------------------------------------------------------------------
@@ -3054,7 +3275,7 @@ begin
     'public.tm_pedido_360(text,text)', 'public.tm_operaciones_panel(text,jsonb)',
     'public.tm_courier_guardar(text,jsonb)', 'public.tm_tarifa_guardar(text,jsonb)', 'public.tm_oficina_guardar(text,jsonb)',
     'public.tm_zona_estado(text,text,text)', 'public.tm_feriado_guardar(text,date,text,boolean)',
-    'public.tm_sla_revisar(text)']::regprocedure[]
+    'public.tm_logistica_plazos_guardar(text,jsonb)', 'public.tm_sla_revisar(text)']::regprocedure[]
   loop
     execute format('revoke execute on function %s from public', f);
     execute format('grant execute on function %s to anon, authenticated', f);

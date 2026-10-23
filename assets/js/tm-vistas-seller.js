@@ -250,6 +250,10 @@
     be.addEventListener('click', function () { guardar(be, true); });
   }
 
+  /* Pedidos del seller y su preparación: los vuelve a registrar el módulo
+     de logística (assets/js/tm-mod-logistica-seller.js, ola 1). */
+  var vPedidosSeller, vPedidoSeller, despuesPedidoSeller;
+
   /* =====================================================================
      Reclamos del seller
      ===================================================================== */
@@ -361,7 +365,8 @@
     'seller/panel':    { titulo: 'Panel del seller',   roles: ['seller'],                        render: vPanel },
     'seller/catalogo': { titulo: 'Catálogo',           roles: ['seller', 'precios', 'operador'], render: vCatalogo, despues: despuesCatalogo },
     'seller/producto': { titulo: 'Ficha de producto',  roles: ['seller', 'operador'],            render: vProductoForm, despues: despuesProductoForm },
-    /* 'seller/pedidos' y 'seller/pedido': assets/js/tm-mod-logistica-seller.js */
+    'seller/pedidos':  { titulo: 'Pedidos del seller', roles: ['seller', 'operador'],            render: vPedidosSeller },
+    'seller/pedido':   { titulo: 'Preparación',        roles: ['seller', 'operador'],            render: vPedidoSeller, despues: despuesPedidoSeller },
     'seller/disputas': { titulo: 'Reclamos',           roles: ['seller'],                        render: vDisputasSeller, despues: despuesDisputasSeller },
     'seller/finanzas': { titulo: 'Finanzas',           roles: ['seller'],                        render: vFinanzasSeller, despues: despuesFinanzasSeller }
   });

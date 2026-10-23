@@ -49,7 +49,7 @@
   function encabezadoPedido(p) {
     return '<div class="flex flex-wrap gap-x-6 gap-y-1 rounded-t-card bg-surface-container-low border-b border-outline-variant px-4 py-2.5 font-body-sm text-body-sm text-on-surface-variant">' +
       '<span><span class="block font-label-caps text-label-caps uppercase">Pedido realizado</span>' + esc(p.creado.split(' ')[0]) + '</span>' +
-      '<span><span class="block font-label-caps text-label-caps uppercase">Total</span>' + esc(TM.fmtBs(TM.totalPedidoUsd(p))) + '</span>' +
+      '<span><span class="block font-label-caps text-label-caps uppercase">Total</span>' + esc(TM.fmtBs(TM.totalPedidoUsd(p), p.tasa)) + '</span>' +
       '<span class="hidden sm:block min-w-0"><span class="block font-label-caps text-label-caps uppercase">Enviar a</span><span class="block truncate max-w-[220px]">' +
       esc(p.envio.dir.split(',')[0]) + '</span></span>' +
       '<span class="ml-auto text-right"><span class="block font-label-caps text-label-caps uppercase">N.º de pedido</span>' +
@@ -224,10 +224,10 @@
           p.items.map(function (i) {
             var pr = TM.producto(i.sku);
             return '<p class="font-body-sm text-body-sm">' + esc(pr ? pr.nombre : i.sku) + ' × ' + i.cant +
-              '<span class="float-right font-bold">' + esc(TM.fmtBs(i.precioUsd * i.cant)) + '</span></p>';
+              '<span class="float-right font-bold">' + esc(TM.fmtBs(i.precioUsd * i.cant, p.tasa)) + '</span></p>';
           }).join('') +
-          '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Envío<span class="float-right">' + esc(TM.fmtBs(p.envio.costoUsd)) + '</span></p>' +
-          '<p class="font-body-md text-body-md font-bold border-t border-outline-variant mt-2 pt-2">Total<span class="float-right">' + esc(TM.fmtBs(TM.totalPedidoUsd(p))) + '</span></p>' +
+          '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Envío<span class="float-right">' + esc(TM.fmtBs(p.envio.costoUsd, p.tasa)) + '</span></p>' +
+          '<p class="font-body-md text-body-md font-bold border-t border-outline-variant mt-2 pt-2">Total<span class="float-right">' + esc(TM.fmtBs(TM.totalPedidoUsd(p), p.tasa)) + '</span></p>' +
           '<p class="font-data-mono text-data-mono text-on-surface-variant mt-1 text-right">' + esc(TM.fmtUsd(TM.totalPedidoUsd(p))) + ' ref. · tasa ' + p.tasa.toLocaleString('es-VE') + '</p>' +
           '<hr class="my-3 border-outline-variant"/>' +
           '<div data-envio-comprador>' + tarjetaEnvio(p, d) + '</div>' +
@@ -235,7 +235,10 @@
         '</div>' +
         '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 space-y-2" data-acciones-pedido>' +
           '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Acciones</h2>' +
-          (p.estado === 'despachado' ? btn('Confirmar recepción', { estilo: 'exito', icono: 'check_circle', attr: 'data-recibir', clase: 'w-full' }) : '') +
+          /* con un reclamo abierto («no llegó») la entrega se decide en el reclamo */
+          (p.estado === 'despachado' && !p.disputaId ? btn('Confirmar recepción', { estilo: 'exito', icono: 'check_circle', attr: 'data-recibir', clase: 'w-full' }) : '') +
+          (p.estado === 'despachado' && p.disputaId ? '<p class="font-body-sm text-body-sm text-on-surface-variant" data-reclamo-abierto>Tienes abierto el reclamo ' + esc(p.disputaId) +
+            ': si el paquete ya te llegó, avísale a soporte para que Operaciones cierre el reclamo.</p>' : '') +
           (p.estado === 'entregado' && !p.disputaId
             ? '<a class="inline-flex w-full items-center justify-center gap-1.5 min-h-[40px] px-4 rounded-btn border border-error text-error font-label-md text-label-md hover:bg-error-container" href="' + href('app/tienda/reclamo.html?id=' + p.id) + '">' + ic('gavel', 'text-[18px]') + 'Abrir reclamo o devolución</a>' : '') +
           (noLlego ? (noLlego.puede

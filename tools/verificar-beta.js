@@ -287,6 +287,14 @@ const PAGINAS = {
     await p.waitForSelector('.tm-modal [data-ok]');
     await p.locator('.tm-modal [data-ok]').click();
     await aviso('resuelta');
+    if (conServidor()) {   /* con backend, el reembolso va después de la inspección (detalle 360) */
+      await abrir('admin/pedido?id=TM-2026-00431');
+      await p.locator('[data-360="inspeccionar"]').click();
+      await p.fill('.tm-modal [name=nota]', 'Llegó completo a la oficina del comercio');
+      await p.locator('.tm-modal [data-ok]').click();
+      await aviso('Inspección registrada');
+      await abrir('admin/disputas');
+    }
     await caso.locator('[data-devolucion="TM-2026-00431"][data-recibida="1"]').click();
     await p.waitForSelector('.tm-modal [data-ok]');
     await p.locator('.tm-modal [data-ok]').click();

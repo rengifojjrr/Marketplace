@@ -45,7 +45,8 @@ const CUENTAS = {
 const APOYO = {
   real: { email: 'superadmin-pruebas@tumbo-local.ve', clave: 'clave-superadmin-pruebas-1' },
   otro: { email: 'otro-logistica@tumbo-local.ve', clave: 'clave-otro-logistica-1' },
-  sel9: { email: 'seller-009-logistica@tumbo-local.ve', clave: 'clave-seller-009-1' }
+  sel9: { email: 'seller-009-logistica@tumbo-local.ve', clave: 'clave-seller-009-1' },
+  opsReal: { email: 'ops-logistica@tumbo-local.ve', clave: 'clave-ops-logistica-1' }
 };
 const CAB = { apikey: CLAVE, authorization: 'Bearer ' + CLAVE, 'content-type': 'application/json' };
 const CASA = 'd0000000-0000-4000-8000-000000000001';
@@ -112,12 +113,17 @@ const json = (consulta) => JSON.parse(psql(consulta) || 'null');
           insert into tumbo.usuarios (email, clave_hash, nombre, rol) values (${lit(APOYO.otro.email)}, ${hash(APOYO.otro.clave)}, 'Otra Compradora', 'comprador')
             on conflict (email) do update set rol = 'comprador', seller_id = null, activo = true, clave_hash = excluded.clave_hash;
           insert into tumbo.usuarios (email, clave_hash, nombre, rol, seller_id) values (${lit(APOYO.sel9.email)}, ${hash(APOYO.sel9.clave)}, 'Seller de Hogar Total', 'seller', 'SEL-009')
-            on conflict (email) do update set rol = 'seller', seller_id = 'SEL-009', activo = true, clave_hash = excluded.clave_hash;`);
+            on conflict (email) do update set rol = 'seller', seller_id = 'SEL-009', activo = true, clave_hash = excluded.clave_hash;
+          insert into tumbo.usuarios (email, clave_hash, nombre, rol) values (${lit(APOYO.opsReal.email)}, ${hash(APOYO.opsReal.clave)}, 'Operaciones de Pruebas', 'ops')
+            on conflict (email) do update set rol = 'ops', seller_id = null, activo = true, clave_hash = excluded.clave_hash;`);
     if (C2 && psql(`select to_regclass('tumbo.usuarios_2fa') is not null`) === 't') {
-      psql(`delete from tumbo.usuarios_2fa where usuario_id = (select id from tumbo.usuarios where email = ${lit(APOYO.real.email)})`);
-      s.real = (await C2.cuentaElevada(rpc, APOYO.real.email, APOYO.real.clave)).sesion;
+      psql(`delete from tumbo.usuarios_2fa where usuario_id in (select id from tumbo.usuarios where email in (${lit(APOYO.real.email)}, ${lit(APOYO.opsReal.email)}))`);
+      /* cuentas que crea la prueba: se les activa la verificación en dos pasos */
+      s.real = (await C2.cuentaElevada(rpc, APOYO.real.email, APOYO.real.clave, null, { activar: true })).sesion;
+      s.opsReal = (await C2.cuentaElevada(rpc, APOYO.opsReal.email, APOYO.opsReal.clave, null, { activar: true })).sesion;
     } else {
       s.real = await sesion(APOYO.real.email, APOYO.real.clave);
+      s.opsReal = await sesion(APOYO.opsReal.email, APOYO.opsReal.clave);
     }
     s.otro = await sesion(APOYO.otro.email, APOYO.otro.clave);
     s.sel9 = await sesion(APOYO.sel9.email, APOYO.sel9.clave);
@@ -263,6 +269,29 @@ const json = (consulta) => JSON.parse(psql(consulta) || 'null');
        op.find((o) => o.codigo === 'propio:domicilio').dias_max === 2 && Number(op.find((o) => o.codigo === 'tienda:retiro').costo_usd) === 0,
       'la cotización sigue la configuración: solo MRW, su delivery, el retiro en tienda y 2 días de preparación', codigos);
   }
+  /* El delivery propio es por municipio y estado; el retiro en tienda va al final */
+  const conTienda = { ...base, retiro_tienda: true, retiro_direccion: 'Local de pruebas, nivel PB, local 4' };
+  const sinEstado = await rpc('tm_envio_config_guardar', { p_sesion: s.seller, p_datos: { ...conTienda, delivery: [{ municipio: 'Libertador', costo_usd: 3, dias: 1 },
+    { municipio: 'Sucre', estado: 'Miranda', costo_usd: 3.5, dias: 1 }, { municipio: 'Sucre', estado: 'Sucre', costo_usd: 9, dias: 3 }] } });
+  const estadoMalo = await rpc('tm_envio_config_guardar', { p_sesion: s.seller, p_datos: { ...base, delivery: [{ municipio: 'Libertador', estado: 'Narnia', costo_usd: 3 }] } });
+  ok(sinEstado.ok && sinEstado.dato.config.delivery[0].estado === 'Distrito Capital' && sinEstado.dato.config.delivery.length === 3 &&
+     !estadoMalo.ok && /estado del delivery/.test(estadoMalo.texto),
+    'cada zona de delivery lleva su estado (sin indicarlo, el de origen; el mismo municipio puede estar en dos estados)', sinEstado.texto.slice(0, 120) + ' | ' + estadoMalo.texto);
+  if (BD) {
+    const cods = (dest) => json(`select tumbo_privado.cotizar_envio('SEL-014', ${lit(JSON.stringify(dest))}, '[{"sku": "SKU-TEC-0450", "cant": 1}]')`);
+    const merida = cods({ estado: 'Mérida', municipio: 'Libertador', ciudad: 'Mérida' });
+    const caracas = cods({ estado: 'Distrito Capital', municipio: 'Libertador' });
+    const sinEst = cods({ municipio: 'Libertador' });
+    ok(!merida.some((o) => o.codigo === 'propio:domicilio') && caracas.some((o) => o.codigo === 'propio:domicilio') && !sinEst.some((o) => o.codigo === 'propio:domicilio'),
+      'el delivery propio solo se ofrece en su municipio y estado (no en Libertador de Mérida ni con un estado desconocido)', merida.map((o) => o.codigo).join());
+    const ult = merida[merida.length - 1];
+    ok(ult.codigo === 'tienda:retiro' && ult.en_destino === false && merida[0].en_destino === true && caracas[caracas.length - 1].codigo === 'tienda:retiro',
+      'el retiro en la tienda (en la ciudad del comercio) va al final: la primera opción siempre entrega en el estado del comprador', merida.map((o) => o.codigo).join());
+  }
+  const pz = await rpc('tm_envio_promesa', { p_sesion: null, p_sku: 'SKU-TEC-0450', p_estado: 'Zulia' });
+  ok(pz.ok && pz.dato.opciones[0].en_destino === true && pz.dato.opciones[0].codigo !== 'tienda:retiro' &&
+     pz.dato.opciones.some((o) => o.codigo === 'tienda:retiro' && o.en_destino === false) && pz.dato.delivery_municipios.includes('Libertador (Distrito Capital)'),
+    'la promesa a Zulia sale de un envío que llega a Zulia; el retiro en la tienda de Caracas va aparte', pz.texto.slice(0, 200));
   const vac = await rpc('tm_envio_config_guardar', { p_sesion: s.seller, p_datos: { ...base, vacaciones: true, vacaciones_mensaje: 'Volvemos pronto', vacaciones_hasta: null } });
   const pvac = await rpc('tm_envio_promesa', { p_sesion: null, p_sku: 'SKU-TEC-0450', p_estado: 'Lara' });
   ok(vac.ok && vac.dato.vacaciones_activas && pvac.ok && pvac.dato.vacaciones && pvac.dato.vacaciones.mensaje === 'Volvemos pronto',
@@ -277,6 +306,15 @@ const json = (consulta) => JSON.parse(psql(consulta) || 'null');
   }
   const fin = await rpc('tm_envio_config_guardar', { p_sesion: s.seller, p_datos: base });
   ok(fin.ok && !fin.dato.vacaciones_activas, 'el seller vuelve de vacaciones', fin.texto.slice(0, 120));
+  if (BD) {
+    psql(`update tumbo.envio_config set vacaciones = true, vacaciones_hasta = tumbo_privado.hoy() - 1 where seller_id = 'SEL-014'`);
+    const ayer = psql(`select (tumbo_privado.hoy() - 1)::text`);
+    const vencida = await rpc('tm_envio_config_guardar', { p_sesion: s.seller, p_datos: { ...base, dias_preparacion: 2, vacaciones: true, vacaciones_hasta: ayer } });
+    const sinVac = await rpc('tm_envio_config_guardar', { p_sesion: s.seller, p_datos: { ...base, vacaciones: false, vacaciones_hasta: 'no es una fecha' } });
+    ok(vencida.ok && vencida.dato.config.vacaciones === false && vencida.dato.config.dias_preparacion === 2 && sinVac.ok && !sinVac.dato.vacaciones_activas,
+      'con unas vacaciones ya vencidas el seller sigue guardando sus cambios (se dan por terminadas); sin vacaciones, la fecha no se valida',
+      vencida.texto.slice(0, 120) + ' | ' + sinVac.texto.slice(0, 80));
+  } else omitida('las vacaciones vencidas no impiden guardar la configuración');
   await rpc('tm_carrito_quitar', { p_sesion: s.comprador, p_sku: 'SKU-TEC-0450' });
 
   /* ================= Pedido: alta, conciliación y plazos ================= */
@@ -329,6 +367,13 @@ const json = (consulta) => JSON.parse(psql(consulta) || 'null');
   ok(cerrado.ok && cerrado.dato.destinatario.oculto === true && !cerrado.dato.destinatario.telefono && !cerrado.dato.destinatario.direccion &&
      cerradoOps.ok && cerradoOps.dato.destinatario.oculto === true && /^••••/.test(cerradoOps.dato.destinatario.telefono || '••••') && /•••$/.test(cerradoOps.dato.comprador.nombre),
     'con el pedido cerrado los datos de contacto se ocultan (el seller solo ve la ciudad; Operaciones, enmascarado)', JSON.stringify(cerrado.dato && cerrado.dato.destinatario));
+  if (BD) {
+    const cj = json(`select jsonb_build_object('cerrado', tumbo_privado.pedido_comercio_json('operador', p, to_jsonb(p)), 'ops', tumbo_privado.pedido_comercio_json('ops', p, to_jsonb(p)))
+                     from tumbo.pedidos p where p.id = 'TM-2026-00415'`);
+    const activo = psql(`select tumbo_privado.pedido_comercio_json('seller', p, to_jsonb(p)) ->> 'envio_dir' = p.envio_dir from tumbo.pedidos p where p.id = ${lit(A)}`);
+    ok(!('destino' in cj.cerrado) && !/Francisco de Miranda/.test(cj.cerrado.envio_dir) && /Francisco de Miranda/.test(cj.ops.envio_dir) && activo === 't',
+      'el contrato para la lista de pedidos del comercio (tm_cargar) quita la dirección de un pedido cerrado y la deja con el pedido activo', JSON.stringify(cj.cerrado.envio_dir));
+  } else omitida('contrato de la lista de pedidos del comercio');
 
   await hastaEstado(A, 'listo');
   if (BD) {
@@ -342,6 +387,12 @@ const json = (consulta) => JSON.parse(psql(consulta) || 'null');
   ok(!etP.ok && !etC.ok && etO.ok && etO.dato[0].destinatario.nombre === 'María González' && /^TM-GUIA-/.test(etO.dato[0].referencia) &&
      etO.dato[0].remitente.nombre === 'TechElectro, C.A.' && !etX.ok && /no lleva etiqueta/.test(etX.texto),
     'la etiqueta 10×15 (destinatario, remitente y referencia) la imprimen el comercio y Operaciones, solo de pedidos activos', etO.texto.slice(0, 160));
+  if (BD) {
+    const cuota = () => Number(psql(`select coalesce(sum(n), 0) from tumbo.cuotas_red where usuario_id = (select id from tumbo.usuarios where email = 'operador@sel-014.demo')`));
+    const q0 = cuota();
+    await rpc('tm_envio_etiquetas', { p_sesion: s.operador, p_ids: [A] });
+    ok(cuota() === q0 + 1, 'imprimir etiquetas (que deja su rastro en la auditoría) cuenta en la cuota de escrituras de la cuenta', q0 + ' → ' + cuota());
+  }
 
   /* ================= Despacho con guía y foto ================= */
   const d1 = await rpc('tm_despachar_guia', { p_sesion: s.operador, p_id: A, p_datos: { courier: 'zoom' } });
@@ -390,6 +441,52 @@ const json = (consulta) => JSON.parse(psql(consulta) || 'null');
     ok(vnl.dato.no_llego.puede === true && !nlS.ok && nl1.ok && fila.estado === 'despachado' && fila.liq === 'congelado' && fila.disp === nl1.dato,
       'pasado el plazo, el comprador abre el reclamo «no llegó»: el pedido sigue despachado y la liquidación se congela', nl1.texto);
   } else omitida('reclamo «no llegó» pasado el plazo');
+
+  /* Con el reclamo abierto, el dinero lo decide el reclamo */
+  if (BD) {
+    const J = await crearPedido(s.comprador);
+    await hastaEstado(J, 'listo');
+    const dJ = await rpc('tm_despachar_guia', { p_sesion: s.operador, p_id: J, p_datos: { courier: 'zoom', guia: 'ZM-RECLAMO-1' } });
+    psql(`update tumbo.envios set fecha_prometida = tumbo_privado.hoy() - 10 where pedido_id = ${lit(J)}`);
+    const dspJ = await rpc('tm_abrir_disputa', { p_sesion: s.comprador, p_pedido: J, p_motivo: 'No llegó', p_descripcion: 'El paquete no ha llegado y el rastreo no se mueve.', p_evidencia: [] });
+    const fotoJ = await subir(s.ops, 'entrega', J);
+    const cfC = await rpc('tm_confirmar_entrega', { p_sesion: s.comprador, p_id: J });
+    const cfO = await rpc('tm_entrega_confirmar', { p_sesion: s.ops, p_id: J, p_foto: fotoJ, p_nota: null });
+    const cvF = await rpc('tm_cerrar_ventana', { p_sesion: s.finanzas, p_id: J });
+    const fJ = json(`select jsonb_build_object('estado', estado, 'liq', liquidacion) from tumbo.pedidos where id = ${lit(J)}`);
+    ok(dJ.ok && dspJ.ok && !cfC.ok && /reclamo/.test(cfC.texto) && !cfO.ok && /reclamo/.test(cfO.texto) && !cvF.ok && fJ.estado === 'despachado' && fJ.liq === 'congelado',
+      'con el reclamo «no llegó» abierto ni el comprador ni Operaciones confirman la entrega: los fondos siguen congelados (no se cierra la ventana ni se liquidan)',
+      [dspJ.texto, cfC.texto, cfO.texto].map((x) => x.slice(0, 90)).join(' | '));
+    const caP = await rpc('tm_cancelar_ops', { p_sesion: s.ops, p_id: J, p_motivo: 'perdida_courier', p_detalle: 'El courier confirmó la pérdida' });
+    const accJ = (await rpc('tm_pedido_360', { p_sesion: s.ops, p_id: J })).dato.acciones;
+    ok(!caP.ok && /reclamo/.test(caP.texto) && !accJ.includes('confirmar_entrega') && !accJ.includes('cancelar_perdida') && accJ.includes('novedad'),
+      'tampoco se cancela por pérdida en el courier: el 360 no ofrece confirmar ni cancelar mientras el reclamo siga abierto', caP.texto);
+    const rsJ = await rpc('tm_resolver_disputa', { p_sesion: s.ops, p_id: dspJ.dato, p_decision: 'reembolso', p_nota: 'El courier confirmó la pérdida' });
+    const reJ = json(`select jsonb_build_object('n', count(*), 'estado', (select estado from tumbo.pedidos where id = ${lit(J)}),
+                        'liquidado', (select liquidacion_id from tumbo.pedidos where id = ${lit(J)})) from tumbo.reembolsos where pedido_id = ${lit(J)}`);
+    ok(rsJ.ok && reJ.n === 1 && reJ.estado === 'reembolsado' && !reJ.liquidado, 'al resolver el reclamo con reembolso hay un solo reembolso y el comercio no cobró ese pedido', JSON.stringify(reJ));
+  } else omitida('con el reclamo abierto no se confirma la entrega ni se cancela por pérdida');
+
+  /* Retiro en tienda: la entrega lleva su constancia y no admite «no llegó» */
+  if (BD) {
+    psql(`update tumbo.envio_config set retiro_tienda = true, retiro_direccion = 'Local de pruebas, nivel PB, local 4' where seller_id = 'SEL-014'`);
+    const T = await crearPedido(s.comprador);
+    psql(`delete from tumbo.envios where pedido_id = ${lit(T)};
+          update tumbo.pedidos set destino = coalesce(destino, '{}'::jsonb) || '{"opcion": "tienda:retiro"}' where id = ${lit(T)};
+          select 1 from tumbo_privado.envio_asegurar(${lit(T)});`);
+    await hastaEstado(T, 'listo');
+    const t0 = await rpc('tm_despachar_guia', { p_sesion: s.operador, p_id: T, p_datos: { courier: 'tienda' } });
+    const t1 = await rpc('tm_despachar', { p_sesion: s.operador, p_id: T });
+    const fotoT = await subir(s.operador, 'guia', T);
+    const t2 = await rpc('tm_despachar_guia', { p_sesion: s.operador, p_id: T, p_datos: { courier: 'tienda', foto: fotoT } });
+    psql(`update tumbo.envios set fecha_prometida = tumbo_privado.hoy() - 10 where pedido_id = ${lit(T)}`);
+    const vT = await envio(s.comprador, T);
+    const nlT = await rpc('tm_abrir_disputa', { p_sesion: s.comprador, p_pedido: T, p_motivo: 'No llegó', p_descripcion: 'Nunca recibí el pedido que dicen que retiré.', p_evidencia: [] });
+    ok(!t0.ok && /constancia/.test(t0.texto) && !t1.ok && /constancia/.test(t1.texto) && t2.ok && vT.dato.envio.courier === 'tienda' && vT.dato.no_llego === null &&
+       !nlT.ok && /tienda/.test(nlT.texto),
+      'la entrega en la tienda exige la constancia firmada y no admite el reclamo «no llegó» (el seguimiento no lo ofrece)', [t0.texto, t1.texto, nlT.texto].map((x) => x.slice(0, 70)).join(' | '));
+    psql(`update tumbo.envio_config set retiro_tienda = false, retiro_direccion = null where seller_id = 'SEL-014'`);
+  } else omitida('retiro en tienda: constancia y sin «no llegó»');
 
   /* ================= Autoconfirmación ================= */
   if (BD) {
@@ -443,6 +540,9 @@ const json = (consulta) => JSON.parse(psql(consulta) || 'null');
   const v434 = await envio(s.seller, 'TM-2026-00434');
   ok(sc1.ok && await estadoDe('TM-2026-00434') === 'preparando' && !sc2.ok && /Ya pediste/.test(sc2.texto) &&
      v434.dato.solicitudes[0].estado === 'pendiente', 'ya aceptado, cancelar es una solicitud al comercio (no se cancela al momento ni se repite)', sc2.texto);
+  const ev434 = ((await rpc('tm_cargar', { p_sesion: s.operador })).dato.pedidos.find((x) => x.id === 'TM-2026-00434') || { pedido_eventos: [] }).pedido_eventos;
+  ok(ev434.some((e) => /Solicitud de cancelación/.test(e.texto) && e.actor === 'Comprador'),
+    'en la línea de tiempo que ve el comercio, las acciones del comprador figuran como «Comprador» (sin su nombre)', JSON.stringify(ev434.slice(-1)));
   await rpc('tm_marcar_listo', { p_sesion: s.operador, p_id: 'TM-2026-00434', p_peso: 2 });
   const dBloq = await rpc('tm_despachar_guia', { p_sesion: s.operador, p_id: 'TM-2026-00434', p_datos: { courier: 'zoom', guia: 'ZM77701' } });
   ok(!dBloq.ok && /responde la solicitud/.test(dBloq.texto), 'con una solicitud pendiente el pedido no se despacha', dBloq.texto);
@@ -542,9 +642,10 @@ const json = (consulta) => JSON.parse(psql(consulta) || 'null');
   const ec1 = await rpc('tm_entrega_confirmar', { p_sesion: s.ops, p_id: G, p_foto: fotoMala, p_nota: null });
   const fotoEnt = await subir(s.ops, 'entrega', G);
   const ecS = await rpc('tm_entrega_confirmar', { p_sesion: s.seller, p_id: G, p_foto: fotoEnt, p_nota: null });
+  const ecL = await rpc('tm_confirmar_entrega', { p_sesion: s.ops, p_id: G });
   const ec2 = await rpc('tm_entrega_confirmar', { p_sesion: s.ops, p_id: G, p_foto: fotoEnt, p_nota: 'Firma en la agencia' });
   const vG3 = await envio(s.comprador, G);
-  ok(!ec0.ok && /foto/.test(ec0.texto) && !ec1.ok && !ecS.ok && ec2.ok && vG3.dato.estado === 'entregado' && vG3.dato.envio.entrega_foto === fotoEnt,
+  ok(!ec0.ok && /foto/.test(ec0.texto) && !ec1.ok && !ecS.ok && !ecL.ok && /foto de la prueba/.test(ecL.texto) && ec2.ok && vG3.dato.estado === 'entregado' && vG3.dato.envio.entrega_foto === fotoEnt,
     'Operaciones confirma una entrega a mano solo con la foto de la prueba (propósito «entrega»); el comercio no', ec0.texto);
 
   /* ================= Despacho por lotes y despacho de antes ================= */
@@ -560,7 +661,7 @@ const json = (consulta) => JSON.parse(psql(consulta) || 'null');
   ok(lote.ok && r1 && r1.ok && r2 && !r2.ok && /ya está registrada/.test(r2.error) && vH1.dato.envio.guia === 'ZM-LOTE-1' && vH1.dato.envio.guia_foto === null &&
      vH1s.dato.envio.guia_foto === fotoLote, 'el despacho por lotes despacha cada pedido por separado (uno con error no frena a los demás); la foto del lote no la ve el comprador', lote.texto.slice(0, 200));
   const leg = await rpc('tm_despachar', { p_sesion: s.operador, p_id: H2 });
-  ok(leg.ok && await estadoDe(H2) === 'despachado', 'tm_despachar (sin guía) sigue funcionando como antes', leg.texto);
+  ok(!leg.ok && /número de guía/.test(leg.texto) && await estadoDe(H2) === 'listo', 'tm_despachar ya no se salta la guía: con courier hay que despachar con la guía', leg.texto);
 
   /* ================= Devolución con inspección ================= */
   const da = await rpc('tm_abrir_disputa', { p_sesion: s.comprador, p_pedido: G, p_motivo: 'Producto dañado', p_descripcion: 'La caja llegó aplastada y el producto no enciende.', p_evidencia: [] });
@@ -568,6 +669,10 @@ const json = (consulta) => JSON.parse(psql(consulta) || 'null');
   const vD = await envio(s.comprador, G);
   ok(da.ok && dr.ok && vD.dato.estado === 'devolucion' && vD.dato.devolucion && vD.dato.devolucion.paga === 'seller' && /MRW|Zoom/.test(vD.dato.devolucion.instrucciones),
     'al resolver con devolución quedan sus instrucciones (a qué courier y agencia, y quién paga según el motivo)', JSON.stringify(vD.dato && vD.dato.devolucion).slice(0, 200));
+  const cd0 = await rpc('tm_cerrar_devolucion', { p_sesion: s.ops, p_id: G, p_recibida: true });
+  const inT = await rpc('tm_devolucion_inspeccionar', { p_sesion: s.seller, p_id: G, p_resultado: 'apto', p_nota: null, p_foto: null });
+  ok(!cd0.ok && /inspección/.test(cd0.texto) && !inT.ok && /aún no registra/.test(inT.texto),
+    'sin la inspección no hay reembolso, y el comercio no la registra como recibida antes de que el comprador la envíe', cd0.texto + ' | ' + inT.texto);
   const dg0 = await rpc('tm_devolucion_guia', { p_sesion: s.comprador, p_id: G, p_courier: 'propio', p_guia: 'X1' });
   const dg1 = await rpc('tm_devolucion_guia', { p_sesion: s.comprador, p_id: G, p_courier: 'zoom', p_guia: 'ZM-DEV-01' });
   const dgS = await rpc('tm_devolucion_guia', { p_sesion: s.seller, p_id: G, p_courier: 'zoom', p_guia: 'ZM-DEV-02' });
@@ -576,12 +681,27 @@ const json = (consulta) => JSON.parse(psql(consulta) || 'null');
   const inC = await rpc('tm_devolucion_inspeccionar', { p_sesion: s.comprador, p_id: G, p_resultado: 'apto', p_nota: null, p_foto: null });
   const in1 = await rpc('tm_devolucion_inspeccionar', { p_sesion: s.operador, p_id: G, p_resultado: 'danado', p_nota: 'Llegó con la pantalla rota', p_foto: null });
   ok(!in0.ok && /Describe el daño/.test(in0.texto) && !inC.ok && in1.ok, 'el comercio inspecciona la devolución al recibirla (dañado o incompleto exige la nota)', in0.texto);
+  const dgTarde = await rpc('tm_devolucion_guia', { p_sesion: s.comprador, p_id: G, p_courier: 'zoom', p_guia: 'ZM-DEV-03' });
+  const inOtra = await rpc('tm_devolucion_inspeccionar', { p_sesion: s.seller, p_id: G, p_resultado: 'apto', p_nota: 'Quiero cambiar la inspección', p_foto: null });
+  const cdNo = await rpc('tm_cerrar_devolucion', { p_sesion: s.ops, p_id: G, p_recibida: false });
+  const accG = (await rpc('tm_pedido_360', { p_sesion: s.ops, p_id: G })).dato.acciones;
+  ok(!dgTarde.ok && !inOtra.ok && /ya se inspeccionó/.test(inOtra.texto) && !cdNo.ok && /ya se recibió/.test(cdNo.texto) &&
+     accG.includes('devolucion_reembolsar') && !accG.includes('devolucion_no_llego'),
+    'ya recibida e inspeccionada, el comercio no la cambia y no se cierra como «no llegó» (el 360 solo ofrece el reembolso)', inOtra.texto + ' | ' + cdNo.texto);
   const insMal = await rpc('tm_devolucion_instrucciones', { p_sesion: s.ops, p_id: G, p_datos: { paga: 'seller', oficina_id: 999999 } });
   ok(!insMal.ok && /oficina/.test(insMal.texto), 'las instrucciones solo admiten oficinas que existen', insMal.texto);
   const stockAntes = BD ? Number(psql(`select stock_fis from tumbo.productos where sku = 'SKU-TEC-0450'`)) : 0;
   const cd = await rpc('tm_cerrar_devolucion', { p_sesion: s.ops, p_id: G, p_recibida: true });
   ok(cd.ok && await estadoDe(G) === 'reembolsado' && (!BD || Number(psql(`select stock_fis from tumbo.productos where sku = 'SKU-TEC-0450'`)) === stockAntes),
     'al cerrar con reembolso un producto que llegó dañado, el stock no se repone', cd.texto);
+  const r428 = await rpc('tm_resolver_disputa', { p_sesion: s.ops, p_id: 'DSP-0098', p_decision: 'devolucion', p_nota: null });
+  const acc428 = (await rpc('tm_pedido_360', { p_sesion: s.ops, p_id: 'TM-2026-00428' })).dato.acciones;
+  const i428a = await rpc('tm_devolucion_inspeccionar', { p_sesion: s.ops, p_id: 'TM-2026-00428', p_resultado: 'apto', p_nota: null, p_foto: null });
+  const i428b = await rpc('tm_devolucion_inspeccionar', { p_sesion: s.ops, p_id: 'TM-2026-00428', p_resultado: 'apto', p_nota: 'El comprador la trajo a la oficina sin guía', p_foto: null });
+  const c428 = await rpc('tm_cerrar_devolucion', { p_sesion: s.ops, p_id: 'TM-2026-00428', p_recibida: true });
+  ok(r428.ok && acc428.includes('devolucion_no_llego') && !acc428.includes('devolucion_reembolsar') && !i428a.ok && /nota/.test(i428a.texto) && i428b.ok && c428.ok &&
+     await estadoDe('TM-2026-00428') === 'reembolsado',
+    'Operaciones registra una devolución que llegó sin guía dejando la nota, y entonces reembolsa', i428a.texto);
 
   /* ================= Notas internas, responsable, 360 y panel ================= */
   const notaTexto = 'Llamé al courier: confirman la entrega mañana temprano';
@@ -660,6 +780,36 @@ const json = (consulta) => JSON.parse(psql(consulta) || 'null');
     const au = await rpc('tm_auditoria', { p_sesion: s.real, p_antes: null, p_texto: 'Tarifa de envío' });
     ok(au.ok && au.dato.eventos.some((e) => /mrw local agencia/.test(e.detalle) && /2\.90/.test(e.detalle)), 'cada cambio de tarifa queda en la auditoría con el valor anterior y el nuevo', au.texto.slice(0, 160));
   } else omitida('un superadmin real cambia tarifas, oficinas, regiones y feriados', SIN_REAL);
+
+  /* ================= Plazos (superadmin y Operaciones con sesión elevada) ================= */
+  const plDemo = await rpc('tm_logistica_plazos_guardar', { p_sesion: s.ops, p_valor: { sin_novedad_dias: 6 } });
+  const plSeller = await rpc('tm_logistica_plazos_guardar', { p_sesion: s.seller, p_valor: { sin_novedad_dias: 6 } });
+  const plAjuste = await rpc('tm_ajuste_guardar', { p_sesion: s.ops, p_clave: 'logistica', p_valor: {} });
+  ok(!plDemo.ok && /cuentas de prueba/.test(plDemo.texto) && !plSeller.ok && !plAjuste.ok, 'las cuentas de prueba y el comercio no cambian los plazos', plDemo.texto);
+  if (s.opsReal) {
+    const malos2 = [[{ cancelar_horas: 0 }, /va de 24 a 168/], [{ recordar_horas: 30 }, /va de 1 a 24/], [{ aceptar_horas: 6, recordar_horas: 6 }, /recordatorio/],
+      [{ autoconfirmar_dias: 3, aviso_autoconfirmar_dias: 3 }, /aviso previo/], [{ aceptar_horas: 12.5 }, /entero/], [{ inventado: 3 }, /no existe/],
+      [{ peso_defecto_kg: '1' }, /número/]];
+    const f2 = [];
+    for (const [v, re] of malos2) {
+      const r = await rpc('tm_logistica_plazos_guardar', { p_sesion: s.opsReal, p_valor: v });
+      if (r.ok || !re.test(r.texto)) f2.push(re + ' → ' + r.texto.slice(0, 80));
+    }
+    const plOk = await rpc('tm_logistica_plazos_guardar', { p_sesion: s.opsReal, p_valor: { sin_novedad_dias: 6, peso_defecto_kg: 1.5 } });
+    const adm3 = await rpc('tm_logistica_admin', { p_sesion: s.opsReal });
+    ok(!f2.length && plOk.ok && plOk.dato.sin_novedad_dias === 6 && plOk.dato.peso_defecto_kg === 1.5 && plOk.dato.aceptar_horas === 24 &&
+       adm3.dato.editable === true && adm3.dato.rangos.cancelar_horas[0] === 24,
+      'una cuenta real de Operaciones guarda los plazos, validados en su rango y entre sí', f2.join(' | ') || plOk.texto.slice(0, 160));
+    const auP = await rpc('tm_auditoria', { p_sesion: s.real || s.finanzas, p_antes: null, p_texto: 'Plazos de logística' });
+    ok(auP.ok && auP.dato.eventos.some((e) => /sin_novedad_dias/.test(e.detalle)), 'el cambio de plazos queda en la auditoría con el valor anterior y el nuevo', auP.texto.slice(0, 160));
+    await rpc('tm_logistica_plazos_guardar', { p_sesion: s.opsReal, p_valor: { sin_novedad_dias: 5, peso_defecto_kg: 1 } });
+  } else omitida('una cuenta real de Operaciones guarda los plazos', SIN_REAL);
+  if (BD) {
+    psql(`update tumbo.ajustes set valor = valor || '{"cancelar_horas": 0, "autoconfirmar_dias": 0}' where clave = 'logistica'`);
+    const lim = psql(`select tumbo_privado.logistica('cancelar_horas', 48) || '/' || tumbo_privado.logistica('autoconfirmar_dias', 10)`);
+    psql(`update tumbo.ajustes set valor = valor || '{"cancelar_horas": 48, "autoconfirmar_dias": 10}' where clave = 'logistica'`);
+    ok(lim === '24/3', 'un plazo fuera de rango guardado por otra vía se lleva a su límite (un 0 no cancela ni autoconfirma todo de inmediato)', lim);
+  } else omitida('los plazos fuera de rango se llevan a su límite');
 
   /* ================= Auditoría y reinicio ================= */
   const au2 = await rpc('tm_auditoria', { p_sesion: s.finanzas, p_antes: null, p_texto: null });
