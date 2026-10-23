@@ -133,77 +133,9 @@
     });
   }
 
-  /* =====================================================================
-     Disputas (superadmin + ops): decisión guiada
-     ===================================================================== */
-  function vDisputasAdmin(q, s) {
-    var lista = TM.estado.disputas;
-    return titulo('Disputas') +
-      (lista.length ? lista.map(function (d) {
-        var p = TM.pedido(d.pedidoId);
-        /* el reclamo cuenta los productos; el reembolso total devuelve lo cobrado (productos y envío) */
-        var reembolso = p ? TM.fmtTotalPedido(p) : null;
-        return '<article class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-4" data-disputa="' + esc(d.id) + '">' +
-          '<div class="flex flex-wrap items-center gap-2 mb-2">' +
-            '<span class="font-data-mono text-data-mono">' + esc(d.id) + '</span>' + UI.badge(d.estado) +
-            '<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(d.pedidoId) + ' · ' + esc(TM.seller(d.sellerId).nombre) + ' · productos ' +
-              esc(TM.fmtBs(d.montoUsd, p && p.tasa)) + (reembolso ? ' · reembolso total ' + esc(reembolso) + ' (con el envío)' : '') + '</span>' +
-            '<span class="ml-auto font-data-mono text-data-mono text-on-surface-variant">' + esc(d.creado) + '</span></div>' +
-          '<div class="grid lg:grid-cols-2 gap-3 mb-3">' +
-            '<div class="rounded-btn bg-surface-container-low p-3">' +
-              '<p class="font-label-caps text-label-caps uppercase text-on-surface-variant mb-1">Versión del comprador</p>' +
-              '<p class="font-body-sm text-body-sm"><strong>' + esc(d.motivo) + '.</strong> ' + esc(d.descripcion) + '</p>' +
-              (d.evidencia.length ? '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Evidencia: ' +
-                (TM.archivos ? TM.archivos.lista(d.evidencia) : d.evidencia.map(esc).join(', ')) + '</p>' : '') + '</div>' +
-            '<div class="rounded-btn bg-surface-container-low p-3">' +
-              '<p class="font-label-caps text-label-caps uppercase text-on-surface-variant mb-1">Versión del seller</p>' +
-              (d.respuestaSeller ? '<p class="font-body-sm text-body-sm">' + esc(d.respuestaSeller.texto) + '</p>' +
-                '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">' + esc(d.respuestaSeller.fecha) + '</p>'
-                : '<p class="font-body-sm text-body-sm text-on-surface-variant">Sin respuesta todavía.</p>') + '</div></div>' +
-          (d.resolucion
-            ? '<p class="font-body-sm text-body-sm"><strong>Resuelta (' + esc(d.resolucion.fecha) + '):</strong> ' +
-              (d.resolucion.decision === 'reembolso' ? 'reembolso total al comprador.' : d.resolucion.decision === 'devolucion' ? 'devolución con logística inversa.' : 'a favor del seller, fondos liberados.') +
-              (d.resolucion.nota ? ' ' + esc(d.resolucion.nota) : '') + '</p>' +
-              (p && p.estado === 'devolucion' && (s.rol === 'ops' || s.rol === 'superadmin') && !d.bloqueado
-                ? '<div class="flex flex-wrap items-center gap-2 mt-2"><span class="font-body-sm text-body-sm text-on-surface-variant">Devolución en curso:</span>' + botonesDevolucion(p.id) + '</div>' : '')
-            : d.bloqueado
-            ? '<p class="flex items-start gap-2 p-3 rounded-btn bg-warning-container text-on-warning-container font-body-sm text-body-sm" data-disputa-bloqueada>' +
-              ic('lock', 'text-[18px] shrink-0') + 'Es el reclamo de una persona o un comercio real: lo decide una cuenta real del equipo con verificación en dos pasos ' +
-              '(las cuentas de prueba solo actúan sobre los datos de la demo).</p>'
-            : '<div class="flex flex-wrap gap-2">' +
-              btn('Reembolso total', { estilo: 'primario', icono: 'undo', attr: 'data-resolver="reembolso" data-did="' + esc(d.id) + '"' }) +
-              btn('Pedir devolución', { icono: 'assignment_return', attr: 'data-resolver="devolucion" data-did="' + esc(d.id) + '"' }) +
-              btn('Liberar a favor del seller', { icono: 'lock_open', attr: 'data-resolver="liberar" data-did="' + esc(d.id) + '"' }) + '</div>' +
-              '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant">La resolución actualiza al comprador, al seller y a Finanzas a la vez. Congelado: ' +
-              (p && p.liquidacion === 'congelado' ? 'sí, hasta esta decisión.' : 'no.') + '</p>') +
-          '</article>';
-      }).join('')
-      : UI.vacio('gavel', 'Sin disputas', 'Cuando un comprador abra un reclamo, el expediente completo aparecerá aquí.'));
-  }
-
-  function despuesDisputasAdmin(raiz, q, s) {
-    conectarDevoluciones(raiz);
-    raiz.querySelectorAll('[data-resolver]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var decision = b.getAttribute('data-resolver');
-        var id = b.getAttribute('data-did');
-        var titulos = { reembolso: 'Reembolso total al comprador', devolucion: 'Solicitar devolución del producto', liberar: 'Cerrar a favor del seller' };
-        var d = TM.estado.disputas.find(function (x) { return x.id === id; });
-        var p = d && TM.pedido(d.pedidoId);
-        var texto = TM.modo === 'remoto'
-          ? 'La decisión les llega al comprador, al comercio y a Finanzas, y no se puede deshacer.' +
-            (decision === 'reembolso' && p ? ' Se crea un reembolso de ' + TM.fmtTotalPedido(p) + ' (productos y envío) que Finanzas envía al destino que elija el comprador.' : '')
-          : 'La decisión se aplica en las tres superficies y no se puede deshacer (demo).';
-        UI.confirmar(titulos[decision], texto,
-          { accion: 'Resolver', peligro: decision === 'reembolso', motivo: 'Nota de la resolución (opcional)' },
-          function (nota) {
-            UI.accion(null, function () { return TM.resolverDisputa(id, decision, nota); }, function () {
-              UI.toast('Disputa ' + id + ' resuelta', titulos[decision], 'gavel');
-            }, 'No se resolvió la disputa');
-          });
-      });
-    });
-  }
+  /* Disputas ('admin/disputas', con el expediente, los fallos parciales y las
+     apelaciones): las registra el módulo de comunicación
+     (assets/js/tm-mod-comunicacion-disputas.js, ola 2). */
 
   /* Conciliación y Liquidaciones: tm-mod-pagos-admin.js (ola 1, pagos). */
 
@@ -279,7 +211,6 @@
   APP.registrar({
     /* 'admin/pedidos': tm-mod-logistica-ops.js */
     'admin/panel':         { titulo: 'Panel ejecutivo', roles: ['superadmin'],             render: vPanel },
-    'admin/disputas':      { titulo: 'Disputas',        roles: ['superadmin', 'ops'],      render: vDisputasAdmin, despues: despuesDisputasAdmin },
     'admin/auditoria':     { titulo: 'Auditoría',       roles: ['superadmin', 'finanzas'], render: vAuditoria, despues: despuesAuditoria }
   });
 })();
