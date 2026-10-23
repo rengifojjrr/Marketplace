@@ -1311,7 +1311,7 @@ begin
   end if;
   select coalesce(jsonb_agg(jsonb_build_object('id', m.id, 'lado', m.lado, 'autor', m.autor, 'texto', m.texto,
                                                'adjuntos', tumbo_privado.archivos_json(m.adjuntos::text[]),
-                                               'ocultos', to_jsonb(m.ocultos), 'creado', m.creado, 'mio', m.autor_id = yo.id)
+                                               'ocultos', to_jsonb(m.ocultos), 'creado', m.creado, 'mio', coalesce(m.autor_id = yo.id, false))
                             order by m.id), '[]'::jsonb), max(m.id) into v_msgs, v_ult
   from (select * from tumbo.chat_mensajes c where c.pedido_id = p_pedido and (p_antes is null or c.id < p_antes)
         order by c.id desc limit 50) m;
@@ -1466,7 +1466,7 @@ begin
   select count(*) into v_total from tumbo.preguntas q where q.sku = p_sku and q.estado = 'publicada';
   select coalesce(jsonb_agg(jsonb_build_object(
            'id', q.id, 'texto', q.texto, 'creado', q.creado, 'estado', case when q.autor_id = yo.id then q.estado end,
-           'mia', q.autor_id = yo.id,
+           'mia', coalesce(q.autor_id = yo.id, false),
            'respuesta', case when q.respuesta_estado = 'publicada' or (q.autor_id = yo.id and q.respuesta is not null and q.respuesta_estado <> 'oculta')
                              then q.respuesta end,
            'respondida_en', case when q.respuesta_estado = 'publicada' then q.respondida_en end) order by q.creado desc, q.id desc), '[]'::jsonb) into v
@@ -1474,7 +1474,7 @@ begin
         where q.sku = p_sku and (q.estado = 'publicada' or (yo.id is not null and q.autor_id = yo.id and q.estado = 'revision'))
         order by q.creado desc, q.id desc offset (v_pag - 1) * 20 limit 20) q;
   return jsonb_build_object('preguntas', v, 'total', v_total, 'pagina', v_pag, 'paginas', greatest(1, ceil(v_total / 20.0)::integer),
-    'puede_preguntar', yo.rol = 'comprador', 'con_sesion', yo.id is not null,
+    'puede_preguntar', coalesce(yo.rol = 'comprador', false), 'con_sesion', yo.id is not null,
     'respuesta_horas', tumbo_privado.respuesta_horas(p.seller_id));
 end $$;
 
@@ -1755,7 +1755,7 @@ language sql stable security definer set search_path = '' as $$
   select jsonb_build_object('id', r.id, 'sku', r.sku, 'estrellas', r.estrellas, 'calidad', r.calidad, 'empaque', r.empaque,
     'entrega', r.entrega, 'texto', r.texto, 'fotos', tumbo_privado.archivos_json(r.fotos::text[]),
     'autor', tumbo_privado.autor_publico(r.comprador_id), 'creado', r.creado, 'verificada', true,
-    'mia', p_yo is not null and r.comprador_id = p_yo, 'estado', case when r.comprador_id = p_yo then r.estado end,
+    'mia', coalesce(r.comprador_id = p_yo, false), 'estado', case when r.comprador_id = p_yo then r.estado end,
     'respuesta', case when r.respuesta_estado = 'publicada' then jsonb_build_object('texto', r.respuesta, 'fecha', r.respondida_en) end,
     'producto', case when r.sku is not null then (select p.nombre from tumbo.productos p where p.sku = r.sku) end)
 $$;
@@ -2345,13 +2345,13 @@ language sql stable security definer set search_path = '' as $$
     'prioridad', t.prioridad, 'creado', t.creado, 'actualizado', t.actualizado, 'sla_vence', t.sla_vence,
     'primera_respuesta', t.primera_respuesta, 'cerrado', t.cerrado,
     'sla_vencido', t.primera_respuesta is null and t.estado <> 'cerrado' and t.sla_vence < now(),
-    'mio', t.usuario_id = p_yo.id, 'rol', t.rol, 'seller', t.seller_id,
+    'mio', coalesce(t.usuario_id = p_yo.id, false), 'rol', t.rol, 'seller', t.seller_id,
     'quien', case when tumbo_privado.es_soporte(p_yo) then (select u.nombre || ' · ' || u.email from tumbo.usuarios u where u.id = t.usuario_id) end,
     'asignado', (select u.nombre from tumbo.usuarios u where u.id = t.asignado_a),
     'asignado_id', case when tumbo_privado.es_soporte(p_yo) then t.asignado_a end)
   || case when p_detalle then jsonb_build_object('mensajes', coalesce((select jsonb_agg(jsonb_build_object(
           'id', m.id, 'lado', m.lado, 'autor', m.autor, 'texto', m.texto, 'interno', m.interno, 'creado', m.creado,
-          'mio', m.autor_id = p_yo.id, 'adjuntos', tumbo_privado.archivos_json(m.adjuntos::text[])) order by m.id)
+          'mio', coalesce(m.autor_id = p_yo.id, false), 'adjuntos', tumbo_privado.archivos_json(m.adjuntos::text[])) order by m.id)
         from tumbo.ticket_mensajes m where m.ticket_id = t.id and (not m.interno or tumbo_privado.es_soporte(p_yo))), '[]'::jsonb))
     else '{}'::jsonb end
 $$;
@@ -2803,7 +2803,7 @@ begin
              case when p_decision = 'devolucion' then coalesce(p_paga, (select dv.paga from tumbo.devoluciones dv where dv.pedido_id = d.pedido_id)) end);
   insert into tumbo.disputa_mensajes (disputa_id, lado, autor, texto)
   values (p_id, 'sistema', 'Tumbo', left('Decisión' || case when v_auto then ' automática' else '' end || ': ' || v_txt || '.' ||
-          case when v_nota <> '' then ' ' || v_nota else '' end ||
+          case when v_nota <> '' then ' ' || regexp_replace(v_nota, '([^.!?])$', '\1.') else '' end ||
           ' Si no estás de acuerdo, puedes apelar una vez, con evidencia nueva, hasta el ' || tumbo_privado.fecha_legible(v_hasta) || '.', 2000));
   perform tumbo_privado.disputa_avisar(d, 'resuelto: ' || v_txt, 'resuelto: ' || v_txt);
   if v_auto then
@@ -2967,7 +2967,7 @@ begin
     v_txt := tumbo_privado.disputa_texto(new.resolucion_decision, null, v_paga);
     insert into tumbo.disputa_mensajes (disputa_id, lado, autor, texto)
     values (new.id, 'sistema', 'Tumbo', left('Decisión: ' || v_txt || '.' ||
-            case when coalesce(new.resolucion_nota, '') <> '' then ' ' || new.resolucion_nota else '' end ||
+            case when coalesce(new.resolucion_nota, '') <> '' then ' ' || regexp_replace(new.resolucion_nota, '([^.!?])$', '\1.') else '' end ||
             ' Si no estás de acuerdo, puedes apelar una vez, con evidencia nueva, hasta el ' ||
             tumbo_privado.fecha_legible(now() + make_interval(days => tumbo_privado.comunicacion('dias_apelacion', 5)::integer)) || '.', 2000));
     perform tumbo_privado.disputa_avisar(new, 'resuelto: ' || v_txt, 'resuelto: ' || v_txt);
@@ -3006,7 +3006,7 @@ end $$;
 create function tumbo_privado.disputa_mensajes_json(p_id text, p_yo uuid) returns jsonb
 language sql stable security definer set search_path = '' as $$
   select coalesce(jsonb_agg(jsonb_build_object('id', m.id, 'lado', m.lado, 'autor', m.autor, 'texto', m.texto,
-           'adjuntos', tumbo_privado.archivos_json(m.adjuntos), 'creado', m.creado, 'mio', m.autor_id = p_yo,
+           'adjuntos', tumbo_privado.archivos_json(m.adjuntos), 'creado', m.creado, 'mio', coalesce(m.autor_id = p_yo, false),
            'solicitud', m.solicitud_id) order by m.id), '[]'::jsonb)
   from (select * from tumbo.disputa_mensajes x where x.disputa_id = p_id order by x.id desc limit 300) m
 $$;
@@ -3077,12 +3077,12 @@ begin
                              from tumbo.disputa_solicitudes s where s.disputa_id = d.id and not v_bloq
                                and (v_lado = 'tumbo' or s.para = v_lado)), '[]'::jsonb),
     'acciones', jsonb_build_object(
-      'mensaje', not v_bloq and (d.estado <> 'resuelta' or c.apelacion_estado = 'pedida'),
+      'mensaje', not v_bloq and (d.estado <> 'resuelta' or coalesce(c.apelacion_estado = 'pedida', false)),
       'responder', v_lado = 'comercio' and d.estado = 'abierta',
       'apelar', v_puede_apelar,
       'resolver', v_lado = 'tumbo' and not v_bloq and d.estado <> 'resuelta',
       'solicitar', v_lado = 'tumbo' and not v_bloq and d.estado <> 'resuelta',
-      'revisar_apelacion', v_lado = 'tumbo' and not v_bloq and c.apelacion_estado = 'pedida'
+      'revisar_apelacion', v_lado = 'tumbo' and not v_bloq and coalesce(c.apelacion_estado = 'pedida', false)
                            and c.resuelta_por is distinct from yo.id),
     'plantillas', case when v_lado = 'tumbo' then coalesce((select jsonb_agg(jsonb_build_object('clave', p.clave, 'titulo', p.titulo,
                     'decision', p.decision, 'paga', p.paga, 'texto', p.texto) order by p.orden) from tumbo.disputa_plantillas p), '[]'::jsonb) end);
@@ -3434,7 +3434,8 @@ begin
       apelacion_por = yo.id, apelacion_por_nombre = yo.nombre || ' (' || yo.rol || ')'
   where disputa_id = d.id;
   insert into tumbo.disputa_mensajes (disputa_id, autor_id, lado, autor, texto)
-  values (d.id, yo.id, 'sistema', 'Tumbo', left('Revisión de la apelación: ' || v_txt || '. ' || v_nota || ' Esta decisión es definitiva.', 2000));
+  values (d.id, yo.id, 'sistema', 'Tumbo', left('Revisión de la apelación: ' || v_txt || '. ' || regexp_replace(v_nota, '([^.!?])$', '\1.') ||
+          ' Esta decisión es definitiva.', 2000));
   perform tumbo_privado.notificar('usr:' || d.comprador_id, 'Revisamos la apelación del reclamo ' || d.id, 'gavel', 'tienda/reclamo.html?id=' || d.pedido_id);
   perform tumbo_privado.notificar('seller:' || d.seller_id, 'Revisamos la apelación del reclamo ' || d.id, 'gavel', 'seller/disputas.html?id=' || d.id);
   perform tumbo_privado.disputa_avisar(d, 'apelación revisada: ' || v_txt, 'apelación revisada: ' || v_txt);
