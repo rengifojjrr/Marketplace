@@ -45,7 +45,8 @@ declare
     'public.tm_stock_umbral(text,text,integer)', 'public.tm_kardex(text,text,bigint)',
     'public.tm_importar_productos(text,jsonb,text,boolean,boolean,boolean)', 'public.tm_moderar_lote(text,text[],boolean,text)',
     'public.tm_kyc_guardar(text,jsonb)', 'public.tm_kyc_documento(text,integer,uuid)', 'public.tm_kyc_enviar(text)',
-    'public.tm_kyc_revisar(text,text,integer,text,text)', 'public.tm_tienda_guardar(text,jsonb)'];
+    'public.tm_kyc_revisar(text,text,integer,text,text)', 'public.tm_tienda_guardar(text,jsonb)',
+    'public.tm_kyc_archivo(text,text,integer)'];
   f text;
   ajenos text;
   b text;

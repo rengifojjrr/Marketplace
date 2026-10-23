@@ -86,9 +86,11 @@
   function imagenesDe(p) {
     if (!p) return [];
     if (p.imagenes && p.imagenes.length) return p.imagenes;
+    /* las del principal, solo si está publicado (las de un borrador no
+       pasaron moderación; igual que tm_buscar) */
     if (p.padreSku) {
       var pa = TM.producto(p.padreSku);
-      if (pa && pa.imagenes && pa.imagenes.length) return pa.imagenes;
+      if (pa && pa.estado === 'publicado' && pa.imagenes && pa.imagenes.length) return pa.imagenes;
     }
     return [];
   }
@@ -877,11 +879,11 @@
     }
     var v = raiz.querySelector('[data-avisar]');
     if (v) v.addEventListener('click', function () {
-      alerta(v, 'stock', true, ['Te avisaremos', 'Cuando vuelva a haber stock te llega el aviso a la campana y a tu correo.']);
+      alerta(v, 'stock', true, ['Te avisaremos', 'Cuando vuelva a haber stock te llega el aviso a la campana. El correo y WhatsApp quedan pendientes hasta que Tumbo conecte su proveedor de mensajes.']);
     });
     var ap = raiz.querySelector('[data-alerta-precio]');
     if (ap) ap.addEventListener('click', function () {
-      alerta(ap, 'precio', true, ['Te avisaremos', 'Si el precio baja de ' + TM.fmtUsd(TM.producto(sku).precioUsd) + ', te llega el aviso.']);
+      alerta(ap, 'precio', true, ['Te avisaremos', 'Si el precio baja de ' + TM.fmtUsd(TM.producto(sku).precioUsd) + ', te llega el aviso a la campana.']);
     });
     raiz.querySelectorAll('[data-quitar-alerta]').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -1019,5 +1021,9 @@
   CAT.abrirVisor = abrirVisor;
   CAT.masVendidos = masVendidos;
   CAT.norm = norm;
+  /* Las cuentas de prueba (contraseña pública) son las de la semilla. */
+  CAT.cuentaDemo = function (s) {
+    return !!(s && ((window.TM_SEED || {}).usuarios || []).some(function (u) { return u.email === s.email; }));
+  };
   TM.cat = CAT;
 })();

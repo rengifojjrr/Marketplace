@@ -63,8 +63,10 @@
       b.addEventListener('click', function () {
         UI.accion(b, function () { return C().api('tm_precios_deshacer', { p_lote: b.getAttribute('data-deshacer') }, true); }, function (r) {
           try { sessionStorage.removeItem(DESHACER); } catch (e) { }
+          var omitidos = (r && r.detalle || []).map(function (x) { return x.sku + ': ' + x.motivo; });
           UI.toast('Cambio deshecho', (r && r.restaurados) + ' precio(s) restaurado(s)' +
-            (r && r.omitidos ? '; ' + r.omitidos + ' ya habían cambiado y no se tocaron' : '') + '.', 'undo');
+            (omitidos.length ? '. Sin tocar: ' + omitidos.slice(0, 3).join(' ') + (omitidos.length > 3 ? ' (y ' + (omitidos.length - 3) + ' más)' : '')
+                             : '.'), 'undo');
           TM._avisar('propio');
         }, 'No se pudo deshacer');
       });
@@ -1171,7 +1173,9 @@
             '</li>';
         }).join('') + '</ul>' +
         '<div class="mt-3">' + btn('Enviar a revisión', { estilo: 'primario', icono: 'send', attr: 'data-enviar-kyc' }) + '</div>' +
-        '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant">Solo el superadministrador de Tumbo ve tus documentos (con enlaces que vencen a los 5 minutos).</p>') +
+        (C().cuentaDemo(s)
+          ? '<p data-privacidad-kyc="prueba" class="mt-2 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2">Esta es una cuenta de prueba: su contraseña es pública, así que cualquiera que entre con ella, y el superadministrador de prueba, puede ver estos archivos. No subas documentos reales.</p>'
+          : '<p data-privacidad-kyc="real" class="mt-2 font-body-sm text-body-sm text-on-surface-variant">Tus documentos son privados: los ven quienes entran a esta cuenta de seller principal y el superadministrador de Tumbo con su cuenta real y sesión elevada (verificación en dos pasos), con enlaces que vencen a los 5 minutos. Cada consulta del equipo de Tumbo queda en la auditoría.</p>')) +
       '</div>' +
 
       seccion('Tienda pública',

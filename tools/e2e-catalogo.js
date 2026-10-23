@@ -298,12 +298,30 @@ const CUOTAS = (n) => `update tumbo.ajustes set valor = jsonb_set(valor, '{archi
     await p.locator('[data-enviar-kyc]').click();
     await aviso('Expediente enviado');
     await p.waitForSelector('[data-expediente="en_revision"]');
+    if (!/contraseña es pública/.test(await p.locator('[data-privacidad-kyc="prueba"]').innerText())) throw new Error('no advierte que la cuenta de prueba es pública');
   }, /status of 400/);
 
-  await pruebaSolo('remoto', 'el superadmin ve el expediente con sus documentos y la exigencia de sesión elevada', async () => {
+  await pruebaSolo('remoto', 'el superadmin de prueba ve el expediente de un comercio de prueba (no los reales) y la exigencia de sesión elevada', async () => {
+    if (BD) {
+      /* un comercio de personas reales (sin cuentas de prueba) con su expediente */
+      psql(`insert into tumbo.sellers (id, nombre, ciudad, estado, desde, descripcion) values ('SEL-990', 'Comercio Real Pruebas, C.A.', 'Caracas', 'en_revision', current_date, '')
+              on conflict (id) do update set estado = 'en_revision';
+            insert into tumbo.usuarios (email, clave_hash, nombre, rol, seller_id)
+            values ('cat-real@tumbo-local.ve', extensions.crypt('clave-catalogo-pruebas-1', extensions.gen_salt('bf', 4)), 'Comercio Real Pruebas', 'seller', 'SEL-990')
+              on conflict (email) do update set rol = 'seller', seller_id = 'SEL-990', activo = true;
+            insert into tumbo.sellers_kyc (seller_id, rif, razon_social, direccion_fiscal, ciudad_despacho, telefono)
+            values ('SEL-990', 'J-40881234-7', 'Comercio Real Pruebas, C.A.', 'Calle Real 123, Los Ruices, Caracas', 'Caracas', '0414-1112233')
+              on conflict (seller_id) do update set direccion_fiscal = excluded.direccion_fiscal, telefono = excluded.telefono;
+            insert into tumbo.seller_documentos (seller_id, orden, nombre, estado) values ('SEL-990', 1, 'RIF vigente', 'pendiente') on conflict do nothing`);
+    }
     await login('superadmin');
     await abrir('admin/sellers');
-    if (!await p.locator('[data-aviso-elevada]').count()) throw new Error('no avisa que hace falta sesión elevada');
+    if (!/comercios de prueba/.test(await p.locator('[data-aviso-elevada]').innerText())) throw new Error('no explica qué ve una cuenta de prueba');
+    if (BD) {
+      const tx = await texto();
+      if (/Calle Real 123|0414-1112233/.test(tx)) throw new Error('la cuenta de prueba ve los datos fiscales de un comercio real');
+      if (await p.locator('[data-seller="SEL-990"] [data-ver-doc]').count()) throw new Error('la cuenta de prueba ve los documentos de un comercio real');
+    }
     const art = p.locator('[data-seller="SEL-014"]');
     if (await art.locator('[data-ver-doc]').count() !== 4) throw new Error('no están los cuatro documentos');
     if (!/En revisión/.test(await art.innerText())) throw new Error('el expediente no figura en revisión');
@@ -405,6 +423,13 @@ const CUOTAS = (n) => `update tumbo.ajustes set valor = jsonb_set(valor, '{archi
     if (/Precios|Mi comercio/.test(nav)) throw new Error('el operador ve menús ajenos: ' + nav.replace(/\n/g, ' '));
   });
 
-  if (remoto && BD) psql(CUOTAS(100));
+  if (remoto && BD) {
+    psql(CUOTAS(100));
+    /* sin el comercio real de pruebas (verificar-rls cuenta sellers y expedientes) */
+    psql(`update tumbo.usuarios set seller_id = null, rol = 'comprador', activo = false where email = 'cat-real@tumbo-local.ve';
+          delete from tumbo.seller_documentos where seller_id = 'SEL-990';
+          delete from tumbo.sellers_kyc where seller_id = 'SEL-990';
+          delete from tumbo.sellers where id = 'SEL-990' and not exists (select 1 from tumbo.archivos a where a.seller_id = 'SEL-990')`);
+  }
   await t.resumen('pruebas E2E del catálogo y comercio en verde.');
 })();

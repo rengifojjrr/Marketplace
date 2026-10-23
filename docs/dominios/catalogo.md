@@ -29,9 +29,13 @@ registran ahora desde los módulos; sus versiones anteriores se retiraron de
   filtra por categoría (con sus subcategorías), precio, marca, condición,
   ciudad del comercio, disponibilidad, «solo verificados» y atributos de la
   categoría, y ordena por relevancia, precio, novedades o más vendidos. Pagina
-  de a 24 y agrupa las variantes en una tarjeta por familia («desde», «N
+  de a 24 (todas las páginas se pueden abrir; pedir una de más devuelve la
+  última) y agrupa las variantes en una tarjeta por familia («desde», «N
   opciones»). Si ninguna palabra encuentra todo, muestra resultados
-  aproximados y lo dice. Los filtros viven en la URL (`q`, `cat`, `marca`,
+  aproximados y lo dice. Cada alternativa de cada palabra busca sus
+  candidatos con el índice de trigramas y solo esos se puntúan: con 3.000
+  productos, una búsqueda de 8 palabras con sinónimos tarda menos de 0,4 s
+  (antes, de 1,5 a más de 3 s). Los filtros viven en la URL (`q`, `cat`, `marca`,
   `cond`, `ciudad`, `disp`, `verif`, `pmin`, `pmax`, `at_<clave>`, `orden`,
   `pag`), así que se pueden compartir.
 - Ver la ficha completa: galería con miniaturas y zoom (lupa en escritorio,
@@ -93,11 +97,24 @@ registran ahora desde los módulos; sus versiones anteriores se retiraron de
 **Superadministrador**
 
 - Sellers (`admin/sellers`): expediente de cada comercio con sus datos
-  fiscales, visor de cada documento con URL firmada, revisión por documento
+  fiscales, visor de cada documento con URL firmada (el id del archivo se
+  pide al abrirlo con `tm_kyc_archivo`, que exige sesión elevada y deja la
+  consulta en la auditoría; `tm_cargar` no entrega ids de archivos KYC a
+  nadie más que al seller dueño), revisión por documento
   (aprobar u observar con el texto que verá el seller) y decisión del
   comercio: aprobar, observar, suspender, rechazar o reactivar. El comercio
   queda «verificado» solo cuando los 4 documentos, con archivo, están
-  aprobados. Todas estas acciones exigen sesión elevada (`exigir_elevada`).
+  aprobados. Abrir un documento, revisarlo y decidir exigen sesión elevada
+  (`exigir_elevada`).
+- Cuentas de prueba (contraseña pública): el superadmin y finanzas de la
+  demo solo reciben los expedientes (datos fiscales y documentos) de los
+  **comercios de prueba**: los que tienen alguna cuenta de prueba o ninguna
+  cuenta real (`tumbo_privado.comercio_de_prueba`, `expediente_visible`).
+  Los de comercios con personas reales no les llegan, como en la bandeja de
+  salida. El superadmin de prueba abre los documentos de un comercio de
+  prueba (cualquiera puede cargarlos con la contraseña pública), pero no
+  revisa ni decide. La página lo explica, y al seller de prueba se le
+  advierte que no suba documentos reales.
 - Moderación (`admin/moderacion`): fotos reales (con visor), atributos y
   ficha de cada producto; aprobar o rechazar uno a uno o en lote (hasta
   100, con motivo para rechazar).
@@ -117,7 +134,7 @@ por firma exacta para `anon, authenticated`; el rol se valida dentro):
 | `tm_alerta(sesion, sku, tipo, activa)` | comprador | Aviso de `stock` o `precio` (tope 100 activos) |
 | `tm_ajustar_precio(sesion, sku, precio, confirmar)` | seller, precios | Precio en línea con la regla de ±30 % y el precio mínimo |
 | `tm_precios_masivo(sesion, cambios, confirmar)` | seller, precios | Todo o nada: devuelve errores o la confirmación pendiente, o aplica y da el lote |
-| `tm_precios_deshacer(sesion, lote)` | seller, precios | Revierte un lote en sus primeros 5 minutos |
+| `tm_precios_deshacer(sesion, lote)` | seller, precios | Revierte un lote en sus primeros 5 minutos (del cambio más nuevo al más viejo); no toca el SKU que cambió después ni el que su precio mínimo no deja volver, y los informa en `detalle` |
 | `tm_precio_minimo(sesion, sku, minimo)` | seller, precios | Fija o quita el precio mínimo |
 | `tm_precio_historial(sesion, sku)` | seller, precios, superadmin | Últimos cambios de precio con origen y autor |
 | `tm_stock_movimiento(sesion, sku, tipo, cantidad, motivo)` | seller, operador | Entrada o ajuste (con motivo) |
@@ -129,6 +146,7 @@ por firma exacta para `anon, authenticated`; el rol se valida dentro):
 | `tm_kyc_documento(sesion, orden, archivo)` | seller | Asocia un archivo `kyc` ya subido a un documento |
 | `tm_kyc_enviar(sesion)` | seller | Envía el expediente completo a revisión |
 | `tm_kyc_revisar(sesion, seller, orden, decision, observacion)` | superadmin (elevada) | Aprueba u observa un documento |
+| `tm_kyc_archivo(sesion, seller, orden)` | superadmin (elevada; de prueba, solo comercios de prueba) | El id del archivo de un documento para `TM.archivos.ver`; queda en la auditoría |
 | `tm_tienda_guardar(sesion, datos)` | seller | Descripción, horario, políticas, logo y portada |
 
 Redefinidas desde su última definición (conservan firma y permisos):
@@ -138,10 +156,16 @@ Redefinidas desde su última definición (conservan firma y permisos):
   (incluye `kyc_verificado`, logo, portada, horario, políticas, fotos y
   ficha); el dueño ve sus productos completos; `mas_vendidos`; el comprador
   recibe sus `favoritos` y `alertas`; el seller ve el estado de cada
-  documento. La reputación sale del contrato (vacío hoy).
+  documento. La reputación sale del contrato (vacío hoy). Expediente:
+  `kyc` y `docs` pasan por `expediente_visible` (las cuentas de prueba solo
+  reciben los de comercios de prueba) y el id del archivo de cada documento
+  solo va al seller dueño.
 - `tm_guardar_producto`: ficha completa, fotos, atributos validados por
   categoría, variantes y regla de ±30 % (devuelve el mensaje para
-  confirmar).
+  confirmar). El precio queda en el historial con origen «ficha»; la carga
+  CSV completa usa la misma función privada con origen «csv» y el lote de
+  la importación (se deshace junta). Una ficha que no toca el precio
+  mínimo no se rechaza por él.
 - `tm_ajustar_producto`: precio por la misma regla; el stock deja su
   movimiento en el kardex.
 - `tm_moderar_producto`: misma regla de siempre, ahora compartida con el
@@ -168,9 +192,14 @@ Redefinidas desde su última definición (conservan firma y permisos):
   `direccion_fiscal`, `ciudad_despacho`, `telefono`, `expediente`
   (incompleto, en revisión, observado, verificado), `enviado`, `revisado`.
   Documentos: `archivo_id`, `observacion`, `actualizado`, `revisado_por`.
-- Búsqueda: `pg_trgm` y `unaccent` en el esquema `extensions`, índice GIN de
-  trigramas sobre `tumbo_privado.doc_busqueda(nombre, marca, sku, atributos)`
-  (inmutable, normaliza tildes y signos).
+- Búsqueda: `pg_trgm` y `unaccent` en el esquema `extensions`; columna
+  generada `productos.busqueda` = `tumbo_privado.doc_busqueda(nombre, marca,
+  sku, atributos)` (inmutable, normaliza tildes y signos; se calcula al
+  guardar) con su índice GIN de trigramas sin lista de pendientes
+  (`fastupdate = off`: se busca mucho más de lo que se escribe), que
+  `tm_buscar` usa para los candidatos de cada palabra (`LIKE` y `<%`). `tumbo.topes_busqueda`
+  (sin bitácora): contadores por red de búsquedas por minuto y de textos
+  nuevos del registro por hora.
 - Plantillas nuevas de la bandeja: `alerta_stock` y `alerta_precio` (correo
   y WhatsApp).
 
@@ -184,6 +213,7 @@ Todas las tablas nuevas tienen RLS activo y ningún permiso directo para
 | `tumbo_privado.reputacion_productos()` → `(sku, rating, resenas)` | no devuelve filas: la tienda no muestra estrellas | Ola 2 (reseñas reales), con la misma firma |
 | `tumbo_privado.reputacion_sellers()` → `(seller_id, rating, resenas)` | igual | Ola 2 |
 | `tumbo_privado.contexto_stock(tipo, motivo, ref, por)` | lo usan las funciones del catálogo; sin él, el disparador deduce despacho → venta, devolución recibida → devolución y lo demás → ajuste del sistema | Cualquier equipo que cambie `stock_fis` puede llamarlo antes del `UPDATE` para nombrar su movimiento |
+| `tumbo_privado.kyc_archivo_visible(p_yo, p_seller)` → boolean | la regla para abrir un documento KYC: el seller principal del comercio; el superadmin con cuenta real y sesión elevada; una cuenta de prueba, solo los de comercios de prueba (la usa `tm_kyc_archivo` por `exigir_documento_kyc`) | **Pedido a la ola 0** (dueña de `archivo_permitido` y `tm_archivo_acceso`): que la rama `kyc` de `archivo_permitido` la consulte con la entidad del archivo, para que la URL firmada pida lo mismo aunque alguien conozca un id. Hoy los ids solo salen por `tm_kyc_archivo` y al seller dueño |
 
 Usa los de la ola 0: `exigir_elevada` (decisiones y revisión KYC),
 `encolar` (avisos de stock y precio), `notificar`, `auditar`, `ajuste` y
@@ -198,9 +228,18 @@ Usa los de la ola 0: `exigir_elevada` (decisiones y revisión KYC),
   las decisiones KYC.
 - Topes contra abuso: 8 fotos, 3 ejes de variante, 200 filas por CSV, 200
   cambios por lote de precios, 100 productos por moderación en lote, 300
-  favoritos y 100 avisos activos por comprador, 5.000 búsquedas vacías
-  guardadas (180 días); además rigen la cuota de escrituras y la de archivos
-  de la ola 0.
+  favoritos y 100 avisos activos por comprador; además rigen la cuota de
+  escrituras y la de archivos de la ola 0.
+- Búsqueda pública (anónima): 300 búsquedas por minuto y red (la red
+  «desconocida», sin la cabecera del borde, no se limita), filtros de hasta
+  16 kB, 8 palabras con hasta 10 alternativas cada una. Registro de
+  búsquedas sin resultado: guarda solo los filtros conocidos, saneados y
+  acotados (≤ 2 kB); purga primero lo de más de 180 días; con 5.000 textos,
+  uno nuevo reemplaza al menos buscado y más viejo (lo popular no se
+  pierde); cada red agrega hasta 60 textos nuevos por hora.
+- Los documentos KYC y los datos fiscales de los comercios reales no llegan
+  a las cuentas de prueba; abrir un documento pide sesión elevada y queda en
+  la auditoría (`Documento KYC consultado`).
 - El RIF se normaliza (`J-12345678-9`) y se valida su dígito verificador; el
   teléfono, al formato venezolano.
 
@@ -218,28 +257,39 @@ muestra «Esta función necesita el servidor de Tumbo.» (`TM.requiereServidor()
 `tumbo_privado.sembrar_ext_catalogo(p_auditoria)` (lo llama el reinicio de la
 demo) vuelve a sembrar el árbol de categorías, atributos y sinónimos, borra
 favoritos, avisos, historial de precios y búsquedas vacías, deja los
-productos sin valoraciones y los sellers de la semilla sin verificar (sin
-logo, portada ni horario) y devuelve a «pendiente» los documentos que no
-tienen archivo. No se agregaron productos de ejemplo.
+productos sin valoraciones, los sellers de la semilla sin horario ni
+políticas, todos los comercios sin logo ni portada (el reinicio descarta los
+archivos) y devuelve a «pendiente» los documentos que no tienen archivo.
+Como el reinicio borra todos los expedientes, recalcula la verificación de
+**todos** los comercios (no solo los de la semilla): ninguno queda
+«Verificado por Tumbo» sin sus documentos. No se agregaron productos de
+ejemplo.
 
 Las cuentas de prueba no pasan `exigir_elevada`, así que el superadmin de la
-demo ve los expedientes pero no puede revisar documentos ni decidir; la
-página lo explica. Con el segundo factor real (Cuentas) lo podrá hacer un
-superadmin real.
+demo ve y abre los expedientes de los comercios de prueba pero no puede
+revisar documentos ni decidir; la página lo explica. Con el segundo factor
+real (Cuentas) lo podrá hacer un superadmin real.
 
 ## Pruebas
 
-- `tools/api-catalogo.js`: 141 comprobaciones por la API (lectura, búsqueda,
+- `tools/api-catalogo.js`: 176 comprobaciones por la API (lectura, búsqueda,
   ficha y atributos, galería, variantes, precios, inventario, favoritos y
   avisos, carga masiva, KYC, tienda pública, seguridad y reinicio). Con
   `TM_PGDATABASE` usa cuentas propias que no son de la demo (para no gastar
-  la cuota de las demás suites y para probar la sesión elevada) y sube la
-  cuota diaria de archivos mientras corre (la deja en 100).
+  la cuota de las demás suites y para probar la sesión elevada), un
+  comercio real (`SEL-990`, sin cuentas de prueba) para el expediente frente
+  a las cuentas de prueba, un catálogo de 3.000 productos (`SEL-991`, se
+  borra al terminar) para el rendimiento y la paginación, comprueba los
+  privilegios de `tumbo_privado` con `has_function_privilege`, limpia los
+  contadores por red de la búsqueda (todas las suites salen de la misma red
+  local) y sube la cuota diaria de archivos mientras corre (la deja en 100).
 - `tools/e2e-catalogo.js`: 18 pruebas en modo remoto y 7 en local (búsqueda
   con filtros, ficha con galería y variantes, formulario con fotos y
   atributos, gestor de precios con deshacer, kardex, CSV, expediente KYC y
-  revisión con visor firmado, moderación en lote, favoritos y avisos,
-  tienda del seller, panel, móvil a 390 px y barrido de páginas por rol).
+  revisión con visor firmado (y, con `TM_PGDATABASE`, que el superadmin de
+  prueba no ve el expediente de un comercio real), moderación en lote,
+  favoritos y avisos, tienda del seller, panel, móvil a 390 px y barrido de
+  páginas por rol).
 
 ## Pendiente y dependencias de terceros
 
@@ -249,6 +299,12 @@ superadmin real.
   (ola 2).
 - **Sesión elevada real (2FA)**: hasta que Cuentas complete
   `exigir_elevada`, nadie con cuenta de prueba decide KYC.
+- **URL firmada de los documentos KYC**: `tm_archivo_acceso` (ola 0) la da a
+  cualquier superadministrador que tenga el id. Los ids ya no salen a las
+  cuentas de prueba (solo por `tm_kyc_archivo` y al seller dueño), pero
+  para cerrarlo también en ese punto la ola 0 debe consultar el contrato
+  `kyc_archivo_visible` en la rama `kyc` de `archivo_permitido` (no es
+  función de este equipo).
 - **Migración en la nube**: la aplica el dueño del proyecto con el
   procedimiento de [BACKEND.md](../BACKEND.md#desplegar-o-actualizar).
 - Mejoras posibles: más atributos y subcategorías por demanda (las

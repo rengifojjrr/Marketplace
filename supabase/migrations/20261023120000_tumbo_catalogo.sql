@@ -22,6 +22,13 @@
 --     todos los documentos aprobados; tienda pública editable del seller;
 --   · moderación en lote; la tienda deja de mostrar las valoraciones de la
 --     semilla (las reseñas reales llegan en la ola 2 por un contrato).
+-- Revisión adversarial: las cuentas de prueba no ven los expedientes de los
+-- comercios reales y el id de un documento KYC solo sale por tm_kyc_archivo
+-- (sesión elevada y auditoría); búsqueda con candidatos por índice
+-- (columna productos.busqueda), topes por red y registro de búsquedas
+-- vacías acotado; deshacer precios respeta el precio mínimo; la carga CSV
+-- deja sus precios en su lote; el reinicio recalcula la verificación de
+-- todos los comercios.
 -- Funciones redefinidas (desde su última definición): tm_cargar,
 -- tm_guardar_producto, tm_ajustar_producto, tm_moderar_producto y
 -- tm_decidir_kyc.
@@ -97,8 +104,23 @@ create table tumbo.busquedas_vacias (
   ultima  timestamptz not null default now()
 );
 create index busquedas_vacias_ultima_idx on tumbo.busquedas_vacias (ultima);
+create index busquedas_vacias_uso_idx on tumbo.busquedas_vacias (veces, ultima);
 alter table tumbo.busquedas_vacias enable row level security;
 revoke all on tumbo.busquedas_vacias from public, anon, authenticated;
+
+-- Topes por red de la búsqueda pública (tm_buscar es anónima): búsquedas
+-- por minuto y textos nuevos en el registro de búsquedas vacías por hora.
+-- Sin bitácora (unlogged): son contadores de minutos u horas.
+create unlogged table tumbo.topes_busqueda (
+  red     text not null,
+  tipo    text not null check (tipo in ('buscar', 'vacia')),
+  ventana timestamptz not null,
+  n       integer not null default 0,
+  primary key (red, tipo, ventana)
+);
+create index topes_busqueda_ventana_idx on tumbo.topes_busqueda (ventana);
+alter table tumbo.topes_busqueda enable row level security;
+revoke all on tumbo.topes_busqueda from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Productos: galería, variantes, atributos, ficha completa y topes propios
@@ -124,8 +146,15 @@ alter table tumbo.productos
   add column precio_minimo  numeric(12,2) check (precio_minimo > 0),
   add column stock_minimo   integer check (stock_minimo between 0 and 99999);
 create index productos_padre_idx on tumbo.productos (padre_sku) where padre_sku is not null;
-create index productos_busqueda_idx on tumbo.productos
-  using gin (tumbo_privado.doc_busqueda(nombre, marca, sku, atributos) extensions.gin_trgm_ops);
+-- Texto de búsqueda ya normalizado (columna generada: se calcula al guardar,
+-- no en cada búsqueda) con su índice de trigramas. tm_buscar encuentra con
+-- él los candidatos de cada palabra (LIKE y «<%») y solo puntúa esos. Sin
+-- lista de pendientes (fastupdate = off): cada búsqueda hace hasta 160
+-- consultas al índice y la lista se recorre entera en cada una hasta que el
+-- autovacuum la vacía; los productos se escriben poco y se buscan mucho.
+alter table tumbo.productos
+  add column busqueda text generated always as (tumbo_privado.doc_busqueda(nombre, marca, sku, atributos)) stored;
+create index productos_busqueda_idx on tumbo.productos using gin (busqueda extensions.gin_trgm_ops) with (fastupdate = off);
 
 -- ---------------------------------------------------------------------------
 -- Precios: historial (con lote para deshacer)
@@ -737,8 +766,12 @@ select tumbo_privado.sembrar_catalogo_base();
 -- los cambios de precio de más de 30 % (confirmarPrecio) e historial, y
 -- kardex de los cambios de stock. Las fotos nuevas, la condición, la
 -- garantía, el origen, el contenido de la caja y los atributos cuentan como
--- contenido: en un producto publicado lo devuelven a moderación.
-create function tumbo_privado.guardar_producto(p_yo tumbo.usuarios, p_datos jsonb, p_enviar boolean) returns text
+-- contenido: en un producto publicado lo devuelven a moderación. El cambio
+-- de precio queda en el historial con su origen y su lote: «ficha» (el
+-- formulario, un lote por cambio) o «csv» (la carga masiva pasa el lote de
+-- la importación, para deshacerla junta).
+create function tumbo_privado.guardar_producto(p_yo tumbo.usuarios, p_datos jsonb, p_enviar boolean,
+                                               p_origen text, p_lote uuid) returns text
 language plpgsql security definer set search_path = '' as $$
 declare
   yo tumbo.usuarios := p_yo;
@@ -778,7 +811,11 @@ declare
   v_smin integer;
   v_pmin numeric;
   v_pmin_final numeric;
+  v_origen_precio text := coalesce(p_origen, 'ficha');
 begin
+  if v_origen_precio not in ('ficha', 'csv') then
+    raise exception 'Origen del cambio inválido.';
+  end if;
   if jsonb_typeof(d) <> 'object' then
     raise exception 'Datos del producto inválidos.';
   end if;
@@ -1013,7 +1050,9 @@ begin
           tumbo_privado.fmt_usd(v.precio_usd), tumbo_privado.fmt_usd(v_precio),
           to_char(round((v_precio / v.precio_usd - 1) * 100), 'FMSG990');
       end if;
-    elsif v_pmin_final is not null and v_pmin_final > v.precio_usd then
+    elsif d ? 'precioMinimo' and v_pmin is distinct from v.precio_minimo
+          and v_pmin_final is not null and v_pmin_final > v.precio_usd then
+      -- (solo si el mínimo cambia: una ficha que no lo toca se guarda igual)
       raise exception 'El precio mínimo no puede ser mayor que el precio actual (%).', tumbo_privado.fmt_usd(v.precio_usd);
     end if;
     -- fotos
@@ -1092,7 +1131,7 @@ begin
       and not exists (select 1 from tumbo.productos x where x.imagenes ? a.id::text);
     if v_precio is not null and v_precio <> v.precio_usd then
       insert into tumbo.precio_historial (sku, seller_id, antes, despues, origen, lote, por, por_id)
-      values (v.sku, v.seller_id, v.precio_usd, v_precio, 'ficha', gen_random_uuid(), v_actor, yo.id);
+      values (v.sku, v.seller_id, v.precio_usd, v_precio, v_origen_precio, coalesce(p_lote, gen_random_uuid()), v_actor, yo.id);
     end if;
   end if;
 
@@ -1110,7 +1149,7 @@ language plpgsql security definer set search_path = '' as $$
 declare
   yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['seller', 'operador']);
 begin
-  return tumbo_privado.guardar_producto(yo, p_datos, p_enviar);
+  return tumbo_privado.guardar_producto(yo, p_datos, p_enviar, 'ficha', null);
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -1272,7 +1311,11 @@ begin
 end $$;
 
 -- Deshace un lote de cambios de precio del propio comercio en sus primeros 5
--- minutos. Un SKU cuyo precio volvió a cambiar después no se toca.
+-- minutos (del cambio más reciente al más viejo, así un SKU que cambió dos
+-- veces en el lote vuelve al primer precio). No se toca un SKU cuyo precio
+-- volvió a cambiar después ni uno al que su precio mínimo vigente no deja
+-- volver al precio anterior (ningún cambio atraviesa el mínimo): se informan
+-- en «detalle» con su motivo.
 create function public.tm_precios_deshacer(p_sesion text, p_lote uuid) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -1282,25 +1325,31 @@ declare
   v_lote uuid := gen_random_uuid();
   v_n integer := 0;
   v_omitidos integer := 0;
+  v_detalle jsonb := '[]'::jsonb;
   v_hay boolean := false;
 begin
   for h in
     select * from tumbo.precio_historial
     where lote = p_lote and seller_id = yo.seller_id and not deshecho and origen <> 'deshacer'
-    order by sku for update
+    order by sku, id desc for update
   loop
     v_hay := true;
     if h.fecha < now() - interval '5 minutes' then
       raise exception 'Ya pasaron más de 5 minutos: ese cambio de precios no se puede deshacer.';
     end if;
     v := tumbo_privado.bloquear_producto(h.sku, yo);
-    if v.precio_usd = h.despues then
+    if v.precio_usd <> h.despues then
+      v_omitidos := v_omitidos + 1;
+      v_detalle := v_detalle || jsonb_build_object('sku', h.sku, 'motivo', 'Su precio cambió después.');
+    elsif v.precio_minimo is not null and h.antes < v.precio_minimo then
+      v_omitidos := v_omitidos + 1;
+      v_detalle := v_detalle || jsonb_build_object('sku', h.sku,
+        'motivo', 'Su precio mínimo (' || tumbo_privado.fmt_usd(v.precio_minimo) || ') no deja volver a ' || tumbo_privado.fmt_usd(h.antes) || '.');
+    else
       update tumbo.productos set precio_usd = h.antes, actualizado = now() where sku = h.sku;
       insert into tumbo.precio_historial (sku, seller_id, antes, despues, origen, lote, por, por_id)
       values (h.sku, h.seller_id, h.despues, h.antes, 'deshacer', v_lote, yo.nombre || ' (' || yo.rol || ')', yo.id);
       v_n := v_n + 1;
-    else
-      v_omitidos := v_omitidos + 1;
     end if;
     update tumbo.precio_historial set deshecho = true where id = h.id;
   end loop;
@@ -1308,8 +1357,11 @@ begin
     raise exception 'No encontramos ese cambio de precios (o ya se deshizo).';
   end if;
   perform tumbo_privado.auditar(yo, 'Cambio de precios deshecho',
-    'lote ' || left(p_lote::text, 8) || ': ' || v_n || ' restaurados' || case when v_omitidos > 0 then ', ' || v_omitidos || ' sin tocar (cambiaron después)' else '' end);
-  return jsonb_build_object('restaurados', v_n, 'omitidos', v_omitidos);
+    'lote ' || left(p_lote::text, 8) || ': ' || v_n || ' restaurados' ||
+    case when v_omitidos > 0 then ', ' || v_omitidos || ' sin tocar (' ||
+      (select string_agg((x ->> 'sku') || ': ' || (x ->> 'motivo'), ' ') from (select x from jsonb_array_elements(v_detalle) x limit 10) s) || ')'
+    else '' end);
+  return jsonb_build_object('restaurados', v_n, 'omitidos', v_omitidos, 'detalle', v_detalle);
 end $$;
 
 -- Precio mínimo opcional de un SKU (null lo quita): ningún cambio de precio
@@ -1478,7 +1530,7 @@ begin
                                       'condicion', 'garantiaMeses', 'garantiaQuien', 'origen', 'contenidoCaja', 'pesoKg',
                                       'largoCm', 'anchoCm', 'altoCm', 'iva', 'atributos', 'stockMinimo', 'precioMinimo'))
                      || jsonb_build_object('motivoStock', 'Carga masiva CSV', 'confirmarPrecio', coalesce(p_confirmar, false));
-          v_sku := tumbo_privado.guardar_producto(yo, v_datos, p_enviar);
+          v_sku := tumbo_privado.guardar_producto(yo, v_datos, p_enviar, 'csv', v_lote);
         else
           if v_sku is null then
             raise exception 'Falta el SKU.';
@@ -1660,6 +1712,65 @@ begin
   return v_ok;
 end $$;
 
+-- ¿Es un comercio de prueba? Lo es si alguna de sus cuentas es de prueba
+-- (su contraseña es pública: cualquiera ve y carga lo que tiene) o si no
+-- tiene ninguna cuenta real (los de la semilla). Un comercio con cuentas
+-- reales y ninguna de prueba es de personas reales.
+create function tumbo_privado.comercio_de_prueba(p_seller text) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from tumbo.usuarios u where u.seller_id = p_seller and tumbo_privado.cuenta_demo(u.email))
+      or not exists (select 1 from tumbo.usuarios u where u.seller_id = p_seller and not tumbo_privado.cuenta_demo(u.email))
+$$;
+
+-- ¿Ve esta persona el expediente (datos fiscales y lista de documentos) de
+-- ese comercio? Su seller principal; el superadministrador y finanzas (sin
+-- las observaciones) con su cuenta real; con una cuenta de prueba, solo los
+-- comercios de prueba (como la bandeja: las cuentas de prueba nunca ven los
+-- datos de las personas reales).
+create function tumbo_privado.expediente_visible(p_yo tumbo.usuarios, p_seller text) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select coalesce(
+    (p_yo.rol = 'seller' and p_yo.seller_id = p_seller)
+    or (p_yo.rol in ('superadmin', 'finanzas')
+        and (not tumbo_privado.cuenta_demo(p_yo.email) or tumbo_privado.comercio_de_prueba(p_seller))), false)
+$$;
+
+-- Abrir un documento KYC: el seller principal del comercio; el
+-- superadministrador con su cuenta real y sesión elevada (exigir_elevada:
+-- con la 2FA de Cuentas, el código confirmado hace poco); con una cuenta de
+-- prueba, solo los documentos de los comercios de prueba. Si no, el error
+-- para la persona (el de exigir_elevada, si es lo que falta).
+create function tumbo_privado.exigir_documento_kyc(p_yo tumbo.usuarios, p_seller text) returns void
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if p_yo.id is not null and p_yo.rol = 'seller' and p_yo.seller_id = p_seller then
+    return;
+  end if;
+  if p_yo.id is null or p_yo.rol is distinct from 'superadmin' then
+    raise exception 'Tu rol no permite esta acción.' using errcode = '42501';
+  end if;
+  if tumbo_privado.cuenta_demo(p_yo.email) then
+    if not tumbo_privado.comercio_de_prueba(p_seller) then
+      raise exception 'Con una cuenta de prueba solo se ven los expedientes de los comercios de prueba.' using errcode = '42501';
+    end if;
+    return;
+  end if;
+  perform tumbo_privado.exigir_elevada(p_yo);
+end $$;
+
+-- Contrato (pedido a la ola 0, dueña de archivo_permitido y de
+-- tm_archivo_acceso): la misma regla como sí o no, para que la rama «kyc» de
+-- archivo_permitido la consulte con la entidad del archivo (el comercio) y
+-- la URL firmada pida lo mismo que tm_kyc_archivo.
+create function tumbo_privado.kyc_archivo_visible(p_yo tumbo.usuarios, p_seller text) returns boolean
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  perform tumbo_privado.exigir_documento_kyc(p_yo, p_seller);
+  return true;
+exception when others then
+  return false;
+end $$;
+
 -- Datos del comercio (seller principal): razón social, RIF (con su dígito
 -- verificador), dirección fiscal, ciudad de despacho y teléfono. Cambiar la
 -- razón social o el RIF vuelve a pedir la revisión de su documento.
@@ -1827,6 +1938,28 @@ begin
   return jsonb_build_object('verificado', v_ahora);
 end $$;
 
+-- El archivo de un documento KYC, para abrirlo con TM.archivos.ver (URL
+-- firmada de 5 minutos): superadministrador con su cuenta real y sesión
+-- elevada, o una cuenta de prueba con un comercio de prueba
+-- (exigir_documento_kyc). tm_cargar ya no entrega el id del archivo a nadie
+-- más que al seller dueño. Cada consulta queda en la auditoría.
+create function public.tm_kyc_archivo(p_sesion text, p_seller text, p_orden integer) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['superadmin']);
+  doc tumbo.seller_documentos;
+  a tumbo.archivos;
+begin
+  perform tumbo_privado.exigir_documento_kyc(yo, p_seller);
+  select * into doc from tumbo.seller_documentos where seller_id = p_seller and orden = p_orden;
+  select * into a from tumbo.archivos where id = doc.archivo_id and estado = 'listo' and proposito = 'kyc';
+  if doc.seller_id is null or a.id is null then
+    raise exception 'Ese documento no tiene archivo.';
+  end if;
+  perform tumbo_privado.auditar(yo, 'Documento KYC consultado', p_seller || ' · ' || doc.nombre);
+  return jsonb_build_object('id', a.id, 'nombre', a.nombre, 'tipo', a.tipo);
+end $$;
+
 -- Decisión sobre el comercio (desde la versión de la migración 4): ahora con
 -- sesión elevada, y aprobar ya no da por aprobados los documentos (la
 -- verificación se gana documento por documento).
@@ -1968,18 +2101,59 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- Búsqueda en el servidor
 -- ---------------------------------------------------------------------------
+-- Tope por red de la búsqueda pública: cuenta un uso en la ventana actual y
+-- dice si todavía cabe. La red «desconocida» (sin la cabecera del borde de
+-- Supabase, p. ej. en local) no se limita: sería un tope para todos.
+create function tumbo_privado.tope_busqueda(p_tipo text, p_tope integer, p_ventana interval) returns boolean
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_red text := tumbo_privado.ip_cliente();
+  v_n integer;
+begin
+  if v_red = 'desconocida' then
+    return true;
+  end if;
+  if random() < 0.02 then
+    delete from tumbo.topes_busqueda where ventana < now() - interval '1 day';
+  end if;
+  insert into tumbo.topes_busqueda as t (red, tipo, ventana, n)
+  values (v_red, p_tipo, date_bin(p_ventana, now(), timestamptz '2000-01-01'), 1)
+  on conflict (red, tipo, ventana) do update set n = t.n + 1
+  returning n into v_n;
+  return v_n <= p_tope;
+end $$;
+
 -- Registra una búsqueda sin resultado (para saber qué falta en el catálogo).
--- Tabla acotada: 5.000 textos distintos y 180 días; un fallo no corta la
--- búsqueda.
+-- Guarda el texto (hasta 100 caracteres) y los filtros ya saneados por
+-- tm_buscar (hasta 2 kB). Tabla acotada: primero se purga lo de más de 180
+-- días; con 5.000 textos, un texto nuevo reemplaza al menos buscado y más
+-- viejo (lo que mucha gente busca no se pierde por una ráfaga de textos
+-- inventados). Cada red registra hasta 60 textos nuevos por hora. Un fallo
+-- no corta la búsqueda.
 create function tumbo_privado.registrar_busqueda_vacia(p_texto text, p_filtros jsonb) returns void
 language plpgsql security definer set search_path = '' as $$
+declare
+  v_filtros jsonb := case when p_filtros is not null and octet_length(p_filtros::text) <= 2048 then nullif(p_filtros, '{}'::jsonb) end;
+  v_sobran integer;
 begin
-  update tumbo.busquedas_vacias set veces = veces + 1, ultima = now(), filtros = p_filtros where texto = p_texto;
-  if not found and (select count(*) from tumbo.busquedas_vacias) < 5000 then
-    delete from tumbo.busquedas_vacias where ultima < now() - interval '180 days';
-    insert into tumbo.busquedas_vacias (texto, filtros) values (p_texto, p_filtros)
-    on conflict (texto) do update set veces = tumbo.busquedas_vacias.veces + 1, ultima = now();
+  if p_texto is null or char_length(p_texto) not between 1 and 100 then
+    return;
   end if;
+  delete from tumbo.busquedas_vacias where ultima < now() - interval '180 days';
+  update tumbo.busquedas_vacias set veces = veces + 1, ultima = now(), filtros = v_filtros where texto = p_texto;
+  if found then
+    return;
+  end if;
+  if not tumbo_privado.tope_busqueda('vacia', 60, interval '1 hour') then
+    return;
+  end if;
+  select count(*) - 4999 into v_sobran from tumbo.busquedas_vacias;
+  if v_sobran > 0 then
+    delete from tumbo.busquedas_vacias where texto in (
+      select b.texto from tumbo.busquedas_vacias b order by b.veces, b.ultima, b.texto limit v_sobran);
+  end if;
+  insert into tumbo.busquedas_vacias (texto, filtros) values (p_texto, v_filtros)
+  on conflict (texto) do update set veces = tumbo.busquedas_vacias.veces + 1, ultima = now();
 exception when others then
   null;
 end $$;
@@ -1992,7 +2166,13 @@ end $$;
 --    atributos: {clave: [valores]}}
 -- Orden: relevancia | precio_asc | precio_desc | novedades | vendidos.
 -- Agrupa las variantes por su producto principal (una tarjeta por familia)
--- y pagina de a 24. Devuelve también las facetas para los filtros.
+-- y pagina de a 24 (todas las páginas se pueden pedir; una página de más
+-- devuelve la última). Devuelve también las facetas para los filtros.
+-- Rendimiento: cada alternativa de cada palabra busca sus candidatos con el
+-- índice de trigramas de productos.busqueda (LIKE y «<%»), y solo esos se
+-- puntúan; las categorías se comparan por su nombre (son pocas). Topes: 300
+-- búsquedas por minuto y red, filtros de hasta 16 kB y 10 alternativas por
+-- palabra (8 palabras).
 create function public.tm_buscar(p_texto text default null, p_filtros jsonb default '{}'::jsonb,
                                  p_orden text default 'relevancia', p_pagina integer default 1) returns jsonb
 language plpgsql security definer set search_path = '' as $$
@@ -2002,21 +2182,43 @@ declare
   v_palabras text[];
   v_n integer;
   v_orden text := case when p_orden in ('relevancia', 'precio_asc', 'precio_desc', 'novedades', 'vendidos') then p_orden else 'relevancia' end;
-  v_pagina integer := greatest(1, least(coalesce(p_pagina, 1), 50));
+  v_pagina integer := greatest(1, least(coalesce(p_pagina, 1), 100000));
   v_tam constant integer := 24;
-  v_cat text := nullif(left(trim(coalesce(f ->> 'categoria', '')), 60), '');
+  v_cat text;
   v_cats text[];
-  v_pmin numeric := case when (f ->> 'precio_min') ~ '^\d{1,7}(\.\d{1,2})?$' then (f ->> 'precio_min')::numeric end;
-  v_pmax numeric := case when (f ->> 'precio_max') ~ '^\d{1,7}(\.\d{1,2})?$' then (f ->> 'precio_max')::numeric end;
-  v_marcas text[] := tumbo_privado.lista_texto(f -> 'marcas', 20);
-  v_conds text[] := tumbo_privado.lista_texto(f -> 'condiciones', 3);
-  v_ciudades text[] := tumbo_privado.lista_texto(f -> 'ciudades', 20);
-  v_disp boolean := coalesce(f ->> 'disponible', '') in ('true', '1');
-  v_verif boolean := coalesce(f ->> 'verificados', '') in ('true', '1');
-  v_seller text := nullif(left(trim(coalesce(f ->> 'seller', '')), 60), '');
-  v_attrs jsonb := case when jsonb_typeof(f -> 'atributos') = 'object' then f -> 'atributos' else '{}'::jsonb end;
+  v_pmin numeric;
+  v_pmax numeric;
+  v_marcas text[];
+  v_conds text[];
+  v_ciudades text[];
+  v_disp boolean;
+  v_verif boolean;
+  v_seller text;
+  v_attrs jsonb;
+  v_guardar jsonb;
   v jsonb;
 begin
+  if not tumbo_privado.tope_busqueda('buscar', 300, interval '1 minute') then
+    raise exception 'Hay muchas búsquedas desde tu red: espera un minuto y vuelve a intentarlo.';
+  end if;
+  if pg_column_size(p_filtros) > 16384 then
+    raise exception 'Los filtros de la búsqueda son demasiado largos.';
+  end if;
+  v_cat := nullif(left(trim(coalesce(f ->> 'categoria', '')), 60), '');
+  v_pmin := case when (f ->> 'precio_min') ~ '^\d{1,7}(\.\d{1,2})?$' then (f ->> 'precio_min')::numeric end;
+  v_pmax := case when (f ->> 'precio_max') ~ '^\d{1,7}(\.\d{1,2})?$' then (f ->> 'precio_max')::numeric end;
+  v_marcas := tumbo_privado.lista_texto(f -> 'marcas', 20);
+  v_conds := tumbo_privado.lista_texto(f -> 'condiciones', 3);
+  v_ciudades := tumbo_privado.lista_texto(f -> 'ciudades', 20);
+  v_disp := coalesce(f ->> 'disponible', '') in ('true', '1');
+  v_verif := coalesce(f ->> 'verificados', '') in ('true', '1');
+  v_seller := nullif(left(trim(coalesce(f ->> 'seller', '')), 60), '');
+  -- atributos: hasta 10 claves válidas, con hasta 30 valores cada una
+  select coalesce(jsonb_object_agg(a.key, to_jsonb(a.valores)), '{}'::jsonb) into v_attrs
+  from (select e.key, tumbo_privado.lista_texto(e.value, 30) as valores
+        from jsonb_each(case when jsonb_typeof(f -> 'atributos') = 'object' then f -> 'atributos' else '{}'::jsonb end) e
+        where e.key ~ '^[a-z][a-z0-9_]{1,29}$' and tumbo_privado.lista_texto(e.value, 30) is not null
+        order by e.key limit 10) a;
   select coalesce(array_agg(t.w order by t.n), '{}') into v_palabras
   from (select x.w, x.n from unnest(string_to_array(v_q, ' ')) with ordinality x (w, n)
         where x.w <> '' and (char_length(x.w) > 1 or x.w ~ '^[0-9]$')
@@ -2026,54 +2228,84 @@ begin
   if v_cat is not null then
     v_cats := array[v_cat] || coalesce((select array_agg(c.id) from tumbo.categorias c where c.padre = v_cat), '{}');
   end if;
+  -- (umbral de «<%»: desde 0,5; las palabras de 4 letras piden 0,6 abajo)
+  perform set_config('pg_trgm.word_similarity_threshold', '0.5', true);
 
-  with ventas as (
+  with terminos as (
+    -- cada palabra con sus alternativas (ella misma, su singular y sus
+    -- sinónimos), hasta 10 por palabra
+    select t.n, z.a
+    from unnest(v_palabras) with ordinality t (w, n)
+    cross join lateral (
+      select y.a from (
+        select distinct on (x.a) x.a, x.pri from (
+          select t.w as a, 0 as pri
+          union all select regexp_replace(t.w, 'es$', ''), 1 where char_length(t.w) > 4 and t.w like '%es'
+          union all select regexp_replace(t.w, 's$', ''), 1 where char_length(t.w) > 3 and t.w like '%s'
+          union all
+          select s2.termino, 2 from tumbo.sinonimos s1 join tumbo.sinonimos s2 on s2.grupo = s1.grupo
+          where s1.termino = t.w or s1.termino = regexp_replace(t.w, 's$', '')
+             or (char_length(t.w) >= 5 and extensions.similarity(s1.termino, t.w) >= 0.5)) x
+        where x.a <> '' order by x.a, x.pri) y
+      order by y.pri, y.a limit 10) z
+  ), hits as (
+    -- productos que contienen la alternativa o una palabra parecida (con el
+    -- índice de trigramas): solo estos se puntúan. 3 si empieza una palabra
+    -- del nombre, 2 si está en el texto, 2 × el parecido si se parece.
+    select t.n, p.sku, char_length(t.a) as largo,
+           case when p.busqueda like '%' || t.a || '%'
+                then case when (' ' || tumbo_privado.normalizar(p.nombre)) like '% ' || t.a || '%' then 3 else 2 end
+                else 2 * extensions.word_similarity(t.a, p.busqueda) end as pts
+    from terminos t
+    join tumbo.productos p
+      on p.busqueda like '%' || t.a || '%'
+         or (char_length(t.a) >= 4 and t.a operator(extensions.<%) p.busqueda)
+    where p.estado = 'publicado' and (v_seller is null or p.seller_id = v_seller)
+  ), cat_hits as (
+    -- y los de las categorías cuyo nombre (o el de su raíz) coincide
+    select t.n, c.id,
+           max(case when c.doc like '%' || t.a || '%' then 2 else 2 * extensions.word_similarity(t.a, c.doc) end) as pts
+    from terminos t
+    cross join (select c.id, tumbo_privado.normalizar(c.nombre || ' ' || coalesce(cp.nombre, '')) as doc
+                from tumbo.categorias c left join tumbo.categorias cp on cp.id = c.padre) c
+    where c.doc like '%' || t.a || '%'
+       or (char_length(t.a) >= 4
+           and extensions.word_similarity(t.a, c.doc) >= case when char_length(t.a) >= 5 then 0.5 else 0.6 end)
+    group by t.n, c.id
+  ), puntos as (
+    -- por producto: la mejor alternativa de cada palabra, sumadas, y cuántas
+    -- palabras encontró
+    select u.sku, sum(u.pts) as puntos, count(*) as aciertos
+    from (select x.n, x.sku, max(x.pts) as pts
+          from (select h.n, h.sku, h.pts from hits h
+                where h.pts >= 2 or h.pts >= 2 * case when h.largo >= 5 then 0.5 else 0.6 end
+                union all
+                select ch.n, p.sku, ch.pts from cat_hits ch
+                join tumbo.productos p on p.categoria = ch.id
+                where p.estado = 'publicado' and (v_seller is null or p.seller_id = v_seller)) x
+          group by x.n, x.sku) u
+    group by u.sku
+  ), ventas as (
     select i.sku, sum(i.cant)::integer as u
     from tumbo.pedido_items i join tumbo.pedidos pe on pe.id = i.pedido_id
     where pe.estado in ('por_aceptar', 'preparando', 'listo', 'despachado', 'entregado', 'cerrado')
     group by i.sku
-  ), terminos as (
-    select t.n, array(
-             select distinct z.a from (
-               select t.w as a
-               union all select regexp_replace(t.w, 'es$', '') where char_length(t.w) > 4 and t.w like '%es'
-               union all select regexp_replace(t.w, 's$', '') where char_length(t.w) > 3 and t.w like '%s'
-               union all
-               select s2.termino from tumbo.sinonimos s1 join tumbo.sinonimos s2 on s2.grupo = s1.grupo
-               where s1.termino = t.w or s1.termino = regexp_replace(t.w, 's$', '')
-                  or (char_length(t.w) >= 5 and extensions.similarity(s1.termino, t.w) >= 0.5)) z
-             where z.a <> '') as alts
-    from unnest(v_palabras) with ordinality t (w, n)
   ), visibles as (
-    select p.sku, p.padre_sku, p.seller_id, p.nombre, p.marca, p.categoria, p.precio_usd, p.stock_fis - p.stock_res as disp,
+    -- sin texto, todo lo publicado; con texto, lo que encontró alguna palabra
+    select p.sku, p.padre_sku, p.seller_id, p.marca, p.categoria, p.precio_usd, p.stock_fis - p.stock_res as disp,
            p.condicion, p.atributos, p.creado, s.ciudad, s.kyc_verificado,
            coalesce(c.padre, c.id) as raiz, coalesce(ve.u, 0) as vendidos,
-           tumbo_privado.normalizar(p.nombre) as doc_nombre,
-           tumbo_privado.doc_busqueda(p.nombre, p.marca, p.sku, p.atributos) || ' ' ||
-             tumbo_privado.normalizar(coalesce(c.nombre, '') || ' ' || coalesce(cp.nombre, '')) as doc
+           coalesce(pu.puntos, 0) as puntos, coalesce(pu.aciertos, 0) as aciertos
     from tumbo.productos p
     join tumbo.sellers s on s.id = p.seller_id and s.estado = 'aprobado'
     left join tumbo.categorias c on c.id = p.categoria
-    left join tumbo.categorias cp on cp.id = c.padre
+    left join puntos pu on pu.sku = p.sku
     left join ventas ve on ve.sku = p.sku
-    where p.estado = 'publicado' and (v_seller is null or p.seller_id = v_seller)
-  ), puntuados as (
-    select vi.*, coalesce(sc.puntos, 0) as puntos, coalesce(sc.aciertos, 0) as aciertos
-    from visibles vi
-    left join lateral (
-      select sum(m.mejor) as puntos, count(*) filter (where m.mejor > 0) as aciertos
-      from (select t.n, max(case
-                     when (' ' || vi.doc_nombre) like '% ' || a.a || '%' then 3
-                     when vi.doc like '%' || a.a || '%' then 2
-                     when char_length(a.a) >= 4
-                          and extensions.word_similarity(a.a, vi.doc) >= case when char_length(a.a) >= 5 then 0.5 else 0.6 end
-                       then 2 * extensions.word_similarity(a.a, vi.doc)
-                     else 0 end) as mejor
-            from terminos t cross join unnest(t.alts) a (a)
-            group by t.n) m) sc on true
+    where p.estado = 'publicado' and (v_seller is null or p.seller_id = v_seller) and (v_n = 0 or pu.sku is not null)
   ), coincidentes as (
-    select x.* from (select pu.*, count(*) filter (where pu.aciertos = v_n) over () as n_todas from puntuados pu) x
-    where v_n = 0 or (x.n_todas > 0 and x.aciertos = v_n) or (x.n_todas = 0 and x.aciertos > 0)
+    -- con todas las palabras si alguno las tiene; si no, los aproximados
+    select x.* from (select vi.*, count(*) filter (where vi.aciertos = v_n) over () as n_todas from visibles vi) x
+    where v_n = 0 or (x.n_todas > 0 and x.aciertos = v_n) or x.n_todas = 0
   ), cat_f as (
     select * from coincidentes where v_cats is null or categoria = any (v_cats)
   ), filtrados as (
@@ -2085,14 +2317,18 @@ begin
       and (not v_disp or cf.disp > 0)
       and (not v_verif or cf.kyc_verificado)
       and not exists (select 1 from jsonb_each(v_attrs) fa
-                      where tumbo_privado.lista_texto(fa.value, 30) is not null
-                        and not (lower(coalesce(cf.atributos ->> fa.key, '')) = any (tumbo_privado.lista_texto(fa.value, 30))))
+                      where not (lower(coalesce(cf.atributos ->> fa.key, '')) in (select jsonb_array_elements_text(fa.value))))
   ), familias as (
     select coalesce(padre_sku, sku) as fam,
            (array_agg(sku order by (padre_sku is null) desc, puntos desc, precio_usd, sku))[1] as rep,
            min(precio_usd) as pmin, max(precio_usd) as pmax, max(puntos) as puntos,
            max(creado) as creado, sum(vendidos) as vendidos, bool_or(disp > 0) as hay
     from filtrados group by 1
+  ), meta as (
+    -- la página pedida, dentro de las que hay
+    select count(*) as total, greatest(1, ceil(count(*) / v_tam::numeric)::integer) as paginas,
+           least(v_pagina, greatest(1, ceil(count(*) / v_tam::numeric)::integer)) as pagina
+    from familias
   ), orden as (
     select fa.*, row_number() over (order by
              case when v_orden = 'precio_asc' then fa.pmin end asc nulls last,
@@ -2104,21 +2340,22 @@ begin
     from familias fa
   )
   select jsonb_build_object(
-    'texto', v_q, 'orden', v_orden, 'pagina', v_pagina, 'tamano', v_tam,
-    'total', (select count(*) from familias),
-    'paginas', greatest(1, ceil((select count(*) from familias) / v_tam::numeric)::integer),
+    'texto', v_q, 'orden', v_orden, 'pagina', m.pagina, 'tamano', v_tam, 'total', m.total, 'paginas', m.paginas,
     'aproximado', v_n > 1 and exists (select 1 from coincidentes where n_todas = 0),
     'resultados', coalesce((
       select jsonb_agg(jsonb_build_object(
                'sku', p.sku, 'nombre', p.nombre, 'marca', p.marca, 'categoria', p.categoria, 'seller_id', p.seller_id,
                'precio_usd', p.precio_usd, 'disponible', greatest(p.stock_fis - p.stock_res, 0), 'img', p.img,
+               -- la foto de la variante o, si no tiene, la de su principal
+               -- solo si está publicado (la de un borrador no pasó moderación)
                'imagen', coalesce(tumbo_privado.imagenes_json(p.imagenes) -> 0 ->> 'url',
-                                  tumbo_privado.imagenes_json(pp.imagenes) -> 0 ->> 'url'),
+                                  case when pp.estado = 'publicado' then tumbo_privado.imagenes_json(pp.imagenes) -> 0 ->> 'url' end),
                'condicion', p.condicion, 'padre_sku', p.padre_sku,
-               'variantes', (select count(*) from visibles vv where coalesce(vv.padre_sku, vv.sku) = o.fam),
+               'variantes', (select count(*) from tumbo.productos vv
+                             where (vv.sku = o.fam or vv.padre_sku = o.fam) and vv.estado = 'publicado'),
                'precio_min', o.pmin, 'precio_max', o.pmax, 'hay_stock', o.hay) order by o.pos)
       from orden o join tumbo.productos p on p.sku = o.rep left join tumbo.productos pp on pp.sku = p.padre_sku
-      where o.pos > (v_pagina - 1) * v_tam and o.pos <= v_pagina * v_tam), '[]'::jsonb),
+      where o.pos > (m.pagina - 1) * v_tam and o.pos <= m.pagina * v_tam), '[]'::jsonb),
     'facetas', jsonb_build_object(
       'categorias', coalesce((
         select jsonb_agg(jsonb_build_object('id', z.id, 'n', z.n) order by z.n desc, z.id) from (
@@ -2145,10 +2382,20 @@ begin
                              where coalesce(cf.atributos ->> at.clave, '') <> '' group by 1 order by 2 desc, 1 limit 30) z) as valores
               from tumbo_privado.atributos_de(v_cat) at where at.filtrable) a
         where a.valores is not null), '[]'::jsonb) end)
-  ) into v;
+  ) into v
+  from meta m;
 
   if (v ->> 'total')::integer = 0 and v_q <> '' then
-    perform tumbo_privado.registrar_busqueda_vacia(v_q, f);
+    -- (se guarda la versión saneada y acotada de los filtros, nunca lo recibido)
+    select jsonb_strip_nulls(jsonb_build_object(
+             'categoria', v_cat, 'precio_min', v_pmin, 'precio_max', v_pmax,
+             'marcas', to_jsonb(v_marcas[1:5]), 'condiciones', to_jsonb(v_conds), 'ciudades', to_jsonb(v_ciudades[1:5]),
+             'disponible', case when v_disp then true end, 'verificados', case when v_verif then true end, 'seller', v_seller,
+             'atributos', (select jsonb_object_agg(a.key, (select jsonb_agg(left(x, 40)) from (
+                                    select jsonb_array_elements_text(a.value) as x limit 5) s))
+                           from (select e.key, e.value from jsonb_each(v_attrs) e order by e.key limit 5) a)))
+      into v_guardar;
+    perform tumbo_privado.registrar_busqueda_vacia(v_q, v_guardar);
   end if;
   return v;
 end $$;
@@ -2179,7 +2426,11 @@ end $$;
 --   · «mas_vendidos»: SKU ordenados por unidades vendidas de verdad (pagos
 --     conciliados, sin cancelados ni reembolsados);
 --   · el comprador recibe sus favoritos y sus avisos activos;
---   · los documentos KYC traen el nombre y el tipo de su archivo.
+--   · los documentos KYC traen el nombre y el tipo de su archivo; el id del
+--     archivo solo va al seller dueño (el superadministrador lo pide con
+--     tm_kyc_archivo, con sesión elevada);
+--   · expediente («kyc» y «docs»): las cuentas de prueba solo reciben los de
+--     los comercios de prueba (tumbo_privado.expediente_visible).
 create or replace function public.tm_cargar(p_sesion text default null, p_huella text default null) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -2222,7 +2473,7 @@ begin
     'productos', coalesce((
       select jsonb_agg(
                case when p.seller_id = v_seller or v_rol = 'superadmin'
-                    then (to_jsonb(p) - 'rating' - 'resenas' - 'imagenes')
+                    then (to_jsonb(p) - 'rating' - 'resenas' - 'imagenes' - 'busqueda')
                          || jsonb_build_object('rating', rp.rating, 'resenas', coalesce(rp.resenas, 0),
                                                'imagenes', tumbo_privado.imagenes_json(p.imagenes))
                     else jsonb_build_object(
@@ -2337,17 +2588,21 @@ begin
               where (l.seller_id = v_seller and v_rol = 'seller') or v_rol in ('superadmin', 'finanzas')
               order by l.fecha desc, l.id desc limit 200) l), '[]'::jsonb),
       -- Finanzas necesita el RIF para pagar, no las observaciones de cumplimiento.
+      -- Con una cuenta de prueba, solo los expedientes de los comercios de prueba.
       'kyc', coalesce((
         select jsonb_agg(case when v_rol = 'finanzas' then to_jsonb(k) - 'observacion' else to_jsonb(k) end order by k.seller_id)
         from tumbo.sellers_kyc k
-        where (k.seller_id = v_seller and v_rol = 'seller') or v_rol in ('superadmin', 'finanzas')), '[]'::jsonb),
+        where ((k.seller_id = v_seller and v_rol = 'seller') or v_rol in ('superadmin', 'finanzas'))
+          and tumbo_privado.expediente_visible(u, k.seller_id)), '[]'::jsonb),
       'docs', coalesce((
-        select jsonb_agg(to_jsonb(x) || jsonb_build_object('archivo_nombre', a.nombre, 'archivo_tipo', a.tipo,
-                                                           'archivo_listo', a.id is not null)
+        select jsonb_agg((to_jsonb(x) - 'archivo_id')
+                         || jsonb_build_object('archivo_id', case when x.seller_id = v_seller and v_rol = 'seller' then x.archivo_id end,
+                                               'archivo_nombre', a.nombre, 'archivo_tipo', a.tipo, 'archivo_listo', a.id is not null)
                          order by x.seller_id, x.orden)
         from tumbo.seller_documentos x
         left join tumbo.archivos a on a.id = x.archivo_id and a.estado = 'listo'
-        where (x.seller_id = v_seller and v_rol = 'seller') or v_rol = 'superadmin'), '[]'::jsonb),
+        where ((x.seller_id = v_seller and v_rol = 'seller') or v_rol = 'superadmin')
+          and tumbo_privado.expediente_visible(u, x.seller_id)), '[]'::jsonb),
       'notificaciones', coalesce((
         select jsonb_agg((to_jsonb(n) - 'roles') || jsonb_build_object('leida', exists (
                  select 1 from tumbo.notificaciones_leidas l where l.notificacion_id = n.id and l.usuario_id = v_uid))
@@ -2409,8 +2664,14 @@ end $$;
 -- vuelven sin sus favoritos, avisos, historial ni kardex anterior: van en
 -- cascada con ellos). Deja la semilla honesta: sin valoraciones inventadas,
 -- sin documentos dados por aprobados sin archivo y sin sellers verificados.
+-- El reinicio borra todos los expedientes y descarta todos los archivos, así
+-- que la verificación se recalcula para todos los comercios (no solo los de
+-- la semilla): ninguno queda «Verificado por Tumbo» sin sus documentos, ni
+-- con un logo o una portada que ya no existen.
 create function tumbo_privado.sembrar_ext_catalogo(p_auditoria boolean) returns void
 language plpgsql security definer set search_path = '' as $$
+declare
+  v_id text;
 begin
   perform tumbo_privado.sembrar_catalogo_base();
   -- (con WHERE explícito: el proyecto usa pg-safeupdate)
@@ -2420,11 +2681,14 @@ begin
   delete from tumbo.busquedas_vacias where texto is not null;
   update tumbo.productos set rating = null, resenas = 0 where rating is not null or resenas <> 0;
   update tumbo.sellers
-  set rating = null, resenas = 0, kyc_verificado = false, kyc_verificado_el = null,
-      logo = null, portada = null, horario = null, politicas = null
+  set rating = null, resenas = 0, horario = null, politicas = null
   where id in ('SEL-014', 'SEL-009', 'SEL-021', 'SEL-017');
+  update tumbo.sellers set logo = null, portada = null where logo is not null or portada is not null;
   update tumbo.seller_documentos set estado = 'pendiente', observacion = null, revisado_por = null
   where archivo_id is null and estado <> 'pendiente';
+  for v_id in select s.id from tumbo.sellers s order by s.id loop
+    perform tumbo_privado.recalcular_kyc(v_id);
+  end loop;
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -2446,7 +2710,8 @@ begin
     'public.tm_stock_umbral(text,text,integer)', 'public.tm_kardex(text,text,bigint)',
     'public.tm_importar_productos(text,jsonb,text,boolean,boolean,boolean)', 'public.tm_moderar_lote(text,text[],boolean,text)',
     'public.tm_kyc_guardar(text,jsonb)', 'public.tm_kyc_documento(text,integer,uuid)', 'public.tm_kyc_enviar(text)',
-    'public.tm_kyc_revisar(text,text,integer,text,text)', 'public.tm_tienda_guardar(text,jsonb)']::regprocedure[]
+    'public.tm_kyc_revisar(text,text,integer,text,text)', 'public.tm_tienda_guardar(text,jsonb)',
+    'public.tm_kyc_archivo(text,text,integer)']::regprocedure[]
   loop
     execute format('revoke execute on function %s from public', f);
     execute format('grant execute on function %s to anon, authenticated', f);

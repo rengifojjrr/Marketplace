@@ -242,7 +242,7 @@
     (d.docs || []).forEach(function (x) {
       (docs[x.seller_id] = docs[x.seller_id] || []).push({ nombre: x.nombre, estado: x.estado,
         /* KYC real (ola 1): archivo, observación y revisión por documento */
-        orden: x.orden, archivoId: x.archivo_listo ? x.archivo_id : null, archivoNombre: x.archivo_nombre || '',
+        orden: x.orden, archivoId: x.archivo_listo ? x.archivo_id : null, archivoListo: !!x.archivo_listo, archivoNombre: x.archivo_nombre || '',
         archivoTipo: x.archivo_tipo || '', observacion: x.observacion || '', revisadoPor: x.revisado_por || '',
         actualizado: fecha(x.actualizado) });
     });

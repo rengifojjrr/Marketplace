@@ -3,9 +3,11 @@
    -------------------------------------------------------------------------
    · admin/sellers: expediente KYC de cada comercio (datos fiscales, visor de
      documentos con URL firmada, checklist por documento) y decisiones
-     aprobar / observar / suspender / rechazar. Con backend, revisar
-     documentos y decidir piden sesión elevada (una cuenta real del equipo
-     con verificación en dos pasos): las cuentas de prueba ven, no deciden.
+     aprobar / observar / suspender / rechazar. Con backend, abrir un
+     documento (tm_kyc_archivo), revisarlo y decidir piden sesión elevada
+     (una cuenta real del equipo con verificación en dos pasos): las cuentas
+     de prueba solo ven los expedientes de los comercios de prueba y no
+     deciden.
    · admin/moderacion: fotos reales, ficha y atributos; uno a uno y en lote.
    · Panel: búsquedas sin resultado y expedientes por revisar.
    ========================================================================= */
@@ -18,15 +20,17 @@
     return '<div class="flex flex-wrap items-end justify-between gap-2 mb-5">' +
       '<h1 class="font-headline-md text-headline-md text-primary-container">' + esc(t) + '</h1>' + (extraHtml || '') + '</div>';
   }
-  /* Las cuentas de prueba (contraseña pública) nunca tienen sesión elevada. */
-  function cuentaDemo(s) {
-    return !!(s && (window.TM_SEED.usuarios || []).some(function (u) { return u.email === s.email; }));
-  }
+  /* Las cuentas de prueba (contraseña pública) nunca tienen sesión elevada
+     y solo ven los expedientes de los comercios de prueba. */
   function avisoElevada(s) {
-    if (!C().remoto() || !cuentaDemo(s)) return '';
+    if (!C().remoto()) return '';
+    if (!C().cuentaDemo(s)) {
+      return '<p data-aviso-elevada="real" class="flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant mb-4">' +
+        ic('lock', 'text-[16px] mt-0.5') + 'Abrir un documento, revisarlo y decidir sobre un comercio piden sesión elevada (verificación en dos pasos). Cada documento que abres queda en la auditoría.</p>';
+    }
     return '<p data-aviso-elevada class="flex items-start gap-1.5 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-4">' +
-      ic('lock', 'text-[16px] mt-0.5') + 'Revisar documentos y decidir sobre un comercio exige una sesión elevada: una cuenta real del equipo con verificación en dos pasos. ' +
-      'Con esta cuenta de prueba puedes ver los expedientes, pero el servidor no aplicará las decisiones.</p>';
+      ic('lock', 'text-[16px] mt-0.5') + 'Esta es una cuenta de prueba: solo ves los expedientes de los comercios de prueba (sus datos los carga cualquiera con la contraseña pública), nunca los de comercios reales. ' +
+      'Revisar documentos y decidir sobre un comercio exige una sesión elevada (una cuenta real del equipo con verificación en dos pasos): el servidor no aplicará tus revisiones ni decisiones.</p>';
   }
 
   /* =====================================================================
@@ -82,13 +86,13 @@
               '<ul class="divide-y divide-outline-variant rounded-btn border border-outline-variant mb-3">' + docs.map(function (d) {
                 return '<li data-doc="' + d.orden + '" class="flex flex-wrap items-center gap-2 px-3 py-2">' +
                   '<span class="flex-1 min-w-[180px] font-body-sm text-body-sm"><strong>' + esc(d.nombre) + '</strong>' +
-                  (d.archivoId ? ' · <button type="button" data-ver-doc="' + esc(d.archivoId) + '" class="text-secondary hover:underline">' + ic('visibility', 'text-[14px] align-middle') + ' Ver documento</button>'
-                               : ' · <span class="text-on-surface-variant">sin archivo</span>') +
+                  (d.archivoListo ? ' · <button type="button" data-ver-doc data-sid="' + esc(x.id) + '" data-orden="' + d.orden + '" class="text-secondary hover:underline">' + ic('visibility', 'text-[14px] align-middle') + ' Ver documento</button>'
+                                  : ' · <span class="text-on-surface-variant">sin archivo</span>') +
                   (d.observacion ? '<span class="block text-on-warning-container">Observación: ' + esc(d.observacion) + '</span>' : '') +
                   (d.revisadoPor ? '<span class="block text-on-surface-variant">Revisó: ' + esc(d.revisadoPor) + '</span>' : '') + '</span>' +
-                  (d.archivoId ? UI.badge(d.estado) : '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm">Falta el archivo</span>') +
-                  (d.archivoId && d.estado !== 'aprobado' ? btn('Aprobar', { estilo: 'exito', icono: 'check', attr: 'data-revisar="aprobado" data-sid="' + esc(x.id) + '" data-orden="' + d.orden + '"' }) : '') +
-                  (d.archivoId && d.estado !== 'observado' ? btn('Observar', { icono: 'warning', attr: 'data-revisar="observado" data-sid="' + esc(x.id) + '" data-orden="' + d.orden + '"' }) : '') +
+                  (d.archivoListo ? UI.badge(d.estado) : '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm">Falta el archivo</span>') +
+                  (d.archivoListo && d.estado !== 'aprobado' ? btn('Aprobar', { estilo: 'exito', icono: 'check', attr: 'data-revisar="aprobado" data-sid="' + esc(x.id) + '" data-orden="' + d.orden + '"' }) : '') +
+                  (d.archivoListo && d.estado !== 'observado' ? btn('Observar', { icono: 'warning', attr: 'data-revisar="observado" data-sid="' + esc(x.id) + '" data-orden="' + d.orden + '"' }) : '') +
                   '</li>';
               }).join('') + '</ul>'
             : '<div class="flex flex-wrap gap-2 mb-3">' + docs.map(docChip).join('') + '</div>') +
@@ -113,10 +117,14 @@
           });
       });
     });
+    /* El id del archivo se pide al abrirlo (tm_kyc_archivo: sesión elevada
+       y auditoría); después, la URL firmada de 5 minutos. */
     raiz.querySelectorAll('[data-ver-doc]').forEach(function (v) {
       v.addEventListener('click', function () {
         var ventana = window.open('', '_blank');
-        TM.archivos.ver(v.getAttribute('data-ver-doc')).then(function (url) {
+        C().api('tm_kyc_archivo', { p_seller: v.getAttribute('data-sid'), p_orden: parseInt(v.getAttribute('data-orden'), 10) }).then(function (a) {
+          return TM.archivos.ver(a.id);
+        }).then(function (url) {
           if (ventana) ventana.location = url; else location.href = url;
         }, function (e) {
           if (ventana) ventana.close();
