@@ -1,0 +1,4 @@
+{
+  "tienda": ["favoritos", "seller"],
+  "seller": ["precios", "inventario", "carga", "comercio"]
+}

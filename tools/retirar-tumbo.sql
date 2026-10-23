@@ -35,7 +35,17 @@ declare
     'public.tm_ajustes_publicos()', 'public.tm_ajuste_guardar(text,text,jsonb)',
     'public.tm_archivo_preparar(text,text,text,text,bigint,text)', 'public.tm_archivo_confirmar(text,uuid)',
     'public.tm_archivo_acceso(text,uuid)', 'public.tm_salida_listar(text,text,bigint)',
-    'public.tm_salida_marcar(text,bigint,text,text)', 'public.tm_reembolsos(text)', 'public.tm_archivos_limpiar()'];
+    'public.tm_salida_marcar(text,bigint,text,text)', 'public.tm_reembolsos(text)', 'public.tm_archivos_limpiar()',
+    -- ola 1 (catálogo)
+    'public.tm_buscar(text,jsonb,text,integer)', 'public.tm_busquedas_sin_resultado(text)',
+    'public.tm_favorito(text,text,boolean)', 'public.tm_alerta(text,text,text,boolean)',
+    'public.tm_ajustar_precio(text,text,numeric,boolean)', 'public.tm_precios_masivo(text,jsonb,boolean)',
+    'public.tm_precios_deshacer(text,uuid)', 'public.tm_precio_minimo(text,text,numeric)',
+    'public.tm_precio_historial(text,text)', 'public.tm_stock_movimiento(text,text,text,integer,text)',
+    'public.tm_stock_umbral(text,text,integer)', 'public.tm_kardex(text,text,bigint)',
+    'public.tm_importar_productos(text,jsonb,text,boolean,boolean,boolean)', 'public.tm_moderar_lote(text,text[],boolean,text)',
+    'public.tm_kyc_guardar(text,jsonb)', 'public.tm_kyc_documento(text,integer,uuid)', 'public.tm_kyc_enviar(text)',
+    'public.tm_kyc_revisar(text,text,integer,text,text)', 'public.tm_tienda_guardar(text,jsonb)'];
   f text;
   ajenos text;
   b text;
