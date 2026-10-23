@@ -590,7 +590,9 @@ async function registrarComprador(rpc, datos) {
     const vigente = Number((await rpc('tm_cargar', {})).dato.productos.find((x) => x.sku === 'SKU-MOT-0832').precio_usd);
     ok(pro.descuento_usd === 0 && pro.lineas.length === 1 && pro.lineas[0].precio_usd === vigente && pro.total_usd === vigente * 2,
       'aplicar_promociones devuelve las líneas con su precio vigente y sin descuento', JSON.stringify(pro));
-    ok(psql(`select tumbo_privado.riesgo_pedido(null, '{}')`) === '{"motivos": [], "puntaje": 0}', 'riesgo_pedido no puntúa todavía');
+    /* Crecimiento (ola 2) puntúa con reglas reales: sin datos, el contrato da 0 y ningún motivo */
+    const rie = JSON.parse(psql(`select tumbo_privado.riesgo_pedido(null, '{}')`));
+    ok(rie.puntaje === 0 && Array.isArray(rie.motivos) && rie.motivos.length === 0, 'riesgo_pedido sin datos no puntúa', JSON.stringify(rie));
     ok(psql(`select string_agg(rol || '=' || tumbo_privado.tiene_permiso(u, 'ajustes.editar'), ',' order by rol) from tumbo.usuarios u
              where email in ('superadmin@tumbomarket.demo', 'finanzas@tumbomarket.demo')`) === 'finanzas=false,superadmin=true',
        'tiene_permiso: por ahora solo el superadmin');

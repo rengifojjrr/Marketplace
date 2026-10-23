@@ -89,13 +89,13 @@ insert into tumbo.ajustes_meta (clave, grupo, etiqueta, ayuda, doble_aprobacion,
   ('aviso_incidencia', 'Interruptores', 'Aviso de incidencia', 'Texto visible en toda la tienda y en los paneles; vacío, no se muestra.', false, '{}', 14),
   ('pagos_beneficiario', 'Pagos y cobro', 'Datos de cobro', 'Lo que ve el comprador para pagar. Cada cambio lo aprueba otra persona.', true, '{}', 20),
   ('impuestos', 'Pagos y cobro', 'Impuestos', null, false,
-   '{"iva_pct": {"tipo": "number", "min": 0, "max": 30, "etiqueta": "IVA (%)"}, "igtf_pct": {"tipo": "number", "min": 0, "max": 10, "etiqueta": "IGTF (%)"}, "categorias_exentas": {"tipo": "array", "etiqueta": "Categorías exentas de IVA"}}', 21),
+   '{"iva_pct": {"tipo": "number", "min": 0, "max": 100, "etiqueta": "IVA (%)"}, "igtf_pct": {"tipo": "number", "min": 0, "max": 100, "etiqueta": "IGTF (%)"}, "categorias_exentas": {"tipo": "array", "etiqueta": "Categorías exentas de IVA"}}', 21),
   ('conciliacion', 'Pagos y cobro', 'Conciliación bancaria', null, false,
-   '{"dias": {"tipo": "number", "min": 0, "max": 15, "entero": true, "etiqueta": "Días de margen"}, "tolerancia_bs": {"tipo": "number", "min": 0, "max": 100, "etiqueta": "Tolerancia (Bs.)"}, "digitos_sufijo": {"tipo": "number", "min": 4, "max": 12, "entero": true, "etiqueta": "Dígitos del sufijo"}, "filas_dia_total": {"tipo": "number", "min": 100, "max": 200000, "entero": true, "etiqueta": "Movimientos por día (total)"}, "filas_dia_usuario": {"tipo": "number", "min": 100, "max": 50000, "entero": true, "etiqueta": "Movimientos por día (persona)"}}', 22),
+   '{"dias": {"tipo": "number", "min": 0, "max": 60, "entero": true, "etiqueta": "Días de margen"}, "tolerancia_bs": {"tipo": "number", "min": 0, "max": 100000, "etiqueta": "Tolerancia (Bs.)"}, "digitos_sufijo": {"tipo": "number", "min": 1, "max": 20, "entero": true, "etiqueta": "Dígitos del sufijo"}, "filas_dia_total": {"tipo": "number", "min": 1, "max": 10000000, "entero": true, "etiqueta": "Movimientos por día (total)"}, "filas_dia_usuario": {"tipo": "number", "min": 1, "max": 10000000, "entero": true, "etiqueta": "Movimientos por día (persona)"}}', 22),
   ('reembolsos', 'Pagos y cobro', 'Reembolsos', null, false,
-   '{"umbral_doble_usd": {"tipo": "number", "min": 1, "max": 100000, "etiqueta": "Doble aprobación desde (USD)"}}', 23),
+   '{"umbral_doble_usd": {"tipo": "number", "min": 0, "max": 10000000, "etiqueta": "Doble aprobación desde (USD)"}}', 23),
   ('tasa_bcv', 'Pagos y cobro', 'Tasa BCV', null, false,
-   '{"url": {"tipo": "string", "etiqueta": "Fuente (URL)"}, "horas_alerta": {"tipo": "number", "min": 1, "max": 168, "entero": true, "etiqueta": "Horas sin actualizar antes de avisar"}, "variacion_max_pct": {"tipo": "number", "min": 1, "max": 100, "etiqueta": "Variación máxima automática (%)"}}', 24),
+   '{"url": {"tipo": "string", "etiqueta": "Fuente (URL)"}, "horas_alerta": {"tipo": "number", "min": 1, "max": 10000, "entero": true, "etiqueta": "Horas sin actualizar antes de avisar"}, "variacion_max_pct": {"tipo": "number", "min": 0, "max": 1000, "etiqueta": "Variación máxima automática (%)"}}', 24),
   ('liquidaciones', 'Pagos y cobro', 'Liquidaciones', null, false,
    '{"envio_al_seller": {"tipo": "boolean", "etiqueta": "El comercio recibe el envío cobrado"}}', 25),
   ('soporte', 'Atención', 'Soporte', 'Canales y horario que muestra la tienda.', false, '{}', 30),
@@ -103,7 +103,7 @@ insert into tumbo.ajustes_meta (clave, grupo, etiqueta, ayuda, doble_aprobacion,
   ('terminos_version', 'Atención', 'Versión de los términos', null, false, '{}', 32),
   ('logistica', 'Operación', 'Plazos (SLA)', 'Se editan con la validación de Logística (coherencia entre plazos).', false, '{}', 40),
   ('cuotas_archivos', 'Topes', 'Cuotas de archivos', null, false,
-   '{"archivos_por_dia": {"tipo": "number", "min": 1, "max": 10000, "entero": true, "etiqueta": "Archivos por persona y día"}, "mb_por_seller": {"tipo": "number", "min": 10, "max": 100000, "entero": true, "etiqueta": "MB por comercio"}, "mb_por_usuario": {"tipo": "number", "min": 10, "max": 100000, "entero": true, "etiqueta": "MB por cuenta sin comercio"}}', 50),
+   '{"archivos_por_dia": {"tipo": "number", "min": 0, "max": 10000000, "entero": true, "etiqueta": "Archivos por persona y día"}, "mb_por_seller": {"tipo": "number", "min": 0, "max": 10000000, "etiqueta": "MB por comercio"}, "mb_por_usuario": {"tipo": "number", "min": 0, "max": 10000000, "etiqueta": "MB por cuenta sin comercio"}}', 50),
   ('promociones', 'Topes', 'Promociones', null, false,
    '{"ofertas_activas_seller": {"tipo": "number", "min": 1, "max": 1000, "entero": true, "etiqueta": "Ofertas activas por comercio"}, "cupones_activos_seller": {"tipo": "number", "min": 0, "max": 500, "entero": true, "etiqueta": "Cupones activos por comercio"}, "descuento_max_pct": {"tipo": "number", "min": 5, "max": 90, "etiqueta": "Descuento máximo (%)"}, "relampago_max_horas": {"tipo": "number", "min": 1, "max": 336, "entero": true, "etiqueta": "Duración máxima de una relámpago (h)"}, "referencia_dias": {"tipo": "number", "min": 0, "max": 60, "entero": true, "etiqueta": "Días sin subir el precio para tacharlo"}}', 51),
   ('analitica', 'Topes', 'Analítica', null, false,
@@ -178,6 +178,7 @@ declare
   x numeric;
   n jsonb;
   v_ids text[] := '{}';
+  v_estricto boolean;
 begin
   if jsonb_typeof(p_valor) = 'null' then
     return;
@@ -242,13 +243,19 @@ begin
   if not found or m.esquema = '{}'::jsonb or jsonb_typeof(p_valor) <> 'object' then
     return;
   end if;
+  -- los de este dominio llevan exactamente sus campos; los de los demás
+  -- dominios se validan en lo que traen (pueden sumar campos propios)
+  v_estricto := p_clave in ('riesgo', 'moderacion', 'promociones', 'analitica');
   for k in select jsonb_object_keys(p_valor) loop
-    if not m.esquema ? k then
+    if v_estricto and not m.esquema ? k then
       raise exception 'El campo «%» no existe en «%».', left(k, 40), m.etiqueta;
     end if;
   end loop;
   for k, e in select * from jsonb_each(m.esquema) loop
     v := p_valor -> k;
+    if v is null and not v_estricto then
+      continue;
+    end if;
     if v is null then
       raise exception 'Falta «%» en «%».', coalesce(e ->> 'etiqueta', k), m.etiqueta;
     end if;
@@ -3770,7 +3777,8 @@ begin
                                           'visitantes', count(distinct e.visitante) filter (where e.tipo = 'vista_producto'),
                                           'agregados', count(*) filter (where e.tipo = 'agregar_carrito'))
                 from tumbo.eventos_analitica e where e.seller_id = yo.seller_id and e.creado >= v_ini and e.creado < v_fin),
-    'serie', coalesce((select jsonb_agg(jsonb_build_object('grupo', g, 'gmv_usd', gmv, 'ventas', n, 'vistas', coalesce(vv.n, 0)) order by g)
+    'serie', coalesce((select jsonb_agg(jsonb_build_object('grupo', coalesce(s.g, vv.g2), 'gmv_usd', coalesce(s.gmv, 0), 'ventas', coalesce(s.n, 0),
+                                                           'vistas', coalesce(vv.n, 0)) order by coalesce(s.g, vv.g2))
                        from (select tumbo_privado.grupo_fecha(p.creado, v_agrupar) as g,
                                     coalesce(sum((select sum(i.precio_usd * i.cant) from tumbo.pedido_items i where i.pedido_id = p.id)), 0) as gmv,
                                     count(*) as n
