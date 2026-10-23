@@ -269,6 +269,9 @@ function psql(consulta) {
 
   await pruebaSolo('remoto', 'comercio 360 desde Sellers y KYC, con nota interna; comprador 360 desde la búsqueda', async () => {
     await como('superadmin');
+    await abrir('admin/seller');
+    await esperar('#raiz [data-solo-cuenta-real]');      /* recalcular los niveles: solo una cuenta real */
+    if (await p.locator('[data-recalcular-niveles]').count()) throw new Error('la cuenta de prueba puede recalcular los niveles');
     await abrir('admin/sellers');
     await esperar('article[data-seller="SEL-014"] [data-ficha-360]');
     await p.locator('article[data-seller="SEL-014"] [data-ficha-360]').click();
@@ -354,6 +357,8 @@ function psql(consulta) {
         await abrir('admin/panel');
         if (await p.locator('[data-aviso-incidencia]').count()) throw new Error('el aviso sigue después de quitarlo');
       }
+      await abrir('admin/seller');
+      await esperar('[data-recalcular-niveles]');
       await abrir('admin/marketing');
       await esperar('[data-campana-nueva]');
       await p.locator('[data-campana-nueva]').click();

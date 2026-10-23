@@ -508,7 +508,7 @@ const idDe = (email) => psql(`select id from tumbo.usuarios where email = ${lit(
       nivelesBajos.niveles[0] = Object.assign({}, nivelesBajos.niveles[0], { ventas_min: 1, gmv_min_usd: 10 });
       await rpc('tm_ajuste_guardar', { p_sesion: s.a, p_clave: 'niveles', p_valor: nivelesBajos });
       const demoNiv = await rpc('tm_niveles_recalcular', { p_sesion: s.superadmin });
-      ok(!demoNiv.ok, 'una cuenta de prueba no recalcula los niveles', demoNiv.texto);
+      ok(!demoNiv.ok && /cuentas de prueba/.test(demoNiv.texto), 'una cuenta de prueba no recalcula los niveles (cambian comisiones)', demoNiv.texto);
       const recal = await rpc('tm_niveles_recalcular', { p_sesion: s.a });
       ok(recal.ok || /menos de un minuto/.test(recal.texto), 'el superadministrador recalcula los niveles (con un tope de una vez por minuto)', recal.texto);
       psql(`select tumbo_privado.tarea_niveles()`);

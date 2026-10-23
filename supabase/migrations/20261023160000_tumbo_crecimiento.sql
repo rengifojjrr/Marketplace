@@ -112,7 +112,7 @@ insert into tumbo.ajustes_meta (clave, grupo, etiqueta, ayuda, doble_aprobacion,
    '{"umbral_alerta": {"tipo": "number", "min": 1, "max": 100, "entero": true, "etiqueta": "Puntaje de alerta"}, "umbral_retencion": {"tipo": "number", "min": 1, "max": 100, "entero": true, "etiqueta": "Puntaje de retención preventiva"}, "cuenta_nueva_dias": {"tipo": "number", "min": 0, "max": 365, "entero": true, "etiqueta": "Días de una cuenta nueva"}, "monto_alto_usd": {"tipo": "number", "min": 1, "max": 100000, "etiqueta": "Monto alto (USD)"}, "compras_hora": {"tipo": "number", "min": 1, "max": 100, "entero": true, "etiqueta": "Compras en una hora"}, "compras_dia": {"tipo": "number", "min": 1, "max": 500, "entero": true, "etiqueta": "Compras en un día"}, "rechazos_30d": {"tipo": "number", "min": 1, "max": 50, "entero": true, "etiqueta": "Pagos rechazados en 30 días"}, "pico_factor": {"tipo": "number", "min": 1.5, "max": 50, "etiqueta": "Pico de ventas (veces el promedio)"}, "pico_minimo": {"tipo": "number", "min": 1, "max": 1000, "entero": true, "etiqueta": "Ventas mínimas del pico"}, "disputas_seller": {"tipo": "number", "min": 1, "max": 100, "entero": true, "etiqueta": "Reclamos abiertos del comercio"}}', 60),
   ('moderacion', 'Moderación', 'Moderación automática', null, false,
    '{"precio_factor": {"tipo": "number", "min": 1.5, "max": 100, "etiqueta": "Precio anómalo (veces la mediana)"}, "precio_muestra_min": {"tipo": "number", "min": 1, "max": 100, "entero": true, "etiqueta": "Productos mínimos de la categoría"}, "duplicado_similitud": {"tipo": "number", "min": 0.5, "max": 1, "etiqueta": "Parecido de un duplicado (0,5 a 1)"}, "denuncias_marcar": {"tipo": "number", "min": 1, "max": 100, "entero": true, "etiqueta": "Denuncias para marcar"}}', 70),
-  ('niveles', 'Crecimiento', 'Niveles de los comercios', 'Los recalcula la tarea diaria (o «Recalcular niveles»).', false, '{}', 80)
+  ('niveles', 'Crecimiento', 'Niveles de los comercios', 'Los recalcula la tarea diaria (o «Recalcular niveles» en Comercios 360).', false, '{}', 80)
 on conflict (clave) do nothing;
 
 -- Historial de cambios de configuración y cambios que esperan la segunda
@@ -1744,6 +1744,8 @@ declare
   yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['superadmin']);
   r jsonb;
 begin
+  -- cambia comisiones (los descuentos por nivel): cuenta real con sesión elevada
+  perform tumbo_privado.exigir_elevada(yo);
   if exists (select 1 from tumbo.niveles_seller where calculado > now() - interval '1 minute') then
     raise exception 'Los niveles se recalcularon hace menos de un minuto.';
   end if;

@@ -51,9 +51,13 @@
   /* =====================================================================
      Comercio 360
      ===================================================================== */
-  function listaSellers() {
+  function listaSellers(s) {
     var lista = TM.estado.sellers.slice();
-    return C().titulo('Comercios 360') +
+    var recalcular = C().remoto() && s && s.rol === 'superadmin'
+      ? (C().esDemo(s) ? C().soloReal('Recalcular los niveles: cuenta real del equipo.')
+        : btn('Recalcular niveles', { icono: 'workspace_premium', attr: 'data-recalcular-niveles' }))
+      : '';
+    return C().titulo('Comercios 360', recalcular) +
       '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Elige un comercio para ver su ficha completa: catálogo, pedidos, cumplimiento, liquidaciones, equipo, KYC, notas, sanciones y nivel.</p>' +
       UI.tabla(['Comercio', 'Ciudad', 'Estado', ''], lista.map(function (x) {
         return UI.td('<strong>' + esc(x.nombre) + '</strong><span class="block font-data-mono text-data-mono text-on-surface-variant">' + esc(x.id) + '</span>') +
@@ -64,7 +68,7 @@
   function metricaKpi(t, v, sub, icono, mal) { return UI.kpi(t, esc(v), esc(sub || ''), icono, mal ? 'text-error' : ''); }
   function vSeller(q, s) {
     var id = q.get('id');
-    if (!id) return listaSellers();
+    if (!id) return listaSellers(s);
     if (!C().remoto()) {
       var x = TM.seller(id);
       return C().titulo(x ? x.nombre : 'Comercio') + C().avisoServidor('La ficha 360 (métricas, liquidaciones, notas, sanciones y nivel) se arma en el servidor.');
@@ -156,6 +160,15 @@
   }
   function despuesSeller(raiz) {
     enlazarNotas(raiz);
+    var rec = raiz.querySelector('[data-recalcular-niveles]');
+    if (rec) rec.addEventListener('click', function () {
+      UI.confirmar('Recalcular los niveles', 'Se evalúan ahora todos los comercios (la tarea diaria lo hace sola); los cambios de nivel ajustan su comisión y les avisan.',
+        { accion: 'Recalcular' }, function () {
+          UI.accion(rec, function () { return C().accion('tm_niveles_recalcular', {}, ['ficha'], { accion: 'Recalcular los niveles' }); }, function (r) {
+            UI.toast('Niveles recalculados', ((r && r.revisados) || 0) + ' comercios · ' + ((r && r.cambios) || []).length + ' cambios', 'workspace_premium');
+          }, 'No se recalcularon');
+        });
+    });
     var b = raiz.querySelector('[data-sancionar]');
     if (b) b.addEventListener('click', function () {
       C().formulario('Aplicar una sanción', 'El comercio la ve con su motivo. Retener fondos detiene sus liquidaciones; limitar publicaciones fija un tope de productos activos.', [
