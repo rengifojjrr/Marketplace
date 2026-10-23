@@ -92,7 +92,7 @@
         }).join('') + '</tbody></table></div>' +
         '<div class="flex justify-end mt-3">' + btn('Guardar preferencias', { estilo: 'primario', icono: 'save', tipo: 'submit', attr: 'data-guardar-avisos' }) + '</div>' +
       '</form>' +
-      (d.demo ? '<p class="font-body-sm text-body-sm text-on-surface-variant">Cuenta de prueba: sus avisos nunca salen de Tumbo hacia personas reales.</p>' : '');
+      (d.demo ? '<p class="font-body-sm text-body-sm text-on-surface-variant">Cuenta de prueba: sus avisos nunca se envían automáticamente (quedan en la bandeja del equipo, para practicar).</p>' : '');
   }
 
   function despuesAvisos(raiz) {

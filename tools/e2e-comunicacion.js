@@ -333,8 +333,11 @@ async function sesionApi(email) {
   });
 
   if (remoto) {
+    await rpc('tm_avisos_guardar', { p_sesion: s.comprador, p_cambios: [{ plantilla: 'chat_mensaje', canal: 'correo', activo: true }] });
     await t.reset();
-    if (BD) psql(`delete from tumbo.preferencias_aviso where usuario_id = ${lit(COMPRADOR)}`);
+    /* (la preferencia apagada y la cuota de escrituras gastada no pasan a las suites que siguen) */
+    if (BD) psql(`delete from tumbo.preferencias_aviso where usuario_id = ${lit(COMPRADOR)};
+                  delete from tumbo.cuotas_red where usuario_id in (select id from tumbo.usuarios where tumbo_privado.cuenta_demo(email));`);
   }
   await t.resumen('pruebas E2E de comunicación en verde.');
 })().catch((e) => { console.error(e); process.exit(1); });

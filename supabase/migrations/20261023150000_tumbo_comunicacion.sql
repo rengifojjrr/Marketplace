@@ -889,7 +889,9 @@ end $$;
 --     vuelve a tomar (con la misma clave de idempotencia, Resend no lo manda
 --     dos veces); el WhatsApp queda fallido para revisarlo (su API no tiene
 --     idempotencia: nunca se manda dos veces);
---   · WhatsApp solo con una plantilla aprobada por Meta y un número válido.
+--   · WhatsApp solo con una plantilla aprobada por Meta y un número válido;
+--   · nunca los de las cuentas de prueba (cualquiera puede poner ahí el
+--     correo o el teléfono de otra persona).
 create function public.tm_envios_tomar(p_canales text[], p_limite integer) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -912,6 +914,8 @@ begin
     where s.estado = 'pendiente' and s.enviando_desde is null and s.proximo_intento <= now()
       and s.canal = any (coalesce(p_canales, '{}')) and s.canal in ('correo', 'whatsapp')
       and (s.canal <> 'whatsapp' or exists (select 1 from tumbo.plantillas_whatsapp w where w.clave = s.plantilla and w.aprobada))
+      -- los de las cuentas de prueba (contraseña pública) nunca salen: quedan para practicar el envío a mano
+      and not exists (select 1 from tumbo.usuarios u where u.id = s.usuario_id and tumbo_privado.cuenta_demo(u.email))
     order by s.proximo_intento, s.id
     limit v_lote
     for update skip locked

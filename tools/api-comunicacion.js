@@ -388,6 +388,8 @@ const esperar = (ms) => new Promise((ok) => setTimeout(ok, ms));
   /* ================= Función de envíos (pasarela simulada) ================= */
   const simOk = BD && LOCAL ? await sim('DELETE') : { ok: false };
   if (simOk.ok) {
+    /* los mensajes de una persona real (la compradora de apoyo): los de las cuentas de prueba nunca salen */
+    const CR = uid(APOYO.compra.email);
     psql(`update tumbo.envios_estado set ultima = null where id = 1`);
     const n401 = await envios({}, { accion: 'enviar' });
     const nDemo = await envios({ 'x-tumbo-sesion': s.superadmin }, { accion: 'enviar' });
@@ -396,26 +398,26 @@ const esperar = (ms) => new Promise((ok) => setTimeout(ok, ms));
       'la función de envíos no la llama nadie sin credencial, ni una cuenta de prueba, ni un secreto falso', nDemo.texto);
     const secreto = psql(`select tumbo_privado.secreto('envios')`);
     psql(`update tumbo.salida set estado = 'descartado' where estado = 'pendiente'`);
-    psql(`select tumbo_privado.encolar(${lit(COMPRADOR)}, 'pago_confirmado', '{"pedido": "TM-S1", "monto": "Bs. 10", "enlace": "app/tienda/pedidos.html"}')`);
+    psql(`select tumbo_privado.encolar(${lit(CR)}, 'pago_confirmado', '{"pedido": "TM-S1", "monto": "Bs. 10", "enlace": "app/tienda/pedidos.html"}')`);
     const sinProv = await envios({ 'x-tumbo-envios': secreto }, { accion: 'enviar' });
-    const quedan = psql(`select estado from tumbo.salida where plantilla = 'pago_confirmado' order by id desc limit 1`);
+    const quedan = psql(`select estado from tumbo.salida where plantilla = 'pago_confirmado' and usuario_id = ${lit(CR)} order by id desc limit 1`);
     ok(sinProv.ok && /No hay proveedor/.test(sinProv.dato.mensaje || '') && quedan === 'pendiente',
       'sin proveedor configurado la función no envía nada, lo dice y el mensaje sigue en la bandeja', sinProv.texto);
     await sim('POST', { resend: { clave: 're_prueba', de: 'Tumbo <avisos@tumbo.test>' } });
     psql(`update tumbo.envios_estado set ultima = null where id = 1`);
     const real = s.real ? await envios({ 'x-tumbo-sesion': s.real }, { accion: 'enviar' }) : { ok: false, texto: 'sin cuenta real' };
     const reg = (await sim('GET')).dato;
-    const m = json(`select to_jsonb(s) from tumbo.salida s where plantilla = 'pago_confirmado' order by id desc limit 1`);
+    const m = json(`select to_jsonb(s) from tumbo.salida s where plantilla = 'pago_confirmado' and usuario_id = ${lit(CR)} order by id desc limit 1`);
     const est = await rpc('tm_envios_estado', { p_sesion: s.superadmin });
     ok(real.ok && real.dato.enviados >= 1 && m.estado === 'enviado' && /^sim-correo-/.test(m.proveedor_id) &&
        reg.registro.some((x) => x.idempotencia === 'tumbo-salida-' + m.id && x.autorizacion && /tumbo\.test/.test(x.de)) &&
        est.dato.proveedores.correo === true && /Directora/.test(est.dato.proveedores.por || ''),
       'una cuenta real del equipo dispara el envío: Resend recibe el correo con la clave de idempotencia y queda enviado con su id', real.texto.slice(0, 200));
-    psql(`select tumbo_privado.encolar(${lit(COMPRADOR)}, 'pago_confirmado', '{"pedido": "TM-S2", "monto": "Bs. 20"}')`);
+    psql(`select tumbo_privado.encolar(${lit(CR)}, 'pago_confirmado', '{"pedido": "TM-S2", "monto": "Bs. 20"}')`);
     await sim('POST', { fallar: { correo: 'temporal' } });
     psql(`update tumbo.envios_estado set ultima = null where id = 1`);
     const tmp = await envios({ 'x-tumbo-envios': secreto }, { accion: 'enviar' });
-    const m2 = json(`select to_jsonb(s) from tumbo.salida s where plantilla = 'pago_confirmado' order by id desc limit 1`);
+    const m2 = json(`select to_jsonb(s) from tumbo.salida s where plantilla = 'pago_confirmado' and usuario_id = ${lit(CR)} order by id desc limit 1`);
     ok(tmp.ok && tmp.dato.reintentos >= 1 && m2.estado === 'pendiente' && m2.intentos === 1 && new Date(m2.proximo_intento) > new Date() && /no disponible/.test(m2.error || ''),
       'un fallo temporal del proveedor deja el mensaje en cola con su próximo intento', JSON.stringify(m2).slice(0, 200));
     psql(`update tumbo.salida set intentos = 4, proximo_intento = now() where id = ${m2.id}`);
@@ -423,7 +425,7 @@ const esperar = (ms) => new Promise((ok) => setTimeout(ok, ms));
     await envios({ 'x-tumbo-envios': secreto }, { accion: 'enviar' });
     const m3 = json(`select to_jsonb(s) from tumbo.salida s where id = ${m2.id}`);
     ok(m3.estado === 'fallido' && m3.intentos === 5, 'al llegar al máximo de intentos queda fallido para enviarlo a mano', JSON.stringify(m3).slice(0, 160));
-    const re = await rpc('tm_mensaje_reintentar', { p_sesion: s.ops, p_id: m3.id });
+    const re = await rpc('tm_mensaje_reintentar', { p_sesion: s.opsReal, p_id: m3.id });
     await sim('POST', { fallar: {} });
     psql(`update tumbo.envios_estado set ultima = null where id = 1`);
     await envios({ 'x-tumbo-envios': secreto }, { accion: 'enviar' });
@@ -436,13 +438,20 @@ const esperar = (ms) => new Promise((ok) => setTimeout(ok, ms));
     const m5 = json(`select to_jsonb(s) from tumbo.salida s where id = ${m.id}`);
     ok(m5.estado === 'enviado' && m5.proveedor_id === m.proveedor_id && reg2.length === 1,
       'un correo tomado sin resultado se vuelve a tomar con la misma clave: el proveedor no lo manda dos veces', JSON.stringify({ reg: reg2.length, id: m5.proveedor_id }));
-    psql(`update tumbo.usuarios set telefono = '04125550101', telefono_verificado = true where id = ${lit(COMPRADOR)};
-          insert into tumbo.consentimientos_whatsapp (usuario_id, accion, telefono, version) values (${lit(COMPRADOR)}, 'otorgar', '04125550101', 'prueba-com');
-          select tumbo_privado.encolar(${lit(COMPRADOR)}, 'pago_confirmado', '{"pedido": "TM-W1", "monto": "Bs. 30", "enlace": "app/tienda/pedidos.html"}');`);
+    psql(`select tumbo_privado.encolar(${lit(COMPRADOR)}, 'pago_confirmado', '{"pedido": "TM-D1", "monto": "Bs. 1"}');
+          update tumbo.envios_estado set ultima = null where id = 1;`);
+    await envios({ 'x-tumbo-envios': secreto }, { accion: 'enviar' });
+    const demo = json(`select to_jsonb(s) from tumbo.salida s where usuario_id = ${lit(COMPRADOR)} and plantilla = 'pago_confirmado' order by id desc limit 1`);
+    ok(demo && demo.estado === 'pendiente' && demo.intentos === 0,
+      'los mensajes de las cuentas de prueba nunca salen por el proveedor (quedan para practicar el envío a mano)', JSON.stringify(demo).slice(0, 160));
+    psql(`update tumbo.salida set estado = 'descartado' where usuario_id = ${lit(COMPRADOR)} and estado = 'pendiente'`);
+    psql(`update tumbo.usuarios set telefono = '04145550123', telefono_verificado = true where id = ${lit(CR)};
+          insert into tumbo.consentimientos_whatsapp (usuario_id, accion, telefono, version) values (${lit(CR)}, 'otorgar', '04145550123', 'prueba-com');
+          select tumbo_privado.encolar(${lit(CR)}, 'pago_confirmado', '{"pedido": "TM-W1", "monto": "Bs. 30", "enlace": "app/tienda/pedidos.html"}');`);
     await sim('POST', { whatsapp: { token: 'EAAprueba', numeroId: '1234567890' } });
     psql(`update tumbo.envios_estado set ultima = null where id = 1`);
     await envios({ 'x-tumbo-envios': secreto }, { accion: 'enviar' });
-    const w0e = json(`select to_jsonb(s) from tumbo.salida s where plantilla = 'pago_confirmado' and canal = 'whatsapp' order by id desc limit 1`);
+    const w0e = json(`select to_jsonb(s) from tumbo.salida s where plantilla = 'pago_confirmado' and canal = 'whatsapp' and usuario_id = ${lit(CR)} order by id desc limit 1`);
     const ap = s.real ? await rpc('tm_whatsapp_plantilla_guardar', { p_sesion: s.real, p_clave: 'pago_confirmado', p_datos: { aprobada: true } }) : { ok: false };
     const apD = await rpc('tm_whatsapp_plantilla_guardar', { p_sesion: s.superadmin, p_clave: 'pago_confirmado', p_datos: { aprobada: true } });
     psql(`update tumbo.envios_estado set ultima = null where id = 1`);
@@ -450,20 +459,20 @@ const esperar = (ms) => new Promise((ok) => setTimeout(ok, ms));
     const w1e = json(`select to_jsonb(s) from tumbo.salida s where id = ${w0e.id}`);
     const regW = (await sim('GET')).dato.registro.find((x) => x.proveedor === 'whatsapp');
     ok(w0e.estado === 'pendiente' && ap.ok && !apD.ok && w1e.estado === 'enviado' && /^wamid\./.test(w1e.proveedor_id) &&
-       regW && regW.a === '584125550101' && regW.plantilla === 'tumbo_pago_confirmado' && regW.parametros[0] === 'TM-W1',
+       regW && regW.a === '584145550123' && regW.plantilla === 'tumbo_pago_confirmado' && regW.parametros[0] === 'TM-W1',
       'WhatsApp sale solo con la plantilla aprobada por Meta (la marca el superadmin real), al número en formato internacional y con sus variables',
       JSON.stringify({ w0: w0e.estado, ap: ap.texto, w1: w1e.estado, reg: regW }).slice(0, 260));
-    psql(`select tumbo_privado.encolar(${lit(COMPRADOR)}, 'verificar_telefono', '{"codigo": "123456", "minutos": 15}');
+    psql(`select tumbo_privado.encolar(${lit(CR)}, 'verificar_telefono', '{"codigo": "123456", "minutos": 15}');
           update tumbo.salida set creado = now() - interval '2 hours' where plantilla = 'verificar_telefono' and estado = 'pendiente';
           update tumbo.envios_estado set ultima = null where id = 1;`);
     await envios({ 'x-tumbo-envios': secreto }, { accion: 'enviar' });
     const vc = json(`select jsonb_agg(jsonb_build_object('e', estado, 'c', cuerpo)) from tumbo.salida where plantilla = 'verificar_telefono' and creado < now() - interval '1 hour'`);
     ok(vc && vc.every((x) => x.e === 'descartado' && !/123456/.test(x.c)), 'un código de seguridad vencido no se envía: se descarta y se borra', JSON.stringify(vc).slice(0, 160));
-    const msj = await rpc('tm_mensajes', { p_sesion: s.ops, p_filtros: { estado: 'enviado', canal: 'whatsapp' } });
-    ok(msj.ok && msj.dato.mensajes.some((x) => x.id === w0e.id && x.telefono === '584125550101' && x.automatico), 'la bandeja del equipo filtra por estado y canal, con el teléfono listo para wa.me', msj.texto.slice(0, 160));
+    const msj = await rpc('tm_mensajes', { p_sesion: s.opsReal, p_filtros: { estado: 'enviado', canal: 'whatsapp' } });
+    ok(msj.ok && msj.dato.mensajes.some((x) => x.id === w0e.id && x.telefono === '584145550123' && x.automatico), 'la bandeja del equipo filtra por estado y canal, con el teléfono listo para wa.me', msj.texto.slice(0, 160));
     if (s.real) await rpc('tm_whatsapp_plantilla_guardar', { p_sesion: s.real, p_clave: 'pago_confirmado', p_datos: { aprobada: false } });
-    psql(`update tumbo.usuarios set telefono = null, telefono_verificado = false where id = ${lit(COMPRADOR)};
-          delete from tumbo.consentimientos_whatsapp where usuario_id = ${lit(COMPRADOR)};`);
+    psql(`update tumbo.usuarios set telefono_verificado = false where id = ${lit(CR)};
+          delete from tumbo.consentimientos_whatsapp where usuario_id = ${lit(CR)};`);
     await sim('DELETE');
     /* (el estado de los proveedores vuelve a «sin conectar»: era la simulación) */
     psql(`update tumbo.envios_estado set correo = false, whatsapp = false, ultima = null, resumen = '{}', por = null where id = 1`);
@@ -687,6 +696,9 @@ const esperar = (ms) => new Promise((ok) => setTimeout(ok, ms));
           delete from tumbo.tickets where usuario_id = (select id from tumbo.usuarios where email = ${lit(APOYO.compra.email)});`);
     await R.reiniciar(rpc, s.superadmin);
   } else ok(rf.ok, 'superadmin reinicia la demo al terminar', rf.texto);
+  /* la cuota de escrituras de las cuentas de prueba (150 cada 10 minutos por
+     red) no queda gastada para las suites que siguen */
+  if (BD) psql(`delete from tumbo.cuotas_red where usuario_id in (select id from tumbo.usuarios where tumbo_privado.cuenta_demo(email))`);
 
   console.log('');
   if (fallos) { console.log(rojo(`FALLOS: ${fallos}`)); process.exit(1); }

@@ -254,7 +254,7 @@
         (cfg.tarifaFijaUsd ? ' más ' + esc(TM.fmtUsd(cfg.tarifaFijaUsd)) + ' por pedido' : '') + ')' : '') +
         ' que se descuenta al liquidar. Las condiciones exactas están en el ' + a('app/ayuda/contrato-seller.html', 'contrato de seller') + '.')],
       ['Cómo cobras', p('Cuando el comprador recibe su pedido y cierra la ventana de reclamo (' + esc(n(P.reclamo, 'día')) + '), el monto queda elegible y Finanzas lo liquida a la cuenta que registraste en el Seller Center.')],
-      ['Tu reputación', p('Tu nivel (excelente, muy bueno, bueno o en observación) se calcula cada día con tus últimos 90 días: despachos a tiempo, reclamos perdidos, cancelaciones, tiempo de respuesta a preguntas y al chat, y las reseñas verificadas. Los comercios con menos de 5 ventas figuran como «Comercio nuevo».')],
+      ['Tu reputación', p('Tu nivel (excelente, muy bueno, bueno o en observación) se calcula con tus últimos 90 días: despachos a tiempo, reclamos perdidos, cancelaciones, tiempo de respuesta a preguntas y al chat, y las reseñas verificadas. Los comercios con menos de 5 ventas figuran como «Comercio nuevo».')],
       ['Buenas prácticas', lista(['Responde las preguntas rápido: el tiempo de respuesta se muestra en tus productos.',
         'Despacha dentro del plazo y registra la guía.',
         'Coordina todo por el chat del pedido: compartir teléfonos, enlaces o cuentas no está permitido y el sistema los oculta.',
