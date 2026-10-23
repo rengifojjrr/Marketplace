@@ -144,6 +144,18 @@ const json = (consulta) => JSON.parse(psql(consulta) || 'null');
     if (!r.ok) throw new Error('no se pudo crear el pedido: ' + r.texto);
     return r.dato[0];
   }
+  /* Con la opción de envío elegida en el checkout de Pagos (la clave es el id
+     de cotizar_envio); el checkout de antes toma la primera del contrato. */
+  async function crearPedidoCon(ses, clave, sku) {
+    await rpc('tm_carrito_poner', { p_sesion: ses, p_sku: sku || 'SKU-TEC-0450', p_cant: 1 });
+    const datos = { entrega: 'domicilio', direccion_id: CASA, metodo: 'pago_movil', envios: { 'SEL-014': clave } };
+    const c = await rpc('tm_checkout_cotizar', { p_sesion: ses, p_datos: datos });
+    if (!c.ok) throw new Error('no se pudo cotizar: ' + c.texto);
+    const r = await rpc('tm_checkout_crear', { p_sesion: ses, p_datos: Object.assign({}, datos,
+      { esperado: { total_usd: c.dato.total_usd, total_bs: c.dato.total_bs } }) });
+    if (!r.ok) throw new Error('no se pudo crear el pedido: ' + r.texto);
+    return r.dato.pedidos[0];
+  }
   const ORDEN = ['pago_por_verificar', 'por_aceptar', 'preparando', 'listo'];
   async function hastaEstado(id, estado) {
     const desde = ORDEN.indexOf(await estadoDe(id));
@@ -321,8 +333,13 @@ const json = (consulta) => JSON.parse(psql(consulta) || 'null');
   const A = await crearPedido(s.comprador);
   if (BD) {
     const e = json(`select to_jsonb(e) from tumbo.envios e where pedido_id = ${lit(A)}`);
-    ok(e && e.codigo === 'zoom:domicilio' && e.fecha_prometida && e.dias_max >= e.dias_min && !e.aceptar_antes,
-      'al crear el pedido queda su envío: la opción (courier y servicio) y la promesa', JSON.stringify(e).slice(0, 200));
+    /* el checkout (Pagos) elige por omisión la primera opción del contrato:
+       la que entrega en el estado del comprador y se paga ahora */
+    const primera = json(`select tumbo_privado.cotizar_envio('SEL-014', tumbo_privado.destino_pedido(p), '[{"sku": "SKU-TEC-0450", "cant": 1}]'::jsonb)
+                          from tumbo.pedidos p where p.id = ${lit(A)}`).find((o) => o.tipo === 'domicilio');
+    ok(e && primera && e.codigo === primera.codigo && e.codigo === psql(`select destino ->> 'opcion' from tumbo.pedidos where id = ${lit(A)}`) &&
+       e.fecha_prometida && e.dias_max >= e.dias_min && !e.aceptar_antes,
+      'al crear el pedido queda su envío: la opción (courier y servicio) que eligió el checkout y la promesa', JSON.stringify(e).slice(0, 200));
     /* el checkout de Pagos guarda la opción elegida en destino.opcion (el id de cotizar_envio) */
     psql(`delete from tumbo.envios where pedido_id = ${lit(A)};
           update tumbo.pedidos set destino = coalesce(destino, '{}'::jsonb) || '{"opcion": "mrw:domicilio"}' where id = ${lit(A)};`);
@@ -650,7 +667,7 @@ const json = (consulta) => JSON.parse(psql(consulta) || 'null');
 
   /* ================= Despacho por lotes y despacho de antes ================= */
   const H1 = await crearPedido(s.comprador);
-  const H2 = await crearPedido(s.comprador);
+  const H2 = await crearPedidoCon(s.comprador, 'zoom:domicilio');   /* con courier */
   await hastaEstado(H1, 'listo');
   await hastaEstado(H2, 'listo');
   const fotoLote = await subir(s.operador, 'guia', H1);
@@ -817,6 +834,11 @@ const json = (consulta) => JSON.parse(psql(consulta) || 'null');
   const faltan = ['Despacho al courier', 'Paquete listo', 'Configuración de envíos', 'Cancelación por el comercio', 'Cancelación por Operaciones', 'Nota interna',
     'Novedad de envío', 'Incidencia reportada', 'Pedido en agencia', 'Inspección de devolución', 'Etiquetas impresas', 'Solicitud de cancelación'].filter((a) => !acciones.has(a));
   ok(!faltan.length, 'las acciones de logística quedan en la auditoría', faltan.join(', '));
+  /* el seller real de pruebas sale de SEL-009: con una cuenta real en su
+     equipo, SEL-009 dejaría de ser un comercio de la demo para las demás
+     suites (Pagos y Catálogo no dejan que una cuenta de prueba toque los
+     datos de un comercio real) */
+  if (BD) psql(`update tumbo.usuarios set seller_id = null, rol = 'comprador', activo = false where email = ${lit(APOYO.sel9.email)}`);
   const rf = await rpc('tm_reiniciar_demo', { p_sesion: s.superadmin });
   if (BD) {
     const tras = json(`select jsonb_build_object('envios', (select count(*) from tumbo.envios), 'inc', (select count(*) from tumbo.incidencias),

@@ -14,11 +14,16 @@
 const fs = require('fs');
 const { spawnSync } = require('child_process');
 const { iniciar } = require('./e2e-comun');
+const C2 = require('./cuentas-comun');
 
 /* Con TM_PGDATABASE (solo en local) se crea una cuenta real de Finanzas: las
    cuentas de prueba no importan estados de cuenta del banco real. */
 const BD = process.env.TM_PGDATABASE || '';
 const REAL_FIN = { email: 'finanzas-e2e-pruebas@tumbo-local.ve', clave: 'clave-real-e2e-1' };
+/* su verificación en dos pasos (Cuentas: finanzas la tiene obligatoria para
+   lo que pasa por exigir_elevada): 20 bytes conocidos, en base32 para el TOTP */
+const REAL_FIN_HEX = '3132333435363738393031323334353637383930';
+const REAL_FIN_TOTP = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 function psql(consulta) {
   const r = spawnSync('psql', ['-h', process.env.PGHOST || '/tmp', '-p', process.env.PGPORT || '54322', '-U', 'postgres',
     '-d', BD, '-X', '-At', '-v', 'ON_ERROR_STOP=1'], { input: consulta, encoding: 'utf8' });
@@ -76,7 +81,7 @@ function psql(consulta) {
     await aviso('Pago reportado');
   }
   /* Entra con una cuenta real (correo y contraseña en el formulario). */
-  async function loginReal(email, clave) {
+  async function loginReal(email, clave, secreto) {
     await p.goto(`${t.BASE}/index.html`, { waitUntil: 'domcontentloaded' });
     await p.fill('#ac-correo', email);
     await p.fill('#ac-clave', clave);
@@ -86,7 +91,7 @@ function psql(consulta) {
       p.locator('#ac-codigo').waitFor({ state: 'visible', timeout: 15000 })
     ]);
     if (await p.locator('#ac-codigo').isVisible().catch(() => false)) {
-      await p.fill('#ac-codigo', '123456');
+      await p.fill('#ac-codigo', secreto ? C2.totp(secreto) : '123456');
       await p.locator('form[data-paso=mfa] button[type=submit]').click();
     }
     await p.waitForSelector('#raiz > *', { timeout: 15000 });
@@ -350,8 +355,15 @@ function psql(consulta) {
     if (!BD) return;   /* sin una cuenta real no se puede importar (lo de arriba basta) */
     psql(`insert into tumbo.usuarios (email, clave_hash, nombre, rol)
           values ('${REAL_FIN.email}', extensions.crypt('${REAL_FIN.clave}', extensions.gen_salt('bf', 4)), 'Finanzas E2E', 'finanzas')
-          on conflict (email) do update set rol = 'finanzas', seller_id = null, activo = true, clave_hash = excluded.clave_hash`);
-    await loginReal(REAL_FIN.email, REAL_FIN.clave);
+          on conflict (email) do update set rol = 'finanzas', seller_id = null, activo = true, clave_hash = excluded.clave_hash;
+          delete from tumbo.intentos_seguridad where tipo = '2fa' and clave = (select id::text from tumbo.usuarios where email = '${REAL_FIN.email}');
+          delete from tumbo.usuarios_2fa where usuario_id = (select id from tumbo.usuarios where email = '${REAL_FIN.email}');
+          insert into tumbo.usuarios_2fa (usuario_id, secreto, activo, activado)
+          select id, tumbo_privado.cifrar_2fa(decode('${REAL_FIN_HEX}', 'hex')), true, now() from tumbo.usuarios where email = '${REAL_FIN.email}'`);
+    await loginReal(REAL_FIN.email, REAL_FIN.clave, REAL_FIN_TOTP);
+    /* la sesión nace elevada (el acceso pidió el código); se le quita para ver
+       que la acción pide el código y se repite sola (TM.api, integración) */
+    psql(`update tumbo.sesiones set elevada_hasta = null where usuario_id = (select id from tumbo.usuarios where email = '${REAL_FIN.email}')`);
     await abrir('admin/conciliacion?tab=banco');
     await esperar('#imp-banco');
     if (await p.locator('[data-aviso-prueba]').count()) throw new Error('la cuenta real ve el aviso de las cuentas de prueba');
@@ -366,6 +378,11 @@ function psql(consulta) {
     await esperar('[data-importar]');
     if (!/3 movimientos leídos/.test(await texto('[data-vista-previa]'))) throw new Error('vista previa: ' + await texto('[data-vista-previa]'));
     await p.locator('[data-importar]').click();
+    /* sin sesión elevada, el servidor responde TMELV: se pide el código
+       (el del intervalo siguiente: el del acceso ya se usó) y se repite */
+    await esperar('.tm-modal [data-codigo]');
+    await p.fill('.tm-modal [data-codigo]', C2.totp(REAL_FIN_TOTP, 1));
+    await p.locator('.tm-modal [data-ok]').click();
     await aviso('Estado de cuenta importado');
     const toast = await texto('.tm-toast');
     if (!/1 conciliados/.test(toast) || !/1 excepciones/.test(toast)) throw new Error('cruce inesperado: ' + toast);
@@ -384,7 +401,7 @@ function psql(consulta) {
     await como('comprador');
     await abrir('tienda/pago?id=' + c.pago);
     await esperar('[data-pago] >> text=Pago verificado');
-  });
+  }, /status of 400/);   /* el TMELV que pide el código (sesión elevada) */
 
   await pruebaSolo('remoto', 'liquidación: preparada por Finanzas, aprobada por otra persona y pagada a la cuenta verificada', async () => {
     await como('seller');

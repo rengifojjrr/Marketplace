@@ -330,6 +330,7 @@ const PAGINAS = {
     await p.locator('.tm-modal [data-ok]').click();
     await aviso('resuelta');
     if (conServidor()) {   /* con backend, el reembolso va después de la inspección (detalle 360) */
+      if (!(await caso.locator('[data-devolucion-360="TM-2026-00431"]').count())) throw new Error('la disputa no lleva a la inspección en el detalle del pedido');
       await abrir('admin/pedido?id=TM-2026-00431');
       await p.locator('[data-360="inspeccionar"]').click();
       await p.fill('.tm-modal [name=nota]', 'Llegó completo a la oficina del comercio');

@@ -79,9 +79,15 @@
   }
 
   /* Cierre de una devolución: el producto volvió (reembolso y stock) o no
-     volvió (fondos al seller). */
+     volvió (fondos al seller). Con el servidor, el reembolso pide antes la
+     inspección (Logística): se registra en el detalle 360 del pedido. */
   function botonesDevolucion(id) {
-    return '<div class="flex flex-wrap gap-2 justify-end">' +
+    return '<div class="flex flex-wrap items-center gap-2 justify-end">' +
+      (TM.modo === 'remoto'
+        ? '<a data-devolucion-360="' + esc(id) + '" class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline" href="' +
+          href('app/admin/pedido.html?id=' + encodeURIComponent(id)) + '">' + ic('fact_check', 'text-[16px]') +
+          'Inspeccionar en el detalle del pedido</a>'
+        : '') +
       btn('Devolución recibida', { icono: 'assignment_return', attr: 'data-devolucion="' + esc(id) + '" data-recibida="1"' }) +
       btn('No llegó', { estilo: 'borde', icono: 'lock_open', attr: 'data-devolucion="' + esc(id) + '" data-recibida="0"' }) + '</div>';
   }

@@ -22,6 +22,7 @@
  * Desde un entorno con proxy: NODE_USE_ENV_PROXY=1 node tools/api-pagos.js
  */
 const { spawnSync } = require('child_process');
+const C2 = require('./cuentas-comun');
 
 const URL_BASE = (process.env.TM_SUPABASE_URL || '').replace(/\/+$/, '');
 const CLAVE = process.env.TM_SUPABASE_KEY;
@@ -95,7 +96,17 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
             on conflict (email) do update set rol = excluded.rol, seller_id = excluded.seller_id, activo = true, clave_hash = excluded.clave_hash`);
     }
     /* (su sesión se abre por SQL: el acceso web tiene un tope por red y minuto) */
+    psql(`delete from tumbo.usuarios_2fa where usuario_id in (select id from tumbo.usuarios where email in (${Object.values(REALES).map((u) => `'${u.email}'`).join(', ')}))`);
     for (const [k, u] of Object.entries(REALES)) s[k] = psql(`select tumbo_privado.abrir_sesion(id) from tumbo.usuarios where email = '${u.email}'`);
+    /* La sesión elevada de Cuentas (exigir_elevada): finanzas, la
+       superadministración y el seller principal tienen la 2FA obligatoria.
+       Se activa por la API (con la contraseña, como en Mi cuenta) y, como la
+       elevación dura 10 minutos y esta suite tarda más, se extiende por SQL
+       mientras corre. */
+    for (const [k, u] of Object.entries(REALES)) {
+      await C2.activar2fa(rpc, s[k], CLAVE_REAL);
+      psql(`update tumbo.sesiones set elevada_hasta = now() + interval '3 hours' where usuario_id = (select id from tumbo.usuarios where email = '${u.email}')`);
+    }
   }
   const SIN_REAL = 'con TM_PGDATABASE (cuentas reales con sesión elevada)';
   const fin = s.finA, fin2 = s.finB;
@@ -110,7 +121,10 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
             values ('${email}', extensions.crypt('clave-compra-1', extensions.gen_salt('bf', 4)), 'Prueba ${prefijo}', 'comprador') returning id`);
       return psql(`select tumbo_privado.abrir_sesion('${id.split('\n')[0]}')`);
     }
-    const r = await rpc('tm_registrar', { p_email: email, p_clave: 'clave-compra-1', p_nombre: 'Prueba ' + prefijo });
+    /* el registro de la web exige la versión vigente de los términos (Cuentas) */
+    const version = ((await rpc('tm_ajustes_publicos', {})).dato || {}).terminos_version;
+    const r = await rpc('tm_registrar', { p_email: email, p_clave: 'clave-compra-1', p_nombre: 'Prueba ' + prefijo,
+      p_telefono: null, p_terminos: version || null });
     if (!r.ok || !r.dato || !r.dato.sesion) throw new Error('registro falló: ' + r.texto);
     return r.dato.sesion;
   }
@@ -156,20 +170,29 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
   const cot = await rpc('tm_checkout_cotizar', { p_sesion: c1, p_datos: { entrega: 'agencia', metodo: 'pago_movil' } });
   const k = cot.dato || {};
   const tasa = Number(k.tasa);
-  ok(cot.ok && k.sellers.length === 2 && Number(k.subtotal_usd) === 105 && Number(k.envio_usd) === 5 && Number(k.total_usd) === 110 &&
+  /* el envío sale de la cotización de Logística (cotizar_envio): la prueba
+     comprueba el contrato, no los montos de su versión mínima */
+  const envSeller = (x) => Number(x.envio_usd);
+  const envK = (k.sellers || []).reduce((t, x) => t + envSeller(x), 0);
+  ok(cot.ok && k.sellers.length === 2 && Number(k.subtotal_usd) === 105 && cerca(k.envio_usd, envK) && cerca(k.total_usd, 105 + envK) &&
      Number(k.iva_usd) === redondo(55 * 16 / 116) + redondo(50 * 16 / 116) && Number(k.igtf_usd) === 0 &&
-     Number(k.total_bs) === redondo(57.5 * tasa) + redondo(52.5 * tasa) && k.moneda === 'VES' && Number(k.monto_esperado) === Number(k.total_bs),
+     cerca(k.total_bs, k.sellers.reduce((t, x) => t + redondo((Number(x.productos_usd) + envSeller(x)) * tasa), 0)) &&
+     k.moneda === 'VES' && Number(k.monto_esperado) === Number(k.total_bs),
     'cotizar: un envío por seller (cotizar_envio), IVA incluido, sin IGTF en Bs. y el total en Bs. con la tasa vigente', cot.texto.slice(0, 300));
-  ok(k.sellers && k.sellers.every((x) => x.opciones.length === 1 && x.opciones[0].tipo === 'agencia' && x.envio_dias === '1–3 días'),
-    'cada seller trae sus opciones de envío del tipo elegido con su plazo');
+  ok(k.sellers && k.sellers.every((x) => x.opciones.length >= 1 && x.opciones.every((o) => o.tipo === 'agencia') &&
+       x.envio && x.envio.clave === x.opciones[0].clave && x.envio.en_destino !== false && !x.envio.cobro_destino &&
+       x.envio_dias === x.envio.dias_min + '–' + x.envio.dias_max + ' días'),
+    'cada seller trae sus opciones de envío del tipo elegido con su plazo; por omisión, la primera del contrato (entrega en el destino y se paga ahora)',
+    JSON.stringify((k.sellers || []).map((x) => [x.envio && x.envio.clave, x.envio_dias])));
   ok(k.destino && k.destino.tipo === 'agencia' && !('ciudad' in k.destino),
     'retiro en agencia sin ciudad elegida ni dirección guardada: no se inventa una ciudad', JSON.stringify(k.destino));
   const cag = await rpc('tm_checkout_cotizar', { p_sesion: c1, p_datos: { entrega: 'agencia', metodo: 'pago_movil', agencia: { ciudad: 'Maracaibo', estado: 'Zulia' } } });
   ok(cag.ok && cag.dato.destino.ciudad === 'Maracaibo' && cag.dato.destino.estado === 'Zulia',
     'retiro en agencia: la ciudad y el estado que elige el comprador van al destino (y a cotizar_envio)', JSON.stringify(cag.dato && cag.dato.destino));
   const cz = await rpc('tm_checkout_cotizar', { p_sesion: c1, p_datos: { entrega: 'agencia', metodo: 'zelle' } });
-  ok(cz.ok && Number(cz.dato.igtf_usd) === redondo(57.5 * 0.03) + redondo(52.5 * 0.03) && cz.dato.moneda === 'USD' &&
-     Number(cz.dato.monto_esperado) === Number(cz.dato.total_usd) && Number(cz.dato.total_usd) === redondo(110 + Number(cz.dato.igtf_usd)),
+  ok(cz.ok && cerca(cz.dato.igtf_usd, cz.dato.sellers.reduce((t, x) => t + redondo((Number(x.productos_usd) + envSeller(x)) * 0.03), 0)) &&
+     cz.dato.moneda === 'USD' && Number(cz.dato.monto_esperado) === Number(cz.dato.total_usd) &&
+     cerca(cz.dato.total_usd, 105 + envK + Number(cz.dato.igtf_usd)),
     'en divisas (Zelle) se cobra el IGTF del 3 % y el monto esperado es en dólares', cz.texto.slice(0, 200));
   const cdom = await rpc('tm_checkout_cotizar', { p_sesion: c1, p_datos: { entrega: 'domicilio', direccion_id: 'd0000000-0000-4000-8000-000000000001', metodo: 'pago_movil' } });
   ok(!cdom.ok && /dirección de entrega válida/.test(cdom.texto), 'la dirección de otra persona no sirve', cdom.texto);
@@ -339,7 +362,7 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
   const td2 = await rpc('tm_pago_tardio', { p_sesion: fin, p_id: ch4.dato.pago, p_accion: 'reembolsar', p_nota: 'Visto en Banesco el lunes' });
   const re4 = await reembolsosDe(c4);
   const td2b = await rpc('tm_pago_tardio', { p_sesion: fin, p_id: ch4.dato.pago, p_accion: 'reembolsar', p_nota: 'Otra vez el mismo dinero' });
-  ok(!td2a.ok && /nota/.test(td2a.texto) && td2.ok && td2.dato.estado === 'vencido' && re4.length === 1 && Number(re4[0].monto_usd) === 72.5 &&
+  ok(!td2a.ok && /nota/.test(td2a.texto) && td2.ok && td2.dato.estado === 'vencido' && re4.length === 1 && cerca(re4[0].monto_usd, ch4.cot.total_usd) &&
      re4[0].tipo === 'sin_venta' && re4[0].requiere_doble === true && !td2b.ok && /ya se registró/.test(td2b.texto),
     'pago recibido tarde sin vender: el dinero se reembolsa (sin venta, con doble aprobación), una sola vez y con nota', [td2a.texto, td2b.texto].join(' | ').slice(0, 240));
   psql(`update tumbo.pagos set vence = now() - interval '8 days' where id = '${ch4.dato.pago}'`);
@@ -384,7 +407,7 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
   await rpc('tm_cancelar_pedido', { p_sesion: cr1, p_id: chc1.dato.pedidos[0], p_motivo: 'Me arrepentí' });
   psql(`select tumbo_privado.pago_ajustar_creditos('${chc1.dato.pago}', false)`);
   const movs1 = (await rpc('tm_credito', { p_sesion: cr1 })).dato.movimientos;
-  ok(chc1.ok && Number(chc1.cot.credito_usd) === 20 && Number(chc1.cot.total_usd) === 7.5 && saldoTras1 === 0 &&
+  ok(chc1.ok && Number(chc1.cot.credito_usd) === 20 && cerca(chc1.cot.total_usd, 25 + Number(chc1.cot.envio_usd) - 20) && saldoTras1 === 0 &&
      await estadoPago(cr1, chc1.dato.pago) === 'cancelado' && await saldo(cr1) === 20 && movs1.some((m) => /Devolución del crédito/.test(m.motivo)) &&
      psql(`select count(*) from tumbo.asientos where referencia = '${chc1.dato.pago}'`) === '0',
     'cancelar antes de pagar devuelve el crédito en Tumbo usado (una sola vez, sin tocar el libro mayor)', JSON.stringify(movs1).slice(0, 200));
@@ -409,7 +432,7 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
   const tdg = await rpc('tm_pago_tardio', { p_sesion: fin, p_id: chc3.dato.pago, p_accion: 'verificar', p_nota: 'Llegó tarde' });
   const tdg2 = await rpc('tm_pago_tardio', { p_sesion: fin, p_id: chc3.dato.pago, p_accion: 'reembolsar', p_nota: 'Llegó tarde: se devuelve' });
   const rg = await reembolsosDe(cr3);
-  ok(!tdg.ok && /ya usó el crédito/.test(tdg.texto) && tdg2.ok && rg.length === 1 && Number(rg[0].monto_usd) === 7.5 && await saldo(cr3) === 5,
+  ok(!tdg.ok && /ya usó el crédito/.test(tdg.texto) && tdg2.ok && rg.length === 1 && cerca(rg[0].monto_usd, 25 + Number(chc3.cot.envio_usd) - 20) && await saldo(cr3) === 5,
     'si el comprador ya gastó el crédito devuelto, el pago tardío no se reactiva: se reembolsa solo el dinero que llegó', tdg.texto);
 
   const cr4 = await compradorConCredito('credrechaza', 20);
@@ -427,7 +450,8 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
   const pedCred = conCredito && chc5.dato.pedidos[chc5.cot.sellers.indexOf(conCredito)];
   await rpc('tm_cancelar_pedido', { p_sesion: cr5, p_id: pedCred, p_motivo: 'Solo quiero el otro' });
   const pv5 = (await rpc('tm_pago_ver', { p_sesion: cr5, p_id: chc5.dato.pago })).dato;
-  ok(conCredito && Number(conCredito.credito_usd) === 30 && pv5.estado === 'pendiente' && await saldo(cr5) === 30 && Number(pv5.montos.esperado_usd) === 27.5,
+  ok(conCredito && Number(conCredito.credito_usd) === 30 && pv5.estado === 'pendiente' && await saldo(cr5) === 30 &&
+     cerca(pv5.montos.esperado_usd, chc5.cot.sellers.find((x) => x !== conCredito).total_usd),
     'cancelar uno de los pedidos de un pago sin pagar devuelve solo su crédito y baja el monto esperado', JSON.stringify(pv5 && pv5.montos));
 
   /* ================= Cancelar un pedido de un pago verificado: reembolso parcial ================= */
@@ -453,9 +477,11 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
   await rpc('tm_cancelar_pedido', { p_sesion: zB, p_id: chB.dato.pedidos[0], p_motivo: 'Cambio de idea' });
   await rpc('tm_conciliar_pago', { p_sesion: fin, p_id: chB.dato.pago });
   const rA = await reembolsosDe(zA), rB = await reembolsosDe(zB);
-  ok(Number(chA.cot.total_usd) === 28.33 && rA.length === 1 && rB.length === 1 && Number(rA[0].monto_usd) === 28.33 && Number(rB[0].monto_usd) === 28.33 &&
+  const igtfA = redondo((25 + Number(chA.cot.envio_usd)) * 0.03);
+  ok(cerca(chA.cot.total_usd, 25 + Number(chA.cot.envio_usd) + igtfA) && cerca(chA.cot.igtf_usd, igtfA) && rA.length === 1 && rB.length === 1 &&
+     cerca(rA[0].monto_usd, chA.cot.total_usd) && cerca(rB[0].monto_usd, chB.cot.total_usd) &&
      psql(`select count(*) from tumbo.asientos a join tumbo.asiento_lineas l on l.asiento_id = a.id
-           where a.referencia = 'R-${rA[0].id}' and l.cuenta = 'igtf_por_pagar' and l.debe = 0.83`) === '1',
+           where a.referencia = 'R-${rA[0].id}' and l.cuenta = 'igtf_por_pagar' and l.debe = ${igtfA}`) === '1',
     'el pedido cancelado en divisas devuelve el IGTF por los dos caminos (verificado y luego cancelado, o cancelado tras reportar)',
     [rA[0] && rA[0].monto_usd, rB[0] && rB[0].monto_usd].join(' | '));
 
@@ -500,7 +526,7 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
   const fl1 = await rpc('tm_reembolso_procesar', { p_sesion: fin, p_id: rf.id, p_accion: 'fallar', p_datos: { motivo: 'El correo de Zelle no existe' } });
   const otro = psql(`select coalesce(tumbo_privado.crear_reembolso('${chB.dato.pedidos[0]}', 500, 'Apelación (prueba)')::text, 'nulo')`);
   const rein = await rpc('tm_reembolso_procesar', { p_sesion: fin, p_id: rf.id, p_accion: 'reintentar', p_datos: {} });
-  ok(fl1.ok && otro === 'nulo' && rein.ok && psql(`select count(*) || '|' || sum(monto_usd) from tumbo.reembolsos where pedido_id = '${chB.dato.pedidos[0]}'`) === '1|28.33',
+  ok(fl1.ok && otro === 'nulo' && rein.ok && psql(`select count(*) || '|' || sum(monto_usd) from tumbo.reembolsos where pedido_id = '${chB.dato.pedidos[0]}'`) === '1|' + Number(chB.cot.total_usd).toFixed(2),
     'con un reembolso fallido abierto no se crea otro por lo mismo: el tope cuenta todos los del pedido', otro);
 
   /* crédito en Tumbo y su uso en el checkout */
@@ -512,10 +538,10 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
   await rpc('tm_cancelar_pedido', { p_sesion: c6, p_id: ch6.dato.pedidos[0], p_motivo: 'Cambio de idea' });
   const r6 = (await reembolsosDe(c6))[0];
   const dc = await rpc('tm_reembolso_destino', { p_sesion: c6, p_id: r6.id, p_destino: { tipo: 'credito' } });
-  ok(dc.ok && dc.dato.estado === 'enviado' && await saldo(c6) === 27.5, 'el reembolso como crédito en Tumbo (bajo el umbral) se acredita al momento', dc.texto.slice(0, 160));
+  ok(dc.ok && dc.dato.estado === 'enviado' && cerca(await saldo(c6), 25 + Number(ch6.cot.envio_usd)), 'el reembolso como crédito en Tumbo (bajo el umbral) se acredita al momento', dc.texto.slice(0, 160));
   await carrito(c6, [['SKU-TEC-0450', 1]]);
   const ch7 = await checkout(c6, { entrega: 'agencia', metodo: 'pago_movil', usar_credito: true });
-  ok(ch7.ok && ch7.dato.estado === 'verificado' && Number(ch7.cot.credito_usd) === 27.5 && Number(ch7.dato.total_usd) === 0 &&
+  ok(ch7.ok && ch7.dato.estado === 'verificado' && cerca(ch7.cot.credito_usd, 25 + Number(ch6.cot.envio_usd)) && Number(ch7.dato.total_usd) === 0 &&
      await saldo(c6) === 0 && (await pedido(c6, ch7.dato.pedidos[0])).estado === 'por_aceptar',
     'con crédito suficiente el pedido queda pagado al instante (sin dinero por verificar)', ch7.texto.slice(0, 200));
 
@@ -554,7 +580,7 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
   const b3 = await rpc('tm_reembolso_procesar', { p_sesion: fin2, p_id: r8b.id, p_accion: 'aprobar', p_datos: {} });
   const b4 = await rpc('tm_reembolso_procesar', { p_sesion: fin, p_id: r8b.id, p_accion: 'enviar', p_datos: {} });
   ok(r8b.requiere_doble && dcb.ok && dcb.dato.estado === 'pendiente' && saldoAntes === 0 && b1.ok && !b2.ok && /otra persona/.test(b2.texto) &&
-     b3.ok && b4.ok && b4.dato.estado === 'enviado' && b4.dato.moneda_envio === 'CREDITO' && await saldo(c8b) === 27.5,
+     b3.ok && b4.ok && b4.dato.estado === 'enviado' && b4.dato.moneda_envio === 'CREDITO' && cerca(await saldo(c8b), 25 + Number(ch8b.cot.envio_usd)),
     'sobre el umbral, el destino crédito en Tumbo no se acredita solo: espera la aprobación de otra persona', [dcb.texto, b2.texto].join(' | ').slice(0, 240));
   await rpc('tm_ajuste_guardar', { p_sesion: s.admin, p_clave: 'reembolsos', p_valor: { umbral_doble_usd: 200 } });
 

@@ -548,10 +548,26 @@
      ------------------------------------------------------------------- */
   /* Cualquier función tm_* con la sesión actual. Con opciones.recargar, la
      caché se recarga después (como las acciones de arriba). Los errores
-     llegan como { error } con el mensaje del servidor. */
+     llegan como { error } con el mensaje del servidor.
+     Sesión elevada (Cuentas, ola 1): si el servidor responde que falta
+     (TMELV, de exigir_elevada), se pide el código de verificación en dos
+     pasos (UI.pedir2fa, que lo comprueba con tm_elevar) y la llamada se
+     repite una vez. Así lo piden todas las acciones que pasan por
+     exigir_elevada (dinero, KYC, envíos, ajustes) sin código propio en
+     cada módulo. El texto del aviso: opciones.accion o el que fija
+     TM.cuentas.conElevacion. */
   function api(nombre, params, opciones) {
     if (!/^tm_[a-z0-9_]+$/.test(String(nombre))) return Promise.reject({ error: 'Función desconocida.' });
-    var llamada = llamar(nombre, Object.assign({ p_sesion: token() }, params || {}));
+    var accion = (opciones && opciones.accion) || T.accionElevada || 'Esta acción';
+    function una() { return llamar(nombre, Object.assign({ p_sesion: token() }, params || {})); }
+    var llamada = una().catch(function (e) {
+      if (!e || e.codigo !== 'TMELV' || nombre === 'tm_elevar' || !window.UI || !UI.pedir2fa) throw e;
+      return new Promise(function (ok, mal) {
+        UI.pedir2fa(accion, function () { una().then(ok, mal); }, function () {
+          mal({ error: 'No se hizo: falta confirmar el código de verificación en dos pasos.', codigo: 'cancelado' });
+        });
+      });
+    });
     if (!opciones || !opciones.recargar) return llamada;
     return llamada.then(function (dato) {
       return refrescar('propio').then(function () { return dato; }, function () { return dato; });

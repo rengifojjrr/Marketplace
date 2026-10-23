@@ -205,9 +205,14 @@ async function registrarComprador(rpc, datos) {
       'un interruptor no se vacía con null (y después sigue sin aceptar un texto)', g3b.texto + ' ' + g3c.texto);
     const g4 = await rpc('tm_ajuste_guardar', { p_sesion: s.real, p_clave: 'no_existe', p_valor: 1 });
     ok(!g4.ok && /no existe/.test(g4.texto), 'un ajuste que no existe no se crea desde la API', g4.texto);
-    const au = await rpc('tm_auditoria', { p_sesion: s.finanzas, p_texto: 'Ajuste cambiado' });
+    /* el cambio lo hizo una cuenta real: lo lee una cuenta real (las de prueba
+       solo leen lo de las cuentas de prueba y del sistema) */
+    const au = await rpc('tm_auditoria', { p_sesion: s.real, p_texto: 'Ajuste cambiado' });
     ok(au.ok && au.dato.eventos.some((e) => /aviso_incidencia/.test(e.detalle) && /superadmin/.test(e.actor)),
       'cada cambio de ajuste queda en la auditoría con el valor anterior y el nuevo', au.texto);
+    const auDemo = await rpc('tm_auditoria', { p_sesion: s.finanzas, p_texto: 'Ajuste cambiado' });
+    ok(auDemo.ok && !auDemo.dato.eventos.some((e) => /aviso_incidencia/.test(e.detalle)),
+      'la cuenta de prueba de finanzas no lee los asientos de una cuenta real', auDemo.texto.slice(0, 160));
   } else {
     omitida('un superadmin real cambia los ajustes con su tipo (y null solo en los vaciables)', SIN_REAL);
   }

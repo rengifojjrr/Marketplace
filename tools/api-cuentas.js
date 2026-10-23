@@ -200,6 +200,9 @@ const tokenDe = (texto) => ((texto || '').match(/token=([0-9a-f]{64})/) || [])[1
           delete from tumbo.intentos_seguridad where clave = (select id::text from tumbo.usuarios where email = ${lit(RS.email)})`);
     real = { email: RS.email, clave: RS.clave, sesion: await C.acceder(rpcAcceso, RS.email, RS.clave), deLaPrueba: true };
   }
+  /* Quien lee la auditoría: una cuenta real (las cuentas de prueba solo leen
+     los asientos de las cuentas de prueba y del sistema: integración ola 1). */
+  const lectorAud = () => (real && real.sesion) || s.finanzas;
   if (real) {
     const pr = (await rpc('tm_perfil', { p_sesion: real.sesion })).dato || {};
     real.id = pr.id;
@@ -809,7 +812,10 @@ const tokenDe = (texto) => ((texto || '').match(/token=([0-9a-f]{64})/) || [])[1
     const entraBl = await rpcAcceso('tm_acceder', { p_email: B1.email, p_clave: B1.clave });
     const malaBl = await rpcAcceso('tm_acceder', { p_email: B1.email, p_clave: 'otra-cualquiera' });
     const ficha = (await rpc('tm_admin_usuario', { p_sesion: real.sesion, p_id: B1.id })).dato;
-    const audB = await rpc('tm_auditoria', { p_sesion: s.finanzas, p_antes: null, p_texto: 'Cuenta bloqueada' });
+    const audB = await rpc('tm_auditoria', { p_sesion: lectorAud(), p_antes: null, p_texto: 'Cuenta bloqueada' });
+    const audBDemo = await rpc('tm_auditoria', { p_sesion: s.finanzas, p_antes: null, p_texto: 'Cuenta bloqueada' });
+    ok(audBDemo.ok && !audBDemo.dato.eventos.some((e) => e.detalle.indexOf(B1.id) >= 0),
+      'la cuenta de prueba de finanzas no lee los asientos de las cuentas reales (ni los de la administración de una persona real)', audBDemo.texto.slice(0, 160));
     ok(/motivo del bloqueo/.test(sinMotivo.texto) && bl.ok && !tras.ok && /está bloqueada/.test(entraBl.texto) && /incorrectos/.test(malaBl.texto) &&
        ficha.bloqueado && ficha.bloqueoMotivo === 'Fraude con pagos de prueba' && audB.dato.eventos.some((e) => e.detalle.indexOf(B1.id) >= 0 && e.detalle.indexOf(B1.email) < 0) &&
        (await busq(real.sesion, B1.id)).some((u) => u.id === B1.id),
@@ -826,7 +832,7 @@ const tokenDe = (texto) => ((texto || '').match(/token=([0-9a-f]{64})/) || [])[1
     const tokA = tokenDe(recA.dato && recA.dato.enlace);
     const fijar = await rpc('tm_clave_restablecer', { p_token: tokA, p_clave: KB.b5 });
     const entraA = await rpcAcceso('tm_acceder', { p_email: B1.email, p_clave: KB.b5 });
-    const audR = await rpc('tm_auditoria', { p_sesion: s.finanzas, p_antes: null, p_texto: 'Enlace de recuperación' });
+    const audR = await rpc('tm_auditoria', { p_sesion: lectorAud(), p_antes: null, p_texto: 'Enlace de recuperación' });
     ok(recA.ok && tokA && fijar.dato.ok && entraA.dato && entraA.dato.sesion && audR.dato.eventos.length > 0 &&
        !audR.dato.eventos.some((e) => e.detalle.indexOf(tokA) >= 0),
       'el superadmin genera un enlace de recuperación (auditado sin el enlace) y con él se fija la contraseña', recA.texto.slice(0, 120));
@@ -840,13 +846,13 @@ const tokenDe = (texto) => ((texto || '').match(/token=([0-9a-f]{64})/) || [])[1
     const fichaOps = (await rpc('tm_admin_usuario', { p_sesion: real.sesion, p_id: OPS.id })).dato;
     ok(/Solo se cambia el rol del personal interno/.test(rolMal.texto) && rol.ok && fichaOps.rol === 'finanzas' && fichaOps.permisos.length === 0,
       'el rol del personal interno cambia (y se retiran los permisos que el rol nuevo no admite); el de un comprador no', rolMal.texto);
-    const audRol = await rpc('tm_auditoria', { p_sesion: s.finanzas, p_antes: null, p_texto: 'Rol cambiado' });
+    const audRol = await rpc('tm_auditoria', { p_sesion: lectorAud(), p_antes: null, p_texto: 'Rol cambiado' });
     ok(audRol.dato.eventos.some((e) => e.detalle.indexOf(OPS.id) >= 0 && /ops → finanzas/.test(e.detalle)), 'el cambio de rol queda en la auditoría');
     const q0 = await rpc('tm_admin_2fa_quitar', { p_sesion: real.sesion, p_usuario: OPS.id, p_motivo: '' });
     const qOps = await rpc('tm_admin_2fa_quitar', { p_sesion: OPS.sesion, p_usuario: B2.id, p_motivo: 'no soy superadmin' });
     const q1 = await rpc('tm_admin_2fa_quitar', { p_sesion: real.sesion, p_usuario: OPS.id, p_motivo: 'Perdió el teléfono; identidad confirmada por videollamada' });
     const sinCodigo = await rpcAcceso('tm_acceder', { p_email: OPS.email, p_clave: OPS.clave });
-    const audQ = await rpc('tm_auditoria', { p_sesion: s.finanzas, p_antes: null, p_texto: 'Verificación en dos pasos quitada' });
+    const audQ = await rpc('tm_auditoria', { p_sesion: lectorAud(), p_antes: null, p_texto: 'Verificación en dos pasos quitada' });
     ok(/cómo comprobaste la identidad/.test(q0.texto) && !qOps.ok && q1.ok && sinCodigo.dato && sinCodigo.dato.sesion &&
        audQ.dato.eventos.some((e) => e.detalle.indexOf(OPS.id) >= 0),
       'el superadmin quita la 2FA de quien perdió el teléfono (con motivo y auditado); la persona entra con su contraseña', q0.texto + ' | ' + qOps.texto);
@@ -874,7 +880,7 @@ const tokenDe = (texto) => ((texto || '').match(/token=([0-9a-f]{64})/) || [])[1
     const finTras = await rpc('tm_perfil', { p_sesion: FIN.sesion });
     const finEntra = await rpcAcceso('tm_acceder', { p_email: FIN.email, p_clave: FIN.clave });
     const fichaFin = (await rpc('tm_admin_usuario', { p_sesion: real.sesion, p_id: FIN.id })).dato || {};
-    const audBj = await rpc('tm_auditoria', { p_sesion: s.finanzas, p_antes: null, p_texto: 'dada de baja por la administración' });
+    const audBj = await rpc('tm_auditoria', { p_sesion: lectorAud(), p_antes: null, p_texto: 'dada de baja por la administración' });
     const bjOtra = await rpc('tm_admin_baja', { p_sesion: real.sesion, p_usuario: FIN.id, p_motivo: 'Dejó la empresa (prueba)' });
     ok(bjFin.ok && !finTras.ok && /incorrectos/.test(finEntra.texto) && fichaFin.eliminado && !fichaFin.activo &&
        /^eliminada-.+@cuentas\.tumbo\.invalid$/.test(fichaFin.email || '') && fichaFin.nombre === 'Cuenta eliminada' && !fichaFin.telefono &&
@@ -973,15 +979,17 @@ const tokenDe = (texto) => ((texto || '').match(/token=([0-9a-f]{64})/) || [])[1
   /* La auditoría (que leen las cuentas de prueba, de contraseña pública) no
      guarda el nombre de quien se dio de baja: sus asientos la nombran por
      su identificador. */
-  const audNombre = await rpc('tm_auditoria', { p_sesion: s.finanzas, p_antes: null, p_texto: B3.nombre });
-  const audBaja = await rpc('tm_auditoria', { p_sesion: s.finanzas, p_antes: null, p_texto: 'Cuenta eliminada' });
-  ok(audNombre.ok && audNombre.dato.eventos.length === 0 &&
-     audBaja.dato.eventos.some((e) => e.actor === 'cuenta ' + B3.id + ' (comprador)'),
-    'la auditoría no conserva el nombre de la cuenta eliminada (registro, acceso y baja van por su identificador)',
-    JSON.stringify((audNombre.dato || {}).eventos || []).slice(0, 200));
-  const audAcceso = await rpc('tm_auditoria', { p_sesion: s.finanzas, p_antes: null, p_texto: 'cuenta ' + B1.id });
-  ok(audAcceso.dato.eventos.some((e) => e.accion === 'Inicio de sesión') && !audAcceso.dato.eventos.some((e) => /Beatriz|Bea Prueba/.test(e.actor)),
-    'los inicios de sesión y los cambios de contraseña de una cuenta propia nombran la cuenta, no a la persona', audAcceso.dato.eventos.map((e) => e.accion).join(', ').slice(0, 200));
+  if (real) {
+    const audNombre = await rpc('tm_auditoria', { p_sesion: lectorAud(), p_antes: null, p_texto: B3.nombre });
+    const audBaja = await rpc('tm_auditoria', { p_sesion: lectorAud(), p_antes: null, p_texto: 'Cuenta eliminada' });
+    ok(audNombre.ok && audNombre.dato.eventos.length === 0 &&
+       audBaja.dato.eventos.some((e) => e.actor === 'cuenta ' + B3.id + ' (comprador)'),
+      'la auditoría no conserva el nombre de la cuenta eliminada (registro, acceso y baja van por su identificador)',
+      JSON.stringify((audNombre.dato || {}).eventos || []).slice(0, 200));
+    const audAcceso = await rpc('tm_auditoria', { p_sesion: lectorAud(), p_antes: null, p_texto: 'cuenta ' + B1.id });
+    ok(audAcceso.dato.eventos.some((e) => e.accion === 'Inicio de sesión') && !audAcceso.dato.eventos.some((e) => /Beatriz|Bea Prueba/.test(e.actor)),
+      'los inicios de sesión y los cambios de contraseña de una cuenta propia nombran la cuenta, no a la persona', audAcceso.dato.eventos.map((e) => e.accion).join(', ').slice(0, 200));
+  } else omitida('la auditoría nombra las cuentas propias por su identificador', 'sin una cuenta real que lea la auditoría: TM_PGDATABASE o TM_SUPERADMIN');
 
   const rF = await rpc('tm_reiniciar_demo', { p_sesion: s.superadmin });
   ok(rF.ok, 'la demo queda reiniciada', rF.texto);

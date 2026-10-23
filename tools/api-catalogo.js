@@ -13,10 +13,12 @@
  * topes de escrituras y de archivos no se mezclan con los de las cuentas
  * demo que usan las demás suites), un superadministrador real para lo que
  * pide sesión elevada (revisión KYC) y hace comprobaciones por SQL; contra
- * la nube, TM_SUPERADMIN=correo:clave de una cuenta real. Sin ninguno, lo
- * que necesita sesión elevada se informa como omitido.
+ * la nube, TM_SUPERADMIN=correo:contraseña:CLAVE_MANUAL de una cuenta real
+ * con la verificación en dos pasos activa (la sesión elevada de Cuentas).
+ * Sin ninguno, lo que necesita sesión elevada se informa como omitido.
  */
 const { spawnSync } = require('child_process');
+const C2 = require('./cuentas-comun');
 
 const URL_BASE = (process.env.TM_SUPABASE_URL || '').replace(/\/+$/, '');
 const CLAVE = process.env.TM_SUPABASE_KEY;
@@ -105,6 +107,15 @@ function psql(consulta) {
   const kardex = async (ses, sku) => ((await rpc('tm_kardex', { p_sesion: ses, p_sku: sku, p_antes: null })).dato || {}).movimientos || [];
 
   const s = {};
+  let secretoReal = null;
+  /* la sesión elevada dura 10 minutos: se renueva antes de cada tramo que la
+     pide (en local, por SQL: cada código TOTP vale una vez por intervalo y los
+     intentos fallidos tienen tope) */
+  const elevarReal = async () => {
+    if (!s.real) return;
+    if (BD) psql(`update tumbo.sesiones set elevada_hasta = now() + interval '30 minutes' where usuario_id = (select id from tumbo.usuarios where email = '${PROPIAS.real[0]}')`);
+    else if (secretoReal) await C2.elevar(rpc, s.real, secretoReal);
+  };
   for (const [rol, email] of Object.entries(DEMO)) s[rol] = await sesion(email);
   const r0 = await rpc('tm_reiniciar_demo', { p_sesion: s.superadmin });
   ok(r0.ok, 'superadmin reinicia la demo', r0.texto);
@@ -117,12 +128,19 @@ function psql(consulta) {
     psql(`insert into tumbo.usuarios (email, clave_hash, nombre, rol, seller_id) values ` +
       Object.values(PROPIAS).map((c) => `('${c[0]}', extensions.crypt('${CLAVE_PROPIA}', extensions.gen_salt('bf', 4)), '${c[1]}', '${c[2]}', ${c[3] ? `'${c[3]}'` : 'null'})`).join(', ') +
       ` on conflict (email) do update set rol = excluded.rol, seller_id = excluded.seller_id, nombre = excluded.nombre, activo = true, clave_hash = excluded.clave_hash`);
-    for (const [k, c] of Object.entries(PROPIAS)) s[k] = await sesion(c[0], CLAVE_PROPIA);
+    /* la 2FA de una corrida anterior: la prueba se la vuelve a activar a su superadmin */
+    psql(`delete from tumbo.usuarios_2fa where usuario_id in (select id from tumbo.usuarios where email in (${Object.values(PROPIAS).map((c) => `'${c[0]}'`).join(', ')}));
+          delete from tumbo.intentos_seguridad where tipo = '2fa' and clave in (select id::text from tumbo.usuarios where email in (${Object.values(PROPIAS).map((c) => `'${c[0]}'`).join(', ')}))`);
+    for (const [k, c] of Object.entries(PROPIAS)) if (k !== 'real') s[k] = await sesion(c[0], CLAVE_PROPIA);
+    /* la sesión elevada (2FA real de Cuentas) que piden la revisión KYC y los ajustes */
+    const el = await C2.cuentaElevada(rpc, PROPIAS.real[0], CLAVE_PROPIA, null, { activar: true });
+    s.real = el.sesion; secretoReal = el.secreto;
   } else {
     s.vend = s.seller; s.prec = s.precios; s.oper = s.operador; s.comp = s.comprador; s.hogar = null; s.vreal = null; s.fin = null;
-    if (process.env.TM_SUPERADMIN) {
-      const i = process.env.TM_SUPERADMIN.indexOf(':');
-      s.real = await sesion(process.env.TM_SUPERADMIN.slice(0, i), process.env.TM_SUPERADMIN.slice(i + 1));
+    const REAL = C2.superadminDelEntorno();
+    if (REAL) {
+      s.real = (await C2.cuentaElevada(rpc, REAL.email, REAL.clave, REAL.secreto)).sesion;
+      secretoReal = REAL.secreto;
     }
   }
   const SIN_REAL = 'sin un superadministrador real: TM_PGDATABASE o TM_SUPERADMIN';
@@ -460,8 +478,13 @@ function psql(consulta) {
     const d3 = await rpc('tm_precios_deshacer', { p_sesion: s.prec, p_lote: ms3.dato.lote });
     ok(!d3.ok && /más de 5 minutos/.test(d3.texto), 'pasados 5 minutos ya no se deshace', d3.texto);
   } else omitida('pasados 5 minutos ya no se deshace');
-  const au1 = await rpc('tm_auditoria', { p_sesion: s.finanzas, p_texto: 'Precios actualizados en lote' });
+  /* con TM_PGDATABASE los hizo una cuenta real: la lee finanzas con su cuenta real */
+  const au1 = await rpc('tm_auditoria', { p_sesion: s.fin || s.finanzas, p_texto: 'Precios actualizados en lote' });
   ok(au1.ok && au1.dato.eventos.length > 0, 'los cambios de precio en lote quedan en la auditoría');
+  if (s.fin) {
+    const au2 = await rpc('tm_auditoria', { p_sesion: s.finanzas, p_texto: 'Precios actualizados en lote' });
+    ok(au2.ok && au2.dato.eventos.length === 0, 'y la cuenta de prueba de finanzas no lee los asientos de las cuentas reales', au2.texto);
+  } else omitida('la cuenta de prueba de finanzas no lee los asientos de las cuentas reales');
 
   /* ================= Inventario ================= */
   const st1 = await rpc('tm_ajustar_producto', { p_sesion: s.oper, p_sku: 'SKU-TEC-0450', p_campo: 'stockFis', p_valor: 30 });
@@ -486,10 +509,16 @@ function psql(consulta) {
   } else omitida('otro comercio no ve el kardex ajeno');
   await rpc('tm_aceptar_pedido', { p_sesion: s.oper, p_id: 'TM-2026-00434' });
   await rpc('tm_marcar_listo', { p_sesion: s.oper, p_id: 'TM-2026-00434', p_peso: 2 });
-  const desp = await rpc('tm_despachar', { p_sesion: s.oper, p_id: 'TM-2026-00434' });
+  /* con courier, el despacho lleva la guía (Logística: tm_despachar_guia) */
+  const desp = await rpc('tm_despachar_guia', { p_sesion: s.oper, p_id: 'TM-2026-00434', p_datos: { courier: 'zoom', guia: 'ZM43401' } });
   const k3 = await kardex(s.vend, 'SKU-MOT-0777');
   ok(desp.ok && k3[0] && k3[0].tipo === 'venta' && k3[0].cantidad === -1 && k3[0].ref === 'TM-2026-00434', 'el despacho deja la venta en el kardex con su pedido', JSON.stringify(k3[0]));
   await rpc('tm_resolver_disputa', { p_sesion: s.ops, p_id: 'DSP-0098', p_decision: 'devolucion', p_nota: null });
+  /* el reembolso va después de la inspección (Logística); esta devolución no
+     tiene guía de vuelta, así que Operaciones la registra con una nota */
+  const insp = await rpc('tm_devolucion_inspeccionar', { p_sesion: s.ops, p_id: 'TM-2026-00428', p_resultado: 'apto',
+    p_nota: 'Llegó completo a la oficina del comercio', p_foto: null });
+  ok(insp.ok, 'Operaciones inspecciona la devolución antes de cerrarla', insp.texto);
   const dev = await rpc('tm_cerrar_devolucion', { p_sesion: s.ops, p_id: 'TM-2026-00428', p_recibida: true });
   const k4 = await kardex(s.vend, 'SKU-MOT-0832');
   ok(dev.ok && k4[0] && k4[0].tipo === 'devolucion' && k4[0].cantidad === 2 && k4[0].ref === 'TM-2026-00428', 'la devolución recibida queda en el kardex', JSON.stringify(k4[0]));
@@ -592,6 +621,7 @@ function psql(consulta) {
   const kd0 = await rpc('tm_decidir_kyc', { p_sesion: s.superadmin, p_seller: 'SEL-021', p_decision: 'aprobado', p_motivo: null });
   ok(!kd0.ok && /cuentas de prueba/.test(kd0.texto), 'ni decide sobre un comercio', kd0.texto);
   if (s.real) {
+    await elevarReal();
     for (const o of [1, 2, 3]) await rpc('tm_kyc_revisar', { p_sesion: s.real, p_seller: 'SEL-014', p_orden: o, p_decision: 'aprobado', p_observacion: null });
     const kr4 = await rpc('tm_kyc_revisar', { p_sesion: s.real, p_seller: 'SEL-014', p_orden: 4, p_decision: 'observado', p_observacion: 'La constancia no muestra el titular.' });
     const k5 = await carga(s.vend);
@@ -623,6 +653,7 @@ function psql(consulta) {
   ok((await carga(s.comp)).docs.length === 0, 'un comprador no ve expedientes');
   /* expedientes de comercios reales: las cuentas de prueba (contraseña pública) no los ven */
   if (s.vreal && s.real) {
+    await elevarReal();
     const kr = await rpc('tm_kyc_guardar', { p_sesion: s.vreal, p_datos: { razonSocial: 'Comercio Real Pruebas, C.A.', rif: 'J-40881234-7',
       direccionFiscal: 'Calle Real 123, Los Ruices, Caracas', ciudadDespacho: 'Caracas', telefono: '0414-1112233' } });
     const docsR = [];
@@ -714,11 +745,16 @@ function psql(consulta) {
        psql(`select count(*) from tumbo.seller_documentos where archivo_id is null and estado <> 'pendiente'`) === '0',
       'la semilla queda honesta: sin valoraciones ni documentos aprobados sin archivo');
   } else omitida('la semilla queda honesta');
-  if (s.real) await rpc('tm_ajuste_guardar', { p_sesion: s.real, p_clave: 'cuotas_archivos', p_valor: { archivos_por_dia: 100, mb_por_seller: 300, mb_por_usuario: 300 } });
+  if (s.real) {
+    await elevarReal();
+    await rpc('tm_ajuste_guardar', { p_sesion: s.real, p_clave: 'cuotas_archivos', p_valor: { archivos_por_dia: 100, mb_por_seller: 300, mb_por_usuario: 300 } });
+  }
   if (BD) {
     /* deja la base como la semilla para las demás suites (verificar-rls cuenta sellers y expedientes):
-       sin el comercio real de pruebas y sin cuentas reales en los comercios de la semilla */
+       sin el comercio real de pruebas y sin cuentas reales activas en los comercios de la semilla
+       (con una, Pagos trata a SEL-014 como un comercio real y la demo no lo liquida) */
     psql(`update tumbo.usuarios set seller_id = null, rol = 'comprador', activo = false where email in ('${PROPIAS.hogar[0]}', '${PROPIAS.vreal[0]}');
+          update tumbo.usuarios set activo = false where email in ('${PROPIAS.vend[0]}', '${PROPIAS.prec[0]}', '${PROPIAS.oper[0]}');
           delete from tumbo.seller_documentos where seller_id = 'SEL-990';
           delete from tumbo.sellers_kyc where seller_id = 'SEL-990';
           delete from tumbo.archivos where seller_id = 'SEL-990' and estado = 'descartado';

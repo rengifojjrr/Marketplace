@@ -262,7 +262,8 @@
         (variantes > 1 ? '<span class="font-body-sm text-body-sm text-secondary">' + variantes + ' opciones</span>' : '') +
         (p.condicion && p.condicion !== 'nuevo' ? '<span class="font-label-sm text-label-sm text-on-surface-variant">' + esc(CONDICION[p.condicion] || p.condicion) + '</span>' : '') +
         '<span class="font-body-sm text-body-sm ' + (disp > 3 ? 'text-tertiary' : 'text-error') + '">' +
-        (disp > 3 ? 'Recíbelo el ' + TM.fechaCorta(2) : disp > 0 ? 'Solo quedan ' + disp : 'Agotado') + '</span></a>' +
+        /* sin fecha fija: el plazo real depende del destino (Logística, en la ficha) */
+        (disp > 3 ? 'Envía desde ' + esc(TM.seller(p.sellerId).ciudad) : disp > 0 ? 'Solo quedan ' + disp : 'Agotado') + '</span></a>' +
       corazon(p.sku, 'absolute top-4 right-4') +
       '</div>';
   }
@@ -819,10 +820,9 @@
 
       '<aside class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
         UI.precio(p.precioUsd, true) +
+        /* el plazo de entrega lo promete Logística en el gancho (sin fecha fija) */
         APP.ganchos('producto.compra', ctx) +
-        '<p class="mt-3 font-body-sm text-body-sm text-tertiary font-semibold">' +
-          (disp > 0 ? 'Recíbelo el ' + TM.fechaCorta(2) + ' en ' + esc(TM.estado.config.ciudadEntrega) : 'Sin stock por ahora') + '</p>' +
-        '<p class="font-body-sm text-body-sm ' + (disp > 3 ? 'text-on-surface-variant' : 'text-error font-semibold') + ' mb-3">' +
+        '<p class="mt-3 font-body-sm text-body-sm ' + (disp > 3 ? 'text-on-surface-variant' : 'text-error font-semibold') + ' mb-3">' +
           (disp > 3 ? 'Disponible' : disp > 0 ? 'Solo quedan ' + disp + ' unidades' : 'Agotado') + '</p>' +
         (disp > 0
           ? '<label class="flex items-center gap-2 mb-3 font-body-sm text-body-sm">Cantidad' +

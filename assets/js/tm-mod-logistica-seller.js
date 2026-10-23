@@ -96,7 +96,7 @@
         td('<span class="font-body-sm text-body-sm">' + esc(e ? (e.courier_nombre || '') + ' · ' + (e.servicio || '') : p.envio.courier) + '</span>' +
           (e && e.guia ? '<span class="block font-data-mono text-data-mono text-on-surface-variant">' + esc(e.guia) + '</span>' : '') +
           (e && e.destino_estado ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">→ ' + esc(e.destino_estado) + '</span>' : '')) +
-        td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtBs(TM.totalPedidoUsd(p), p.tasa)) + '</span>') +
+        td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtTotalPedido(p)) + '</span>') +
         td('<a class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline" href="' + href('app/seller/pedido.html?id=' + p.id) + '">Gestionar' + ic('arrow_forward', 'text-[16px]') + '</a>', 'text-right');
     });
 

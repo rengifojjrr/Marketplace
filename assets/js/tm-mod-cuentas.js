@@ -94,9 +94,15 @@
     });
   };
 
-  /* Si el servidor pide la sesión elevada, pide el código y repite. */
+  /* Si el servidor pide la sesión elevada, pide el código y repite. TM.api
+     ya lo hace con cualquier acción (integración de la ola 1): aquí se le
+     da el nombre de la acción mientras fn hace su llamada. */
   K.conElevacion = function (accion, fn) {
-    return Promise.resolve().then(fn).catch(function (e) {
+    var previa = TM.accionElevada;
+    var p;
+    TM.accionElevada = accion;
+    try { p = Promise.resolve(fn()); } catch (e) { p = Promise.reject(e); } finally { TM.accionElevada = previa; }
+    return p.catch(function (e) {
       if (!e || e.codigo !== 'TMELV') throw e;
       return new Promise(function (ok, mal) {
         UI.pedir2fa(accion, function () { Promise.resolve().then(fn).then(ok, mal); }, function () {

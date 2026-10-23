@@ -49,7 +49,7 @@
   function encabezadoPedido(p) {
     return '<div class="flex flex-wrap gap-x-6 gap-y-1 rounded-t-card bg-surface-container-low border-b border-outline-variant px-4 py-2.5 font-body-sm text-body-sm text-on-surface-variant">' +
       '<span><span class="block font-label-caps text-label-caps uppercase">Pedido realizado</span>' + esc(p.creado.split(' ')[0]) + '</span>' +
-      '<span><span class="block font-label-caps text-label-caps uppercase">Total</span>' + esc(TM.fmtBs(TM.totalPedidoUsd(p), p.tasa)) + '</span>' +
+      '<span><span class="block font-label-caps text-label-caps uppercase">Total</span>' + esc(TM.fmtTotalPedido(p)) + '</span>' +
       '<span class="hidden sm:block min-w-0"><span class="block font-label-caps text-label-caps uppercase">Enviar a</span><span class="block truncate max-w-[220px]">' +
       esc(p.envio.dir.split(',')[0]) + '</span></span>' +
       '<span class="ml-auto text-right"><span class="block font-label-caps text-label-caps uppercase">N.º de pedido</span>' +
@@ -227,8 +227,11 @@
               '<span class="float-right font-bold">' + esc(TM.fmtBs(i.precioUsd * i.cant, p.tasa)) + '</span></p>';
           }).join('') +
           '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Envío<span class="float-right">' + esc(TM.fmtBs(p.envio.costoUsd, p.tasa)) + '</span></p>' +
-          '<p class="font-body-md text-body-md font-bold border-t border-outline-variant mt-2 pt-2">Total<span class="float-right">' + esc(TM.fmtBs(TM.totalPedidoUsd(p), p.tasa)) + '</span></p>' +
-          '<p class="font-data-mono text-data-mono text-on-surface-variant mt-1 text-right">' + esc(TM.fmtUsd(TM.totalPedidoUsd(p))) + ' ref. · tasa ' + p.tasa.toLocaleString('es-VE') + '</p>' +
+          /* lo cobrado (pagos, ola 1): descuentos, IGTF y el total en Bs. guardado al venderse */
+          ((p.descuentoUsd || 0) + (p.descuentoTumboUsd || 0) ? '<p class="font-body-sm text-body-sm text-on-surface-variant">Descuentos<span class="float-right">−' + esc(TM.fmtBs((p.descuentoUsd || 0) + (p.descuentoTumboUsd || 0), p.tasa)) + '</span></p>' : '') +
+          (p.igtfUsd ? '<p class="font-body-sm text-body-sm text-on-surface-variant">IGTF<span class="float-right">' + esc(TM.fmtBs(p.igtfUsd, p.tasa)) + '</span></p>' : '') +
+          '<p class="font-body-md text-body-md font-bold border-t border-outline-variant mt-2 pt-2">Total<span class="float-right">' + esc(TM.fmtTotalPedido(p)) + '</span></p>' +
+          '<p class="font-data-mono text-data-mono text-on-surface-variant mt-1 text-right">' + esc(TM.fmtUsd(TM.cobradoPedidoUsd(p))) + ' ref. · tasa ' + p.tasa.toLocaleString('es-VE') + '</p>' +
           '<hr class="my-3 border-outline-variant"/>' +
           '<div data-envio-comprador>' + tarjetaEnvio(p, d) + '</div>' +
           '<p class="font-body-sm text-body-sm mt-1"><strong>Pago:</strong> ' + esc(p.metodo || 'Pago Móvil') + ' · ref. <span class="font-data-mono text-data-mono">' + esc(p.ref || '—') + '</span></p>' +

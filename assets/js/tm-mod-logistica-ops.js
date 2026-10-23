@@ -82,7 +82,7 @@
           (e && p.estado === 'por_aceptar' ? '<span class="block">' + L.cuenta(e.aceptar_antes, 'acepta en', 'vencido hace') + '</span>' : '') +
           (e && (p.estado === 'preparando' || p.estado === 'listo') ? '<span class="block">' + L.cuenta(e.despachar_antes, 'despacha en', 'vencido hace') + '</span>' : '') +
           (e && e.responsable ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + ic('person', 'text-[14px] align-middle') + ' ' + esc(e.responsable) + '</span>' : '')) +
-        td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtBs(TM.totalPedidoUsd(p), p.tasa)) + '</span>', 'text-right') +
+        td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtTotalPedido(p)) + '</span>', 'text-right') +
         td('<div class="flex flex-wrap gap-2 justify-end">' +
           (p.estado === 'despachado' && puede && !p.disputaId ? btn('Confirmar entrega', { icono: 'check_circle', attr: 'data-entregado="' + esc(p.id) + '" title="Con la prueba de entrega del courier"' }) : '') +
           (p.estado === 'devolucion' && puede && !L.remoto() ? btn('Devolución recibida', { icono: 'assignment_return', attr: 'data-devolucion="' + esc(p.id) + '" data-recibida="1"' }) +
