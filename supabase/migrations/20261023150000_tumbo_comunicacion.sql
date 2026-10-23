@@ -2032,7 +2032,16 @@ begin
                             where (e ->> 'requiere')::boolean and not (e ->> 'aceptado')::boolean), '[]'::jsonb),
     'historial', coalesce((select jsonb_agg(jsonb_build_object('clave', h.clave, 'version', h.version, 'vigente_desde', h.vigente_desde,
                                                               'resumen', h.resumen) order by h.clave, h.vigente_desde desc)
-                           from tumbo.documentos_legales h), '[]'::jsonb));
+                           from tumbo.documentos_legales h), '[]'::jsonb),
+    -- los plazos vigentes que cita el centro de ayuda (no inventa números)
+    'plazos', jsonb_build_object(
+      'ventana_reclamo_dias', (select c.ventana_reclamo_dias from tumbo.config c limit 1),
+      'horas_respuesta_reclamo', tumbo_privado.comunicacion('horas_respuesta_reclamo', 72),
+      'horas_evidencia', tumbo_privado.comunicacion('horas_evidencia', 48),
+      'dias_apelacion', tumbo_privado.comunicacion('dias_apelacion', 5),
+      'dias_resena', tumbo_privado.comunicacion('dias_resena', 90),
+      'sla_soporte', jsonb_build_object('alta', tumbo_privado.sla_soporte_horas('alta'), 'normal', tumbo_privado.sla_soporte_horas('normal'),
+                                        'baja', tumbo_privado.sla_soporte_horas('baja'))));
 end $$;
 
 -- Acepta la versión vigente de un documento (la de los términos queda
@@ -2181,7 +2190,10 @@ declare
   v_demo boolean := tumbo_privado.cuenta_demo(yo.email);
   v_filtro text := coalesce(nullif(p_filtro, ''), 'abiertas');
 begin
-  perform tumbo_privado.exigir_contenido(yo);
+  -- una lectura: sin el permiso responde {error} (la página lo explica)
+  if not tumbo_privado.tiene_permiso(yo, 'contenido') then
+    return jsonb_build_object('error', 'Tu rol no tiene el permiso «contenido»: pídeselo al superadministrador.', 'sin_permiso', true);
+  end if;
   return jsonb_build_object(
     'revision', coalesce((select jsonb_agg(x order by x ->> 'creado') from (
         select jsonb_build_object('tipo', 'pregunta', 'id', q.id, 'sku', q.sku, 'seller', q.seller_id, 'texto', q.texto, 'creado', q.creado,

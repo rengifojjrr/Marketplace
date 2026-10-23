@@ -1,0 +1,6 @@
+{
+  "tienda": ["notificaciones", "resenas", "soporte"],
+  "seller": ["preguntas", "resenas", "soporte", "notificaciones"],
+  "admin": ["mensajes", "soporte", "contenido", "notificaciones"],
+  "ayuda": ["inicio", "comprar", "pagar", "envios", "devoluciones", "compra-protegida", "vendedores", "terminos", "privacidad", "contrato-seller", "contacto"]
+}

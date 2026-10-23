@@ -275,6 +275,12 @@
     }).join('') + '</span>';
   }
 
+  /* Miniatura de un producto por SKU (la foto real si el catálogo la tiene). */
+  function imgSku(sku, img, nombre, clases) {
+    var prod = ((TM.estado && TM.estado.productos) || []).filter(function (x) { return x.sku === sku; })[0];
+    return UI.imgProducto(prod || { sku: sku, img: img, nombre: nombre || '' }, clases || 'w-12 h-12 object-cover shrink-0');
+  }
+
   /* Un formulario en un modal: campos (HTML) y una acción que devuelve una
      promesa; el error queda en el modal. */
   function formulario(tituloModal, camposHtml, textoAccion, alEnviar, opciones) {
@@ -324,16 +330,23 @@
     try { sessionStorage.removeItem(CLAVE_LEGAL); } catch (e) { }
     invalidar('legales');
   }
+  /* Los documentos vigentes, lo que falta aceptar y los plazos (tm_legales;
+     con o sin sesión). repintar: como en datos(). */
+  function legales(s, repintar) {
+    return datos('legales', function () {
+      return TM.api('tm_legales', {}).then(function (d) {
+        if (s) {
+          try { sessionStorage.setItem(CLAVE_LEGAL, JSON.stringify({ uid: s.uid, t: Date.now(), pendientes: (d && d.pendientes) || [] })); } catch (e) { }
+        }
+        return d;
+      });
+    }, 300000, repintar);
+  }
   function bannerLegal(s) {
     if (!remoto() || !s) return '';
     var p = legalesGuardados(s);
     if (!p) {
-      var r = datos('legales', function () {
-        return TM.api('tm_legales', {}).then(function (d) {
-          try { sessionStorage.setItem(CLAVE_LEGAL, JSON.stringify({ uid: s.uid, t: Date.now(), pendientes: (d && d.pendientes) || [] })); } catch (e) { }
-          return d;
-        });
-      }, 300000, function (d) { return !!(d && d.pendientes && d.pendientes.length); });
+      var r = legales(s, function (d) { return !!(d && d.pendientes && d.pendientes.length); });
       if (!r.listo || !r.dato) return '';
       p = r.dato.pendientes || [];
     }
@@ -429,8 +442,10 @@
   C.limpiarAdjuntos = limpiarAdjuntos;
   C.enlazarAdjuntos = enlazarAdjuntos;
   C.listaArchivos = listaArchivos;
+  C.imgSku = imgSku;
   C.formulario = formulario;
   C.LEGAL_PAGINA = LEGAL_PAGINA;
   C.olvidarLegales = olvidarLegales;
+  C.legales = legales;
   window.TM.com = C;
 })();
