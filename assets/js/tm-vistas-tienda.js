@@ -702,7 +702,7 @@
           '<span><span class="block font-body-md text-body-md font-bold text-on-surface">' + esc(m.t) + '</span>' +
           '<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(m.d) + '</span></span>';
         return m.h
-          ? '<a class="flex items-center gap-3 rounded-card border border-outline-variant bg-surface-container-lowest p-4 hover:border-secondary hover:shadow-nivel-2 transition" href="' + esc(/^https?:/.test(m.h) ? m.h : href(m.h)) + '">' + inner + '</a>'
+          ? '<a class="flex items-center gap-3 rounded-card border border-outline-variant bg-surface-container-lowest p-4 hover:border-secondary hover:shadow-nivel-2 transition" href="' + esc(APP.enlace(m.h)) + '">' + inner + '</a>'
           : '<button data-demo-mosaico class="flex items-center gap-3 rounded-card border border-outline-variant bg-surface-container-lowest p-4 text-left hover:border-secondary transition">' + inner + '</button>';
       }).join('') + '</div>';
   }

@@ -110,7 +110,7 @@ if ! curl -sf http://127.0.0.1:54330/ >/dev/null; then
   (cd "$CACHE" && nohup ./postgrest postgrest.conf > postgrest.log 2>&1 &)
 fi
 if ! curl -s http://127.0.0.1:54321/ >/dev/null; then
-  (cd "$RAIZ" && JWT_SECRET="$SECRETO" nohup node tools/supabase-local/pasarela.js > "$CACHE/pasarela.log" 2>&1 &)
+  (cd "$RAIZ" && JWT_SECRET="$SECRETO" PGDATABASE=postgres nohup node tools/supabase-local/pasarela.js > "$CACHE/pasarela.log" 2>&1 &)
 fi
 sleep 2
 echo "✓ Supabase local en http://127.0.0.1:54321"

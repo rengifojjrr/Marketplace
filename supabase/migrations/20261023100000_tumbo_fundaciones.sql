@@ -3,13 +3,15 @@
 -- -------------------------------------------------------------------------
 -- Lo común que necesitan los equipos de las olas siguientes (ver
 -- docs/PLAN-PRODUCCION.md):
---   · ajustes de la plataforma (tumbo.ajustes) con lectura pública de los
---     marcados como públicos y edición solo del superadministrador;
+--   · ajustes de la plataforma (tumbo.ajustes), con su tipo, lectura pública
+--     de los marcados como públicos y edición solo del superadministrador con
+--     sesión elevada (nunca con las cuentas de prueba);
 --   · contacto y verificaciones del usuario, direcciones completas y la
 --     columna `destino` del pedido (la llenará la ola 1);
 --   · archivos: propósitos con su bucket, tamaño y tipos; permisos por
 --     propósito; cuotas contra el abuso del almacenamiento compartido;
---     preparar → subir con URL firmada (función tumbo-archivos) → confirmar;
+--     preparar → subir con URL firmada → confirmar (por la función
+--     tumbo-archivos, que también borra lo descartado);
 --   · bandeja de mensajes salientes (plantillas, preferencias y cola): nada
 --     se envía todavía, eso es de la ola 2;
 --   · reembolsos básicos: los flujos que antes solo avisaban a Finanzas ahora
@@ -22,19 +24,24 @@
 -- ---------------------------------------------------------------------------
 -- Ajustes
 -- ---------------------------------------------------------------------------
+-- Cada ajuste tiene su tipo fijo (un interruptor siempre es sí o no) y solo
+-- los marcados como vaciables admiten null; la tabla también lo exige.
 create table tumbo.ajustes (
   clave       text primary key check (clave ~ '^[a-z][a-z0-9_]{1,59}$'),
   valor       jsonb not null,
+  tipo        text not null check (tipo in ('boolean', 'number', 'string', 'object', 'array')),
+  vaciable    boolean not null default false,
   publico     boolean not null default false,
   descripcion text,
   actualizado timestamptz not null default now(),
-  por         text
+  por         text,
+  check (jsonb_typeof(valor) = tipo or (vaciable and jsonb_typeof(valor) = 'null'))
 );
 alter table tumbo.ajustes enable row level security;
 revoke all on tumbo.ajustes from public, anon, authenticated;
 
 -- Lo que falta lo dice el propio valor: nada se presenta como real.
-insert into tumbo.ajustes (clave, valor, publico, descripcion) values
+insert into tumbo.ajustes (clave, valor, tipo, vaciable, publico, descripcion) values
   ('pagos_beneficiario', '{
      "configurado": false,
      "nota": "Pendiente de configurar: la persona dueña del proyecto debe cargar los datos reales antes de cobrar.",
@@ -43,15 +50,15 @@ insert into tumbo.ajustes (clave, valor, publico, descripcion) values
                       "rif": "PENDIENTE DE CONFIGURAR", "titular": "PENDIENTE DE CONFIGURAR"},
        "Transferencia": {"banco": "PENDIENTE DE CONFIGURAR", "cuenta": "PENDIENTE DE CONFIGURAR",
                          "rif": "PENDIENTE DE CONFIGURAR", "titular": "PENDIENTE DE CONFIGURAR"}
-     }}', true,
+     }}', 'object', false, true,
    'Datos del beneficiario que ve el comprador para pagar, por método.'),
-  ('checkout_activo', 'true', true, 'Interruptor: permite crear pedidos desde el checkout.'),
-  ('registro_activo', 'true', true, 'Interruptor: permite registrar cuentas nuevas desde la web.'),
-  ('aviso_incidencia', 'null', true, 'Aviso visible en la tienda durante una incidencia (texto), o null si no hay.'),
+  ('checkout_activo', 'true', 'boolean', false, true, 'Interruptor: permite crear pedidos desde el checkout.'),
+  ('registro_activo', 'true', 'boolean', false, true, 'Interruptor: permite registrar cuentas nuevas desde la web.'),
+  ('aviso_incidencia', 'null', 'string', true, true, 'Aviso visible en la tienda durante una incidencia (texto), o null si no hay.'),
   ('soporte', '{"configurado": false, "whatsapp": "PENDIENTE DE CONFIGURAR", "correo": "PENDIENTE DE CONFIGURAR",
-                "horario": "PENDIENTE DE CONFIGURAR"}', true,
+                "horario": "PENDIENTE DE CONFIGURAR"}', 'object', false, true,
    'Canales y horario de atención que la tienda muestra.'),
-  ('cuotas_archivos', '{"archivos_por_dia": 100, "mb_por_seller": 300, "mb_por_usuario": 300}', false,
+  ('cuotas_archivos', '{"archivos_por_dia": 100, "mb_por_seller": 300, "mb_por_usuario": 300}', 'object', false, false,
    'Topes del almacenamiento compartido: archivos por usuario y día, y MB en total por comercio y por cuenta sin comercio.')
 on conflict (clave) do nothing;
 
@@ -65,12 +72,18 @@ language sql stable security definer set search_path = '' as $$
   select coalesce(jsonb_object_agg(a.clave, a.valor order by a.clave), '{}'::jsonb) from tumbo.ajustes a where a.publico
 $$;
 
--- Contrato: la ola 1 (Cuentas) exige aquí una sesión elevada con el segundo
--- factor verificado en el servidor. Hasta entonces no hace nada.
+-- Contrato: sesión elevada para lo que no admite marcha atrás (ajustes,
+-- dinero). La ola 1 (Cuentas) exige aquí además el segundo factor verificado
+-- en el servidor (TOTP). Desde ya, una cuenta de prueba nunca tiene sesión
+-- elevada: su contraseña es pública y su segundo factor es el código fijo de
+-- la demo, que solo comprueba el navegador.
 create function tumbo_privado.exigir_elevada(p_yo tumbo.usuarios) returns void
-language plpgsql security definer set search_path = '' as $$
+language plpgsql stable security definer set search_path = '' as $$
 begin
-  return;
+  if p_yo.id is null or tumbo_privado.cuenta_demo(p_yo.email) then
+    raise exception 'Las cuentas de prueba no pueden hacer esta acción: hace falta una cuenta real del equipo con verificación en dos pasos.'
+      using errcode = '42501';
+  end if;
 end $$;
 
 -- Contrato: permisos finos por persona (ola 1, Cuentas). Por ahora solo el
@@ -80,8 +93,10 @@ language sql stable security definer set search_path = '' as $$
   select coalesce(p_yo.rol = 'superadmin', false)
 $$;
 
--- Edición de un ajuste existente. El tipo se conserva (un interruptor sigue
--- siendo verdadero/falso); null vale para los ajustes que se pueden vaciar.
+-- Edición de un ajuste existente, con su tipo (null solo en los vaciables).
+-- Pide sesión elevada: con las cuentas de prueba, cuya contraseña es
+-- pública, nadie puede cambiar los datos de cobro, el soporte, los avisos ni
+-- las cuotas.
 create function public.tm_ajuste_guardar(p_sesion text, p_clave text, p_valor jsonb) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -97,10 +112,14 @@ begin
   if octet_length(v_valor::text) > 20000 then
     raise exception 'El valor del ajuste es demasiado grande.';
   end if;
-  if jsonb_typeof(a.valor) <> 'null' and jsonb_typeof(v_valor) <> 'null' and jsonb_typeof(a.valor) <> jsonb_typeof(v_valor) then
+  if jsonb_typeof(v_valor) = 'null' then
+    if not a.vaciable then
+      raise exception 'El ajuste «%» no se puede dejar vacío.', a.clave;
+    end if;
+  elsif jsonb_typeof(v_valor) <> a.tipo then
     raise exception 'El ajuste «%» espera %.', a.clave,
-      case jsonb_typeof(a.valor) when 'boolean' then 'sí o no' when 'number' then 'un número' when 'string' then 'un texto'
-                                 when 'array' then 'una lista' else 'un conjunto de datos' end;
+      case a.tipo when 'boolean' then 'sí o no' when 'number' then 'un número' when 'string' then 'un texto'
+                  when 'array' then 'una lista' else 'un conjunto de datos' end;
   end if;
   update tumbo.ajustes set valor = v_valor, actualizado = now(), por = yo.nombre || ' (' || yo.rol || ')'
   where clave = a.clave;
@@ -142,13 +161,57 @@ language sql immutable set search_path = '' as $$
 $$;
 
 -- ---------------------------------------------------------------------------
+-- Conexión de origen (desde la migración 6)
+--   La pone el borde de Supabase en cf-connecting-ip. La función
+--   tumbo-archivos llama a la API desde su propia red, con la clave de
+--   servicio, y reenvía la conexión del navegador en x-tumbo-red: solo se
+--   cree con esa clave (con la publicable, la cabecera se ignora), así los
+--   topes por red de las subidas siguen siendo por persona.
+--   IPv6 por /56; IPv4 escrita como IPv6 (::ffff:a.b.c.d o ::a.b.c.d) como la
+--   IPv4.
+-- ---------------------------------------------------------------------------
+create or replace function tumbo_privado.ip_cliente() returns text
+language plpgsql stable set search_path = '' as $$
+declare
+  v_cab jsonb;
+  v text;
+  d inet;
+begin
+  v_cab := nullif(current_setting('request.headers', true), '')::jsonb;
+  v := v_cab ->> 'cf-connecting-ip';
+  if v_cab ? 'x-tumbo-red'
+     and coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') = 'service_role' then
+    v := v_cab ->> 'x-tumbo-red';
+  end if;
+  if v is null or v !~ '^[0-9A-Fa-f:.]{3,45}$' then
+    return 'desconocida';
+  end if;
+  d := v::inet;
+  if family(d) = 6 and d << '::ffff:0:0/96'::inet then
+    return host('0.0.0.0'::inet + (d - '::ffff:0.0.0.0'::inet));
+  end if;
+  if family(d) = 6 and d << '::/96'::inet and d - '::'::inet > 1 then
+    return host('0.0.0.0'::inet + (d - '::'::inet));
+  end if;
+  if family(d) = 6 then
+    return host(network(set_masklen(d, 56))) || '/56';
+  end if;
+  return host(d);
+exception when others then
+  return 'desconocida';
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- Archivos
 --   Cada archivo tiene un propósito, que fija su bucket, su tamaño máximo,
 --   sus tipos y quién lo sube o lo ve. La ruta la decide el servidor:
 --   <propósito>/<seller o usuario>/<uuid>.<ext>. El navegador sube con una
---   URL firmada que pide la función tumbo-archivos y después confirma: el
---   archivo queda «listo» solo si Storage lo tiene con el tamaño y el tipo
---   autorizados.
+--   URL firmada que pide la función tumbo-archivos y después confirma por la
+--   misma función: el archivo queda «listo» solo si Storage lo tiene con el
+--   tamaño y el tipo autorizados y cabe en la cuota. Lo que no se confirma, o
+--   no coincide, se descarta y la función lo borra de Storage. Las fotos
+--   públicas esperan en un bucket privado (tumbo-espera) hasta confirmarse:
+--   nada sin confirmar se sirve en público.
 -- ---------------------------------------------------------------------------
 create table tumbo.archivo_propositos (
   proposito text primary key,
@@ -175,38 +238,120 @@ on conflict (proposito) do nothing;
 create table tumbo.archivos (
   id          uuid primary key default gen_random_uuid(),
   proposito   text not null references tumbo.archivo_propositos (proposito),
-  bucket      text not null,
+  bucket      text not null,                          -- donde está el objeto (el público, en tumbo-espera hasta confirmarse)
   ruta        text not null unique,
   entidad     text not null,                          -- SKU, seller, pedido, reclamo o liquidación
   propietario uuid not null references tumbo.usuarios (id) on delete cascade,
   seller_id   text references tumbo.sellers (id),     -- comercio de quien sube (cuota)
   tipo        text not null,
-  bytes       bigint not null check (bytes > 0),
+  bytes       bigint not null check (bytes > 0),      -- los declarados; al confirmar, los reales
+  reserva     bigint not null check (reserva > 0),    -- lo que deja subir su URL: cuenta en la cuota mientras está pendiente
   nombre      text not null default '',
-  estado      text not null default 'pendiente' check (estado in ('pendiente', 'listo')),
+  estado      text not null default 'pendiente' check (estado in ('pendiente', 'listo', 'descartado')),
+  motivo      text,                                   -- por qué se descartó
   red         text not null default 'desconocida',
   creado      timestamptz not null default now(),
-  confirmado  timestamptz
+  confirmado  timestamptz,
+  eliminado   timestamptz                             -- el objeto ya no está en Storage
 );
 create index archivos_propietario_idx on tumbo.archivos (propietario, creado desc);
 create index archivos_seller_idx on tumbo.archivos (seller_id) where seller_id is not null;
-create index archivos_entidad_idx on tumbo.archivos (proposito, entidad);
+-- Las galerías buscan por entidad solo lo «listo»: un archivo descartado (p.
+-- ej. por un reinicio de la demo, que reutiliza SKU y números de pedido)
+-- nunca reaparece en la entidad nueva que herede el identificador.
+create index archivos_entidad_idx on tumbo.archivos (proposito, entidad) where estado = 'listo';
+create index archivos_limpieza_idx on tumbo.archivos (creado) where estado <> 'listo' and eliminado is null;
 alter table tumbo.archivos enable row level security;
 revoke all on tumbo.archivos from public, anon, authenticated;
 
 -- Buckets de Storage, solo donde existe Storage (en el Postgres local de las
 -- pruebas lo crea tools/supabase-local/base.sql). Storage también impone el
--- tamaño y los tipos al subir.
+-- tamaño y los tipos al subir. tumbo-espera es privado: ahí esperan las
+-- fotos públicas hasta que se confirman.
 do $$
 begin
   if to_regclass('storage.buckets') is not null then
     execute $q$
       insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values
         ('tumbo-publico', 'tumbo-publico', true, 5242880, array['image/jpeg', 'image/png', 'image/webp']),
+        ('tumbo-espera', 'tumbo-espera', false, 5242880, array['image/jpeg', 'image/png', 'image/webp']),
         ('tumbo-privado', 'tumbo-privado', false, 15728640,
          array['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'video/mp4'])
       on conflict (id) do nothing $q$;
   end if;
+end $$;
+
+-- Los buckets de Tumbo.
+create function tumbo_privado.buckets_tumbo() returns text[]
+language sql immutable set search_path = '' as $$
+  select array['tumbo-publico', 'tumbo-espera', 'tumbo-privado']
+$$;
+
+-- Lo que vale una URL de subida firmada (dos horas en Supabase) y un margen.
+create function tumbo_privado.vigencia_subida() returns interval
+language sql immutable set search_path = '' as $$
+  select interval '125 minutes'
+$$;
+
+-- Lo máximo que deja subir un bucket: su límite en Storage (sin límite, el
+-- global de 50 MB de Supabase). Sin Storage no se sube nada: p_omision.
+create function tumbo_privado.tope_bucket(p_bucket text, p_omision bigint) returns bigint
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  v bigint;
+begin
+  if to_regclass('storage.buckets') is null then
+    return p_omision;
+  end if;
+  select b.file_size_limit into v from storage.buckets b where b.id = p_bucket;
+  if not found then
+    return p_omision;
+  end if;
+  return coalesce(v, 52428800);
+end $$;
+
+-- El objeto de un archivo en Storage —en cualquiera de los buckets de Tumbo:
+-- la foto pública se mueve al confirmarse— con su tamaño y su tipo reales:
+-- {bucket, bytes, tipo}, o null si no está.
+create function tumbo_privado.objeto_storage(p_ruta text) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  v jsonb;
+begin
+  if to_regclass('storage.objects') is null then
+    return null;
+  end if;
+  select jsonb_build_object('bucket', o.bucket_id,
+                            'bytes', case when o.metadata ->> 'size' ~ '^[0-9]{1,15}$' then (o.metadata ->> 'size')::bigint end,
+                            'tipo', lower(coalesce(o.metadata ->> 'mimetype', '')))
+    into v
+  from storage.objects o
+  where o.name = p_ruta and o.bucket_id = any (tumbo_privado.buckets_tumbo())
+  order by o.created_at desc
+  limit 1;
+  return v;
+end $$;
+
+-- Lo que ocupa en el almacenamiento un comercio (p_seller) o una cuenta sin
+-- comercio (p_usuario): lo listo, por su tamaño; lo pendiente, mientras su
+-- URL vale, por lo que esa URL deja subir (aunque declare menos); lo demás
+-- que siga en Storage (pendiente vencido o descartado aún sin borrar), por su
+-- tamaño real. p_excluir deja fuera un archivo (el que se está confirmando).
+create function tumbo_privado.archivos_usados(p_seller text, p_usuario uuid, p_excluir uuid) returns bigint
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  v bigint;
+begin
+  select coalesce(sum(case
+           when a.estado = 'listo' then a.bytes
+           when a.estado = 'pendiente' and a.creado > now() - tumbo_privado.vigencia_subida() then a.reserva
+           else coalesce((tumbo_privado.objeto_storage(a.ruta) ->> 'bytes')::bigint, 0) end), 0)
+    into v
+  from tumbo.archivos a
+  where a.eliminado is null and a.id is distinct from p_excluir
+    and case when p_seller is not null then a.seller_id = p_seller
+             else a.propietario = p_usuario and a.seller_id is null end;
+  return v;
 end $$;
 
 -- Tipos admitidos, en palabras: «imágenes (JPG, PNG o WebP), PDF o video MP4».
@@ -293,10 +438,26 @@ language sql immutable set search_path = '' as $$
               then (p_valor #>> '{}')::numeric else p_omision end
 $$;
 
+-- El tope de MB que se pasaría (null si cabe), con su mensaje para la persona.
+create function tumbo_privado.cuota_excedida(p_seller text, p_usuario uuid, p_excluir uuid, p_bytes bigint) returns text
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  v_cuotas jsonb := coalesce(tumbo_privado.ajuste('cuotas_archivos'), '{}'::jsonb);
+  v_mb numeric := case when p_seller is not null then tumbo_privado.numero(v_cuotas -> 'mb_por_seller', 300)
+                       else tumbo_privado.numero(v_cuotas -> 'mb_por_usuario', 300) end;
+begin
+  if tumbo_privado.archivos_usados(p_seller, p_usuario, p_excluir) + p_bytes <= v_mb * 1048576 then
+    return null;
+  end if;
+  return format('%s llegó al límite de %s MB de archivos (cuentan también las subidas en curso). Escríbele a soporte si necesitas más espacio.',
+                case when p_seller is not null then 'Tu comercio' else 'Tu cuenta' end, v_mb);
+end $$;
+
 -- Registra la subida («pendiente») con una ruta que decide el servidor.
 -- Cuotas: archivos por usuario y día (en las cuentas demo, por usuario y
--- red, con un respaldo por cuenta) y MB en total por comercio (o por cuenta
--- sin comercio); lo pendiente cuenta una hora.
+-- red, con un respaldo por cuenta; lo descartado también cuenta, así que un
+-- reinicio de la demo no las vacía) y MB en total por comercio (o por cuenta
+-- sin comercio), donde cada subida pendiente cuenta lo que su URL deja subir.
 create function public.tm_archivo_preparar(p_sesion text, p_proposito text, p_entidad text, p_tipo text,
                                            p_bytes bigint, p_nombre text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
@@ -308,12 +469,11 @@ declare
   v_nombre text := left(regexp_replace(trim(coalesce(p_nombre, '')), '[[:cntrl:]/\\<>"]+', '', 'g'), 120);
   v_cuotas jsonb := coalesce(tumbo_privado.ajuste('cuotas_archivos'), '{}'::jsonb);
   v_por_dia numeric := tumbo_privado.numero(v_cuotas -> 'archivos_por_dia', 100);
-  v_mb_seller numeric := tumbo_privado.numero(v_cuotas -> 'mb_por_seller', 300);
-  v_mb_usuario numeric := tumbo_privado.numero(v_cuotas -> 'mb_por_usuario', 300);
   v_red text := tumbo_privado.ip_cliente();
   v_demo boolean := tumbo_privado.cuenta_demo(yo.email);
   v_id uuid := gen_random_uuid();
-  v_usados bigint;
+  v_bucket text;
+  v_excedida text;
   v_ext text;
   v_ruta text;
 begin
@@ -334,6 +494,7 @@ begin
      or not coalesce(tumbo_privado.archivo_permitido(yo, pr.proposito, v_entidad, 'subir'), false) then
     raise exception 'No puedes adjuntar archivos a «%».', left(v_entidad, 60);
   end if;
+  v_bucket := case when pr.publico then 'tumbo-espera' else pr.bucket end;
 
   -- Las subidas de una cuenta (y de un comercio) se cuentan de a una.
   perform tumbo_privado.bloquear_usuario(yo.id, 'archivos');
@@ -347,61 +508,93 @@ begin
   end if;
   if yo.seller_id is not null then
     perform pg_advisory_xact_lock(hashtextextended('tumbo:archivos:' || yo.seller_id, 0));
-    select coalesce(sum(bytes), 0) into v_usados from tumbo.archivos
-    where seller_id = yo.seller_id and (estado = 'listo' or creado > now() - interval '1 hour');
-    if v_usados + p_bytes > v_mb_seller * 1048576 then
-      raise exception 'Tu comercio llegó al límite de % MB de archivos. Escríbele a soporte si necesitas más espacio.', v_mb_seller;
-    end if;
-  else
-    select coalesce(sum(bytes), 0) into v_usados from tumbo.archivos
-    where propietario = yo.id and seller_id is null and (estado = 'listo' or creado > now() - interval '1 hour');
-    if v_usados + p_bytes > v_mb_usuario * 1048576 then
-      raise exception 'Tu cuenta llegó al límite de % MB de archivos. Escríbele a soporte si necesitas más espacio.', v_mb_usuario;
-    end if;
+  end if;
+  v_excedida := tumbo_privado.cuota_excedida(yo.seller_id, yo.id, null, p_bytes);
+  if v_excedida is not null then
+    raise exception '%', v_excedida;
   end if;
 
   v_ext := case v_tipo when 'image/jpeg' then 'jpg' when 'image/png' then 'png' when 'image/webp' then 'webp'
                        when 'application/pdf' then 'pdf' when 'video/mp4' then 'mp4' else 'bin' end;
   v_ruta := pr.proposito || '/' || coalesce(yo.seller_id, yo.id::text) || '/' || v_id::text || '.' || v_ext;
-  insert into tumbo.archivos (id, proposito, bucket, ruta, entidad, propietario, seller_id, tipo, bytes, nombre, red)
-  values (v_id, pr.proposito, pr.bucket, v_ruta, v_entidad, yo.id, yo.seller_id, v_tipo, p_bytes, v_nombre, v_red);
-  return jsonb_build_object('id', v_id, 'bucket', pr.bucket, 'ruta', v_ruta);
+  insert into tumbo.archivos (id, proposito, bucket, ruta, entidad, propietario, seller_id, tipo, bytes, reserva, nombre, red)
+  values (v_id, pr.proposito, v_bucket, v_ruta, v_entidad, yo.id, yo.seller_id, v_tipo, p_bytes,
+          greatest(p_bytes, tumbo_privado.tope_bucket(v_bucket, pr.max_bytes)), v_nombre, v_red);
+  return jsonb_build_object('id', v_id, 'bucket', v_bucket, 'ruta', v_ruta);
 end $$;
 
--- Confirma la subida: Storage debe tener el objeto con un tamaño y un tipo
--- autorizados. Repetirla no cambia nada.
+-- Confirma la subida (la llama la función tumbo-archivos, que es la que puede
+-- mover y borrar en Storage). Storage debe tener el objeto con un tamaño y un
+-- tipo autorizados, y su tamaño real debe caber en la cuota. Responde:
+--   {estado: 'listo', id, url_publica}
+--   {estado: 'mover', id, de: {bucket, ruta}, a: {bucket, ruta}}: una foto
+--     pública ya verificada que espera en tumbo-espera; la función la mueve
+--     al bucket público y vuelve a confirmar;
+--   {estado: 'descartado', id, error, borrar: {bucket, ruta}}: lo que llegó no
+--     es lo autorizado (o no cabe); la función borra el objeto y muestra el
+--     error.
+-- Repetirla con el archivo listo no cambia nada.
 create function public.tm_archivo_confirmar(p_sesion text, p_id uuid) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['comprador', 'seller', 'precios', 'operador', 'superadmin', 'ops', 'finanzas']);
   a tumbo.archivos;
   pr tumbo.archivo_propositos;
-  v_meta jsonb;
+  v_obj jsonb;
   v_bytes bigint;
   v_tipo text;
+  v_error text;
+  v_motivo text;
 begin
+  -- mismo orden de bloqueos que tm_archivo_preparar: cuenta → comercio → archivo
+  perform tumbo_privado.bloquear_usuario(yo.id, 'archivos');
+  if yo.seller_id is not null then
+    perform pg_advisory_xact_lock(hashtextextended('tumbo:archivos:' || yo.seller_id, 0));
+  end if;
   select * into a from tumbo.archivos where id = p_id and propietario = yo.id for update;
   if not found then
     raise exception 'No encontramos ese archivo.';
   end if;
   select * into pr from tumbo.archivo_propositos where proposito = a.proposito;
-  if a.estado = 'pendiente' then
-    if to_regclass('storage.objects') is null then
-      raise exception 'El almacenamiento de archivos no está disponible en este servidor.';
-    end if;
-    select o.metadata into v_meta from storage.objects o where o.bucket_id = a.bucket and o.name = a.ruta;
-    if not found then
-      raise exception 'El archivo no terminó de subir. Vuelve a intentarlo.';
-    end if;
-    v_bytes := case when v_meta ->> 'size' ~ '^[0-9]{1,15}$' then (v_meta ->> 'size')::bigint end;
-    v_tipo := lower(coalesce(v_meta ->> 'mimetype', ''));
-    if v_bytes is null or v_bytes <= 0 or v_bytes > pr.max_bytes or not (v_tipo = any (pr.tipos)) then
-      raise exception 'El archivo que llegó no coincide con el autorizado (tipo o tamaño). Vuelve a subirlo.';
-    end if;
-    update tumbo.archivos set estado = 'listo', confirmado = now(), bytes = v_bytes, tipo = v_tipo where id = a.id;
+  if a.estado = 'listo' then
+    return jsonb_build_object('estado', 'listo', 'id', a.id, 'url_publica',
+      case when pr.publico then '/storage/v1/object/public/' || a.bucket || '/' || a.ruta end);
   end if;
-  return jsonb_build_object('id', a.id, 'url_publica',
-    case when pr.publico then '/storage/v1/object/public/' || a.bucket || '/' || a.ruta end);
+  if a.estado = 'descartado' then
+    raise exception 'Ese archivo se descartó (%): vuelve a subirlo.', coalesce(a.motivo, 'sin motivo');
+  end if;
+  if to_regclass('storage.objects') is null then
+    raise exception 'El almacenamiento de archivos no está disponible en este servidor.';
+  end if;
+  -- (el objeto solo puede estar donde se firmó la subida o, ya movido, en su bucket final)
+  v_obj := tumbo_privado.objeto_storage(a.ruta);
+  if v_obj is null or not (v_obj ->> 'bucket' in (a.bucket, pr.bucket)) then
+    raise exception 'El archivo no terminó de subir. Vuelve a intentarlo.';
+  end if;
+  v_bytes := (v_obj ->> 'bytes')::bigint;
+  v_tipo := v_obj ->> 'tipo';
+  if v_bytes is null or v_bytes <= 0 or v_bytes > pr.max_bytes or not (v_tipo = any (pr.tipos)) then
+    v_error := 'El archivo que llegó no coincide con el autorizado (tipo o tamaño). Vuelve a subirlo.';
+    v_motivo := 'no coincide con lo autorizado';
+  else
+    v_error := tumbo_privado.cuota_excedida(a.seller_id, a.propietario, a.id, v_bytes);
+    v_motivo := 'no cabe en la cuota';
+  end if;
+  if v_error is not null then
+    update tumbo.archivos set estado = 'descartado', motivo = v_motivo where id = a.id;
+    return jsonb_build_object('estado', 'descartado', 'id', a.id, 'error', v_error,
+                              'borrar', jsonb_build_object('bucket', v_obj ->> 'bucket', 'ruta', a.ruta));
+  end if;
+  if v_obj ->> 'bucket' <> pr.bucket then
+    update tumbo.archivos set bytes = v_bytes, tipo = v_tipo where id = a.id;
+    return jsonb_build_object('estado', 'mover', 'id', a.id,
+      'de', jsonb_build_object('bucket', v_obj ->> 'bucket', 'ruta', a.ruta),
+      'a', jsonb_build_object('bucket', pr.bucket, 'ruta', a.ruta));
+  end if;
+  update tumbo.archivos set estado = 'listo', confirmado = now(), bucket = pr.bucket, bytes = v_bytes, tipo = v_tipo
+  where id = a.id;
+  return jsonb_build_object('estado', 'listo', 'id', a.id, 'url_publica',
+    case when pr.publico then '/storage/v1/object/public/' || pr.bucket || '/' || a.ruta end);
 end $$;
 
 -- Dónde está un archivo que esta persona puede ver (para firmar la descarga).
@@ -421,6 +614,56 @@ begin
   end if;
   return jsonb_build_object('id', a.id, 'bucket', a.bucket, 'ruta', a.ruta, 'publico', pr.publico,
                             'tipo', a.tipo, 'bytes', a.bytes, 'nombre', a.nombre);
+end $$;
+
+-- Tarea de limpieza del almacenamiento. Supabase no deja borrar objetos por
+-- SQL, así que esta tarea decide y la función tumbo-archivos borra por la API
+-- de Storage (llama a tm_archivos_limpiar cada minuto mientras recibe
+-- subidas, y con {accion: 'limpiar'}). La tarea:
+--   · descarta las subidas que no se confirmaron mientras su URL valía;
+--   · anota como eliminados los descartados cuyo objeto ya no está;
+--   · olvida los eliminados de hace más de un día (hasta entonces cuentan
+--     para el tope diario);
+--   · devuelve hasta p_limite objetos por borrar: los de los descartados y los
+--     que quedaron sin fila con la forma de ruta de Tumbo.
+-- Para dar de baja un archivo listo basta con marcarlo «descartado».
+create function tumbo_privado.tarea_archivos(p_limite integer default 100) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_buckets text[] := tumbo_privado.buckets_tumbo();
+  v jsonb := '[]'::jsonb;
+begin
+  update tumbo.archivos set estado = 'descartado', motivo = 'no se confirmó a tiempo'
+  where estado = 'pendiente' and creado < now() - tumbo_privado.vigencia_subida();
+  if to_regclass('storage.objects') is null then
+    update tumbo.archivos set eliminado = now() where estado = 'descartado' and eliminado is null;
+  else
+    update tumbo.archivos a set eliminado = now()
+    where a.estado = 'descartado' and a.eliminado is null
+      and not exists (select 1 from storage.objects o where o.name = a.ruta and o.bucket_id = any (v_buckets));
+    select coalesce(jsonb_agg(jsonb_build_object('bucket', x.bucket_id, 'ruta', x.name)), '[]'::jsonb) into v
+    from (select o.bucket_id, o.name
+          from storage.objects o
+          where o.bucket_id = any (v_buckets)
+            and (exists (select 1 from tumbo.archivos a where a.ruta = o.name and a.estado = 'descartado')
+                 or (o.created_at < now() - interval '10 minutes'
+                     and o.name ~ '^(producto|perfil|kyc|evidencia|comprobante|guia|entrega|chat|liquidacion)/[A-Za-z0-9-]+/[0-9a-f-]{36}\.(jpg|png|webp|pdf|mp4|bin)$'
+                     and not exists (select 1 from tumbo.archivos a where a.ruta = o.name)))
+          order by o.created_at
+          limit greatest(1, least(coalesce(p_limite, 100), 1000))) x;
+  end if;
+  delete from tumbo.archivos where eliminado < now() - interval '1 day' and creado < now() - interval '1 day';
+  return jsonb_build_object('borrar', v);
+end $$;
+
+-- La tarea, para la función tumbo-archivos: solo con la clave de servicio.
+create function public.tm_archivos_limpiar() returns jsonb
+language plpgsql security definer set search_path = '' as $$
+begin
+  if coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') <> 'service_role' then
+    raise exception 'Solo la función de archivos puede limpiar el almacenamiento.' using errcode = '42501';
+  end if;
+  return tumbo_privado.tarea_archivos(100);
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -554,18 +797,26 @@ begin
   return r;
 end $$;
 
+-- ¿Es un mensaje con un código o un enlace de seguridad?
+create function tumbo_privado.mensaje_sensible(p_plantilla text) returns boolean
+language sql immutable set search_path = '' as $$
+  select coalesce(p_plantilla in ('verificar_correo', 'verificar_telefono', 'recuperar_clave', 'invitacion'), false)
+$$;
+
 -- Contrato: deja en la bandeja un mensaje por canal de la plantilla. Correo
 -- al del usuario; WhatsApp y SMS solo si tiene teléfono; respeta sus
 -- preferencias salvo en los mensajes de seguridad (códigos, recuperación e
 -- invitaciones). Sin usuario (p. ej. una invitación a quien aún no tiene
--- cuenta) va solo por correo a p_datos->>'correo'.
+-- cuenta) va solo por correo a p_datos->>'correo'. Quien envíe los mensajes
+-- de seguridad (ola 2) borra su código o enlace al cerrarlos, como
+-- tm_salida_marcar.
 create function tumbo_privado.encolar(p_usuario uuid, p_plantilla text, p_datos jsonb) returns void
 language plpgsql security definer set search_path = '' as $$
 declare
   u tumbo.usuarios;
   pl tumbo.plantillas;
   v_datos jsonb := case when jsonb_typeof(p_datos) = 'object' then p_datos else '{}'::jsonb end;
-  v_seguridad boolean := p_plantilla in ('verificar_correo', 'verificar_telefono', 'recuperar_clave', 'invitacion');
+  v_seguridad boolean := tumbo_privado.mensaje_sensible(p_plantilla);
   v_destino text;
 begin
   if p_usuario is not null then
@@ -598,12 +849,24 @@ begin
   end if;
 end $$;
 
+-- ¿Ve esta persona ese mensaje? Las cuentas de prueba (contraseña pública)
+-- solo ven los dirigidos a cuentas de prueba: nunca los datos ni los
+-- mensajes de las personas reales.
+create function tumbo_privado.salida_visible(p_yo tumbo.usuarios, p_usuario uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select not tumbo_privado.cuenta_demo(p_yo.email)
+         or exists (select 1 from tumbo.usuarios u where u.id = p_usuario and tumbo_privado.cuenta_demo(u.email))
+$$;
+
 -- La bandeja, del más nuevo al más viejo (50 por página). Los mensajes con
--- códigos o enlaces de seguridad solo los lee el superadministrador.
+-- códigos o enlaces de seguridad solo los lee el superadministrador con su
+-- cuenta real; las cuentas de prueba solo ven los mensajes de las cuentas de
+-- prueba, y sin el contenido de seguridad.
 create function public.tm_salida_listar(p_sesion text, p_estado text default null, p_antes bigint default null) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   yo tumbo.usuarios := tumbo_privado.exigir_rol(p_sesion, array['superadmin', 'ops']);
+  v_seguridad boolean := yo.rol = 'superadmin' and not tumbo_privado.cuenta_demo(yo.email);
   v jsonb;
 begin
   if p_estado is not null and p_estado not in ('pendiente', 'enviado', 'fallido', 'manual', 'descartado') then
@@ -612,14 +875,15 @@ begin
   select coalesce(jsonb_agg(jsonb_build_object(
            'id', s.id, 'usuario', u.nombre, 'destino', s.destino, 'canal', s.canal, 'plantilla', s.plantilla,
            'asunto', s.asunto,
-           'cuerpo', case when s.sensible and yo.rol <> 'superadmin'
-                          then '(Mensaje con un código o enlace de seguridad: solo lo ve el superadministrador.)' else s.cuerpo end,
-           'enlace', case when s.sensible and yo.rol <> 'superadmin' then null else s.enlace end,
+           'cuerpo', case when s.sensible and not v_seguridad
+                          then '(Mensaje con un código o enlace de seguridad: solo lo ve el superadministrador con su cuenta.)' else s.cuerpo end,
+           'enlace', case when s.sensible and not v_seguridad then null else s.enlace end,
            'estado', s.estado, 'intentos', s.intentos, 'error', s.error, 'nota', s.nota,
            'creado', s.creado, 'enviado_en', s.enviado_en, 'por', s.por) order by s.id desc), '[]'::jsonb) into v
-  from (select x.*, x.plantilla in ('verificar_correo', 'verificar_telefono', 'recuperar_clave', 'invitacion') as sensible
+  from (select x.*, tumbo_privado.mensaje_sensible(x.plantilla) as sensible
         from tumbo.salida x
         where (p_estado is null or x.estado = p_estado) and (p_antes is null or x.id < p_antes)
+          and tumbo_privado.salida_visible(yo, x.usuario_id)
         order by x.id desc limit 50) s
   left join tumbo.usuarios u on u.id = s.usuario_id;
   return jsonb_build_object('mensajes', v,
@@ -627,31 +891,36 @@ begin
 end $$;
 
 -- Cierra a mano un mensaje: «manual» (queda para enviarlo a mano),
--- «enviado» (ya salió) o «descartado».
+-- «enviado» (ya salió) o «descartado». Al cerrar un mensaje de seguridad se
+-- borra su código o enlace: no queda guardado en claro.
 create function public.tm_salida_marcar(p_sesion text, p_id bigint, p_estado text, p_nota text default null) returns void
 language plpgsql security definer set search_path = '' as $$
 declare
   yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['superadmin', 'ops']);
   m tumbo.salida;
+  v_sensible boolean;
+  v_cierra boolean := p_estado in ('enviado', 'descartado');
 begin
   if p_estado is null or p_estado not in ('manual', 'enviado', 'descartado') then
     raise exception 'Indica si el mensaje queda para enviarlo a mano, si ya salió o si se descarta.';
   end if;
   select * into m from tumbo.salida where id = p_id for update;
-  if not found then
+  if not found or not tumbo_privado.salida_visible(yo, m.usuario_id) then
     raise exception 'No encontramos ese mensaje.';
   end if;
   if m.estado in ('enviado', 'descartado') then
     raise exception 'Ese mensaje ya está cerrado (%).', m.estado;
   end if;
-  if m.plantilla in ('verificar_correo', 'verificar_telefono', 'recuperar_clave', 'invitacion')
-     and yo.rol <> 'superadmin' and p_estado <> 'descartado' then
-    raise exception 'Los mensajes de seguridad solo los gestiona el superadministrador.';
+  v_sensible := tumbo_privado.mensaje_sensible(m.plantilla);
+  if v_sensible and p_estado <> 'descartado' and (yo.rol <> 'superadmin' or tumbo_privado.cuenta_demo(yo.email)) then
+    raise exception 'Los mensajes de seguridad solo los gestiona el superadministrador con su cuenta.';
   end if;
   update tumbo.salida
   set estado = p_estado, nota = left(nullif(trim(coalesce(p_nota, '')), ''), 300),
       por = yo.nombre || ' (' || yo.rol || ')',
-      enviado_en = case when p_estado = 'enviado' then now() else enviado_en end
+      enviado_en = case when p_estado = 'enviado' then now() else enviado_en end,
+      cuerpo = case when v_sensible and v_cierra then '(Código o enlace de seguridad borrado al cerrar el mensaje.)' else cuerpo end,
+      enlace = case when v_sensible and v_cierra then null else enlace end
   where id = p_id;
   perform tumbo_privado.auditar(yo, 'Mensaje saliente marcado', '#' || p_id || ' ' || m.plantilla || ' (' || m.canal || ') → ' || p_estado);
 end $$;
@@ -824,10 +1093,12 @@ begin
 end $$;
 
 -- Reinicio de la demo (desde la migración 3): los reembolsos se van con sus
--- pedidos, y los adjuntos y mensajes ligados a pedidos, reclamos y
--- liquidaciones también (sus identificadores se vuelven a usar: un archivo
--- viejo no debe aparecer en el pedido nuevo que herede el número). Los
--- objetos que queden en Storage sin fila ya no se pueden ver ni firmar.
+-- pedidos y los mensajes ligados a pedidos, reclamos y liquidaciones también.
+-- Todos los archivos se descartan (cuelgan de SKU, pedidos, reclamos y
+-- liquidaciones cuyos identificadores se vuelven a usar: una foto vieja no
+-- debe aparecer en el producto o el pedido nuevo que herede el número). Las
+-- filas se quedan hasta que la limpieza borra sus objetos de Storage, así
+-- que siguen contando en las cuotas: reiniciar no abre espacio.
 create or replace function public.tm_reiniciar_demo(p_sesion text) returns void
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -836,8 +1107,8 @@ begin
   truncate tumbo.notificaciones_leidas, tumbo.notificaciones, tumbo.liquidaciones,
            tumbo.disputas, tumbo.pedido_eventos, tumbo.pedido_items, tumbo.reembolsos, tumbo.pedidos,
            tumbo.carrito_items, tumbo.direcciones restart identity;
+  update tumbo.archivos set estado = 'descartado', motivo = 'reinicio de la demo' where estado <> 'descartado';
   -- (con WHERE explícito: el proyecto usa pg-safeupdate, que rechaza DELETE sin condición)
-  delete from tumbo.archivos where proposito in ('evidencia', 'comprobante', 'guia', 'entrega', 'chat', 'liquidacion');
   delete from tumbo.salida where plantilla in ('pago_confirmado', 'pedido_despachado', 'pedido_listo_retiro', 'pago_por_vencer',
                                                'pedido_por_aceptar', 'reclamo_actualizado', 'reembolso_enviado', 'liquidacion_pagada');
   delete from tumbo.productos where sku is not null;
@@ -887,12 +1158,16 @@ $$;
 
 -- ---------------------------------------------------------------------------
 -- Privilegios: las funciones nuevas de la API, por firma exacta (las
--- redefinidas conservan los suyos).
+-- redefinidas conservan los suyos). La función tumbo-archivos llama con la
+-- clave de servicio: las suyas también van para service_role, y la limpieza
+-- solo para él.
 -- ---------------------------------------------------------------------------
 revoke execute on all functions in schema tumbo_privado from public, anon, authenticated;
 
 do $$
-declare f regprocedure;
+declare
+  f regprocedure;
+  v_servicio boolean := exists (select 1 from pg_roles where rolname = 'service_role');
 begin
   foreach f in array array[
     'public.tm_ajustes_publicos()', 'public.tm_ajuste_guardar(text,text,jsonb)',
@@ -903,6 +1178,15 @@ begin
     execute format('revoke execute on function %s from public', f);
     execute format('grant execute on function %s to anon, authenticated', f);
   end loop;
+  revoke execute on function public.tm_archivos_limpiar() from public, anon, authenticated;
+  if v_servicio then
+    foreach f in array array[
+      'public.tm_archivo_preparar(text,text,text,text,bigint,text)', 'public.tm_archivo_confirmar(text,uuid)',
+      'public.tm_archivo_acceso(text,uuid)', 'public.tm_archivos_limpiar()']::regprocedure[]
+    loop
+      execute format('grant execute on function %s to service_role', f);
+    end loop;
+  end if;
 end $$;
 
 notify pgrst, 'reload schema';

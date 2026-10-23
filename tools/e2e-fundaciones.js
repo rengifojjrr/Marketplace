@@ -159,6 +159,99 @@ const { iniciar } = require('./e2e-comun');
     }
   });
 
+  await prueba('los enlaces de teléfono y correo de la cuenta se respetan en el menú y en los mosaicos', async () => {
+    await login('comprador');
+    await abrir('tienda/cuenta');
+    await p.evaluate(() => {
+      APP.nav('cuenta', { id: 'soporte-telefono', texto: 'Llámanos', icono: 'call', href: 'tel:+582125550000' });
+      APP.nav('cuenta', { id: 'soporte-correo', texto: 'Escríbenos', icono: 'mail', href: 'mailto:soporte@tumbo.example' });
+    });
+    await repintar();
+    const r = await p.evaluate(() => {
+      const externos = (sel) => [...document.querySelectorAll(sel)].map((a) => a.getAttribute('href')).filter((h) => /(tel|mailto):/.test(h));
+      return { menu: externos('[data-cuenta-panel] a'), mosaicos: externos('#raiz main a') };
+    });
+    const esperado = JSON.stringify(['tel:+582125550000', 'mailto:soporte@tumbo.example']);
+    if (JSON.stringify(r.menu) !== esperado || JSON.stringify(r.mosaicos) !== esperado) throw new Error(JSON.stringify(r));
+  });
+
+  await prueba('una foto pequeña también se vuelve a codificar: no sube su EXIF (GPS) y conserva la orientación', async () => {
+    await abrir('tienda/inicio');
+    const r = await p.evaluate(async () => {
+      /* JPEG de 800×400 ya muy comprimido (como WebP pesaría más), con EXIF:
+         orientación 6 (girar 90°) y GPS */
+      const c = document.createElement('canvas');
+      c.width = 800; c.height = 400;
+      const g = c.getContext('2d');
+      const ruido = g.createImageData(800, 400);
+      for (let i = 0; i < ruido.data.length; i++) ruido.data[i] = i % 4 === 3 ? 255 : Math.floor(Math.random() * 256);
+      g.putImageData(ruido, 0, 0);
+      const jpg = new Uint8Array(await (await new Promise((ok) => c.toBlob(ok, 'image/jpeg', 0.1))).arrayBuffer());
+      const webp = await new Promise((ok) => c.toBlob(ok, 'image/webp', 0.82));
+      const tiff = [0x4D, 0x4D, 0x00, 0x2A, 0, 0, 0, 8,
+        0, 2,
+        0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, 6, 0, 0,          // Orientation = 6
+        0x88, 0x25, 0, 4, 0, 0, 0, 1, 0, 0, 0, 38,         // GPSInfo → desplazamiento 38
+        0, 0, 0, 0,
+        0, 1,
+        0x00, 0x01, 0, 2, 0, 0, 0, 2, 0x4E, 0, 0, 0,       // GPSLatitudeRef = «N»
+        0, 0, 0, 0];
+      const cab = [0x45, 0x78, 0x69, 0x66, 0, 0];           // «Exif\0\0»
+      const largo = 2 + cab.length + tiff.length;
+      const app1 = [0xFF, 0xE1, largo >> 8, largo & 255].concat(cab, tiff);
+      const bytes = new Uint8Array(jpg.length + app1.length);
+      bytes.set(jpg.subarray(0, 2), 0);
+      bytes.set(app1, 2);
+      bytes.set(jpg.subarray(2), 2 + app1.length);
+      const conExif = (u8) => { for (let i = 0; i < u8.length - 6; i++) if (cab.every((b, j) => u8[i + j] === b)) return true; return false; };
+      const medir = async (b) => { const bmp = await createImageBitmap(b, { imageOrientation: 'from-image' }); return bmp.width + 'x' + bmp.height; };
+      const f = new File([bytes], 'casa.jpg', { type: 'image/jpeg' });
+      const a = await TM.archivos.optimizar(f);
+      const b = await TM.archivos.optimizar(f, { comprimir: false });
+      return { entrada: { exif: conExif(bytes), medida: await medir(f), webpPesaMas: webp.size >= bytes.length },
+        comprimida: { tipo: a.tipo, nombre: a.nombre, exif: conExif(new Uint8Array(await a.blob.arrayBuffer())), medida: await medir(a.blob) },
+        sinComprimir: { tipo: b.tipo, exif: conExif(new Uint8Array(await b.blob.arrayBuffer())), medida: await medir(b.blob) } };
+    });
+    if (!r.entrada.exif || r.entrada.medida !== '400x800' || !r.entrada.webpPesaMas) {
+      throw new Error('la foto de prueba no reproduce el caso (EXIF y un WebP más pesado): ' + JSON.stringify(r.entrada));
+    }
+    if (r.comprimida.tipo !== 'image/webp' || r.comprimida.nombre !== 'casa.webp' || r.comprimida.exif || r.comprimida.medida !== '400x800') {
+      throw new Error('optimizada: ' + JSON.stringify(r.comprimida));
+    }
+    if (r.sinComprimir.tipo !== 'image/jpeg' || r.sinComprimir.exif || r.sinComprimir.medida !== '400x800') {
+      throw new Error('sin comprimir: ' + JSON.stringify(r.sinComprimir));
+    }
+  });
+
+  await prueba('sin codificador WebP, el respaldo a JPEG pone blanco (no negro) el fondo transparente', async () => {
+    const r = await p.evaluate(async () => {
+      const original = HTMLCanvasElement.prototype.toBlob;
+      /* un navegador que no codifica WebP devuelve PNG */
+      HTMLCanvasElement.prototype.toBlob = function (fn, tipo, calidad) {
+        return original.call(this, fn, tipo === 'image/webp' ? 'image/png' : tipo, calidad);
+      };
+      try {
+        const c = document.createElement('canvas');
+        c.width = 2000; c.height = 2000;
+        c.getContext('2d').fillStyle = '#f5a524';
+        c.getContext('2d').fillRect(800, 800, 400, 400);
+        const png = await new Promise((ok) => original.call(c, ok, 'image/png'));
+        const a = await TM.archivos.optimizar(new File([png], 'recorte.png', { type: 'image/png' }));
+        const bmp = await createImageBitmap(a.blob);
+        const l = document.createElement('canvas');
+        l.width = bmp.width; l.height = bmp.height;
+        l.getContext('2d').drawImage(bmp, 0, 0);
+        return { tipo: a.tipo, ancho: bmp.width, esquina: [...l.getContext('2d').getImageData(5, 5, 1, 1).data],
+          centro: [...l.getContext('2d').getImageData(800, 800, 1, 1).data] };
+      } finally {
+        HTMLCanvasElement.prototype.toBlob = original;
+      }
+    });
+    if (r.tipo !== 'image/jpeg' || r.ancho !== 1600 || r.esquina.slice(0, 3).some((v) => v < 245) || r.centro[2] > 120) {
+      throw new Error(JSON.stringify(r));
+    }
+  });
+
   await pruebaSolo('local', 'sin servidor, TM.api y los archivos dicen que necesitan el servidor', async () => {
     const r = await p.evaluate(async () => {
       const intentos = [() => TM.api('tm_salida_listar', {}), () => TM.apiPublica('tm_ajustes_publicos'),

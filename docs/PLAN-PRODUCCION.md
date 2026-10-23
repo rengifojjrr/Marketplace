@@ -50,14 +50,14 @@ se revisa de forma adversarial, se prueba y se publica antes de la siguiente.
 
 | Pieza | Firma | Dueño de la implementación |
 | --- | --- | --- |
-| Sesión elevada (2FA) | `tumbo_privado.exigir_elevada(p_yo tumbo.usuarios) returns void` | Cuentas |
+| Sesión elevada (2FA) | `tumbo_privado.exigir_elevada(p_yo tumbo.usuarios) returns void` (hoy rechaza las cuentas de prueba) | Cuentas |
 | Permiso fino | `tumbo_privado.tiene_permiso(p_yo tumbo.usuarios, p_permiso text) returns boolean` | Cuentas |
 | Cotización de envío | `tumbo_privado.cotizar_envio(p_seller text, p_destino jsonb, p_items jsonb) returns jsonb` | Logística |
 | Promociones y cupones | `tumbo_privado.aplicar_promociones(p_usuario uuid, p_items jsonb, p_cupon text) returns jsonb` | Crecimiento |
 | Riesgo | `tumbo_privado.riesgo_pedido(p_usuario uuid, p_datos jsonb) returns jsonb` | Crecimiento |
 | Reembolso | `tumbo_privado.crear_reembolso(p_pedido text, p_monto_usd numeric, p_motivo text) returns bigint` | Pagos (la ola 0 crea la tabla y la versión básica) |
 | Mensajes salientes | `tumbo_privado.encolar(p_usuario uuid, p_plantilla text, p_datos jsonb) returns void` | Comunicación (la ola 0 crea la bandeja) |
-| Archivos | `tm_archivo_preparar` / `tm_archivo_confirmar` / función `tumbo-archivos`; en el cliente `TM.archivos.subir(...)` | Ola 0 |
+| Archivos | `tm_archivo_preparar` / `tm_archivo_confirmar` / función `tumbo-archivos` (`subir`, `confirmar`, `ver`, `limpiar`); en el cliente `TM.archivos.subir(...)`; las galerías leen solo lo `listo` y dar de baja es marcar `descartado` | Ola 0 |
 | Ajustes | `tumbo.ajustes` + `tumbo_privado.ajuste(clave)` | Ola 0 (la edición desde el backoffice: Crecimiento) |
 
 ## Olas, equipos y migraciones
@@ -157,12 +157,14 @@ Detalle en [BACKEND.md](BACKEND.md#arquitectura-modular-y-contratos).
   (`tools/paginas/*.json`) y carga automática de `assets/js/tm-mod-*.js`.
 - **Archivos.** Propósitos con bucket, tamaño y tipos; permisos por propósito
   (`tumbo_privado.archivo_permitido`); cuotas; `tm_archivo_preparar` /
-  `tm_archivo_confirmar` / `tm_archivo_acceso`; función
-  `supabase/functions/tumbo-archivos` (Deno, sin dependencias);
-  `TM.archivos.subir` (WebP ≤ 1600 px, calidad 0,82, orientación aplicada),
-  `ver`, `selector` y `enlazar`. Simulación local de Storage y de la función
-  en la pasarela.
-- **Ajustes** (`tumbo.ajustes`, `tm_ajustes_publicos`, `tm_ajuste_guardar`),
+  `tm_archivo_confirmar` / `tm_archivo_acceso` / `tm_archivos_limpiar`;
+  función `supabase/functions/tumbo-archivos` (Deno, sin dependencias), que
+  publica lo confirmado y borra lo descartado; `TM.archivos.subir` (siempre
+  recodifica las imágenes, sin EXIF: WebP ≤ 1600 px, calidad 0,82,
+  orientación aplicada), `ver`, `selector` y `enlazar`. Simulación local de
+  Storage y de la función en la pasarela.
+- **Ajustes** (`tumbo.ajustes` con su tipo, `tm_ajustes_publicos`,
+  `tm_ajuste_guardar` con sesión elevada),
   contacto y verificaciones del usuario, direcciones completas,
   `pedidos.destino`, **bandeja de salida** (13 plantillas, preferencias,
   `encolar`, `tm_salida_listar`, `tm_salida_marcar`), **reembolsos** (tabla,
@@ -185,27 +187,51 @@ Desviaciones y decisiones respecto de lo pedido:
   suma `mb_por_usuario` (300 MB por cuenta sin comercio, para que un
   comprador tampoco llene el almacenamiento). En las cuentas demo el tope
   diario cuenta por usuario y red, con un respaldo por cuenta de diez veces
-  (como los demás topes de la demo).
+  (como los demás topes de la demo). Cada subida pendiente cuenta en los MB
+  lo que su URL deja subir (el límite de su bucket) y la confirmación vuelve
+  a medir con el tamaño real.
 - `encolar` admite además `p_usuario = null` con `p_datos.correo`, para
   invitar a quien aún no tiene cuenta (solo por correo).
 - `tm_archivo_confirmar` devuelve `url_publica` relativa al proyecto
   (`/storage/v1/object/public/…`); `TM.archivos.subir` la completa con
-  `supabaseUrl`.
+  `supabaseUrl`. La confirmación pasa por la función (`{accion:
+  'confirmar'}`), que es la que puede mover y borrar en Storage.
 - El reembolso es por el total pagado (productos + envío). Se redefinió
   también `tm_reiniciar_demo` (desde su última definición): los reembolsos se
-  van con sus pedidos y se borran las filas de los adjuntos y mensajes de
-  pedidos, reclamos y liquidaciones (sus números se reutilizan).
+  van con sus pedidos, se borran los mensajes de pedidos, reclamos y
+  liquidaciones y todos los archivos se descartan (SKU y números se
+  reutilizan; siguen contando en las cuotas hasta que la limpieza borra sus
+  objetos).
 - `TM.qr` vive en `assets/js/tm-mod-qr.js`; la librería, en
   `assets/js/vendor/qrcode-generator/` con su LICENSE.
 - Se agregó `tools/e2e-fundaciones.js` (12 pruebas con backend, 9 en local).
-- Las RPC de la función salen desde su red: el tope de escrituras por red
-  agrupa ahí todas las subidas (los topes por cuenta y las cuotas siguen
-  siendo por persona).
+- Las RPC de la función salen desde su red: las hace con la clave de
+  servicio y pasa la red del navegador en `x-tumbo-red`, que
+  `ip_cliente()` solo cree con esa clave (redefinida desde la migración 6).
+  Así los topes por red siguen siendo por persona.
+
+Revisión adversarial de la ola 0 (14 hallazgos, todos corregidos con su
+prueba): las cuentas de prueba ya no tienen sesión elevada (no cambian
+ajustes) ni ven el contenido de seguridad ni los mensajes de personas reales
+en la bandeja; los mensajes de seguridad se borran al cerrarse; las cuotas
+de MB cuentan lo que de verdad puede subir cada URL, la confirmación las
+vuelve a medir, lo que no coincide se borra al momento y una tarea de
+limpieza borra lo no confirmado y lo huérfano; las fotos públicas esperan en
+`tumbo-espera` hasta confirmarse; la función reenvía la red del navegador;
+los ajustes tienen tipo fijo; el reinicio descarta todos los archivos sin
+liberar las cuotas; el cliente quita el EXIF de toda imagen y pinta blanco el
+fondo en el respaldo a JPEG; los mosaicos de la cuenta respetan `tel:` y
+`mailto:` (`APP.enlace`); `retirar-tumbo.sql` no se detiene si Storage no
+deja borrar un bucket; `levantar.sh` solo detiene sus propios procesos; y la
+pasarela deduce la base de Storage (o no arranca) en vez de usar `postgres`.
 
 Pendiente para la persona dueña del proyecto: aplicar
 `20261023100000_tumbo_fundaciones.sql` en la nube, desplegar la función con
 `supabase functions deploy tumbo-archivos --no-verify-jwt` y comprobar que el
 proyecto tiene Storage activo (la migración crea los buckets solo si existe);
-después, `tools/api-fundaciones.js` contra la nube con `TM_NUBE=1`. Hasta
+crear su cuenta real de superadministrador (SQL en
+[BACKEND.md](BACKEND.md#ajustes)) para cargar los datos de cobro y de
+soporte; después, `tools/api-fundaciones.js` contra la nube con `TM_NUBE=1`
+y `TM_SUPERADMIN=correo:clave`. Hasta
 entonces el sitio publicado sigue funcionando igual: nada de lo existente
 llama a lo nuevo.

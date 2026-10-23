@@ -2,16 +2,20 @@
    Tumbo Market — Archivos (fotos, comprobantes, documentos)
    -------------------------------------------------------------------------
    TM.archivos.subir(file, { proposito, entidad, comprimir, progreso })
-     1. las imágenes se optimizan en el navegador: WebP (o JPEG si el
-        navegador no codifica WebP), lado mayor de 1600 px como máximo,
-        calidad 0,82 y la orientación de la foto aplicada (las HEIC o AVIF
-        que el navegador sepa leer se convierten); lo demás (PDF, video)
-        sube tal cual;
+     1. las imágenes siempre se vuelven a codificar en el navegador, así no
+        sube su EXIF (ubicación GPS, cámara…): WebP (o JPEG con fondo blanco
+        si el navegador no codifica WebP), lado mayor de 1600 px como
+        máximo, calidad 0,82 y la orientación de la foto aplicada (las HEIC
+        o AVIF que el navegador sepa leer se convierten). Con
+        comprimir: false conservan su tamaño y su formato (calidad 0,92);
+        lo demás (PDF, video) sube tal cual;
      2. la función tumbo-archivos pide permiso a tm_archivo_preparar
         (propósito, permisos, tipo, tamaño y cuotas) y devuelve una URL de
         subida firmada para una ruta que decide el servidor;
      3. el archivo sube con PUT a esa URL;
-     4. tm_archivo_confirmar comprueba que Storage lo tiene y lo deja «listo».
+     4. la función confirma (tm_archivo_confirmar): Storage debe tenerlo con
+        el tipo y el tamaño autorizados y caber en la cuota; si no, lo borra
+        y dice por qué. Una foto pública pasa entonces al bucket público.
      → { id, url (pública, o null si el archivo es privado), tipo, bytes, nombre }
    TM.archivos.ver(id) → URL firmada temporal (5 min) o la pública.
    TM.archivos.selector(opciones) → HTML de un selector (elegir archivo y,
@@ -32,6 +36,7 @@
   var FUNCION = BASE + '/functions/v1/tumbo-archivos';
   var LADO_MAX = 1600;
   var CALIDAD = 0.82;
+  var CALIDAD_ALTA = 0.92;
   var IMAGEN = /^image\/(jpeg|png|webp)$/;
   /* fotos que el servidor no admite tal cual pero el navegador sabe leer
      (p. ej. HEIC del iPhone en Safari): se convierten */
@@ -73,35 +78,52 @@
   function aBlob(lienzo, tipo, calidad) {
     return new Promise(function (ok) { lienzo.toBlob(ok, tipo, calidad); });
   }
+  /* JPEG no tiene transparencia: lo transparente sale blanco, no negro. */
+  function aJpeg(lienzo, calidad) {
+    var g = lienzo.getContext('2d');
+    g.save();
+    g.globalCompositeOperation = 'destination-over';
+    g.fillStyle = '#ffffff';
+    g.fillRect(0, 0, lienzo.width, lienzo.height);
+    g.restore();
+    return aBlob(lienzo, 'image/jpeg', calidad);
+  }
   function conExtension(nombre, ext) { return String(nombre || 'archivo').replace(/\.[^./]*$/, '') + '.' + ext; }
   function tipoDe(file) {
     var m = String(file.name || '').toLowerCase().match(/\.([a-z0-9]+)$/);
     return String(file.type || (m && POR_EXTENSION[m[1]]) || 'application/octet-stream').toLowerCase();
   }
 
-  function optimizar(file) {
+  /* Las imágenes siempre pasan por el lienzo: así no sube su EXIF (con la
+     ubicación GPS de la foto) aunque ya sean pequeñas. Con
+     opciones.comprimir === false se conservan el tamaño y el formato. */
+  function optimizar(file, opciones) {
     var tipo = tipoDe(file);
-    var original = { blob: file, tipo: tipo, nombre: file.name };
     var convertir = CONVERTIBLE.test(tipo);
-    if (!IMAGEN.test(tipo) && !convertir) return Promise.resolve(original);
+    var comprimir = !(opciones && opciones.comprimir === false);
+    if (!IMAGEN.test(tipo) && !convertir) return Promise.resolve({ blob: file, tipo: tipo, nombre: file.name });
     return decodificar(file).then(function (img) {
       var ancho = img.naturalWidth || img.width, alto = img.naturalHeight || img.height;
-      var escala = Math.min(1, LADO_MAX / Math.max(ancho, alto, 1));
+      var escala = comprimir ? Math.min(1, LADO_MAX / Math.max(ancho, alto, 1)) : 1;
       var lienzo = document.createElement('canvas');
       lienzo.width = Math.max(1, Math.round(ancho * escala));
       lienzo.height = Math.max(1, Math.round(alto * escala));
       lienzo.getContext('2d').drawImage(img, 0, 0, lienzo.width, lienzo.height);
       if (img.close) img.close();
-      return aBlob(lienzo, 'image/webp', CALIDAD).then(function (b) {
-        if (b && b.type === 'image/webp') return { blob: b, tipo: 'image/webp', nombre: conExtension(file.name, 'webp') };
+      /* sin comprimir: el mismo formato (PNG sin pérdida), salvo lo que se convierte */
+      var destino = comprimir || convertir ? 'image/webp' : tipo;
+      var calidad = comprimir ? CALIDAD : CALIDAD_ALTA;
+      var ext = { 'image/webp': 'webp', 'image/png': 'png', 'image/jpeg': 'jpg' };
+      var hecho = destino === 'image/jpeg' ? aJpeg(lienzo, calidad) : aBlob(lienzo, destino, calidad);
+      return hecho.then(function (b) {
+        if (b && b.type === destino) return { blob: b, tipo: destino, nombre: conExtension(file.name, ext[destino]) };
         /* navegadores que no codifican WebP */
-        return aBlob(lienzo, 'image/jpeg', CALIDAD).then(function (j) {
+        return aJpeg(lienzo, calidad).then(function (j) {
           return { blob: j, tipo: 'image/jpeg', nombre: conExtension(file.name, 'jpg') };
         });
       }).then(function (r) {
-        if (!r.blob) throw falla('No pudimos preparar la foto. Prueba con otra.');
-        /* una imagen ya pequeña que no se achica sube como estaba */
-        return (!convertir && escala === 1 && r.blob.size >= file.size) ? original : r;
+        if (!r.blob || r.blob.type !== r.tipo) throw falla('No pudimos preparar la foto. Prueba con otra.');
+        return r;
       });
     }, function (e) {
       if (convertir) throw falla('Este navegador no puede leer esa foto. Prueba con una en JPG o PNG.');
@@ -157,7 +179,7 @@
     if (!opciones.proposito || !opciones.entidad) return Promise.reject(falla('Falta indicar a qué pertenece el archivo.'));
     var progreso = typeof opciones.progreso === 'function' ? opciones.progreso : function () { };
     var listo;
-    return (opciones.comprimir === false ? Promise.resolve({ blob: file, tipo: tipoDe(file), nombre: file.name }) : optimizar(file))
+    return optimizar(file, { comprimir: opciones.comprimir })
       .then(function (a) {
         listo = a;
         progreso(0);
@@ -167,7 +189,7 @@
       .then(function (p) {
         return poner(p.url_subida, listo.blob, listo.tipo, progreso).then(function () { return p; });
       })
-      .then(function (p) { return TM.api('tm_archivo_confirmar', { p_id: p.id }); })
+      .then(function (p) { return llamarFuncion({ accion: 'confirmar', id: p.id }); })
       .then(function (r) {
         progreso(1);
         return { id: r.id, url: r.url_publica ? BASE + r.url_publica : null,

@@ -4,21 +4,25 @@
  *   /rest/v1/*     → PostgREST   (por omisión 127.0.0.1:54330)
  *   /auth/v1/*     → GoTrue      (por omisión 127.0.0.1:54331)
  *   /functions/v1/tumbo-archivos → la función de archivos, con la misma
- *                    lógica que supabase/functions/tumbo-archivos/index.ts
- *                    (llama a las RPC por PostgREST)
+ *                    lógica que supabase/functions/tumbo-archivos/index.ts:
+ *                    llama a las RPC por PostgREST con la clave de servicio,
+ *                    desde la «red de la función» (FUNCION_IP) y con la del
+ *                    navegador en x-tumbo-red, como la real
  *   /storage/v1/*  → un Storage mínimo: URL firmadas de subida y de
- *                    descarga, y objetos de buckets públicos. Los archivos se
- *                    guardan en un directorio local y su fila de
- *                    storage.objects se escribe con psql.
+ *                    descarga, objetos de buckets públicos, mover y borrar
+ *                    (con la clave de servicio). Los archivos se guardan en
+ *                    un directorio local y su fila de storage.objects se
+ *                    escribe con psql.
  * con CORS abierto, como el gateway real. Solo para pruebas locales.
  *
  *   node tools/supabase-local/pasarela.js            # escucha en :54321
  *   node tools/supabase-local/pasarela.js --clave    # imprime la clave anon (JWT)
  *
- * Variables: PUERTO, PGRST_PORT, GOTRUE_PORT, JWT_SECRET, CF_IP; para Storage,
- * PGDATABASE (la base de PostgREST; por omisión postgres), PGHOST (/tmp),
- * PGPORT (54322) y TM_STORAGE_DIR (por omisión
- * ~/.cache/tumbo-supabase/storage/<base>).
+ * Variables: PUERTO, PGRST_PORT, GOTRUE_PORT, JWT_SECRET, CF_IP, FUNCION_IP;
+ * para Storage, PGDATABASE (la base de PostgREST: si falta, se deduce de la
+ * configuración del PostgREST que escucha en PGRST_PORT, y si no se puede,
+ * la pasarela no arranca), PGHOST (/tmp), PGPORT (54322) y TM_STORAGE_DIR
+ * (por omisión ~/.cache/tumbo-supabase/storage/<base>).
  */
 const http = require('http');
 const crypto = require('crypto');
@@ -34,10 +38,9 @@ const DESTINOS = {
   '/rest/v1': PGRST,
   '/auth/v1': { host: '127.0.0.1', port: parseInt(process.env.GOTRUE_PORT || '54331', 10) }
 };
-const BASE_DATOS = process.env.PGDATABASE || 'postgres';
-const DIR_STORAGE = path.resolve(process.env.TM_STORAGE_DIR ||
-  path.join(os.homedir(), '.cache', 'tumbo-supabase', 'storage', BASE_DATOS));
 const MAX_SUBIDA = 50 * 1024 * 1024;
+/* La red de salida de la función real: sus RPC no llegan con la del navegador. */
+const FUNCION_IP = process.env.FUNCION_IP || '198.51.100.7';
 
 function b64url(x) { return Buffer.from(x).toString('base64url'); }
 function firmar(texto) { return crypto.createHmac('sha256', SECRETO).update(texto).digest('base64url'); }
@@ -47,8 +50,36 @@ function jwt(payload) {
   return cab + '.' + cuerpo + '.' + firmar(cab + '.' + cuerpo);
 }
 const CLAVE_ANON = jwt({ role: 'anon', iss: 'supabase-local', iat: 1760000000, exp: 2100000000 });
+const CLAVE_SERVICIO = jwt({ role: 'service_role', iss: 'supabase-local', iat: 1760000000, exp: 2100000000 });
 
 if (process.argv.includes('--clave')) { console.log(CLAVE_ANON); process.exit(0); }
+
+/* La base de PostgREST: Storage tiene que escribir en la misma, o el PUT
+   falla y la confirmación nunca encuentra el objeto. Sin PGDATABASE se lee
+   el db-uri de la configuración del PostgREST que escucha en PGRST_PORT. */
+function baseDePostgrest() {
+  let pids = [];
+  try { pids = fs.readdirSync('/proc').filter((x) => /^\d+$/.test(x)); } catch (e) { return null; }
+  for (const pid of pids) {
+    try {
+      const args = fs.readFileSync('/proc/' + pid + '/cmdline', 'utf8').split('\0');
+      if (!/(^|\/)postgrest$/.test(args[0] || '') || !args[1]) continue;
+      const conf = fs.readFileSync(path.resolve(fs.readlinkSync('/proc/' + pid + '/cwd'), args[1]), 'utf8');
+      if (!new RegExp('^\\s*server-port\\s*=\\s*"?' + PGRST.port + '"?\\s*$', 'm').test(conf)) continue;
+      const m = conf.match(/^\s*db-uri\s*=\s*"[^"]*\/([A-Za-z0-9_]+)(\?[^"]*)?"\s*$/m);
+      if (m) return m[1];
+    } catch (e) { /* proceso ajeno o que ya terminó */ }
+  }
+  return null;
+}
+const BASE_DATOS = process.env.PGDATABASE || baseDePostgrest();
+if (!BASE_DATOS) {
+  console.error('La pasarela no sabe en qué base guardar Storage: pon PGDATABASE con la base de PostgREST ' +
+    '(p. ej. PGDATABASE=tumbo3) o arranca primero el PostgREST de PGRST_PORT=' + PGRST.port + '.');
+  process.exit(2);
+}
+const DIR_STORAGE = path.resolve(process.env.TM_STORAGE_DIR ||
+  path.join(os.homedir(), '.cache', 'tumbo-supabase', 'storage', BASE_DATOS));
 
 const CORS = {
   'access-control-allow-origin': '*',
@@ -90,12 +121,16 @@ function objeto(b, nombre) {
   return fila ? JSON.parse(fila) : null;
 }
 
-function rpc(nombre, params, ip) {
+/* Como la función real: clave de servicio, la red de la función en
+   cf-connecting-ip (la pone el borde) y la del navegador en x-tumbo-red. */
+function rpc(nombre, params, red) {
   return new Promise((ok) => {
     const cuerpo = JSON.stringify(params || {});
+    const cab = { 'content-type': 'application/json', authorization: 'Bearer ' + CLAVE_SERVICIO, 'cf-connecting-ip': FUNCION_IP,
+      'content-length': Buffer.byteLength(cuerpo) };
+    if (red) cab['x-tumbo-red'] = red;
     const r = http.request({ host: PGRST.host, port: PGRST.port, method: 'POST', path: '/rpc/' + nombre,
-      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + CLAVE_ANON, 'cf-connecting-ip': ip,
-        'content-length': Buffer.byteLength(cuerpo) } }, (resp) => {
+      headers: cab }, (resp) => {
       let texto = '';
       resp.setEncoding('utf8');
       resp.on('data', (c) => { texto += c; });
@@ -158,6 +193,25 @@ function servir(res, b, ruta) {
   fs.createReadStream(f).pipe(res);
 }
 
+/* Mover y borrar, como la API de Storage (archivo y fila). */
+function mover(de, a) {
+  const o = objeto(de.b, de.ruta);
+  const fde = archivoLocal(de.b, de.ruta), fa = archivoLocal(a.b, a.ruta);
+  if (!o || !fde || !fa || !fs.existsSync(fde)) throw new Error('Object not found');
+  if (objeto(a.b, a.ruta)) throw new Error('The resource already exists');
+  fs.mkdirSync(path.dirname(fa), { recursive: true });
+  fs.renameSync(fde, fa);
+  sql("update storage.objects set bucket_id = :'ab', name = :'an', updated_at = now() where bucket_id = :'db' and name = :'dn'",
+    { ab: a.b, an: a.ruta, db: de.b, dn: de.ruta });
+}
+function borrarObjeto(b, ruta) {
+  if (!objeto(b, ruta)) return false;
+  const f = archivoLocal(b, ruta);
+  if (f && fs.existsSync(f)) fs.unlinkSync(f);
+  sql("delete from storage.objects where bucket_id = :'b' and name = :'n'", { b, n: ruta });
+  return true;
+}
+
 function leerCuerpo(req, tope) {
   return new Promise((ok, mal) => {
     const partes = [];
@@ -207,6 +261,25 @@ async function storage(req, res, url) {
       { b: p.b, n: p.ruta, tam: cuerpo.length, tipo, etag: crypto.createHash('md5').update(cuerpo).digest('hex') });
     return responder(res, 200, { Key: p.b + '/' + p.ruta, Id: id });
   }
+  if (req.method === 'POST' && ruta === '/object/move') {
+    if (!esServicio(req)) return responder(res, 403, { statusCode: '403', error: 'Unauthorized', message: 'invalid signature' });
+    let d = {};
+    try { d = JSON.parse((await leerCuerpo(req, 10000)).toString('utf8') || '{}'); } catch (e) { }
+    const de = partir(String(d.bucketId || '') + '/' + String(d.sourceKey || ''));
+    const a = partir(String(d.destinationBucket || d.bucketId || '') + '/' + String(d.destinationKey || ''));
+    if (!de || !a || !bucket(a.b)) return responder(res, 400, { statusCode: '400', error: 'InvalidKey', message: 'Invalid key' });
+    try { mover(de, a); } catch (e) { return responder(res, 400, { statusCode: '404', error: 'not_found', message: e.message }); }
+    return responder(res, 200, { message: 'Successfully moved' });
+  }
+  if (req.method === 'DELETE' && (m = ruta.match(/^\/object\/([^/]+)$/))) {
+    if (!esServicio(req)) return responder(res, 403, { statusCode: '403', error: 'Unauthorized', message: 'invalid signature' });
+    let d = {};
+    try { d = JSON.parse((await leerCuerpo(req, 200000)).toString('utf8') || '{}'); } catch (e) { }
+    const b = decodeURIComponent(m[1]);
+    const borrados = (Array.isArray(d.prefixes) ? d.prefixes : []).map((r) => partir(b + '/' + String(r))).filter(Boolean)
+      .filter((p) => borrarObjeto(p.b, p.ruta)).map((p) => ({ bucket_id: p.b, name: p.ruta }));
+    return responder(res, 200, borrados);
+  }
   if (req.method === 'POST' && (m = ruta.match(/^\/object\/sign\/(.+)$/))) {
     if (!esServicio(req)) return responder(res, 403, { statusCode: '403', error: 'Unauthorized', message: 'invalid signature' });
     const p = partir(m[1]);
@@ -240,6 +313,20 @@ function errorRpc(r) {
   return { status: r.status >= 500 ? 502 : r.status, error: d.message || 'No se pudo completar la acción.', code: d.code };
 }
 
+/* La limpieza: Postgres decide qué sobra y aquí se borra (como la real,
+   como mucho una vez por minuto mientras hay subidas, y con accion 'limpiar'). */
+async function limpiar() {
+  const r = await rpc('tm_archivos_limpiar', {}, '');
+  if (!r.ok) throw new Error((r.dato && r.dato.message) || 'la limpieza falló');
+  return (r.dato.borrar || []).filter((o) => o && o.bucket && o.ruta && borrarObjeto(o.bucket, o.ruta)).length;
+}
+let ultimaLimpieza = 0, ultimaPedida = 0;
+function limpiarDeVezEnCuando() {
+  if (Date.now() - ultimaLimpieza < 60000) return;
+  ultimaLimpieza = Date.now();
+  limpiar().catch((e) => console.error('tumbo-archivos: limpieza', e.message));
+}
+
 async function funcionArchivos(req, res) {
   if (req.method !== 'POST') return responder(res, 405, { error: 'Método no permitido.' });
   let datos;
@@ -247,21 +334,40 @@ async function funcionArchivos(req, res) {
     return responder(res, 400, { error: 'Solicitud inválida.' });
   }
   const sesion = String(req.headers['x-tumbo-sesion'] || '') || null;
-  const ip = ipDe(req);
+  const red = ipDe(req);
   const origen = 'http://' + (req.headers.host || '127.0.0.1:' + PUERTO) + '/storage/v1';
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   try {
     if (datos.accion === 'subir') {
       const r = await rpc('tm_archivo_preparar', { p_sesion: sesion, p_proposito: datos.proposito || null,
-        p_entidad: datos.entidad || null, p_tipo: datos.tipo || null, p_bytes: datos.bytes || null, p_nombre: datos.nombre || null }, ip);
+        p_entidad: datos.entidad || null, p_tipo: datos.tipo || null, p_bytes: datos.bytes || null, p_nombre: datos.nombre || null }, red);
       if (!r.ok) { const e = errorRpc(r); return responder(res, e.status, { error: e.error, code: e.code }); }
+      limpiarDeVezEnCuando();
       const f = firmarSubida(r.dato.bucket, r.dato.ruta);
       return responder(res, 200, { id: r.dato.id, bucket: r.dato.bucket, ruta: r.dato.ruta, url_subida: origen + f.url });
     }
-    if (datos.accion === 'ver') {
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(datos.id || ''))) {
-        return responder(res, 404, { error: 'No encontramos ese archivo.' });
+    if (datos.accion === 'confirmar') {
+      if (!UUID.test(String(datos.id || ''))) return responder(res, 404, { error: 'No encontramos ese archivo.' });
+      const confirmar = () => rpc('tm_archivo_confirmar', { p_sesion: sesion, p_id: datos.id }, red);
+      let r = await confirmar();
+      if (r.ok && r.dato.estado === 'mover') {
+        try { mover({ b: r.dato.de.bucket, ruta: r.dato.de.ruta }, { b: r.dato.a.bucket, ruta: r.dato.a.ruta }); } catch (e) {
+          console.error('tumbo-archivos: mover', e.message);
+        }
+        r = await confirmar();
       }
-      const r = await rpc('tm_archivo_acceso', { p_sesion: sesion, p_id: datos.id }, ip);
+      if (!r.ok) { const e = errorRpc(r); return responder(res, e.status, { error: e.error, code: e.code }); }
+      if (r.dato.estado === 'descartado') {
+        try { borrarObjeto(r.dato.borrar.bucket, r.dato.borrar.ruta); } catch (e) { console.error('tumbo-archivos: borrar', e.message); }
+        return responder(res, 400, { error: String(r.dato.error) });
+      }
+      if (r.dato.estado !== 'listo') return responder(res, 502, { error: 'No pudimos publicar el archivo. Inténtalo de nuevo en unos segundos.' });
+      limpiarDeVezEnCuando();
+      return responder(res, 200, { id: r.dato.id, url_publica: r.dato.url_publica || null });
+    }
+    if (datos.accion === 'ver') {
+      if (!UUID.test(String(datos.id || ''))) return responder(res, 404, { error: 'No encontramos ese archivo.' });
+      const r = await rpc('tm_archivo_acceso', { p_sesion: sesion, p_id: datos.id }, red);
       if (!r.ok) { const e = errorRpc(r); return responder(res, e.status, { error: e.error, code: e.code }); }
       const a = r.dato;
       if (a.publico) {
@@ -270,6 +376,11 @@ async function funcionArchivos(req, res) {
       if (!objeto(a.bucket, a.ruta)) return responder(res, 404, { error: 'El archivo ya no está en el almacenamiento.' });
       return responder(res, 200, { url: origen + firmarDescarga(a.bucket, a.ruta, 300), expira: 300, publico: false,
         tipo: a.tipo, nombre: a.nombre });
+    }
+    if (datos.accion === 'limpiar') {
+      if (Date.now() - ultimaPedida < 5000) return responder(res, 200, { borrados: 0, espera: true });
+      ultimaPedida = Date.now();
+      return responder(res, 200, { borrados: await limpiar() });
     }
     return responder(res, 400, { error: 'Acción desconocida.' });
   } catch (e) {

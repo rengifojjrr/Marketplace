@@ -31,8 +31,9 @@ para **no tocar nada** de lo que ya hay:
 - **Una sola puerta.** Lo único visible son las funciones `public.tm_*`. Cada
   una recibe el token de sesión, valida rol, propiedad y estado, y responde
   solo con lo que ese rol puede ver. La función de archivos `tumbo-archivos`
-  y los buckets `tumbo-publico`/`tumbo-privado` de Storage también pasan por
-  ellas: quién sube o ve cada archivo lo deciden las `tm_archivo_*`.
+  y los buckets `tumbo-publico`, `tumbo-espera` y `tumbo-privado` de Storage
+  también pasan por ellas: quién sube o ve cada archivo lo deciden las
+  `tm_archivo_*`.
 
 Para quitar Tumbo del proyecto basta con ejecutar
 [`tools/retirar-tumbo.sql`](../tools/retirar-tumbo.sql). Antes de borrar
@@ -72,7 +73,7 @@ supabase/migrations/
   20261022170700_tumbo_topes_demo.sql  topes de las cuentas demo sin bloqueos cruzados
   20261022170800_tumbo_acceso_demo.sql  acceso a las cuentas demo sin coste de bcrypt
   20261023100000_tumbo_fundaciones.sql  ola 0: ajustes, archivos, bandeja de salida, reembolsos y contratos
-supabase/functions/tumbo-archivos/     función (Deno) que firma subidas y descargas de Storage
+supabase/functions/tumbo-archivos/     función (Deno) que firma subidas y descargas de Storage, publica lo confirmado y borra lo descartado
 assets/js/tm-config.js                 URL y clave publicable del proyecto
 assets/js/tm-remoto.js                 motor remoto: llama a /rest/v1/rpc/tm_* con fetch (sin librerías)
 assets/js/tm-mod-*.js                  módulos por dominio (ola 0: archivos y códigos QR)
@@ -197,9 +198,12 @@ tools/verificar-todo.js                todas las suites, con las mismas variable
 6. **Auditoría** de solo agregar: los disparadores impiden editar, borrar o
    vaciar eventos (también al reiniciar la demo).
 7. **Segundo factor**: en la beta es un código fijo (`123456`) verificado en el
-   navegador. Es una puerta de demostración, no una defensa. Para producción:
-   TOTP en el servidor exigido por las funciones financieras (el contrato
-   `tumbo_privado.exigir_elevada` ya está en su sitio: la ola 1 lo llena).
+   navegador. Es una puerta de demostración, no una defensa. Por eso lo que
+   no admite marcha atrás pide **sesión elevada**
+   (`tumbo_privado.exigir_elevada`), que hoy rechaza siempre a las cuentas de
+   prueba —su contraseña es pública—: con ellas nadie cambia los ajustes de la
+   plataforma (datos de cobro, soporte, avisos, interruptores ni cuotas). La
+   ola 1 agrega ahí el TOTP verificado en el servidor para las cuentas reales.
 8. **Defensa en profundidad**: RLS activo y sin políticas en todas las tablas
    de `tumbo`; aunque alguien expusiera el esquema por error, ninguna fila
    sería legible.
@@ -224,14 +228,15 @@ tools/verificar-todo.js                todas las suites, con las mismas variable
 | `tm_ajustar_producto` | precio: seller, precios · stock: seller, operador | edición en línea |
 | `tm_moderar_producto` · `tm_decidir_kyc` | superadmin | publicación y homologación |
 | `tm_marcar_notificaciones_leidas` | con sesión | lectura individual de avisos |
-| `tm_reiniciar_demo` | superadmin | vuelve los datos de negocio a la semilla (cuentas, ajustes y auditoría se conservan; reembolsos, adjuntos de pedidos y mensajes de pedidos se van con ellos) |
+| `tm_reiniciar_demo` | superadmin | vuelve los datos de negocio a la semilla (cuentas, ajustes y auditoría se conservan; los reembolsos y los mensajes de pedidos se van con ellos y todos los archivos se descartan) |
 | `tm_ajustes_publicos()` | cualquiera | los ajustes públicos `{clave: valor}` (interruptores, aviso de incidencia, soporte, datos de cobro) |
-| `tm_ajuste_guardar(sesión, clave, valor)` | superadmin (con sesión elevada) | cambia un ajuste existente conservando su tipo; auditado con el valor anterior y el nuevo |
+| `tm_ajuste_guardar(sesión, clave, valor)` | superadmin con sesión elevada (nunca una cuenta de prueba) | cambia un ajuste existente con su tipo (null solo en los vaciables); auditado con el valor anterior y el nuevo |
 | `tm_archivo_preparar(sesión, propósito, entidad, tipo, bytes, nombre)` | según el propósito | valida permisos, tipo, tamaño y cuotas, y registra la subida: `{id, bucket, ruta}` |
-| `tm_archivo_confirmar(sesión, id)` | quien preparó | comprueba en Storage tamaño y tipo, deja el archivo «listo»: `{id, url_publica}` |
+| `tm_archivo_confirmar(sesión, id)` | quien preparó (por la función) | comprueba en Storage tamaño, tipo y cuota: `{estado: 'listo', id, url_publica}`, `{estado: 'mover', …}` (foto pública por pasar al bucket público) o `{estado: 'descartado', error, borrar}` |
 | `tm_archivo_acceso(sesión, id)` | según el propósito (los públicos, cualquiera) | `{bucket, ruta, …}` para firmar la descarga; un archivo ajeno responde «no encontrado» |
-| `tm_salida_listar(sesión, estado, antes)` | superadmin, ops | bandeja de mensajes salientes, 50 por página: `{mensajes, siguiente}` |
-| `tm_salida_marcar(sesión, id, estado, nota)` | superadmin, ops | `manual`, `enviado` o `descartado`; auditado |
+| `tm_archivos_limpiar()` | solo la clave de servicio (la función) | descarta lo no confirmado a tiempo y devuelve los objetos por borrar en Storage |
+| `tm_salida_listar(sesión, estado, antes)` | superadmin, ops (las cuentas de prueba, solo los mensajes de cuentas de prueba) | bandeja de mensajes salientes, 50 por página: `{mensajes, siguiente}` |
+| `tm_salida_marcar(sesión, id, estado, nota)` | superadmin, ops | `manual`, `enviado` o `descartado`; al cerrar un mensaje de seguridad se borra su código o enlace; auditado |
 | `tm_reembolsos(sesión)` | comprador (los suyos), finanzas, superadmin | reembolsos creados por cancelaciones, reclamos y devoluciones |
 
 ## Arquitectura modular y contratos
@@ -268,13 +273,13 @@ crece en sus propias piezas, sin tocar las de los demás:
 
   | Contrato | Hoy | Lo completa |
   | --- | --- | --- |
-  | `exigir_elevada(yo)` | no exige nada | Cuentas (2FA en el servidor) |
+  | `exigir_elevada(yo)` | rechaza las cuentas de prueba | Cuentas (2FA en el servidor) |
   | `tiene_permiso(yo, permiso)` | solo el superadmin | Cuentas (permisos finos) |
   | `cotizar_envio(seller, destino, items)` | agencia MRW 2,5 USD (1–3 días) y domicilio Zoom 4 USD (2–4 días) | Logística |
   | `aplicar_promociones(usuario, items, cupón)` | las líneas con su precio vigente, sin descuento | Crecimiento |
   | `riesgo_pedido(usuario, datos)` | `{"puntaje": 0, "motivos": []}` | Crecimiento |
   | `crear_reembolso(pedido, monto_usd, motivo)` | registra el reembolso y avisa a Finanzas | Pagos |
-  | `encolar(usuario, plantilla, datos)` | deja los mensajes en la bandeja | Comunicación (envío real) |
+  | `encolar(usuario, plantilla, datos)` | deja los mensajes en la bandeja | Comunicación (envío real; al cerrar un mensaje de seguridad, borrar su código o enlace) |
   | `ajuste(clave)` | lee `tumbo.ajustes` | Crecimiento (edición desde el backoffice) |
 - **Pruebas por dominio**: `tools/api-<dominio>.js` y `tools/e2e-<dominio>.js`
   (con el arnés `tools/e2e-comun.js`); `tools/verificar-todo.js` corre todo.
@@ -287,25 +292,37 @@ resto solo el servidor (`tumbo_privado.ajuste`). La semilla deja todo lo que
 depende de la persona dueña del proyecto **marcado como pendiente**, nunca con
 datos inventados:
 
-| Clave | Público | Valor inicial |
-| --- | --- | --- |
-| `pagos_beneficiario` | sí | `configurado: false` y, por método (Pago Móvil, Transferencia), banco, teléfono o cuenta, RIF y titular «PENDIENTE DE CONFIGURAR» |
-| `checkout_activo`, `registro_activo` | sí | `true` (los interruptores los aplica la ola 2) |
-| `aviso_incidencia` | sí | `null` |
-| `soporte` | sí | WhatsApp, correo y horario «PENDIENTE DE CONFIGURAR» |
-| `cuotas_archivos` | no | 100 archivos por usuario y día, 300 MB por comercio y 300 MB por cuenta sin comercio |
+| Clave | Público | Tipo | Valor inicial |
+| --- | --- | --- | --- |
+| `pagos_beneficiario` | sí | conjunto | `configurado: false` y, por método (Pago Móvil, Transferencia), banco, teléfono o cuenta, RIF y titular «PENDIENTE DE CONFIGURAR» |
+| `checkout_activo`, `registro_activo` | sí | sí/no | `true` (los interruptores los aplica la ola 2) |
+| `aviso_incidencia` | sí | texto o `null` | `null` |
+| `soporte` | sí | conjunto | WhatsApp, correo y horario «PENDIENTE DE CONFIGURAR» |
+| `cuotas_archivos` | no | conjunto | 100 archivos por usuario y día, 300 MB por comercio y 300 MB por cuenta sin comercio |
 
-Solo el superadministrador los cambia (`tm_ajuste_guardar`, que ya pasa por
-`exigir_elevada`); el tipo de cada ajuste se conserva y cada cambio queda en
-la auditoría con el valor anterior y el nuevo.
+Solo los cambia un superadministrador con sesión elevada
+(`tm_ajuste_guardar` pasa por `exigir_elevada`): **las cuentas de prueba no**,
+porque su contraseña es pública y cualquiera podría poner sus propios datos
+de cobro o un aviso falso en la tienda. Cada ajuste tiene su tipo en la
+tabla (columna `tipo`, que también impone una restricción) y solo los
+`vaciables` admiten `null`; cada cambio queda en la auditoría con el valor
+anterior y el nuevo. Para cargar los datos reales hace falta una cuenta real
+del equipo; mientras la ola 1 no trae las invitaciones, se crea por SQL:
+
+```sql
+insert into tumbo.usuarios (email, clave_hash, nombre, rol)
+values ('dueña@dominio.com', extensions.crypt('una contraseña larga', extensions.gen_salt('bf', 10)), 'Nombre', 'superadmin');
+```
 
 ### Archivos
 
 Fotos de productos, documentos KYC, comprobantes, evidencias, guías… viven en
-Supabase Storage, en dos buckets que crea la migración (solo si el proyecto
-tiene Storage): `tumbo-publico` (público, imágenes de hasta 5 MB) y
-`tumbo-privado` (privado, hasta 15 MB). Cada archivo tiene un **propósito**
-que fija su bucket, su tamaño, sus tipos y quién lo sube o lo ve:
+Supabase Storage, en tres buckets que crea la migración (solo si el proyecto
+tiene Storage): `tumbo-publico` (público, imágenes de hasta 5 MB),
+`tumbo-espera` (privado, imágenes de hasta 5 MB: ahí esperan las fotos
+públicas hasta confirmarse) y `tumbo-privado` (privado, hasta 15 MB). Cada
+archivo tiene un **propósito** que fija su bucket, su tamaño, sus tipos y
+quién lo sube o lo ve:
 
 | Propósito | Bucket | Máx. | Tipos | Sube | Ve además |
 | --- | --- | --- | --- | --- | --- |
@@ -321,24 +338,44 @@ que fija su bucket, su tamaño, sus tipos y quién lo sube o lo ve:
 El comercio solo alcanza los pedidos que ya ve (con el pago conciliado).
 El recorrido de una subida:
 
-1. el navegador (`TM.archivos.subir`) optimiza las imágenes: WebP, lado mayor
-   de 1600 px como máximo, calidad 0,82 y la orientación de la foto aplicada;
+1. el navegador (`TM.archivos.subir`) vuelve a codificar siempre las
+   imágenes, así no sube su EXIF (la ubicación GPS de la foto): WebP —o JPEG
+   con fondo blanco donde el navegador no codifica WebP—, lado mayor de
+   1600 px como máximo, calidad 0,82 y la orientación de la foto aplicada
+   (con `comprimir: false`, su tamaño y su formato, calidad 0,92);
 2. la función `tumbo-archivos` llama a `tm_archivo_preparar`, que valida
    permisos, tipo, tamaño y cuotas y decide la ruta
    (`<propósito>/<seller o usuario>/<uuid>.<ext>`), y pide a Storage una URL
-   de subida firmada para esa ruta (no sobrescribe);
+   de subida firmada para esa ruta (no sobrescribe); las fotos públicas se
+   suben a `tumbo-espera`;
 3. el navegador sube con `PUT` a esa URL;
-4. `tm_archivo_confirmar` busca el objeto en `storage.objects` y lo deja
-   «listo» solo si su tamaño y su tipo reales están autorizados.
+4. el navegador confirma por la función (`{accion: 'confirmar'}`):
+   `tm_archivo_confirmar` busca el objeto en `storage.objects` y lo deja
+   «listo» solo si su tamaño y su tipo reales están autorizados y caben en la
+   cuota. Si no, lo descarta y la función borra el objeto al momento; si es
+   una foto pública, la función la mueve a `tumbo-publico` y vuelve a
+   confirmar. Nada sin confirmar se sirve en público.
 
 Para ver un archivo privado, la función llama a `tm_archivo_acceso` y firma
 una URL de descarga de 5 minutos (`TM.archivos.ver(id)`). Cuotas contra el
 abuso del almacenamiento compartido (ajuste `cuotas_archivos`): archivos por
 usuario y día —en las cuentas demo, por usuario y red, con un respaldo por
-cuenta de diez veces— y MB en total por comercio o por cuenta sin comercio
-(lo pendiente cuenta una hora). `TM.archivos.selector(opciones)` pinta un
-selector listo (elegir archivo y, en el móvil, tomar foto; vista previa,
-progreso y quitar) que se activa solo tras cada pintado.
+cuenta de diez veces; lo descartado también cuenta— y MB en total por
+comercio o por cuenta sin comercio. En los MB, lo listo cuenta por su
+tamaño; cada subida pendiente, mientras su URL vale (dos horas), por lo que
+esa URL deja subir —el límite de su bucket—, no por lo que declara; y lo que
+siga en Storage sin confirmar, por su tamaño real hasta que la limpieza lo
+borre. **Limpieza**: Supabase no deja borrar objetos por SQL, así que
+`tumbo_privado.tarea_archivos()` decide y la función borra por la API de
+Storage: descarta las subidas que no se confirmaron a tiempo y borra los
+objetos descartados y los que quedaron sin fila. La función la corre sola,
+como mucho una vez por minuto, mientras recibe subidas, y con
+`{accion: 'limpiar'}` (para un proyecto sin actividad se puede programar esa
+llamada con pg_cron y pg_net). Para dar de baja un archivo listo basta con
+marcarlo `descartado`; las galerías buscan por entidad solo lo `listo`.
+`TM.archivos.selector(opciones)` pinta un selector listo (elegir archivo y,
+en el móvil, tomar foto; vista previa, progreso y quitar) que se activa solo
+tras cada pintado.
 
 La función **se despliega sin verificación de JWT**, porque autentica con la
 sesión de Tumbo (cabecera `x-tumbo-sesion`), no con Supabase Auth:
@@ -347,17 +384,19 @@ sesión de Tumbo (cabecera `x-tumbo-sesion`), no con Supabase Auth:
 supabase functions deploy tumbo-archivos --no-verify-jwt
 ```
 
-Usa las variables que Supabase da a toda función (`SUPABASE_URL`,
-`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`); la clave de servicio solo
-firma URLs y nunca sale del servidor. Como sus llamadas a la API salen desde
-la red de la función, el tope de escrituras por red cuenta ahí todas las
-subidas; los topes por cuenta y las cuotas de archivos siguen siendo por
-persona. `tm_archivo_confirmar` lee `storage.objects` con los privilegios del
-dueño de las funciones (`postgres`, que en Supabase no pasa por RLS). Al
-reiniciar la demo se borran las filas de los adjuntos de pedidos, reclamos y
-liquidaciones (sus números se vuelven a usar); los objetos que queden en
-Storage ya no se pueden ver ni firmar, y `tools/retirar-tumbo.sql` los
-reconoce por su ruta.
+Usa las variables que Supabase da a toda función (`SUPABASE_URL` y
+`SUPABASE_SERVICE_ROLE_KEY`); la clave de servicio nunca sale del servidor.
+Sus llamadas a la API salen desde la red de la función, así que las hace con
+la clave de servicio y pasa la conexión del navegador en la cabecera
+`x-tumbo-red`: `tumbo_privado.ip_cliente()` solo la cree con esa clave (con
+la publicable se ignora), y así los topes por red —escrituras y archivos de
+las cuentas demo— siguen siendo por persona. `tm_archivo_confirmar` lee
+`storage.objects` con los privilegios del dueño de las funciones
+(`postgres`, que en Supabase no pasa por RLS). Al reiniciar la demo todos
+los archivos se descartan (cuelgan de SKU y de números de pedido, reclamo y
+liquidación que se vuelven a usar) y la limpieza borra sus objetos; hasta
+entonces siguen contando en las cuotas, así que reiniciar no abre espacio.
+`tools/retirar-tumbo.sql` reconoce los objetos de Tumbo por su ruta.
 
 ### Bandeja de mensajes salientes
 
@@ -375,7 +414,12 @@ recuperación e invitaciones) y deja el mensaje `pendiente` en
 ola 2. Operaciones y el superadministrador ven la bandeja
 (`tm_salida_listar`) y la marcan a mano (`tm_salida_marcar`: `manual`,
 `enviado` o `descartado`, con nota y auditoría); los mensajes con códigos o
-enlaces de seguridad solo los lee y los da por enviados el superadministrador.
+enlaces de seguridad solo los lee y los da por enviados el superadministrador
+con su cuenta real, y al cerrarlos se borra su código o enlace (no quedan
+guardados en claro). Las cuentas de prueba —contraseña pública— solo ven y
+marcan los mensajes dirigidos a cuentas de prueba, nunca los correos,
+teléfonos ni mensajes de las personas reales, y nunca el contenido de
+seguridad.
 
 ### Reembolsos
 
@@ -418,11 +462,13 @@ Realtime: en un proyecto compartido delataría la actividad de Tumbo.
 
    ```bash
    NODE_USE_ENV_PROXY=1 TM_SUPABASE_URL=… TM_SUPABASE_KEY=… node tools/verificar-rls.js
-   NODE_USE_ENV_PROXY=1 TM_NUBE=1 TM_SUPABASE_URL=… TM_SUPABASE_KEY=… node tools/api-fundaciones.js
+   NODE_USE_ENV_PROXY=1 TM_NUBE=1 TM_SUPERADMIN=correo:clave TM_SUPABASE_URL=… TM_SUPABASE_KEY=… node tools/api-fundaciones.js
    TM_NUBE=1 node tools/verificar-beta.js https://rengifojjrr.github.io/Marketplace
    ```
 
-   Ambas reinician los datos de la demo; por eso, contra el sitio publicado,
+   (`TM_SUPERADMIN` es una cuenta real del equipo con rol superadmin: sin
+   ella, lo que cambia ajustes se informa como omitido.) Las pruebas
+   reinician los datos de la demo; por eso, contra el sitio publicado,
    la prueba en navegador exige `TM_NUBE=1` (o `npm run test:nube`). Desde un
    entorno con proxy, el sitio servido en local también se puede probar
    contra la nube: `NODE_USE_ENV_PROXY=1 TM_SUPABASE_URL=… TM_SUPABASE_KEY=…
@@ -457,12 +503,21 @@ PGDATABASE=… tools/supabase-local/reaplicar.sh        # vuelve a aplicar las m
 `levantar.sh` crea la base si no existe con lo que un proyecto Supabase trae
 por base (`tools/supabase-local/base.sql`: roles de la API, `extensions` con
 pgcrypto, privilegios y un esquema `storage` mínimo), aplica todas las
-migraciones y arranca PostgREST y la pasarela. La pasarela hace también de
-**Storage** (URL firmadas de subida y de descarga, objetos públicos; los
-archivos se guardan en `~/.cache/tumbo-supabase/storage/<base>` y su fila de
-`storage.objects` se escribe con psql) y de la **función `tumbo-archivos`**,
-con la misma lógica que la real. `TM_PGDATABASE` habilita en
-`tools/api-*.js` las comprobaciones por SQL de los contratos internos.
+migraciones y arranca PostgREST y la pasarela. Guarda el PID y la hora de
+arranque de lo que levanta y solo detiene un proceso si sigue siendo ese
+PostgREST o esa pasarela (tras un reinicio de la máquina los PID se
+reutilizan). La pasarela hace también de **Storage** (URL firmadas de subida
+y de descarga, objetos públicos, mover y borrar; los archivos se guardan en
+`~/.cache/tumbo-supabase/storage/<base>` y su fila de `storage.objects` se
+escribe con psql, en la base `PGDATABASE`: si falta, la deduce de la
+configuración del PostgREST de `PGRST_PORT`, y si no puede, no arranca) y de
+la **función `tumbo-archivos`**, con la misma lógica que la real: sus RPC
+salen con la clave de servicio desde una «red de la función» fija
+(`FUNCION_IP`) y con la del navegador en `x-tumbo-red`. `TM_PGDATABASE`
+habilita en `tools/api-*.js` las comprobaciones por SQL (contratos internos,
+lo que queda en Storage, los topes por red desde otras direcciones de
+127.0.0.0/8 y las herramientas locales) y crea un superadministrador real de
+pruebas para los ajustes; contra la nube, `TM_SUPERADMIN=correo:clave`.
 `tools/supabase-local/iniciar.sh` sigue levantando el stack completo
 original (con Auth, que Tumbo no usa).
 

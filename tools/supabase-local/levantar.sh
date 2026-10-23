@@ -20,8 +20,10 @@
 #   NODE_PATH=$(npm root -g) TM_PGDATABASE=tumbo3 TM_SUPABASE_URL=http://127.0.0.1:54351 \
 #     TM_SUPABASE_KEY=$K node tools/verificar-todo.js http://localhost:8099
 #
-# Solo detiene lo que él mismo arrancó (por su PID); si otro proceso ocupa
-# un puerto, avisa y no toca nada.
+# Solo detiene lo que él mismo arrancó: guarda el PID y la hora de arranque
+# del proceso, y antes de detenerlo comprueba que sigue siendo ese PostgREST
+# o esa pasarela (tras un reinicio de la máquina los PID se reutilizan). Si
+# otro proceso ocupa un puerto, avisa y no toca nada.
 # =========================================================================
 set -euo pipefail
 
@@ -39,14 +41,32 @@ uso() {
   exit 2
 }
 responde() { [ "$(curl -s -o /dev/null -m 2 -w '%{http_code}' "http://127.0.0.1:$1/" || true)" != "000" ]; }
-# Detiene lo que este script arrancó en ese puerto.
+# Hora de arranque de un proceso (campo 22 de /proc/<pid>/stat, contado
+# después del nombre, que puede llevar espacios).
+arranque() { sed 's/^.*) //' "/proc/$1/stat" 2>/dev/null | awk '{print $20}'; }
+# ¿Es el PostgREST o la pasarela que este script arrancó en ese puerto?
+nuestro() {
+  local pid="$1" puerto="$2" hora="$3" cmd
+  [ -r "/proc/$pid/cmdline" ] || return 1
+  if [ -n "$hora" ] && [ "$(arranque "$pid")" != "$hora" ]; then return 1; fi
+  cmd="$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)"
+  case "$cmd" in
+    *postgrest*"-$puerto.conf"*) return 0 ;;
+    *pasarela.js*) tr '\0' '\n' < "/proc/$pid/environ" 2>/dev/null | grep -qx "PUERTO=$puerto" ;;
+    *) return 1 ;;
+  esac
+}
+# Detiene lo que este script arrancó en ese puerto; un .pid que ya no
+# corresponde (proceso ajeno o que terminó) se borra sin tocar nada.
 detener() {
-  local f="$CACHE/pids/$1.pid" pid
+  local f="$CACHE/pids/$1.pid" pid hora
   [ -f "$f" ] || return 0
-  pid="$(cat "$f")"
-  if kill -0 "$pid" 2>/dev/null; then
+  read -r pid hora < "$f" || true
+  if [[ "$pid" =~ ^[0-9]+$ ]] && nuestro "$pid" "$1" "${hora:-}"; then
     kill "$pid"
     for _ in $(seq 1 20); do kill -0 "$pid" 2>/dev/null || break; sleep 0.2; done
+  elif [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+    echo "· el PID $pid de :$1 ya no es un proceso de este script: no se toca" >&2
   fi
   rm -f "$f"
 }
@@ -110,10 +130,10 @@ EOF
 # ningún subshell se queda con la salida de este script)
 cd "$RAIZ"
 nohup "$CACHE/postgrest" "$CONF" > "$CACHE/postgrest-$PGRST.log" 2>&1 < /dev/null &
-echo $! > "$CACHE/pids/$PGRST.pid"
+echo "$! $(arranque $!)" > "$CACHE/pids/$PGRST.pid"
 PUERTO="$PASARELA" PGRST_PORT="$PGRST" PGDATABASE="$BASE" PGPORT="$PGPUERTO" PGHOST=/tmp JWT_SECRET="$SECRETO" \
   nohup node tools/supabase-local/pasarela.js > "$CACHE/pasarela-$PASARELA.log" 2>&1 < /dev/null &
-echo $! > "$CACHE/pids/$PASARELA.pid"
+echo "$! $(arranque $!)" > "$CACHE/pids/$PASARELA.pid"
 for _ in $(seq 1 50); do
   if responde "$PGRST" && responde "$PASARELA"; then break; fi
   sleep 0.2

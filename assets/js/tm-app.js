@@ -86,6 +86,8 @@
   function navDe(superficie, s) {
     return (NAV_EXTRA[superficie] || []).filter(function (i) { return !i.roles || (s && i.roles.indexOf(s.rol) >= 0); });
   }
+  /* El href de una entrada de menú: las externas (https, correo, teléfono)
+     van tal cual; las del sitio, con la raíz relativa. */
   function enlace(ruta) { return /^(https?:|mailto:|tel:)/.test(ruta || '') ? ruta : href(ruta || 'app/tienda/inicio.html'); }
 
   var GANCHOS = {};
@@ -494,7 +496,7 @@
 
   window.APP = {
     ROLES: ROLES, registrar: registrar, params: params, montar: montar, html403: html403,
-    nav: nav, navDe: navDe, gancho: gancho, ganchos: ganchos, trasPintar: trasPintar
+    nav: nav, navDe: navDe, enlace: enlace, gancho: gancho, ganchos: ganchos, trasPintar: trasPintar
   };
   /* montar() lo invoca cada página después de cargar sus vistas. */
 })();

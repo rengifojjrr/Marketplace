@@ -24,6 +24,9 @@ al instante o en el siguiente sondeo de 20 segundos.
 ## Cuentas de prueba
 
 Contraseña `demo1234`. Los perfiles **MFA** piden después el código `123456`.
+Como su contraseña es pública, las cuentas de prueba no pueden cambiar los
+ajustes de la plataforma (datos de cobro, soporte, avisos ni cuotas) ni leer
+los mensajes de las personas reales: eso exige una cuenta real del equipo.
 
 | Superficie | Rol | Correo | MFA |
 | --- | --- | --- | --- |
@@ -92,7 +95,7 @@ assets/js/
   tm-vistas-*.js      Las vistas de cada superficie
   tm-mod-*.js         Módulos por dominio (archivos, códigos QR…)
 supabase/migrations/  Esquema, RLS, funciones de negocio y semilla
-supabase/functions/   Función de archivos (firma subidas y descargas de Storage)
+supabase/functions/   Función de archivos (firma subidas y descargas de Storage, publica lo confirmado y borra lo descartado)
 prototipo/            El prototipo original de Google Stitch (referencia)
 docs/                 Investigación, especificación y arquitectura
 tools/                Generadores, fuentes, verificación E2E y Supabase local

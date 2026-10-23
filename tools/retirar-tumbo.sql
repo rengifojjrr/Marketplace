@@ -4,11 +4,12 @@
 -- los de Tumbo y que ningún objeto de fuera depende de ellos; si algo no
 -- cuadra, se detiene sin borrar nada. Las funciones public.tm_* se borran
 -- por firma exacta (una función de otra aplicación con el mismo nombre no se
--- toca). De los buckets de Storage de Tumbo (tumbo-publico y tumbo-privado)
--- se borran los archivos de Tumbo, y el bucket solo si queda vacío; ningún
--- otro bucket se toca. Donde Storage no deja borrar objetos por SQL
--- (Supabase lo exige por su API), se avisa y ese bucket queda para vaciarlo
--- desde el panel. Todo lo demás ocurre en una sola sentencia: o se borra
+-- toca). De los buckets de Storage de Tumbo (tumbo-publico, tumbo-espera y
+-- tumbo-privado) se borran los archivos de Tumbo, y el bucket solo si queda
+-- vacío; ningún otro bucket se toca. Donde Storage no deja borrar por SQL
+-- (Supabase protege storage.objects y storage.buckets: exige su API), se
+-- avisa y ese bucket queda para vaciarlo y borrarlo desde el panel, sin
+-- detener el retiro. Todo lo demás ocurre en una sola sentencia: o se borra
 -- todo o nada.
 do $$
 declare
@@ -34,7 +35,7 @@ declare
     'public.tm_ajustes_publicos()', 'public.tm_ajuste_guardar(text,text,jsonb)',
     'public.tm_archivo_preparar(text,text,text,text,bigint,text)', 'public.tm_archivo_confirmar(text,uuid)',
     'public.tm_archivo_acceso(text,uuid)', 'public.tm_salida_listar(text,text,bigint)',
-    'public.tm_salida_marcar(text,bigint,text,text)', 'public.tm_reembolsos(text)'];
+    'public.tm_salida_marcar(text,bigint,text,text)', 'public.tm_reembolsos(text)', 'public.tm_archivos_limpiar()'];
   f text;
   ajenos text;
   b text;
@@ -87,19 +88,23 @@ begin
 
   -- Storage: solo los objetos de Tumbo, y el bucket si queda vacío.
   if to_regclass('storage.objects') is not null and to_regclass('tumbo.archivos') is not null then
-    foreach b in array array['tumbo-publico', 'tumbo-privado'] loop
+    foreach b in array array['tumbo-publico', 'tumbo-espera', 'tumbo-privado'] loop
       begin
         -- registrados en tumbo.archivos o con la forma de ruta que da Tumbo
         -- (<propósito>/<seller o usuario>/<uuid>.<ext>, p. ej. los que dejó un reinicio de la demo)
         delete from storage.objects o
         where o.bucket_id = b
-          and (exists (select 1 from tumbo.archivos a where a.bucket = b and a.ruta = o.name)
+          and (exists (select 1 from tumbo.archivos a where a.ruta = o.name)
                or o.name ~ '^(producto|perfil|kyc|evidencia|comprobante|guia|entrega|chat|liquidacion)/[A-Za-z0-9-]+/[0-9a-f-]{36}\.(jpg|png|webp|pdf|mp4|bin)$');
       exception when others then
         raise notice 'Storage no deja borrar los archivos de «%» por SQL (%): vacíalo desde el panel de Supabase.', b, sqlerrm;
       end;
       if not exists (select 1 from storage.objects o where o.bucket_id = b) then
-        delete from storage.buckets where id = b;
+        begin
+          delete from storage.buckets where id = b;
+        exception when others then
+          raise notice 'Storage no deja borrar el bucket «%» por SQL (%): bórralo desde el panel de Supabase.', b, sqlerrm;
+        end;
       else
         raise notice 'El bucket «%» no quedó vacío: se conserva.', b;
       end if;
