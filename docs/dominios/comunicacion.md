@@ -382,3 +382,11 @@ con `archivo_permitido_comunicacion` y con `sembrar_ext_comunicacion`.
 - `tools/api-fundaciones.js` (cambio mínimo): la prueba que espera
   `pedido_despachado` por WhatsApp registra antes el consentimiento de la
   compradora para ese número (y lo borra al terminar).
+- Las dos suites de este dominio dejan como estaban la cuota de escrituras
+  y los accesos de las cuentas de prueba que gastaron (con `TM_PGDATABASE`):
+  esos topes (150 escrituras cada 10 minutos y 60 accesos cada 15 por cuenta
+  y red) los comparten todas las suites.
+- Suite completa (`tools/verificar-todo.js`, backend local recién migrado):
+  las 24 suites en verde. Correrla dos veces seguidas sobre la misma base
+  hace fallar una comprobación de `api-catalogo.js` (la auditoría guarda los
+  cambios de precio de la vuelta anterior); con `reaplicar.sh` antes, pasa.
