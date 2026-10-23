@@ -42,7 +42,13 @@ http.createServer((req, res) => {
   const prefijo = Object.keys(DESTINOS).find((p) => req.url.startsWith(p + '/') || req.url === p);
   if (!prefijo) { res.writeHead(404, CORS); res.end('{"message":"ruta desconocida"}'); return; }
   const destino = DESTINOS[prefijo];
-  const cabeceras = Object.assign({}, req.headers, { host: destino.host + ':' + destino.port });
+  /* como el borde de Supabase: la conexión de origen va en cf-connecting-ip
+     (lo que mande el cliente se ignora), así los topes por red también se
+     prueban en local; CF_IP fija otra dirección */
+  const cabeceras = Object.assign({}, req.headers, {
+    host: destino.host + ':' + destino.port,
+    'cf-connecting-ip': process.env.CF_IP || String(req.socket.remoteAddress || '').replace(/^::ffff:/, '')
+  });
   const prox = http.request({ host: destino.host, port: destino.port, method: req.method,
     path: req.url.slice(prefijo.length) || '/', headers: cabeceras }, (r) => {
     res.writeHead(r.statusCode, Object.assign({}, r.headers, CORS));

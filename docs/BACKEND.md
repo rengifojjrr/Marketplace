@@ -64,6 +64,7 @@ supabase/migrations/
   20261022170500_tumbo_ajustes.sql     topes por red, auditoría completa, referencia única y sin interbloqueos
   20261022170600_tumbo_cuentas_demo.sql  cuentas demo compartidas, colas de trabajo y auditoría por tramos
   20261022170700_tumbo_topes_demo.sql  topes de las cuentas demo sin bloqueos cruzados
+  20261022170800_tumbo_acceso_demo.sql  acceso a las cuentas demo sin coste de bcrypt
 assets/js/tm-config.js                 URL y clave publicable del proyecto
 assets/js/tm-remoto.js                 motor remoto: llama a /rest/v1/rpc/tm_* con fetch (sin librerías)
 tools/retirar-tumbo.sql                quita Tumbo del proyecto sin tocar nada más
@@ -85,7 +86,10 @@ tools/verificar-beta.js                recorridos completos en navegador
    una cuenta desde una misma red también tienen tope (60 cada 15 minutos,
    con su propio mensaje), y un techo global de 120 comprobaciones de
    contraseña por minuto acota el coste de bcrypt en la base compartida
-   (cada red aporta como mucho 30 por minuto, así que una sola no lo agota). La
+   (cada red aporta como mucho 40 por minuto, así que una sola no lo agota).
+   La contraseña de las cuentas demo es pública: su acceso no usa bcrypt ni
+   cuenta para esos techos, así que un aula o un CGNAT con muchas personas
+   entrando a la demo no frena a nadie. La
    conexión se identifica con `cf-connecting-ip`, que fija el borde de
    Supabase; en IPv6 se agrupa por /56 —lo que un proveedor entrega a un
    hogar— y una IPv4 escrita como IPv6 cuenta como la IPv4. Un registro desde
@@ -262,4 +266,7 @@ PGDATABASE=… tools/supabase-local/reaplicar.sh   # vuelve a aplicar las migrac
 ```
 
 El stack local usa el binario oficial de PostgREST y reproduce los roles y
-tiempos límite del proyecto.
+tiempos límite del proyecto. La pasarela pone `cf-connecting-ip` con la
+dirección de origen (ignora la que mande el cliente), como el borde de
+Supabase: en local todas las pruebas salen de una sola IP, así que los topes
+por red se prueban de forma más estricta que en la nube.
