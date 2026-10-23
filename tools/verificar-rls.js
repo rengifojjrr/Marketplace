@@ -221,6 +221,10 @@ const ESPERADO = {
     await rpc('tm_carrito_poner', { p_sesion: sp, p_sku: 'SKU-HOG-0110', p_cant: 1 });
     const d1 = await rpc('tm_crear_pedido', { p_sesion: sp, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Transferencia', p_ref: 'trf 091108' });
     ok(!d1.ok && /ya está registrada/.test(d1.texto), 'una referencia de pago ya usada se rechaza (aunque cambie el formato)', d1.texto.slice(0, 120));
+    const d1b = await rpc('tm_crear_pedido', { p_sesion: sp, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'PM 91108' });
+    ok(!d1b.ok && /ya está registrada/.test(d1b.texto), 'tampoco con otro método de pago', d1b.texto.slice(0, 120));
+    const d1c = await rpc('tm_crear_pedido', { p_sesion: sp, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'Nº 4455667' });
+    ok(!d1c.ok && /solo admite letras sin tilde/.test(d1c.texto), 'una referencia con caracteres no admitidos dice cuáles se admiten', d1c.texto.slice(0, 120));
     const d2 = await rpc('tm_crear_pedido', { p_sesion: sp, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'PM-555001', p_total_usd: 1 });
     ok(!d2.ok && /precios de tu carrito cambiaron/.test(d2.texto), 'si el precio cambió, el pedido no se crea', d2.texto.slice(0, 120));
     const d3 = await rpc('tm_crear_pedido', { p_sesion: sp, p_envio_tipo: 'agencia', p_direccion_id: null, p_metodo: 'Pago Móvil', p_ref: 'PM-555002', p_total_usd: 55 });

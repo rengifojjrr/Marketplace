@@ -460,10 +460,12 @@
     return Promise.all(ids.map(function (id) {
       return llamar('tm_conciliar_pago', { p_sesion: t, p_id: id }).then(function () { return null; }, function (e) { return e; });
     })).then(function (errores) {
-      return refrescar('propio').then(function () {
+      /* como rpc: si la recarga falla, cuenta lo que pasó con los pagos */
+      function fin() {
         var e = errores.filter(Boolean)[0];
         if (e) throw e;
-      });
+      }
+      return refrescar('propio').then(fin, fin);
     });
   }
 

@@ -63,6 +63,7 @@ supabase/migrations/
   20261022170400_tumbo_endurecimiento.sql  topes, vencimientos, devoluciones y lectura acotada
   20261022170500_tumbo_ajustes.sql     topes por red, auditoría completa, referencia única y sin interbloqueos
   20261022170600_tumbo_cuentas_demo.sql  cuentas demo compartidas, colas de trabajo y auditoría por tramos
+  20261022170700_tumbo_topes_demo.sql  topes de las cuentas demo sin bloqueos cruzados
 assets/js/tm-config.js                 URL y clave publicable del proyecto
 assets/js/tm-remoto.js                 motor remoto: llama a /rest/v1/rpc/tm_* con fetch (sin librerías)
 tools/retirar-tumbo.sql                quita Tumbo del proyecto sin tocar nada más
@@ -83,7 +84,8 @@ tools/verificar-beta.js                recorridos completos en navegador
    techo no existe (solo serviría para bloquearlas). Los accesos correctos de
    una cuenta desde una misma red también tienen tope (60 cada 15 minutos,
    con su propio mensaje), y un techo global de 120 comprobaciones de
-   contraseña por minuto acota el coste de bcrypt en la base compartida. La
+   contraseña por minuto acota el coste de bcrypt en la base compartida
+   (cada red aporta como mucho 30 por minuto, así que una sola no lo agota). La
    conexión se identifica con `cf-connecting-ip`, que fija el borde de
    Supabase; en IPv6 se agrupa por /56 —lo que un proveedor entrega a un
    hogar— y una IPv4 escrita como IPv6 cuenta como la IPv4. Un registro desde
@@ -111,13 +113,15 @@ tools/verificar-beta.js                recorridos completos en navegador
    despachados, devoluciones y fondos retenidos, congelados o elegibles):
    hasta 500 por cola, priorizando los más antiguos, y si una cola tiene más,
    la vista que la muestra lo avisa; los reclamos abiertos, hasta 2.000; el
-   historial cerrado, los 150 más recientes. La
+   historial cerrado, los 150 más recientes. Al comprador le llegan además
+   siempre sus 50 pedidos más recientes (en la cuenta demo compartida, el
+   recién creado nunca queda fuera). La
    auditoría llega en tres ventanas que no se tapan entre sí —decisiones del
    equipo y del sistema (300), acciones de comercios y compradores (150) e
    inicios de sesión (50)— y el historial completo se busca y se pagina con
    `tm_auditoria`, que recorre tramos de 20.000 eventos por llamada (nunca la
    tabla entera) y devuelve el cursor para seguir. Los vencimientos de pago
-   dejan un solo asiento por tanda.
+   dejan un solo asiento por tanda, con hasta 50 pedidos y su referencia.
 3. **Escritura**: cada cambio pasa por una función `tm_*` (`SECURITY DEFINER`,
    `search_path` vacío) que, en una sola transacción:
    - exige el rol y la propiedad del recurso (un pedido ajeno responde «no
@@ -136,9 +140,11 @@ tools/verificar-beta.js                recorridos completos en navegador
    Además: hasta 10 unidades por producto (también al crear el pedido); un
    pago sin verificar vence a las 48 horas y libera su reserva —en la
    siguiente lectura u operación de carrito— y ya no se puede conciliar; la
-   referencia de pago solo admite caracteres de una referencia bancaria, debe
-   tener al menos 4 dígitos y no se reutiliza: se compara por su número (sin
-   ceros a la izquierda) y método, aunque se cancele un pedido ya conciliado,
+   referencia de pago solo admite letras sin tilde, números, espacios y
+   `. / _ -`, debe tener al menos 4 dígitos sin contar los ceros iniciales
+   (el checkout aplica las mismas reglas con los mismos mensajes) y no se
+   reutiliza: se compara por su número (sin ceros a la izquierda), con
+   cualquier método, aunque se cancele un pedido ya conciliado,
    y dos compras simultáneas con el mismo pago se ordenan con un candado; en
    las cuentas demo, los topes de 5 pagos por verificar y 10 pedidos por hora
    cuentan por red (con un respaldo de 100 por hora para la cuenta); el
@@ -154,10 +160,13 @@ tools/verificar-beta.js                recorridos completos en navegador
 5. **Topes contra el abuso** (las cuentas demo tienen contraseña pública y
    las comparte cualquiera que visite la beta, así que los topes cuentan por
    cuenta **y por red**: quien los agota se frena a sí mismo, no a los demás):
-   150 escrituras cada 10 minutos por cuenta y red, con un respaldo de 600 por
-   cuenta (abrir la campana de avisos no cuenta), 50 sesiones por cuenta y
-   red y 200 por cuenta (se cierran las que llevan más tiempo sin usarse; el
-   uso se anota cada minuto), 150 productos por comercio, un «Inicio de
+   150 escrituras cada 10 minutos por cuenta y red, con un respaldo por
+   cuenta de 600 (3.000 en las cuentas demo, para que unas pocas redes no
+   dejen sin escrituras a todos; abrir la campana de avisos no cuenta), 50
+   sesiones por cuenta y red y 200 por cuenta (con la cuenta llena se cierran
+   las de uso más antiguo de la red que más sesiones tiene: quien acapara se
+   desaloja a sí mismo; el uso se anota cada minuto), 150 productos por
+   comercio, un «Inicio de
    sesión» auditado por cuenta cada 10 minutos y sin auditar datos triviales
    del comprador.
 

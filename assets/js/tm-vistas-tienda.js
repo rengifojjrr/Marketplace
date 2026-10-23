@@ -393,8 +393,9 @@
       var f = raiz.querySelector('[data-checkout]');
       var ref = f.querySelector('[name=ref]').value.trim();
       var err = f.querySelector('[data-err-ref]');
-      if (ref.length < 5 || (ref.match(/[0-9]/g) || []).length < 4) {
-        err.textContent = 'Registra la referencia del pago: al menos 5 caracteres y 4 dígitos.';
+      var malRef = TM.errorReferencia(ref);
+      if (malRef) {
+        err.textContent = malRef;
         err.classList.remove('hidden');
         f.querySelector('[name=ref]').focus();
         return;
@@ -415,7 +416,9 @@
       }, 'No se pudo crear el pedido', function (e) {
         if (/precios de tu carrito cambiaron/.test(UI.mensajeError(e))) {
           pendiente = { ref: ref, dir: dir ? dir.value : null, metodo: datos.metodo };
-          TM.refrescar();                  /* trae los precios vigentes y repinta */
+          TM.refrescar().catch(function (e2) { /* trae los precios vigentes y repinta */
+            UI.toast('No se pudieron traer los precios vigentes', UI.mensajeError(e2), 'error');
+          });
         }
       });
     });

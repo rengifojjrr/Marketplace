@@ -302,6 +302,19 @@
   /* ---------------------------------------------------------------------
      Flujo del pedido
      ------------------------------------------------------------------- */
+  /* Referencia de pago: las mismas reglas y mensajes que tm_crear_pedido. */
+  function numeroReferencia(ref) {
+    return String(ref || '').replace(/[^0-9]/g, '').replace(/^0+/, '');
+  }
+
+  function errorReferencia(ref) {
+    ref = String(ref || '').trim().toUpperCase();
+    if (ref.length < 5 || ref.length > 30) return 'La referencia del pago debe tener entre 5 y 30 caracteres.';
+    if (!/^[A-Z0-9 .\/_-]+$/.test(ref)) return 'La referencia solo admite letras sin tilde, números, espacios y . / _ -';
+    if (numeroReferencia(ref).length < 4) return 'La referencia debe tener al menos 4 dígitos, sin contar los ceros iniciales.';
+    return null;
+  }
+
   function crearPedido(datos) {
     var s = sesion();
     if (!s || s.rol !== 'comprador') falla('Inicia sesión para comprar.');
@@ -310,17 +323,14 @@
     if (fuera) falla('El producto ' + fuera.sku + ' ya no está disponible: quítalo del carrito.');
     if (!items.length) falla('El carrito está vacío.');
     var ref = String(datos.ref || '').trim().toUpperCase();
-    /* Solo caracteres de una referencia bancaria; el pago se identifica por
-       su número (sin ceros a la izquierda) y método. */
-    var numero = ref.replace(/[^0-9]/g, '').replace(/^0+/, '');
-    if (ref.length < 5 || ref.length > 30 || !/^[A-Z0-9 .\/_-]+$/.test(ref) || numero.length < 4) {
-      falla('Registra la referencia del pago: entre 5 y 30 caracteres, con al menos 4 dígitos.');
-    }
-    /* Un pago corresponde a un solo pedido; solo queda libre el de un pedido
-       cancelado que nunca se concilió. */
+    var malRef = errorReferencia(ref);
+    if (malRef) falla(malRef);
+    /* Un pago corresponde a un solo pedido (se identifica por su número, sin
+       ceros a la izquierda, con cualquier método); solo queda libre el de un
+       pedido cancelado que nunca se concilió. */
+    var numero = numeroReferencia(ref);
     if (estado.pedidos.some(function (p) {
-      return p.metodo === datos.metodo && String(p.ref || '').replace(/[^0-9]/g, '').replace(/^0+/, '') === numero &&
-        (p.estado !== 'cancelado' || p.slaHoras != null);
+      return numeroReferencia(p.ref) === numero && (p.estado !== 'cancelado' || p.slaHoras != null);
     })) {
       falla('La referencia ' + ref + ' ya está registrada en otro pedido: revisa el número del pago.');
     }
@@ -793,6 +803,7 @@
     fmtBs: fmtBs, fmtUsd: fmtUsd, ahora: ahora, fechaCorta: fechaCorta,
     producto: producto, pedido: pedido, seller: seller, disputa: disputa,
     totalPedidoUsd: totalPedidoUsd, catalogoPublico: catalogoPublico,
+    errorReferencia: errorReferencia,
 
     misNotificaciones: misNotificaciones, marcarNotificacionesLeidas: marcarNotificacionesLeidas,
     /* en modo local la caché ya tiene toda la auditoría */

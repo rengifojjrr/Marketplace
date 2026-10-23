@@ -466,13 +466,16 @@
     if (TM.modo !== 'remoto') return;
     var texto = q.get('q') || '';
     function traer(antes, boton) {
-      /* pide tramos hasta encontrar algo que no esté ya en pantalla */
+      /* pide tramos hasta encontrar algo que no esté ya en pantalla; el
+         historial guarda los tramos completos (la caché se mueve con cada
+         sondeo y lo que hoy repite mañana sería un hueco) */
       function pedir(cursor, vueltas) {
         return TM.auditoria(cursor, texto).then(function (r) {
-          var vistos = {};
+          var vistos = {}, propios = {};
+          historial.eventos.forEach(function (ev) { propios[ev.id] = true; });
           TM.estado.eventos.concat(historial.eventos).forEach(function (ev) { vistos[ev.id] = true; });
           var nuevos = r.eventos.filter(function (ev) { return !vistos[ev.id]; });
-          historial.eventos = historial.eventos.concat(nuevos);
+          historial.eventos = historial.eventos.concat(r.eventos.filter(function (ev) { return !propios[ev.id]; }));
           historial.cursor = r.siguiente;
           historial.fin = r.siguiente == null;
           if (!nuevos.length && !historial.fin && vueltas < 10) return pedir(r.siguiente, vueltas + 1);

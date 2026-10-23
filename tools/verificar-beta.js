@@ -216,6 +216,11 @@ const PAGINAS = {
     await p.locator('[data-checkout]').click();
     await p.waitForURL('**/checkout.html', { timeout: 8000 });
     await p.waitForSelector('#chk-ref');
+    /* la referencia se valida con las mismas reglas y mensajes que el servidor */
+    await p.fill('#chk-ref', 'Nº 4455');
+    await p.locator('[data-confirmar]').click();
+    const errRef = await p.locator('[data-err-ref]').innerText();
+    if (!/solo admite letras sin tilde/.test(errRef)) throw new Error('mensaje de referencia inesperado: ' + errRef);
     await p.fill('#chk-ref', 'PM-999001');
     await p.locator('[data-confirmar]').click();
     await p.waitForURL('**/confirmacion.html*', { timeout: 8000 });
