@@ -88,131 +88,8 @@
   /* Catálogo y ficha de producto: los registra el módulo de catálogo
      (assets/js/tm-mod-catalogo-seller.js, ola 1). */
 
-  /* =====================================================================
-     Pedidos del seller (pestañas por estado + SLA)
-     ===================================================================== */
-  function vPedidosSeller(q, s) {
-    var todos = misPedidos(s);
-    var pestanas = [
-      { id: 'por_aceptar', t: 'Por aceptar' }, { id: 'preparando', t: 'En preparación' },
-      { id: 'listo', t: 'Listos' }, { id: 'despachado', t: 'En camino' }, { id: '', t: 'Todos' }
-    ];
-    var activa = q.has('estado') ? q.get('estado') : 'por_aceptar';
-    var lista = activa ? todos.filter(function (p) { return p.estado === activa; }) : todos;
-
-    var filas = lista.map(function (p) {
-      return td('<a class="font-data-mono text-data-mono text-secondary hover:underline" href="' + href('app/seller/pedido.html?id=' + p.id) + '">' + esc(p.id) + '</a>') +
-        td(p.items.map(function (i) { var pr = TM.producto(i.sku); return esc((pr ? pr.nombre : i.sku)) + ' × ' + i.cant; }).join('<br/>')) +
-        td(UI.badge(p.estado)) +
-        td(p.estado === 'por_aceptar'
-          ? '<span class="inline-flex items-center gap-1 font-body-sm text-body-sm text-warning font-bold">' + ic('schedule', 'text-[16px]') + 'enviar antes de mañana</span>'
-          : '<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(p.creado.split(' ')[0]) + '</span>') +
-        td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtTotalPedido(p)) + '</span>') +
-        td('<a class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline" href="' + href('app/seller/pedido.html?id=' + p.id) + '">Gestionar' + ic('arrow_forward', 'text-[16px]') + '</a>', 'text-right');
-    });
-
-    return titulo('Pedidos') +
-      '<div class="flex flex-wrap gap-2 mb-4">' + pestanas.map(function (t) {
-        var n = t.id ? todos.filter(function (p) { return p.estado === t.id; }).length : todos.length;
-        var u = new URLSearchParams(); if (t.id || t.id === '') u.set('estado', t.id);
-        return '<a class="px-3 py-1.5 rounded-full font-label-md text-label-md border ' +
-          (activa === t.id ? 'bg-secondary text-on-secondary border-secondary' : 'border-outline-variant text-on-surface-variant hover:border-secondary') +
-          '" href="?' + u.toString() + '">' + t.t + ' (' + n + ')</a>';
-      }).join('') + '</div>' +
-      UI.tabla(['Pedido', 'Artículos', 'Estado', 'SLA / fecha', 'Total', ''], filas,
-        UI.vacio('package_2', 'Nada en esta pestaña', 'Cuando lleguen pedidos con este estado aparecerán aquí.'));
-  }
-
-  /* =====================================================================
-     Preparación de un pedido (aceptar → picking → guía → despacho)
-     ===================================================================== */
-  function vPedidoSeller(q, s) {
-    var p = TM.pedido(q.get('id'));
-    if (!p || p.sellerId !== s.sellerId) {
-      return UI.vacio('search_off', 'Pedido no encontrado', 'El pedido no existe o pertenece a otro comercio.');
-    }
-    var pasoAceptar = p.estado === 'por_aceptar';
-    var pasoPreparar = p.estado === 'preparando';
-    var pasoDespachar = p.estado === 'listo';
-
-    return '<a class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline mb-3" href="' + href('app/seller/pedidos.html') + '">' +
-      ic('arrow_back', 'text-[16px]') + 'Volver a pedidos</a>' +
-      titulo('Pedido ' + p.id, UI.badge(p.estado)) +
-      '<div class="grid lg:grid-cols-[1fr_340px] gap-6 items-start"><div class="space-y-4">' +
-
-      '<section class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
-        '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-3">Artículos (picking)</h2>' +
-        p.items.map(function (i, idx) {
-          var pr = TM.producto(i.sku);
-          return '<label class="flex items-center gap-3 py-2 border-b border-outline-variant last:border-0 ' + (pasoPreparar ? 'cursor-pointer' : '') + '">' +
-            (pasoPreparar ? '<input type="checkbox" data-pick="' + idx + '" class="w-5 h-5 rounded border-outline text-secondary focus:ring-secondary/40"/>' : ic('check_circle', 'text-[20px] text-tertiary')) +
-            (pr ? UI.imgProducto(pr, 'w-12 h-12 object-cover') : '') +
-            '<span class="flex-1 font-body-sm text-body-sm">' + esc(pr ? pr.nombre : i.sku) +
-            '<span class="block font-data-mono text-data-mono text-on-surface-variant">' + esc(i.sku) + ' · cant. ' + i.cant + '</span></span></label>';
-        }).join('') + '</section>' +
-
-      '<section class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
-        '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-3">Línea de tiempo</h2>' +
-        '<ol class="space-y-3">' + p.timeline.slice().reverse().map(function (t) {
-          return '<li class="flex gap-3"><span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container shrink-0">' + ic(t.icono || 'info', 'text-[16px]') + '</span>' +
-            '<span><span class="block font-body-sm text-body-sm">' + esc(t.texto) + '</span>' +
-            '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(t.fecha) + '</span></span></li>';
-        }).join('') + '</ol></section>' +
-        APP.ganchos('pedido.seller', { pedido: p, sesion: s }) +
-      '</div>' +
-
-      '<aside class="space-y-4">' +
-        '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
-          '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Entrega</h2>' +
-          '<p class="font-body-sm text-body-sm"><strong>' + (p.envio.tipo === 'agencia' ? 'Retiro en agencia' : 'Domicilio') + '</strong></p>' +
-          '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(p.envio.dir) + '</p>' +
-          '<p class="font-body-sm text-body-sm mt-1"><strong>Courier:</strong> ' + esc(p.envio.courier) + '</p>' +
-          (p.guia ? '<p class="font-body-sm text-body-sm"><strong>Guía:</strong> <span class="font-data-mono text-data-mono">' + esc(p.guia) + '</span></p>' : '') +
-          '<p class="font-body-sm text-body-sm mt-2 text-on-surface-variant">El comprador solo comparte los datos mínimos para entregar.</p></div>' +
-        '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 space-y-2">' +
-          '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Acciones</h2>' +
-          (pasoAceptar ? btn('Aceptar pedido', { estilo: 'primario', icono: 'check_circle', attr: 'data-aceptar', clase: 'w-full' }) +
-            '<p class="font-body-sm text-body-sm text-on-surface-variant">Aceptar inicia la preparación y detiene el SLA de aceptación.</p>' : '') +
-          (pasoPreparar ? '<label class="block font-label-md text-label-md text-on-surface">Peso del paquete (kg)' +
-            '<input data-peso type="number" min="0.1" step="0.1" value="1" class="mt-1 w-full h-10 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-data-mono text-data-mono focus:border-secondary outline-none"/></label>' +
-            btn('Generar guía (demo)', { estilo: 'primario', icono: 'package_2', attr: 'data-guia', clase: 'w-full' }) +
-            '<p data-err-pick class="hidden font-body-sm text-body-sm text-error"></p>' : '') +
-          (pasoDespachar ? btn('Confirmar entrega al courier', { estilo: 'exito', icono: 'local_shipping', attr: 'data-despachar', clase: 'w-full' }) +
-            '<p class="font-body-sm text-body-sm text-on-surface-variant">El comprador verá el tracking en su pedido.</p>' : '') +
-          (!pasoAceptar && !pasoPreparar && !pasoDespachar ? '<p class="font-body-sm text-body-sm text-on-surface-variant">No hay acciones pendientes en este estado.</p>' : '') +
-        '</div></aside></div>';
-  }
-
-  function despuesPedidoSeller(raiz, q, s) {
-    var id = q.get('id');
-    var a = raiz.querySelector('[data-aceptar]');
-    if (a) a.addEventListener('click', function () {
-      UI.accion(a, function () { return TM.aceptarPedido(id); }, function () {
-        UI.toast('Pedido aceptado', 'La preparación queda en marcha.', 'check_circle');
-      });
-    });
-    var g = raiz.querySelector('[data-guia]');
-    if (g) g.addEventListener('click', function () {
-      var checks = raiz.querySelectorAll('[data-pick]');
-      var faltan = Array.prototype.filter.call(checks, function (c) { return !c.checked; }).length;
-      if (faltan) {
-        var e = raiz.querySelector('[data-err-pick]');
-        e.textContent = 'Marca el picking de todos los artículos antes de generar la guía.';
-        e.classList.remove('hidden');
-        return;
-      }
-      var peso = raiz.querySelector('[data-peso]').value;
-      UI.accion(g, function () { return TM.marcarListo(id, peso); }, function (guia) {
-        UI.toast('Guía ' + (guia || '') + ' generada (demo)', 'Solicita la recogida del courier cuando quieras.', 'package_2');
-      });
-    });
-    var d = raiz.querySelector('[data-despachar]');
-    if (d) d.addEventListener('click', function () {
-      UI.accion(d, function () { return TM.despachar(id); }, function () {
-        UI.toast('Entregado al courier (demo)', 'El comprador ya ve el tracking.', 'local_shipping');
-      });
-    });
-  }
+  /* Pedidos del seller y su preparación: los registra el módulo de
+     logística (assets/js/tm-mod-logistica-seller.js, ola 1). */
 
   /* =====================================================================
      Reclamos del seller
@@ -261,9 +138,8 @@
      Registro
      ===================================================================== */
   APP.registrar({
+    /* 'seller/pedidos' y 'seller/pedido': tm-mod-logistica-seller.js */
     'seller/panel':    { titulo: 'Panel del seller',   roles: ['seller'],                        render: vPanel },
-    'seller/pedidos':  { titulo: 'Pedidos del seller', roles: ['seller', 'operador'],            render: vPedidosSeller },
-    'seller/pedido':   { titulo: 'Preparación',        roles: ['seller', 'operador'],            render: vPedidoSeller, despues: despuesPedidoSeller },
     'seller/disputas': { titulo: 'Reclamos',           roles: ['seller'],                        render: vDisputasSeller, despues: despuesDisputasSeller }
   });
 })();

@@ -245,6 +245,8 @@ async function registrarComprador(rpc, datos) {
 
   /* Devolución: se resuelve y se cierra con el producto de vuelta. */
   const dv1 = await rpc('tm_resolver_disputa', { p_sesion: s.ops2, p_id: 'DSP-0098', p_decision: 'devolucion', p_nota: null });
+  /* (logística: el reembolso de una devolución va después de su inspección) */
+  await rpc('tm_devolucion_inspeccionar', { p_sesion: s.ops2, p_id: 'TM-2026-00428', p_resultado: 'apto', p_nota: 'Llegó completo a la oficina del comercio', p_foto: null });
   const dv2 = await rpc('tm_cerrar_devolucion', { p_sesion: s.ops2, p_id: 'TM-2026-00428', p_recibida: true });
   const dv3 = await rpc('tm_cargar', { p_sesion: s.superadmin });
   const p428 = dv3.dato.pedidos.find((p) => p.id === 'TM-2026-00428');

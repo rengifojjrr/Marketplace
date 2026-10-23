@@ -555,6 +555,8 @@ async function registrarComprador(rpc, datos) {
   const ad = await rpc('tm_abrir_disputa', { p_sesion: s.comprador, p_pedido: 'TM-2026-00431', p_motivo: 'Producto incorrecto',
     p_descripcion: 'Llegó otro modelo de monitor distinto al comprado.', p_evidencia: [] });
   await rpc('tm_resolver_disputa', { p_sesion: s.ops, p_id: ad.dato, p_decision: 'devolucion', p_nota: null });
+  /* (logística: el reembolso de una devolución va después de su inspección) */
+  await rpc('tm_devolucion_inspeccionar', { p_sesion: s.ops, p_id: 'TM-2026-00431', p_resultado: 'apto', p_nota: 'Llegó completo a la oficina del comercio', p_foto: null });
   const dv = await rpc('tm_cerrar_devolucion', { p_sesion: s.ops, p_id: 'TM-2026-00431', p_recibida: true });
   const rf2 = await rpc('tm_reembolsos', { p_sesion: s.superadmin });
   const r431 = (rf2.dato || []).find((r) => r.pedido_id === 'TM-2026-00431');
@@ -574,8 +576,10 @@ async function registrarComprador(rpc, datos) {
   }
   if (BD) {
     const cot = JSON.parse(psql(`select tumbo_privado.cotizar_envio('SEL-014', '{}', '[]')`));
-    ok(cot.length === 2 && cot[0].tipo === 'agencia' && cot[0].costo_usd === 2.5 && cot[1].tipo === 'domicilio' && cot[1].costo_usd === 4 &&
-       cot.every((o) => o.dias_min > 0 && o.dias_max >= o.dias_min), 'cotizar_envio devuelve agencia (2,5 USD) y domicilio (4 USD) con días estimados');
+    /* La logística (ola 1) cotiza de verdad; aquí solo se comprueba el contrato. */
+    ok(cot.length >= 2 && cot.some((o) => o.tipo === 'agencia') && cot.some((o) => o.tipo === 'domicilio') &&
+       cot.every((o) => typeof o.costo_usd === 'number' && o.dias_min > 0 && o.dias_max >= o.dias_min),
+      'cotizar_envio devuelve opciones de agencia y domicilio con su costo y días estimados');
     const pro = JSON.parse(psql(`select tumbo_privado.aplicar_promociones(null, '[{"sku": "SKU-MOT-0832", "cant": 2}]', 'CUPON')`));
     const vigente = Number((await rpc('tm_cargar', {})).dato.productos.find((x) => x.sku === 'SKU-MOT-0832').precio_usd);
     ok(pro.descuento_usd === 0 && pro.lineas.length === 1 && pro.lineas[0].precio_usd === vigente && pro.total_usd === vigente * 2,

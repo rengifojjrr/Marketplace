@@ -65,33 +65,9 @@
   /* Sellers y KYC, y moderación de productos: los registra el módulo de
      catálogo (assets/js/tm-mod-catalogo-admin.js, ola 1). */
 
-  /* =====================================================================
-     Pedidos globales (superadmin + ops)
-     ===================================================================== */
-  function vPedidosAdmin(q, s) {
-    var texto = (q.get('q') || '').toLowerCase();
-    var lista = TM.estado.pedidos.filter(function (p) {
-      if (!texto) return true;
-      return (p.id + ' ' + p.sellerId + ' ' + (p.ref || '')).toLowerCase().indexOf(texto) >= 0;
-    });
-    var filas = lista.map(function (p) {
-      return td('<span class="font-data-mono text-data-mono">' + esc(p.id) + '</span>') +
-        td(esc(TM.seller(p.sellerId).nombre)) +
-        td(UI.badge(p.estado)) +
-        td(p.liquidacion ? UI.badge(p.liquidacion) : '<span class="text-on-surface-variant">—</span>') +
-        td('<span class="font-data-mono text-data-mono">' + esc(p.envio.courier) + (p.guia ? ' · ' + esc(p.guia) : '') + '</span>') +
-        td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtTotalPedido(p)) + '</span>', 'text-right') +
-        td(p.estado === 'despachado' && (s.rol === 'ops' || s.rol === 'superadmin')
-          ? btn('Confirmar entrega', { icono: 'check_circle', attr: 'data-entregado="' + esc(p.id) + '" title="Con la prueba de entrega del courier"' })
-          : p.estado === 'devolucion' && (s.rol === 'ops' || s.rol === 'superadmin') ? botonesDevolucion(p.id) : '', 'text-right');
-    });
-    return avisoRecorte() + titulo('Pedidos del marketplace') +
-      '<form data-filtro class="mb-4 max-w-md flex" role="search">' +
-        '<input name="q" value="' + esc(q.get('q') || '') + '" placeholder="Buscar por ID, seller o referencia…" class="flex-1 h-10 px-3 rounded-l-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm focus:border-secondary outline-none"/>' +
-        '<button class="h-10 px-3 rounded-r-btn bg-secondary text-on-secondary">' + ic('search') + '</button></form>' +
-      UI.tabla(['Pedido', 'Seller', 'Estado', 'Dinero', 'Logística', 'Total', ''], filas,
-        UI.vacio('search_off', 'Sin coincidencias', 'Ningún pedido coincide con la búsqueda.'));
-  }
+  /* Pedidos globales: los registra el módulo de logística
+     (assets/js/tm-mod-logistica-ops.js, ola 1); despuesPedidosAdmin sigue
+     aquí porque la usa también la auditoría. */
 
   /* Con más de 500 pendientes en una cola, la caché trae los más antiguos
      de esa cola: la vista que la muestra lo avisa. */
@@ -280,8 +256,8 @@
   }
 
   APP.registrar({
+    /* 'admin/pedidos': tm-mod-logistica-ops.js */
     'admin/panel':         { titulo: 'Panel ejecutivo', roles: ['superadmin'],             render: vPanel },
-    'admin/pedidos':       { titulo: 'Pedidos globales', roles: ['superadmin', 'ops'],     render: vPedidosAdmin, despues: despuesPedidosAdmin },
     'admin/disputas':      { titulo: 'Disputas',        roles: ['superadmin', 'ops'],      render: vDisputasAdmin, despues: despuesDisputasAdmin },
     'admin/auditoria':     { titulo: 'Auditoría',       roles: ['superadmin', 'finanzas'], render: vAuditoria, despues: despuesAuditoria }
   });

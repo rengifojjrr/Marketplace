@@ -1,0 +1,4 @@
+{
+  "seller": ["envios", "imprimir"],
+  "admin": ["pedido", "operaciones", "envios", "imprimir"]
+}
