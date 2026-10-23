@@ -63,7 +63,28 @@ declare
     'public.tm_importar_productos(text,jsonb,text,boolean,boolean,boolean)', 'public.tm_moderar_lote(text,text[],boolean,text)',
     'public.tm_kyc_guardar(text,jsonb)', 'public.tm_kyc_documento(text,integer,uuid)', 'public.tm_kyc_enviar(text)',
     'public.tm_kyc_revisar(text,text,integer,text,text)', 'public.tm_tienda_guardar(text,jsonb)',
-    'public.tm_kyc_archivo(text,text,integer)'];
+    'public.tm_kyc_archivo(text,text,integer)',
+    -- ola 1 (pagos)
+    'public.tm_tasa_vigente()', 'public.tm_metodos_pago()',
+    'public.tm_checkout_cotizar(text,jsonb)', 'public.tm_checkout_crear(text,jsonb)',
+    'public.tm_pago_ver(text,text)', 'public.tm_pagos_mios(text)', 'public.tm_pago_reportar(text,text,jsonb)',
+    'public.tm_pago_corregir(text,text,text)', 'public.tm_pago_tardio(text,text,text,text)', 'public.tm_pagos_cola(text,text)',
+    'public.tm_conciliacion_formatos(text)', 'public.tm_conciliacion_formato_guardar(text,text,jsonb)',
+    'public.tm_conciliacion_importar(text,text,jsonb,text)', 'public.tm_conciliacion_movimientos(text,text,bigint)',
+    'public.tm_conciliacion_resolver(text,bigint,text,text,text)',
+    'public.tm_reembolso_destino(text,bigint,jsonb)', 'public.tm_credito(text)',
+    'public.tm_reembolsos_gestion(text,text)', 'public.tm_reembolso_procesar(text,bigint,text,jsonb)',
+    'public.tm_tasas(text)', 'public.tm_tasa_proponer(text,numeric,date,text)', 'public.tm_tasa_decidir(text,bigint,boolean)',
+    'public.tm_metodo_pago_guardar(text,text,jsonb)',
+    'public.tm_cuentas_liquidacion(text)', 'public.tm_cuenta_liquidacion_guardar(text,jsonb)',
+    'public.tm_cuenta_liquidacion_verificar(text,bigint,boolean,text)', 'public.tm_cuenta_liquidacion_anular(text,bigint,text)',
+    'public.tm_liquidacion_aprobar(text,text)', 'public.tm_liquidacion_pagar(text,text,text,uuid)',
+    'public.tm_liquidacion_fallar(text,text,text)', 'public.tm_liquidacion_anular(text,text,text)',
+    'public.tm_liquidaciones_corridas(text)', 'public.tm_liquidaciones_lote(text,text[])',
+    'public.tm_ajuste_seller(text,text,numeric,text)', 'public.tm_retencion_seller(text,text,boolean,text)',
+    'public.tm_libro_mayor(text,date,date)', 'public.tm_finanzas_resumen(text,date,date)',
+    'public.tm_finanzas_exportar(text,text,date,date)', 'public.tm_seller_estado_cuenta(text,date,date)',
+    'public.tm_pedido_recibo(text,text)'];
   f text;
   ajenos text;
   b text;
@@ -136,6 +157,13 @@ begin
       else
         raise notice 'El bucket «%» no quedó vacío: se conserva.', b;
       end if;
+    end loop;
+  end if;
+
+  -- Las tareas programadas de Tumbo (pg_cron), si existe: solo las suyas.
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    for b in execute $q$select jobid::text from cron.job where jobname like 'tumbo-%'$q$ loop
+      execute 'select cron.unschedule($1::bigint)' using b;
     end loop;
   end if;
 

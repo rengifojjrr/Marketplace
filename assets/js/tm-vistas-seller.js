@@ -29,6 +29,9 @@
     var bajoStock = productos.filter(function (p) { return p.estado === 'publicado' && p.stockFis - p.stockRes <= 3; });
     var ventasUsd = pedidos.filter(function (p) { return ['cancelado', 'pago_por_verificar', 'reembolsado'].indexOf(p.estado) < 0; })
       .reduce(function (t, p) { return t + TM.totalPedidoUsd(p) - p.envio.costoUsd; }, 0);
+    /* en Bs., cada pedido con su tasa congelada al venderse */
+    var ventasBs = pedidos.filter(function (p) { return ['cancelado', 'pago_por_verificar', 'reembolsado'].indexOf(p.estado) < 0; })
+      .reduce(function (t, p) { return t + (TM.totalPedidoUsd(p) - p.envio.costoUsd) * p.tasa; }, 0);
     var retenidoUsd = pedidos.filter(function (p) { return ['retenido', 'congelado'].indexOf(p.liquidacion) >= 0; })
       .reduce(function (t, p) { return t + TM.totalPedidoUsd(p) - p.envio.costoUsd; }, 0);
 
@@ -53,7 +56,7 @@
       }).join('') + '</div></section>' +
 
       '<section class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">' +
-      UI.kpi('Ventas acumuladas', esc(TM.fmtBs(ventasUsd)), esc(TM.fmtUsd(ventasUsd)) + ' ref.', 'payments') +
+      UI.kpi('Ventas acumuladas', esc(TM.fmtBs(ventasBs, 1)), esc(TM.fmtUsd(ventasUsd)) + ' ref.', 'payments') +
       UI.kpi('Pedidos en curso', porAceptar.length + preparando.length, 'por aceptar + en preparación', 'package_2') +
       UI.kpi('Fondos retenidos', esc(TM.fmtUsd(retenidoUsd)), 'en custodia hasta cerrar ventana', 'lock', 'text-warning') +
       UI.kpi('Publicaciones', productos.filter(function (p) { return p.estado === 'publicado'; }).length + ' / ' + productos.length, 'publicadas / totales', 'inventory_2') +
@@ -78,7 +81,7 @@
         (pedidos.slice(0, 5).map(function (p) {
           return '<a class="flex items-center justify-between gap-2 py-2 border-b border-outline-variant last:border-0 hover:bg-surface-container-low px-1 rounded" href="' + href('app/seller/pedido.html?id=' + p.id) + '">' +
             '<span class="font-data-mono text-data-mono">' + esc(p.id) + '</span>' + UI.badge(p.estado) +
-            '<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtBs(TM.totalPedidoUsd(p))) + '</span></a>';
+            '<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtTotalPedido(p)) + '</span></a>';
         }).join('') || '<p class="font-body-sm text-body-sm text-on-surface-variant">Aún no hay pedidos.</p>') + '</div></section>';
   }
 
@@ -104,7 +107,7 @@
         td(p.estado === 'por_aceptar'
           ? '<span class="inline-flex items-center gap-1 font-body-sm text-body-sm text-warning font-bold">' + ic('schedule', 'text-[16px]') + 'enviar antes de mañana</span>'
           : '<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(p.creado.split(' ')[0]) + '</span>') +
-        td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtBs(TM.totalPedidoUsd(p))) + '</span>') +
+        td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtTotalPedido(p)) + '</span>') +
         td('<a class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline" href="' + href('app/seller/pedido.html?id=' + p.id) + '">Gestionar' + ic('arrow_forward', 'text-[16px]') + '</a>', 'text-right');
     });
 
@@ -223,7 +226,7 @@
       return '<article class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-4">' +
         '<div class="flex flex-wrap items-center gap-2 mb-2">' +
           '<span class="font-data-mono text-data-mono text-on-surface">' + esc(d.id) + '</span>' + UI.badge(d.estado) +
-          '<span class="font-body-sm text-body-sm text-on-surface-variant">sobre ' + esc(d.pedidoId) + ' · ' + esc(TM.fmtBs(d.montoUsd)) + '</span></div>' +
+          '<span class="font-body-sm text-body-sm text-on-surface-variant">sobre ' + esc(d.pedidoId) + ' · ' + esc(TM.fmtBs(d.montoUsd, (TM.pedido(d.pedidoId) || {}).tasa)) + '</span></div>' +
         '<p class="font-body-md text-body-md text-on-surface mb-1"><strong>' + esc(d.motivo) + '.</strong> ' + esc(d.descripcion) + '</p>' +
         (d.evidencia.length ? '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Evidencia del comprador: ' + d.evidencia.map(esc).join(', ') + '</p>' : '') +
         (d.respuestaSeller
@@ -252,68 +255,7 @@
     });
   }
 
-  /* =====================================================================
-     Finanzas del seller (custodia por pedido, estilo Statement View)
-     ===================================================================== */
-  function vFinanzasSeller(q, s) {
-    var pedidos = misPedidos(s);
-    function suma(f) { return pedidos.filter(f).reduce(function (t, p) { return t + TM.totalPedidoUsd(p) - p.envio.costoUsd; }, 0); }
-    var retenido = suma(function (p) { return p.liquidacion === 'retenido'; });
-    var congelado = suma(function (p) { return p.liquidacion === 'congelado'; });
-    var elegible = suma(function (p) { return p.liquidacion === 'elegible'; });
-    var liqs = TM.estado.liquidaciones.filter(function (l) { return l.sellerId === s.sellerId; });
-    var liquidado = liqs.reduce(function (t, l) { return t + l.netoUsd; }, 0);
-
-    var conDinero = pedidos.filter(function (p) { return p.liquidacion; });
-
-    return titulo('Finanzas y liquidaciones') +
-      '<section class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">' +
-      UI.kpi('Retenido (ventana)', esc(TM.fmtUsd(retenido)), 'hasta cerrar la ventana de reclamo', 'lock', 'text-warning') +
-      UI.kpi('Congelado (disputas)', esc(TM.fmtUsd(congelado)), 'a la espera de Operaciones', 'gavel', 'text-error') +
-      UI.kpi('Elegible', esc(TM.fmtUsd(elegible)), 'entra en la próxima liquidación', 'lock_open') +
-      UI.kpi('Liquidado', esc(TM.fmtUsd(liquidado)), liqs.length + ' liquidación' + (liqs.length === 1 ? '' : 'es') + ' pagadas', 'receipt_long', 'text-tertiary') +
-      '</section>' +
-
-      '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Tu dinero, pedido por pedido</h2>' +
-      '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Transparencia de custodia: cada pedido muestra en qué estado está su dinero y por qué.</p>' +
-      UI.tabla(['Pedido', 'Bruto', 'Estado del dinero', 'Detalle'],
-        conDinero.map(function (p) {
-          var bruto = TM.totalPedidoUsd(p) - p.envio.costoUsd;
-          var detalle = {
-            retenido: 'ventana de reclamo abierta hasta ' + TM.estado.config.ventanaReclamoDias + ' días tras la entrega',
-            congelado: 'disputa ' + (p.disputaId || '') + ' en revisión',
-            elegible: 'entra en la próxima corrida de liquidación',
-            liquidado: 'pagado en ' + (p.liquidacionId || ''),
-            reembolsado: 'reembolsado al comprador por resolución'
-          }[p.liquidacion] || '';
-          return td('<span class="font-data-mono text-data-mono">' + esc(p.id) + '</span>') +
-            td('<span class="font-data-mono text-data-mono">' + esc(TM.fmtUsd(bruto)) + '</span>') +
-            td(UI.badge(p.liquidacion)) +
-            td('<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(detalle) + '</span>');
-        }),
-        UI.vacio('payments', 'Aún sin movimientos', 'Cuando tus pedidos se entreguen, verás aquí la custodia de cada uno.')) +
-
-      '<h2 class="font-headline-sm text-headline-sm text-primary-container mt-6 mb-2">Liquidaciones</h2>' +
-      UI.tabla(['Liquidación', 'Período', 'Pedidos', 'Bruto', 'Comisión', 'Neto', 'Comprobante'],
-        liqs.map(function (l) {
-          return td('<span class="font-data-mono text-data-mono">' + esc(l.id) + '</span>') +
-            td(esc(l.periodo)) + td(l.pedidos.length) +
-            td('<span class="font-data-mono text-data-mono">' + esc(TM.fmtUsd(l.brutoUsd)) + '</span>') +
-            td('<span class="font-data-mono text-data-mono text-error">−' + esc(TM.fmtUsd(l.comisionUsd + l.tarifaUsd)) + '</span>') +
-            td('<span class="font-data-mono text-data-mono font-bold">' + esc(TM.fmtUsd(l.netoUsd)) + '</span>') +
-            td('<button data-comprobante="' + esc(l.comprobante) + '" class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline">' + ic('download', 'text-[16px]') + esc(l.comprobante) + '</button>');
-        }),
-        UI.vacio('receipt_long', 'Sin liquidaciones todavía', 'Finanzas ejecuta las corridas con los pedidos elegibles.')) +
-      '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Comisión del marketplace: ' + TM.estado.config.comisionPct + ' % + tarifa fija de ' + esc(TM.fmtUsd(TM.estado.config.tarifaFijaUsd)) + ' por pedido. Modelo de custodia sujeto a validación legal — beta demo.</p>';
-  }
-
-  function despuesFinanzasSeller(raiz) {
-    raiz.querySelectorAll('[data-comprobante]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        UI.toast('Comprobante ' + b.getAttribute('data-comprobante') + ' (demo)', 'En producción se descargaría el PDF firmado.', 'download');
-      });
-    });
-  }
+  /* Finanzas del seller: tm-mod-pagos-seller.js (ola 1, pagos). */
 
   /* =====================================================================
      Registro
@@ -322,7 +264,6 @@
     'seller/panel':    { titulo: 'Panel del seller',   roles: ['seller'],                        render: vPanel },
     'seller/pedidos':  { titulo: 'Pedidos del seller', roles: ['seller', 'operador'],            render: vPedidosSeller },
     'seller/pedido':   { titulo: 'Preparación',        roles: ['seller', 'operador'],            render: vPedidoSeller, despues: despuesPedidoSeller },
-    'seller/disputas': { titulo: 'Reclamos',           roles: ['seller'],                        render: vDisputasSeller, despues: despuesDisputasSeller },
-    'seller/finanzas': { titulo: 'Finanzas',           roles: ['seller'],                        render: vFinanzasSeller, despues: despuesFinanzasSeller }
+    'seller/disputas': { titulo: 'Reclamos',           roles: ['seller'],                        render: vDisputasSeller, despues: despuesDisputasSeller }
   });
 })();

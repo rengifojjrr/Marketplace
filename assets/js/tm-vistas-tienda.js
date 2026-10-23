@@ -14,269 +14,10 @@
       '<h1 class="font-headline-md text-headline-md text-primary-container">' + esc(t) + '</h1>' + (extraHtml || '') + '</div>';
   }
 
-  function subtotalUsd(items) {
-    return Math.round(items.reduce(function (t, i) { return t + TM.producto(i.sku).precioUsd * i.cant; }, 0) * 100) / 100;
-  }
-
-  /* Envío: un pedido por seller, cada uno con su costo (agencia o domicilio). */
-  var COSTO_ENVIO = { agencia: 2.5, domicilio: 4 };
-  function sellersDe(items) {
-    var vistos = {};
-    items.forEach(function (i) { vistos[TM.producto(i.sku).sellerId] = true; });
-    return Object.keys(vistos).length;
-  }
-
-  function resumenPedidoRail(items, costoEnvioUsd) {
-    var sub = subtotalUsd(items);
-    var total = sub + (costoEnvioUsd || 0);
-    return '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 sticky top-4">' +
-      '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-3">Resumen</h2>' +
-      '<dl class="space-y-1.5 font-body-sm text-body-sm">' +
-      '<div class="flex justify-between"><dt class="text-on-surface-variant">Productos (' +
-        items.reduce(function (t, i) { return t + i.cant; }, 0) + ')</dt><dd>' + esc(TM.fmtBs(sub)) + '</dd></div>' +
-      '<div class="flex justify-between"><dt class="text-on-surface-variant">Envío' +
-        (costoEnvioUsd != null && sellersDe(items) > 1 ? ' (' + sellersDe(items) + ' paquetes)' : '') + '</dt><dd data-envio>' +
-        (costoEnvioUsd != null ? esc(TM.fmtBs(costoEnvioUsd)) : 'por calcular') + '</dd></div>' +
-      '<div class="flex justify-between border-t border-outline-variant pt-2 mt-2 font-bold text-body-md">' +
-        '<dt>Total</dt><dd class="text-right"><span data-total-bs>' + esc(TM.fmtBs(total)) + '</span>' +
-        '<span data-total-usd class="block font-data-mono text-data-mono font-normal text-on-surface-variant">' + esc(TM.fmtUsd(total)) + ' ref.</span></dd></div>' +
-      '</dl><div data-rail-accion class="mt-4"></div>' +
-      '<p class="mt-3 flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant">' +
-      ic('lock', 'text-[16px] mt-0.5') + 'Pago protegido: el dinero queda en custodia hasta que confirmes la entrega.</p></div>';
-  }
-
   /* Inicio, resultados y detalle de producto: los registra el módulo de
      catálogo (assets/js/tm-mod-catalogo.js, ola 1). */
 
-  /* =====================================================================
-     Carrito
-     ===================================================================== */
-  /* Productos del carrito que dejaron de estar a la venta: aparte, con su
-     botón para quitarlos (el pedido no se crea mientras sigan ahí). */
-  function lineasNoDisponibles() {
-    var fuera = TM.carritoNoDisponible();
-    if (!fuera.length) return '';
-    return '<div data-no-disponibles class="rounded-card border border-warning bg-warning-container/40 p-4 mb-4">' +
-      '<p class="flex items-center gap-1.5 font-body-sm text-body-sm font-bold text-on-warning-container mb-2">' + ic('info', 'text-[18px]') +
-      (fuera.length === 1 ? 'Un producto de tu carrito ya no está disponible' : fuera.length + ' productos de tu carrito ya no están disponibles') + '</p>' +
-      fuera.map(function (i) {
-        var p = TM.producto(i.sku);
-        return '<div class="flex items-center justify-between gap-3 py-1.5">' +
-          '<span class="font-body-sm text-body-sm">' + esc(p ? p.nombre : i.sku) + ' × ' + i.cant +
-          '<span class="block text-on-surface-variant">Pausado o en revisión por el seller</span></span>' +
-          '<button data-quitar="' + esc(i.sku) + '" class="font-label-md text-label-md text-secondary hover:underline">Eliminar</button></div>';
-      }).join('') + '</div>';
-  }
-
-  function vCarrito(q, s) {
-    var items = TM.carrito();
-    if (!items.length && TM.carritoNoDisponible().length) {
-      return tituloSeccion('Tu carrito') + lineasNoDisponibles();
-    }
-    if (!items.length) {
-      return tituloSeccion('Tu carrito') + UI.vacio('shopping_cart', 'El carrito está vacío',
-        'Agrega productos del catálogo: aquí verás el subtotal en bolívares con su referencia en dólares.',
-        '<a class="inline-flex items-center gap-2 min-h-[44px] px-5 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md" href="' +
-        href('app/tienda/resultados.html') + '">' + ic('search', 'text-[18px]') + 'Explorar el catálogo</a>');
-    }
-    return tituloSeccion('Tu carrito') + lineasNoDisponibles() +
-      '<div class="grid lg:grid-cols-[1fr_340px] gap-6 items-start">' +
-      '<div class="rounded-card border border-outline-variant bg-surface-container-lowest divide-y divide-outline-variant">' +
-      items.map(function (i) {
-        var p = TM.producto(i.sku);
-        var disponible = p.stockFis - p.stockRes;
-        return '<div class="flex gap-3 p-4">' + UI.imgProducto(p, 'w-24 h-24 object-cover shrink-0') +
-          '<div class="flex-1 min-w-0">' +
-          '<a class="font-body-md text-body-md text-on-surface hover:text-secondary leading-snug" href="' + href('app/tienda/producto.html?sku=' + p.sku) + '">' + esc(p.nombre) + '</a>' +
-          '<p class="font-body-sm text-body-sm ' + (disponible >= i.cant + 1 ? 'text-tertiary' : 'text-warning') + ' mt-0.5">' +
-            (disponible >= i.cant + 1 ? 'Disponible' : 'Quedan pocas unidades') + '</p>' +
-          '<div class="flex flex-wrap items-center gap-3 mt-2">' +
-            '<span class="inline-flex items-center rounded-btn border border-outline-variant">' +
-            '<button data-menos="' + p.sku + '" class="px-3 py-1.5 min-h-[36px]" aria-label="Restar">−</button>' +
-            '<span class="px-2 font-data-mono text-data-mono">' + i.cant + '</span>' +
-            '<button data-mas="' + p.sku + '" class="px-3 py-1.5 min-h-[36px]" aria-label="Sumar">+</button></span>' +
-            '<button data-quitar="' + p.sku + '" class="font-label-md text-label-md text-secondary hover:underline">Eliminar</button>' +
-          '</div></div>' +
-          '<div class="text-right shrink-0">' + UI.precio(p.precioUsd * i.cant) + '</div></div>';
-      }).join('') + '</div>' +
-      '<div>' + resumenPedidoRail(items, null) + '</div></div>';
-  }
-
-  function despuesCarrito(raiz, q, s) {
-    raiz.querySelectorAll('[data-mas]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var sku = b.getAttribute('data-mas');
-        var it = TM.carrito().find(function (i) { return i.sku === sku; });
-        UI.accion(b, function () { return TM.carritoCambiar(sku, it.cant + 1); });
-      });
-    });
-    raiz.querySelectorAll('[data-menos]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var sku = b.getAttribute('data-menos');
-        var it = TM.carrito().find(function (i) { return i.sku === sku; });
-        UI.accion(b, function () { return it.cant <= 1 ? TM.carritoQuitar(sku) : TM.carritoCambiar(sku, it.cant - 1); });
-      });
-    });
-    raiz.querySelectorAll('[data-quitar]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        UI.accion(b, function () { return TM.carritoQuitar(b.getAttribute('data-quitar')); });
-      });
-    });
-    var rail = raiz.querySelector('[data-rail-accion]');
-    if (rail) {
-      rail.innerHTML = btn('Continuar la compra', { estilo: 'primario', icono: 'arrow_forward', attr: 'data-checkout', clase: 'w-full' });
-      rail.querySelector('[data-checkout]').addEventListener('click', function () {
-        if (s && s.rol === 'comprador') location.href = href('app/tienda/checkout.html');
-        else location.href = href('index.html') + '?volver=' + encodeURIComponent('app/tienda/checkout.html');
-      });
-    }
-  }
-
-  /* =====================================================================
-     Checkout (pasos con resumen fijo)
-     ===================================================================== */
-  function vCheckout(q, s) {
-    var items = TM.carrito();
-    if (TM.carritoNoDisponible().length) {
-      return tituloSeccion('Finalizar compra') + UI.vacio('remove_shopping_cart', 'Revisa tu carrito antes de pagar',
-        'Algún producto dejó de estar disponible: quítalo del carrito para continuar.',
-        '<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href('app/tienda/carrito.html') + '">Ir al carrito</a>');
-    }
-    if (!items.length) {
-      return UI.vacio('shopping_cart', 'No hay nada que pagar', 'Tu carrito está vacío.',
-        '<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href('app/tienda/resultados.html') + '">Volver al catálogo</a>');
-    }
-    var dirs = TM.estado.direcciones[s.email] || [];
-    var dirElegida = pendiente.dir && (pendiente.dir === '__agencia__' || dirs.some(function (d) { return d.id === pendiente.dir; }))
-      ? pendiente.dir : (dirs.length ? (dirs.find(function (d) { return d.predeterminada; }) || dirs[0]).id : '__agencia__');
-    var envioInicial = (dirElegida === '__agencia__' ? COSTO_ENVIO.agencia : COSTO_ENVIO.domicilio) * sellersDe(items);
-    /* El subtotal que se pinta es el que se envía al confirmar: si un precio
-       cambia mientras tanto, el servidor no crea el pedido con otro monto. */
-    return tituloSeccion('Finalizar compra') +
-    '<div class="grid lg:grid-cols-[1fr_340px] gap-6 items-start"><form data-checkout data-subtotal="' + subtotalUsd(items) +
-      '" data-paquetes="' + sellersDe(items) + '" class="space-y-4">' +
-
-      '<section class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
-        '<h2 class="flex items-center gap-2 font-headline-sm text-headline-sm text-primary-container mb-3">' +
-        '<span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary-container text-on-primary text-[13px] font-bold">1</span>Entrega</h2>' +
-        (dirs.length ? dirs.map(function (d, i) {
-          return '<label class="flex items-start gap-2 p-3 rounded-btn border border-outline-variant mb-2 cursor-pointer has-[:checked]:border-secondary has-[:checked]:bg-secondary-container/30">' +
-            '<input type="radio" name="dir" value="' + esc(d.id) + '"' + (dirElegida === d.id ? ' checked' : '') + ' class="mt-1 text-secondary focus:ring-secondary/40"/>' +
-            '<span><span class="font-body-sm text-body-sm font-bold text-on-surface">' + esc(d.nombre) + '</span>' +
-            '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(d.linea) + ', ' + esc(d.municipio) + ' · ' + esc(d.telefono) + '</span></span></label>';
-        }).join('') : '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">No tienes direcciones guardadas: agrega una en <a class="text-secondary hover:underline" href="' + href('app/tienda/direcciones.html') + '">Direcciones</a> o usa retiro en agencia.</p>') +
-        '<label class="flex items-start gap-2 p-3 rounded-btn border border-outline-variant cursor-pointer has-[:checked]:border-secondary has-[:checked]:bg-secondary-container/30">' +
-          '<input type="radio" name="dir" value="__agencia__"' + (dirElegida === '__agencia__' ? ' checked' : '') + ' class="mt-1 text-secondary focus:ring-secondary/40"/>' +
-          '<span><span class="font-body-sm text-body-sm font-bold text-on-surface">Retiro en agencia</span>' +
-          '<span class="block font-body-sm text-body-sm text-on-surface-variant">Agencia MRW La Candelaria, Caracas · costo reducido</span></span></label></section>' +
-
-      '<section class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
-        '<h2 class="flex items-center gap-2 font-headline-sm text-headline-sm text-primary-container mb-1">' +
-        '<span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary-container text-on-primary text-[13px] font-bold">2</span>Pago</h2>' +
-        '<p class="flex items-center gap-1.5 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-3">' +
-        ic('science', 'text-[16px]') + 'Modo demo: no se pide ningún dato bancario y no se mueve dinero real.</p>' +
-        '<label class="flex items-start gap-2 p-3 rounded-btn border border-outline-variant mb-2 cursor-pointer has-[:checked]:border-secondary has-[:checked]:bg-secondary-container/30">' +
-          '<input type="radio" name="metodo" value="Pago Móvil"' + (pendiente.metodo !== 'Transferencia' ? ' checked' : '') + ' class="mt-1 text-secondary focus:ring-secondary/40"/>' +
-          '<span><span class="font-body-sm text-body-sm font-bold text-on-surface">Pago Móvil</span>' +
-          '<span class="block font-body-sm text-body-sm text-on-surface-variant">Paga al 0412-TUMBO-DEMO y registra la referencia</span></span></label>' +
-        '<label class="flex items-start gap-2 p-3 rounded-btn border border-outline-variant mb-3 cursor-pointer has-[:checked]:border-secondary has-[:checked]:bg-secondary-container/30">' +
-          '<input type="radio" name="metodo" value="Transferencia"' + (pendiente.metodo === 'Transferencia' ? ' checked' : '') + ' class="mt-1 text-secondary focus:ring-secondary/40"/>' +
-          '<span><span class="font-body-sm text-body-sm font-bold text-on-surface">Transferencia bancaria</span>' +
-          '<span class="block font-body-sm text-body-sm text-on-surface-variant">Cuenta demo del marketplace · registra la referencia</span></span></label>' +
-        '<label class="block font-label-md text-label-md text-on-surface mb-1" for="chk-ref">Número de referencia</label>' +
-        '<input id="chk-ref" name="ref" value="' + esc(pendiente.ref) + '" placeholder="Ej.: PM-123456" class="w-full max-w-xs h-11 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-data-mono text-data-mono focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>' +
-        '<p data-err-ref class="hidden mt-1 font-body-sm text-body-sm text-error"></p></section>' +
-
-      '<section class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
-        '<h2 class="flex items-center gap-2 font-headline-sm text-headline-sm text-primary-container mb-3">' +
-        '<span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary-container text-on-primary text-[13px] font-bold">3</span>Revisar y confirmar</h2>' +
-        items.map(function (i) {
-          var p = TM.producto(i.sku);
-          return '<div class="flex items-center gap-3 py-2 border-b border-outline-variant last:border-0">' +
-            UI.imgProducto(p, 'w-12 h-12 object-cover') +
-            '<span class="flex-1 font-body-sm text-body-sm">' + esc(p.nombre) + ' × ' + i.cant +
-            '<span class="block text-on-surface-variant">Vendido por ' + esc(TM.seller(p.sellerId).nombre) + '</span></span>' +
-            '<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtBs(p.precioUsd * i.cant)) + '</span></div>';
-        }).join('') +
-        '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Al confirmar aceptas los términos de la beta. El precio queda bloqueado con la tasa del día (' +
-        'Bs. ' + TM.estado.config.tasa.toLocaleString('es-VE', { minimumFractionDigits: 2 }) + ' por USD, fuente BCV demo).</p></section>' +
-    '</form><div>' + resumenPedidoRail(items, envioInicial) + '</div></div>';
-  }
-
-  /* Lo elegido en el checkout sobrevive al repintado cuando el servidor
-     avisa de que los precios cambiaron: la persona revisa el nuevo total sin
-     volver a escribir la referencia ni a elegir entrega y método. */
-  var pendiente = { ref: '', dir: null, metodo: null };
-
-  function despuesCheckout(raiz, q, s) {
-    var rail = raiz.querySelector('[data-rail-accion]');
-    if (!rail) return;
-    var form = raiz.querySelector('[data-checkout]');
-    var subtotal = parseFloat(form.getAttribute('data-subtotal'));
-    var paquetes = parseInt(form.getAttribute('data-paquetes'), 10) || 1;
-    /* el envío del resumen sigue a la opción de entrega elegida */
-    form.querySelectorAll('[name=dir]').forEach(function (r) {
-      r.addEventListener('change', function () {
-        var envio = (r.value === '__agencia__' ? COSTO_ENVIO.agencia : COSTO_ENVIO.domicilio) * paquetes;
-        raiz.querySelector('[data-envio]').textContent = TM.fmtBs(envio);
-        raiz.querySelector('[data-total-bs]').textContent = TM.fmtBs(subtotal + envio);
-        raiz.querySelector('[data-total-usd]').textContent = TM.fmtUsd(subtotal + envio) + ' ref.';
-      });
-    });
-    rail.innerHTML = btn('Confirmar pedido y registrar pago', { estilo: 'primario', icono: 'lock', attr: 'data-confirmar', clase: 'w-full' });
-    rail.querySelector('[data-confirmar]').addEventListener('click', function () {
-      var f = raiz.querySelector('[data-checkout]');
-      var ref = f.querySelector('[name=ref]').value.trim();
-      var err = f.querySelector('[data-err-ref]');
-      var malRef = TM.errorReferencia(ref);
-      if (malRef) {
-        err.textContent = malRef;
-        err.classList.remove('hidden');
-        f.querySelector('[name=ref]').focus();
-        return;
-      }
-      err.classList.add('hidden');
-      var dir = f.querySelector('[name=dir]:checked');
-      var esAgencia = !dir || dir.value === '__agencia__';
-      var datos = {
-        tipo: esAgencia ? 'agencia' : 'domicilio',
-        direccionId: esAgencia ? null : dir.value,
-        metodo: f.querySelector('[name=metodo]:checked').value,
-        ref: ref,
-        totalUsd: subtotal
-      };
-      UI.accion(this, function () { return TM.crearPedido(datos); }, function (ids) {
-        pendiente = { ref: '', dir: null, metodo: null };
-        location.href = href('app/tienda/confirmacion.html?ids=' + ids.join(','));
-      }, 'No se pudo crear el pedido', function (e) {
-        if (/precios de tu carrito cambiaron/.test(UI.mensajeError(e))) {
-          pendiente = { ref: ref, dir: dir ? dir.value : null, metodo: datos.metodo };
-          TM.refrescar().catch(function (e2) { /* trae los precios vigentes y repinta */
-            UI.toast('No se pudieron traer los precios vigentes', UI.mensajeError(e2), 'error');
-          });
-        }
-      });
-    });
-  }
-
-  /* =====================================================================
-     Confirmación
-     ===================================================================== */
-  function vConfirmacion(q) {
-    /* Solo identificadores de pedido: el parámetro viene de la URL. */
-    var ids = (q.get('ids') || '').split(',').filter(function (id) { return /^TM-\d{4}-\d{5,}$/.test(id); });
-    return '<div class="max-w-xl mx-auto text-center py-8">' +
-      '<span class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success-container text-on-success-container mb-4">' + ic('check_circle', 'text-[32px]') + '</span>' +
-      '<h1 class="font-headline-md text-headline-md text-primary-container mb-2">¡Pedido registrado!</h1>' +
-      '<p class="font-body-md text-body-md text-on-surface-variant mb-4">Tu pago quedó <strong>pendiente de verificación</strong>: Finanzas concilia la referencia y el seller empieza a preparar. Te avisaremos en cada paso.</p>' +
-      ids.map(function (id) {
-        return '<a class="flex items-center justify-between gap-2 rounded-card border border-outline-variant bg-surface-container-lowest px-4 py-3 mb-2 hover:border-secondary" href="' +
-          esc(href('app/tienda/pedido.html?id=' + encodeURIComponent(id))) + '">' +
-          '<span class="font-data-mono text-data-mono text-on-surface">' + esc(id) + '</span>' +
-          '<span class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary">Seguir pedido' + ic('arrow_forward', 'text-[16px]') + '</span></a>';
-      }).join('') +
-      '<a class="inline-flex mt-4 font-label-md text-label-md text-secondary hover:underline" href="' + href('app/tienda/resultados.html') + '">Seguir comprando</a></div>';
-  }
+  /* Carrito, checkout y confirmación: tm-mod-pagos-tienda.js (ola 1, pagos). */
 
   /* =====================================================================
      Mis pedidos (tarjetas estilo Amazon)
@@ -284,7 +25,7 @@
   function encabezadoPedido(p) {
     return '<div class="flex flex-wrap gap-x-6 gap-y-1 rounded-t-card bg-surface-container-low border-b border-outline-variant px-4 py-2.5 font-body-sm text-body-sm text-on-surface-variant">' +
       '<span><span class="block font-label-caps text-label-caps uppercase">Pedido realizado</span>' + esc(p.creado.split(' ')[0]) + '</span>' +
-      '<span><span class="block font-label-caps text-label-caps uppercase">Total</span>' + esc(TM.fmtBs(TM.totalPedidoUsd(p))) + '</span>' +
+      '<span><span class="block font-label-caps text-label-caps uppercase">Total</span>' + esc(TM.fmtTotalPedido(p)) + '</span>' +
       '<span class="hidden sm:block"><span class="block font-label-caps text-label-caps uppercase">Enviar a</span>' + esc(p.envio.dir.split(',')[0]) + '</span>' +
       '<span class="ml-auto text-right"><span class="block font-label-caps text-label-caps uppercase">N.º de pedido</span>' +
       '<span class="font-data-mono text-data-mono text-on-surface">' + esc(p.id) + '</span></span></div>';
@@ -378,11 +119,13 @@
           p.items.map(function (i) {
             var pr = TM.producto(i.sku);
             return '<p class="font-body-sm text-body-sm">' + esc(pr ? pr.nombre : i.sku) + ' × ' + i.cant +
-              '<span class="float-right font-bold">' + esc(TM.fmtBs(i.precioUsd * i.cant)) + '</span></p>';
+              '<span class="float-right font-bold">' + esc(TM.fmtBs(i.precioUsd * i.cant, p.tasa)) + '</span></p>';
           }).join('') +
-          '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Envío<span class="float-right">' + esc(TM.fmtBs(p.envio.costoUsd)) + '</span></p>' +
-          '<p class="font-body-md text-body-md font-bold border-t border-outline-variant mt-2 pt-2">Total<span class="float-right">' + esc(TM.fmtBs(TM.totalPedidoUsd(p))) + '</span></p>' +
-          '<p class="font-data-mono text-data-mono text-on-surface-variant mt-1 text-right">' + esc(TM.fmtUsd(TM.totalPedidoUsd(p))) + ' ref. · tasa ' + p.tasa.toLocaleString('es-VE') + '</p>' +
+          '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Envío<span class="float-right">' + esc(TM.fmtBs(p.envio.costoUsd, p.tasa)) + '</span></p>' +
+          ((p.descuentoUsd || 0) + (p.descuentoTumboUsd || 0) ? '<p class="font-body-sm text-body-sm text-on-surface-variant">Descuentos<span class="float-right">−' + esc(TM.fmtBs((p.descuentoUsd || 0) + (p.descuentoTumboUsd || 0), p.tasa)) + '</span></p>' : '') +
+          (p.igtfUsd ? '<p class="font-body-sm text-body-sm text-on-surface-variant">IGTF<span class="float-right">' + esc(TM.fmtBs(p.igtfUsd, p.tasa)) + '</span></p>' : '') +
+          '<p class="font-body-md text-body-md font-bold border-t border-outline-variant mt-2 pt-2">Total<span class="float-right">' + esc(TM.fmtTotalPedido(p)) + '</span></p>' +
+          '<p class="font-data-mono text-data-mono text-on-surface-variant mt-1 text-right">' + esc(TM.fmtUsd(TM.cobradoPedidoUsd(p))) + ' ref. · tasa ' + p.tasa.toLocaleString('es-VE') + '</p>' +
           '<hr class="my-3 border-outline-variant"/>' +
           '<p class="font-body-sm text-body-sm"><strong>Entrega:</strong> ' + esc(p.envio.dir) + '</p>' +
           '<p class="font-body-sm text-body-sm"><strong>Courier:</strong> ' + esc(p.envio.courier) + (p.guia ? ' · <span class="font-data-mono text-data-mono">' + esc(p.guia) + '</span>' : '') + '</p>' +
@@ -509,9 +252,8 @@
      Registro de vistas
      ===================================================================== */
   APP.registrar({
-    'tienda/carrito':      { armazon: 'tienda', publico: true, titulo: 'Carrito', render: vCarrito, despues: despuesCarrito },
-    'tienda/checkout':     { armazon: 'tienda', roles: ['comprador'], titulo: 'Finalizar compra', render: vCheckout, despues: despuesCheckout },
-    'tienda/confirmacion': { armazon: 'tienda', roles: ['comprador'], titulo: 'Pedido registrado', render: vConfirmacion },
+    /* 'tienda/inicio', 'tienda/resultados' y 'tienda/producto': tm-mod-catalogo.js;
+       'tienda/carrito', 'tienda/checkout' y 'tienda/confirmacion': tm-mod-pagos-tienda.js */
     'tienda/pedidos':      { armazon: 'tienda', roles: ['comprador'], titulo: 'Mis pedidos', render: vPedidos },
     'tienda/pedido':       { armazon: 'tienda', roles: ['comprador'], titulo: 'Seguimiento', render: vPedido, despues: despuesPedido },
     'tienda/reclamo':      { armazon: 'tienda', roles: ['comprador'], titulo: 'Reclamo', render: vReclamo, despues: despuesReclamo }

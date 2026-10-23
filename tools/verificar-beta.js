@@ -105,6 +105,36 @@ const PAGINAS = {
   /* ================= Recorrido de compra E2E ================= */
   let pedidoNuevo = null;
 
+  function esRemoto() { return t.modo === 'remoto'; }
+  /* Confirma el checkout y registra el pago con su referencia: en modo local
+     se escribe en el checkout; con backend, en el pago guiado de la
+     confirmación (un solo pago por checkout). `mala`: una referencia que se
+     rechaza con las mismas reglas y mensajes que el servidor. */
+  async function pagarCheckout(ref, mala) {
+    const remoto = esRemoto();
+    const campo = remoto ? '#pg-ref' : '#chk-ref';
+    const boton = remoto ? '[data-reportar]' : '[data-confirmar]';
+    if (remoto) {
+      await p.locator('[data-confirmar]').click();
+      await p.waitForURL('**/confirmacion.html*', { timeout: 15000 });
+      await p.selectOption('#pg-banco', '0134');
+      await p.fill('#pg-telefono', '0414-1234567');
+      await p.fill('#pg-cedula', 'V-12345678');
+    }
+    await p.waitForSelector(campo);
+    if (mala) {
+      await p.fill(campo, mala);
+      await p.locator(boton).click();
+      const errRef = await p.locator('[data-err-ref]').innerText();
+      if (!/solo admite letras sin tilde/.test(errRef)) throw new Error('mensaje de referencia inesperado: ' + errRef);
+    }
+    await p.fill(campo, ref);
+    await p.locator(boton).click();
+    if (remoto) await aviso('Pago reportado');
+    else await p.waitForURL('**/confirmacion.html*', { timeout: 15000 });
+    return new URL(p.url()).searchParams.get('ids').split(',')[0];
+  }
+
   await prueba('visitante arma carrito y se fusiona al iniciar sesión', async () => {
     await reset();
     await p.goto(`${BASE}/app/tienda/producto.html?sku=SKU-TEC-0450`, { waitUntil: 'domcontentloaded' });
@@ -121,22 +151,15 @@ const PAGINAS = {
     await abrir('tienda/carrito');
     await p.locator('[data-checkout]').click();
     await p.waitForURL('**/checkout.html', { timeout: 8000 });
-    await p.waitForSelector('#chk-ref');
     /* la referencia se valida con las mismas reglas y mensajes que el servidor */
-    await p.fill('#chk-ref', 'Nº 4455');
-    await p.locator('[data-confirmar]').click();
-    const errRef = await p.locator('[data-err-ref]').innerText();
-    if (!/solo admite letras sin tilde/.test(errRef)) throw new Error('mensaje de referencia inesperado: ' + errRef);
-    await p.fill('#chk-ref', 'PM-999001');
-    await p.locator('[data-confirmar]').click();
-    await p.waitForURL('**/confirmacion.html*', { timeout: 8000 });
-    pedidoNuevo = new URL(p.url()).searchParams.get('ids').split(',')[0];
+    pedidoNuevo = await pagarCheckout('PM-999001', 'Nº 4455');
     if (!/^TM-2026-\d{5}$/.test(pedidoNuevo)) throw new Error('id de pedido inválido: ' + pedidoNuevo);
   });
 
   await prueba('finanzas concilia y el pedido pasa al seller', async () => {
     await login('Finanzas');
     const fila = p.locator('#raiz tr', { hasText: pedidoNuevo });
+    await fila.first().waitFor({ timeout: 15000 }).catch(() => {});
     if (!await fila.count()) throw new Error(pedidoNuevo + ' no está en la cola de conciliación');
     await fila.locator('[data-conciliar]').click();
     await aviso('Pago conciliado');
@@ -176,12 +199,29 @@ const PAGINAS = {
     await fila.locator('[data-cerrar-ventana]').click();
     await aviso('Ventana cerrada');
     const boton = p.locator('[data-liquidar]').first();
+    await boton.waitFor({ timeout: 15000 }).catch(() => {});
     if (!await boton.count()) throw new Error('no hay corrida pendiente');
     await boton.click();
-    await p.waitForSelector('.tm-modal [data-codigo]');
-    await p.fill('.tm-modal [data-codigo]', '123456');
+    /* (con backend no se pide el código de la demo: lo comprueba el servidor) */
+    if (!esRemoto()) {
+      await p.waitForSelector('.tm-modal [data-codigo]');
+      await p.fill('.tm-modal [data-codigo]', '123456');
+    }
     await p.locator('.tm-modal [data-ok]').click();
-    await aviso('ejecutada');
+    if (esRemoto()) {
+      /* con backend la corrida se prepara, la aprueba otra persona y se
+         paga con la referencia de la transferencia */
+      await aviso('preparada');
+      await login('Superadministrador');
+      await abrir('admin/liquidaciones');
+      await p.locator('[data-aprobar-liq]').first().click();
+      await p.locator('.tm-modal [data-ok]').click();
+      await aviso('aprobada');
+      await p.locator('[data-pagar-liq]').first().click();
+      await p.fill('.tm-modal [data-referencia]', 'TRF-0042');
+      await p.locator('.tm-modal [data-ok]').click();
+    }
+    await aviso(esRemoto() ? 'pagada' : 'ejecutada');
     await login('Seller principal');
     await abrir('seller/finanzas');
     const t = await p.locator('#raiz').innerText();
@@ -315,10 +355,7 @@ const PAGINAS = {
     await p.locator('[data-agregar]').click();
     await aviso('Agregado al carrito');
     await abrir('tienda/checkout');
-    await p.fill('#chk-ref', 'PM-777001');
-    await p.locator('[data-confirmar]').click();
-    await p.waitForURL('**/confirmacion.html*', { timeout: 15000 });
-    const id = new URL(p.url()).searchParams.get('ids');
+    const id = await pagarCheckout('PM-777001');
     await login('Finanzas');
     const fila = p.locator('#raiz tr', { hasText: id });
     await fila.locator('[data-rechazar-pago]').click();

@@ -308,7 +308,12 @@
         disputaId: r.disputa_id, liquidacionId: r.liquidacion_id,
         creado: fecha(r.creado), entregadoEl: fecha(r.entregado_el),
         items: items,
-        timeline: (r.pedido_eventos || []).map(function (t) { return { fecha: fecha(t.fecha), actor: t.actor, texto: t.texto, icono: t.icono }; })
+        timeline: (r.pedido_eventos || []).map(function (t) { return { fecha: fecha(t.fecha), actor: t.actor, texto: t.texto, icono: t.icono }; }),
+        /* pagos (ola 1): su pago y lo cobrado al venderse (tasa congelada) */
+        pagoId: r.pago_id || null, montoBs: num(r.monto_bs), comisionPct: num(r.comision_pct), tarifaUsd: num(r.tarifa_usd),
+        descuentoUsd: num(r.descuento_usd) || 0, descuentoTumboUsd: num(r.descuento_tumbo_usd) || 0, ivaUsd: num(r.iva_usd) || 0,
+        igtfUsd: num(r.igtf_usd) || 0, exentoUsd: num(r.exento_usd) || 0, creditoUsd: num(r.credito_usd) || 0, envioDias: r.envio_dias || null,
+        destino: r.destino || null, pagoVence: r.pago_vence || null, vencido: !!r.vencido_el
       };
     });
 
@@ -326,7 +331,11 @@
       return {
         id: r.id, sellerId: r.seller_id, periodo: r.periodo, pedidos: r.pedidos || [],
         brutoUsd: num(r.bruto_usd), comisionUsd: num(r.comision_usd), tarifaUsd: num(r.tarifa_usd), netoUsd: num(r.neto_usd),
-        estado: r.estado, fecha: dia(r.fecha), comprobante: r.comprobante
+        estado: r.estado, fecha: dia(r.fecha), comprobante: r.comprobante,
+        /* pagos (ola 1): ciclo, envío y ajustes, pago en Bs. a la tasa del día */
+        ciclo: r.ciclo || 'pagada', envioUsd: num(r.envio_usd) || 0, ajustesUsd: num(r.ajustes_usd) || 0, tasaPago: num(r.tasa_pago),
+        netoBs: num(r.neto_bs), diferencialBs: num(r.diferencial_bs), referenciaPago: r.referencia_pago || null,
+        comprobanteArchivo: r.comprobante_archivo || null, cuenta: r.cuenta || null, motivo: r.motivo || null
       };
     });
 
