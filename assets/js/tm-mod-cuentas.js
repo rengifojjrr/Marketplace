@@ -286,7 +286,7 @@
       (p && p.demo ? '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant">En las cuentas de prueba solo ves tu propia sesión: las de las demás personas que la usan no se muestran ni se cierran desde aquí.</p>'
         : '<div class="mt-3 flex flex-wrap items-center gap-3">' +
           btn('Cerrar todas las demás', { estilo: 'peligro', icono: 'logout', attr: 'data-accion="cerrar-otras"' + (lista.length < 2 ? ' disabled' : '') }) +
-          '<span class="font-body-sm text-body-sm text-on-surface-variant">Te avisamos (correo y notificación) cuando se entra desde un dispositivo nuevo.</span></div>');
+          '<span class="font-body-sm text-body-sm text-on-surface-variant">Te avisamos (correo y notificación) cuando se entra desde un dispositivo o una red que tu cuenta no usaba.</span></div>');
   }
 
   function bloqueEliminar(p) {

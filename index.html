@@ -253,6 +253,8 @@
      código público, que también comprueba el servidor (en modo local, el
      navegador). */
   var mfaReal = false;
+  /* el texto y el campo de la demo, para reponerlos si antes se vio el paso real */
+  var mfaDemoHtml = document.querySelector('[data-mfa-texto]').innerHTML;
   function pasoMfa(real) {
     mfaReal = !!real;
     var texto = document.querySelector('[data-mfa-texto]');
@@ -262,6 +264,11 @@
       campo.setAttribute('maxlength', '9');
       campo.setAttribute('autocomplete', 'one-time-code');
       campo.removeAttribute('inputmode');
+    } else {
+      texto.innerHTML = mfaDemoHtml;
+      campo.setAttribute('maxlength', '6');
+      campo.setAttribute('inputmode', 'numeric');
+      campo.removeAttribute('autocomplete');
     }
     campo.value = '';
     mostrar('mfa');

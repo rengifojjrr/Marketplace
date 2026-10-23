@@ -17,9 +17,9 @@ invitaciones), `tm-mod-cuentas-acceso.js` (contraseña nueva e invitación) y
 | Comprador | Mi cuenta (`tienda/cuenta`): perfil (nombre, cédula, teléfono +58), verificar correo y teléfono con código, cambiar la contraseña, 2FA con TOTP, sesiones por dispositivo y baja de la cuenta. Libreta de direcciones completa (`tienda/direcciones`). |
 | Seller principal | Mi cuenta (`seller/cuenta`, 2FA obligatoria para lo sensible) y su equipo (`seller/equipo`): invitar gestores de precios y operadores, quitar el acceso, dar a un operador el permiso de cambiar precios. |
 | Gestor de precios, operador | Mi cuenta (`seller/cuenta`). |
-| Operaciones | Mi cuenta (`admin/cuenta`) y consulta de compradores en `admin/usuarios`; con el permiso `usuarios` (y su 2FA) además bloquea, cierra sesiones y genera enlaces de recuperación de cuentas que no sean de superadministración. |
+| Operaciones | Mi cuenta (`admin/cuenta`) y consulta de compradores en `admin/usuarios` (nunca ve al personal interno ni a los comercios); con el permiso `usuarios` (y su 2FA) además bloquea y desbloquea compradores (con motivo), cierra sus sesiones y deja en su bandeja un enlace de recuperación (no lo recibe: lo envía el superadministrador). |
 | Finanzas | Mi cuenta (`admin/cuenta`, 2FA obligatoria para lo sensible). |
-| Superadministrador | Todo lo anterior en `admin/usuarios`: buscar por correo, nombre, teléfono, cédula o identificador; ficha con sesiones (cerrar una o todas), bloquear o desbloquear con motivo, enlace de recuperación, quitar la 2FA a quien perdió el teléfono, cambiar el rol del personal interno, permisos finos; invitar personal interno o un comercio nuevo. |
+| Superadministrador | Todo lo anterior en `admin/usuarios`, para cualquier cuenta: buscar por correo, nombre, teléfono, cédula o identificador; ficha con sesiones (cerrar una o todas), bloquear o desbloquear con motivo, enlace de recuperación (lo recibe para enviarlo a mano), quitar la 2FA a quien perdió el teléfono, cambiar el rol del personal interno, permisos finos, **baja administrativa** (con motivo); invitar personal interno o un comercio nuevo. |
 
 Las cuentas de prueba (contraseña pública) no cambian nada de esto: su
 perfil, contraseña y 2FA no se modifican, no invitan ni administran (no
@@ -37,9 +37,13 @@ sesiones: en una cuenta compartida se ve y se cierra solo la propia).
   de 30 (como antes).
 - Al abrir sesión se anota `usuarios.ultimo_acceso` (en las cuentas demo,
   una vez por minuto) y, en las cuentas propias, si la combinación de
-  navegador y sistema es nueva (y no es el primer acceso), se avisa por la
-  bandeja (plantilla `acceso_nuevo`) y con una notificación. Se recuerdan 20
-  dispositivos por cuenta (`tumbo.dispositivos`).
+  navegador y sistema es nueva **o la red es nueva** (y no es el primer
+  acceso), se avisa por la bandeja (plantilla `acceso_nuevo`, con el
+  dispositivo y la conexión) y con una notificación. Así también se avisa a
+  quien entra con la contraseña robada desde otra red con el navegador más
+  común. Se recuerdan 20 dispositivos (`tumbo.dispositivos`) y 30 redes por
+  cuenta (`tumbo.redes_cuenta`: el prefijo /24 de IPv4 o /48 de IPv6, para
+  que cambiar de dirección dentro de la misma red no avise).
 - Una cuenta bloqueada no opera: `usuario()` la descarta (y el bloqueo cierra
   sus sesiones); `tm_acceder` lo dice solo con la contraseña correcta.
 
@@ -104,6 +108,18 @@ Topes: 20 personas por equipo, 30 invitaciones por día por quien invita, 200
 pendientes en total, 10 rechazos por hora (un correo con cuenta) y 20
 consultas inválidas por red cada 15 minutos.
 
+Una invitación nueva a un correo **solo reemplaza las pendientes de su
+mismo ámbito** (las de ese comercio, si invita un seller; las de la
+plataforma, si invita la superadministración): nadie anula la invitación
+del personal interno ni la de otro comercio. Bloquear, cambiar el rol,
+quitar el acceso o dar de baja a una cuenta **revoca las invitaciones que
+dejó pendientes**, y además `tm_invitacion_ver`/`tm_invitacion_aceptar`
+rechazan una invitación cuyo autor ya no está activo, está bloqueado o ya
+no tiene el rol que le permitía invitar (`tumbo_privado.invitante_vigente`:
+el seller principal de ese comercio para su equipo; un superadministrador
+para el personal interno y los comercios nuevos). La de puesta en marcha
+(`inicial`) no la hizo ninguna cuenta.
+
 ### Primera cuenta real de superadministrador (puesta en marcha)
 Desde el SQL Editor del proyecto (tumbo_privado no se expone por la API):
 
@@ -129,14 +145,32 @@ Búsqueda (`tm_admin_usuarios`) y ficha (`tm_admin_usuario`) con lo que cada
 rol puede ver (`tumbo_privado.ve_usuario`); los cambios
 (`tm_admin_bloquear`, `tm_admin_sesiones_cerrar`, `tm_admin_recuperacion`,
 `tm_admin_rol`, `tm_admin_2fa_quitar`, `tm_permiso_asignar`,
-`tm_equipo_quitar`, `tm_invitar`, `tm_invitacion_revocar`) pasan por
-`tumbo_privado.exigir_admin_elevada`: sesión elevada **con la 2FA activa sea
-cual sea el rol** (p. ej. ops con el permiso `usuarios`). Nadie se bloquea a
-sí mismo ni deja la plataforma sin superadministrador real; a un
-superadministrador solo lo gestiona otro. Todo queda en la auditoría,
-nombrando las cuentas por su **identificador** (las cuentas demo leen la
-auditoría y no deben ver correos de personas reales; la búsqueda acepta el
-identificador).
+`tm_equipo_quitar`, `tm_invitar`, `tm_invitacion_revocar`, `tm_admin_baja`)
+pasan por `tumbo_privado.exigir_admin_elevada`: sesión elevada **con la 2FA
+activa sea cual sea el rol** (p. ej. ops con el permiso `usuarios`).
+
+Quién alcanza a quién (`tumbo_privado.ve_usuario` / `gestiona_usuario`): el
+superadministrador, a cualquiera; operaciones, **solo a compradores** (los
+ve siempre; los gestiona con el permiso `usuarios`). Nunca a finanzas, a
+otros ops, a superadministradores ni a comercios: con un enlace de
+recuperación se quedaría con esas cuentas. Por lo mismo,
+`tm_admin_recuperacion` **solo le entrega el enlace al superadministrador**;
+para operaciones lo deja en la bandeja de la persona (los mensajes de
+seguridad de la bandeja solo los lee el superadministrador). Bloquear y
+desbloquear piden motivo (5 caracteres o más). Nadie se bloquea ni se da
+de baja a sí mismo ni deja la plataforma sin superadministrador real. Todo
+queda en la auditoría, nombrando las cuentas por su **identificador** (las
+cuentas demo leen la auditoría y no deben ver correos de personas reales;
+la búsqueda acepta el identificador).
+
+**Baja administrativa** (`tm_admin_baja(sesión, usuario, motivo)`, solo el
+superadministrador real, con sesión elevada y motivo): desactiva y
+anonimiza la cuenta como la baja de la persona (`anonimizar_cuenta`),
+cierra sus sesiones y revoca sus invitaciones. Sirve para quien se va del
+equipo interno o de un comercio, o para una compradora que lo pide por otro
+canal (con las mismas condiciones que su propia baja). Un seller principal
+solo cuando su comercio ya no opera (suspendido, rechazado o en revisión):
+si no, el comercio quedaría sin quien lo gestione.
 
 ### Permisos finos
 `tumbo.permisos` (catálogo) y `tumbo.permisos_usuario` (asignaciones).
@@ -173,11 +207,28 @@ siempre (la que muestra el checkout) recibe el teléfono de quien recibe.
 
 ### Baja de la cuenta
 Solo compradores, con la contraseña y la palabra ELIMINAR, sin pedidos ni
-reclamos en curso. Desactiva y anonimiza (correo `eliminada-<id>@…`, nombre,
-teléfono y cédula), borra direcciones, carrito, sesiones, 2FA, códigos,
-dispositivos, avisos, permisos, preferencias y sus mensajes de la bandeja;
-conserva pedidos (con su destino), reclamos y auditoría. El correo queda
-libre para registrarse de nuevo.
+reclamos en curso **ni reembolsos sin enviar** (`pendiente`, `en_proceso` o
+`fallido`: la baja borraría el teléfono y la cédula con los que se devuelve
+el dinero y la persona ya no podría verlo ni reclamarlo). Se comprueba con
+el bloqueo de su carrito tomado (el de `tm_crear_pedido`). Desactiva y
+anonimiza (correo `eliminada-<id>@…`, nombre, teléfono y cédula), borra
+direcciones, carrito, sesiones, 2FA, códigos, dispositivos y redes, avisos,
+permisos, preferencias y sus mensajes de la bandeja, y revoca sus
+invitaciones; conserva pedidos (con su destino), reclamos y auditoría. El
+correo queda libre para registrarse de nuevo. El resto de las cuentas las
+da de baja la superadministración (`tm_admin_baja`).
+
+### La auditoría no guarda el nombre de las cuentas propias
+La auditoría es inmutable y la leen finanzas y la superadministración,
+también las cuentas demo (contraseña pública). Por eso los asientos de la
+propia cuenta (registro, inicio de sesión, contraseña cambiada o
+restablecida, 2FA activada o desactivada, códigos de respaldo, sesiones
+cerradas, invitación aceptada y baja) nombran al actor por su
+identificador (`tumbo_privado.actor_cuenta(u)` → «cuenta <id> (rol)»), no
+por su nombre; la baja se audita después de anonimizar. Las cuentas demo
+conservan su nombre. Los asientos de otros dominios («Pedido creado»,
+«Cancelación»…) y el filtro de `tm_auditoria` para las cuentas demo no son
+de este dominio: ver «Lo que depende de otros equipos».
 
 ## API
 
@@ -186,7 +237,7 @@ libre para registrarse de nuevo.
 | `tm_acceder(email, clave)` (redefinida) | cualquiera | sesión, o `{requiere2fa, desafio}` con la 2FA activa; una cuenta bloqueada no entra |
 | `tm_acceder_2fa(desafio, codigo)` | cualquiera | completa el acceso con TOTP o código de respaldo; la sesión nace elevada |
 | `tm_elevar(sesión, codigo)` | con sesión | sesión elevada 10 min (demo: `123456`) → `{ok, hasta}` o `{error}` |
-| `tm_registrar(email, clave, nombre)` (redefinida) | cualquiera | como antes (sin aceptación de términos); respeta `registro_activo` |
+| `tm_registrar(email, clave, nombre)` (redefinida) | cualquiera | se conserva para las llamadas existentes, pero ya no crea cuentas sin términos: responde «Acepta los términos vigentes…» |
 | `tm_registrar(email, clave, nombre, telefono, terminos)` | cualquiera | registro de la web: teléfono opcional y la versión vigente de los términos |
 | `tm_perfil(sesión)` · `tm_perfil_guardar(sesión, datos)` | con sesión (no demo para guardar) | perfil completo; nombre, cédula y teléfono |
 | `tm_clave_cambiar(sesión, actual, nueva)` | con sesión (no demo) | cambia y cierra las demás sesiones → `{ok, cerradas}` o `{error}` |
@@ -200,7 +251,7 @@ libre para registrarse de nuevo.
 | `tm_equipo(sesión)` · `tm_equipo_quitar(sesión, usuario)` | seller principal | equipo del comercio |
 | `tm_permisos(sesión)` · `tm_permiso_asignar(sesión, usuario, permiso, otorgar)` | equipo, seller principal, superadmin | catálogo y asignación |
 | `tm_admin_usuarios(sesión, texto, rol)` · `tm_admin_usuario(sesión, id)` | superadmin, ops | búsqueda y ficha |
-| `tm_admin_sesiones_cerrar` · `tm_admin_bloquear` · `tm_admin_recuperacion` · `tm_admin_rol` · `tm_admin_2fa_quitar` | superadmin (ops con `usuarios`: las tres primeras) | administración |
+| `tm_admin_sesiones_cerrar` · `tm_admin_bloquear` · `tm_admin_recuperacion` · `tm_admin_rol` · `tm_admin_2fa_quitar` · `tm_admin_baja` | superadmin (ops con `usuarios`: las tres primeras, solo a compradores y sin recibir el enlace) | administración; bloquear y desbloquear con motivo; `tm_admin_recuperacion` → `{ok, enlace (solo superadmin), enBandeja, vence}`; `tm_admin_bloquear` → `{ok, invitacionesRevocadas}` |
 | `tm_direccion_agregar` · `tm_direccion_editar` · `tm_direccion_predeterminada` · `tm_direccion_quitar` | comprador | libreta |
 
 Los errores que el cliente necesita distinguir: `TMELV` (falta la sesión
@@ -222,10 +273,18 @@ elevada: pedir el código y repetir) y `42501` (rol, o la 2FA no está activa).
   devuelve la promesa de `TM.api`) y, si el servidor responde `TMELV`, pide
   el código con `UI.pedir2fa` y la repite. `UI.pedir2fa(accion, alValidar,
   alCancelar)` verifica en el servidor (`tm_elevar`) con backend.
+- `tumbo_privado.actor_cuenta(u)`: el actor neutro («cuenta <id> (rol)»)
+  para los asientos de auditoría de una persona real (los demás dominios
+  pueden usarlo en los suyos, p. ej. «Pedido creado»).
 - Pruebas: `tools/cuentas-comun.js` da `totp(clave)`, `acceder` (con el paso
-  2FA), `activar2fa(rpc, sesión, clave)`, `elevar` y `cuentaElevada(rpc,
-  correo, clave)`: una cuenta real con 2FA y sesión elevada (así la usa
-  `api-fundaciones.js` para los ajustes).
+  2FA), `activar2fa(rpc, sesión, clave)`, `elevar`,
+  `cuentaElevada(rpc, correo, clave, secreto)` (una cuenta real con la 2FA
+  ya activa y la sesión elevada) y `superadminDelEntorno()` (lee
+  `TM_SUPERADMIN=correo:contraseña:CLAVE_MANUAL`). **Nunca activa la 2FA de
+  una cuenta que la prueba no creó**: sin la clave manual se detiene con un
+  mensaje claro (activarla dejaría fuera a la persona: el secreto solo
+  viviría en la memoria del proceso). Para una cuenta creada por la prueba
+  se pide explícitamente con `cuentaElevada(…, null, { activar: true })`.
 
 ## Datos de demostración
 
@@ -245,10 +304,17 @@ permisos y 2FA se conservan en el reinicio, como las cuentas.
 - `assets/js/tm-vistas-tienda.js`: se quitaron `tienda/cuenta` y
   `tienda/direcciones` (ahora en los módulos).
 - `tools/retirar-tumbo.sql`: las firmas nuevas.
-- `tools/api-fundaciones.js`: su superadmin real activa la 2FA
-  (`cuentaElevada`) y la prueba del contrato espera el rechazo sin sesión
-  elevada. `tools/verificar-beta.js`: espera la respuesta del servidor al
-  código MFA incorrecto (una línea).
+- `tools/api-fundaciones.js`: su superadmin de pruebas (local) activa la 2FA
+  (`cuentaElevada(…, { activar: true })`); con `TM_SUPERADMIN` exige la
+  clave manual (`superadminDelEntorno`) y se detiene sin ella; la prueba del
+  contrato espera el rechazo sin sesión elevada; sus compradores de prueba
+  se registran con la versión de los términos. `tools/verificar-rls.js`:
+  ídem para sus dos compradores de prueba. `tools/verificar-beta.js`: espera
+  la respuesta del servidor al código MFA incorrecto (una línea).
+- `assets/js/tm-vistas-tienda.js` (checkout, una línea): propone la
+  dirección predeterminada (`dirs.find(predeterminada) || dirs[0]`), como
+  promete la libreta. `assets/js/tm-remoto.js`: las direcciones llegan con
+  la predeterminada primero.
 
 ## Decisiones y desviaciones
 
@@ -266,13 +332,18 @@ permisos y 2FA se conservan en el reinicio, como las cuentas.
 - Al aceptar una invitación el correo queda **sin verificar** (el enlace se
   pudo copiar). Una cuenta del equipo a la que se le quitó el acceso vuelve
   con una invitación nueva; una bloqueada, de comprador o dada de baja, no.
-- «Dispositivo nuevo» = combinación nueva de navegador y sistema (una
-  actualización del navegador no avisa; dos computadoras iguales cuentan
-  como una).
+- «Acceso nuevo» = combinación nueva de navegador y sistema (una
+  actualización del navegador no avisa) **o red nueva** (prefijo /24 o /48).
+  Quien usa datos móviles puede recibir algún aviso de más al cambiar de
+  red: se prefiere a no avisar del caso más común de robo de contraseña.
+  No se usa un identificador por navegador (una cabecera propia): el CORS de
+  la API de Supabase no la deja pasar sin configurarlo.
 - La administración pide 2FA activa a cualquier rol (más estricto que
   `exigir_elevada`, que deja pasar a los roles sin 2FA obligatoria).
-- La firma de tres parámetros de `tm_registrar` se conserva (no registra
-  términos); la web usa la de cinco.
+- La firma de tres parámetros de `tm_registrar` se conserva (así un
+  cliente viejo recibe «Acepta los términos vigentes… recarga la página» en
+  vez de un 404), pero ya no crea cuentas sin términos: ninguna cuenta nace
+  sin la versión y la fecha de su aceptación.
 - Ajustes nuevos: `sitio_url` (público) y `terminos_version` (público,
   `2026-10-beta`). Plantillas nuevas: `acceso_nuevo` y `clave_cambiada`.
 - Los mensajes de seguridad de la bandeja guardan el código en claro hasta
@@ -291,16 +362,54 @@ permisos y 2FA se conservan en el reinicio, como las cuentas.
   función) para que una copia de la base no lleve la clave junto a los
   datos.
 - En la nube: aplicar la migración, crear la primera cuenta real con
-  `invitacion_inicial` y correr `tools/api-cuentas.js` con `TM_NUBE=1` y
-  `TM_SUPERADMIN=correo:clave:secreto`.
+  `invitacion_inicial`, activarle la 2FA en Mi cuenta → Seguridad (guardar
+  la clave manual y los códigos de respaldo) y correr
+  `tools/api-cuentas.js` con `TM_NUBE=1` y
+  `TM_SUPERADMIN=correo:contraseña:CLAVE_MANUAL`. Sin TM_PGDATABASE la
+  prueba usa contraseñas aleatorias, no crea comercios y al terminar
+  (también si falla a medias) da de baja por la API todas las cuentas que
+  creó. **El plan (`docs/PLAN-PRODUCCION.md`) documenta todavía
+  `TM_SUPERADMIN=correo:clave` para la ola 0**: con la ola 1 ese formato
+  detiene la prueba con el mensaje de arriba; conviene corregirlo en la
+  integración (este equipo no edita el plan).
+
+## Lo que depende de otros equipos
+
+- **`tm_auditoria`** (backoffice, no es de este dominio) entrega a finanzas
+  y a la superadministración, también a las cuentas demo, los asientos de
+  todas las personas. Los de cuentas ya no llevan nombres, pero los de otros
+  dominios sí (p. ej. «Pedido creado» o «Cancelación» con el nombre del
+  comprador, también de quien después se dio de baja). Propuesta: que
+  `tm_auditoria` muestre a una cuenta demo solo los asientos cuyo actor es
+  una cuenta demo o el sistema, y que los dominios auditen a las personas
+  con `tumbo_privado.actor_cuenta(u)`.
+- **Saldo a favor** (Pagos): si Pagos guarda un saldo del comprador (p. ej.
+  un reembolso como crédito), la baja debería impedirse con saldo positivo;
+  `tumbo_privado.baja_impedida(usuario)` es el lugar para sumar esa
+  condición.
+- **Sesión elevada en el dinero** (Pagos): `tm_conciliar_pago` de la beta no
+  llama a `exigir_elevada`; con la ola 1 de Pagos debería hacerlo (finanzas
+  tiene la 2FA obligatoria para lo irreversible).
+- `tools/api-pagos.js` (Pagos) registra su comprador de prueba con la firma
+  de tres parámetros: con esta ola debe pasar `p_telefono: null` y
+  `p_terminos` (la versión de `tm_ajustes_publicos`), como hacen ya
+  `api-fundaciones.js` y `verificar-rls.js` (`registrarComprador`).
 
 ## Pruebas
 
-- `tools/api-cuentas.js`: 132 comprobaciones con `TM_PGDATABASE` (permisos
-  por rol, topes, cifrado y hash, contratos, invitaciones, administración,
-  direcciones y baja). Borra al terminar las cuentas, el comercio y las
-  invitaciones que creó.
-- `tools/e2e-cuentas.js`: 18 pruebas con backend (2 en modo local).
+- `tools/api-cuentas.js`: 151 comprobaciones con `TM_PGDATABASE` (permisos
+  por rol, topes, cifrado y hash, contratos, invitaciones y su ámbito,
+  revocación al bloquear o cambiar el rol, alcance de operaciones,
+  administración y baja administrativa, avisos por dispositivo y por red,
+  direcciones, baja con reembolsos pendientes y auditoría sin nombres).
+  Borra al terminar las cuentas, el comercio y las invitaciones que creó.
+  Sin `TM_PGDATABASE` y con `TM_SUPERADMIN` (como en la nube) da de baja
+  por la API, al terminar, cada cuenta que creó (comprobado contra el
+  backend local: ninguna cuenta interna queda activa).
+- `tools/e2e-cuentas.js`: 20 pruebas con backend (3 en modo local), entre
+  ellas el checkout que propone la predeterminada (remoto y local), el paso
+  MFA de la demo tras ver el paso real, el desbloqueo con motivo y la baja
+  administrativa desde la ficha.
 - Las suites existentes siguen en verde (`tools/verificar-todo.js`).
 
 ## Pendiente

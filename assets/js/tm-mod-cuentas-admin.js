@@ -1,10 +1,12 @@
 /* =========================================================================
    Tumbo Market — Administración de cuentas e invitaciones (cuentas)
    -------------------------------------------------------------------------
-   admin/usuarios (superadministrador; operaciones consulta compradores):
-     buscar por correo, nombre, teléfono o cédula; ficha con sesiones,
-     bloqueo con motivo, enlace de recuperación, rol del personal interno y
-     permisos finos; invitar personal interno o un comercio nuevo.
+   admin/usuarios (superadministrador; operaciones consulta compradores y,
+     con el permiso «usuarios», los gestiona): buscar por correo, nombre,
+     teléfono o cédula; ficha con sesiones, bloqueo y desbloqueo con motivo,
+     enlace de recuperación (operaciones solo lo deja en la bandeja), rol del
+     personal interno, permisos finos y baja administrativa; invitar
+     personal interno o un comercio nuevo.
    seller/equipo (seller principal): su equipo, invitar gestores de precios
      y operadores, quitar acceso y el permiso «precios_operador».
    Todo lo que cambia algo pide sesión elevada (verificación en dos pasos:
@@ -74,7 +76,7 @@
     return C.titulo('Usuarios', superadmin && !yo.demo ? btn('Invitar', { estilo: 'primario', icono: 'person_add', attr: 'data-invitar' }) : '') +
       (yo.demo ? C.aviso('ambar', 'group', '<strong>Cuenta de prueba:</strong> solo ves las cuentas de prueba y no puedes cambiar nada. ' +
         'La administración de cuentas pide una cuenta real del equipo con verificación en dos pasos.') : '') +
-      (yo.rol === 'ops' ? C.aviso('info', 'visibility', 'Operaciones consulta las cuentas de los compradores (sin cambiarlas): la gestión es del superadministrador o de quien tenga el permiso «usuarios».') : '') +
+      (yo.rol === 'ops' ? C.aviso('info', 'visibility', 'Operaciones consulta las cuentas de los compradores. Con el permiso «usuarios» también las bloquea, cierra sus sesiones y deja un enlace de recuperación en su bandeja (lo envía el superadministrador); el personal interno y los comercios los gestiona solo la superadministración.') : '') +
       '<form data-buscar-usuarios novalidate class="flex flex-wrap items-end gap-2 mb-4">' +
       '<div class="flex-1 min-w-[220px]"><label class="block font-label-md text-label-md text-on-surface mb-1" for="us-texto">Buscar</label>' +
       '<input id="us-texto" name="texto" value="' + esc(estadoUsuarios.texto) + '" placeholder="Correo, nombre, teléfono o cédula" class="' + C.CAMPO + '"/></div>' +
@@ -174,6 +176,7 @@
             (u.activo && !u.bloqueado && !u.demo && u.id !== yo.uid ? btn('Enlace de recuperación', { icono: 'key', attr: 'data-f="recuperacion"' }) : '') +
             (u.sesiones && u.sesiones.length ? btn('Cerrar todas sus sesiones', { icono: 'logout', attr: 'data-f="sesiones"' }) : '') +
             (u.totp && yo.rol === 'superadmin' && u.id !== yo.uid ? btn('Quitar su 2FA (perdió el teléfono)', { icono: 'phonelink_erase', attr: 'data-f="quitar2fa"' }) : '') +
+            (u.puedeBaja ? btn('Dar de baja', { estilo: 'peligro', icono: 'person_remove', attr: 'data-f="baja"' }) : '') +
           '</div><div data-f-enlace></div>' : '') +
         (puedeRol ? '<div class="flex flex-wrap items-end gap-2 mb-3"><div><label class="block font-label-md text-label-md mb-1" for="f-rol">Rol del personal interno</label>' +
           '<select id="f-rol" data-f-rol class="' + C.CAMPO + '">' + ['ops', 'finanzas', 'superadmin'].map(function (r) {
@@ -213,16 +216,30 @@
         });
       });
       if (f('desbloquear')) f('desbloquear').addEventListener('click', function () {
-        hacer(f('desbloquear'), 'Desbloquear la cuenta', function () { return TM.api('tm_admin_bloquear', { p_usuario: u.id, p_bloquear: false, p_motivo: null }); },
-          function () { UI.toast('Cuenta desbloqueada', u.email, 'lock_open'); }, velo);
+        conMotivo('Desbloquear la cuenta', 'La persona podrá volver a entrar. Explica por qué (p. ej. cómo se resolvió lo que motivó el bloqueo).', 'Desbloquear', false, function (motivo) {
+          hacer(null, 'Desbloquear la cuenta', function () { return TM.api('tm_admin_bloquear', { p_usuario: u.id, p_bloquear: false, p_motivo: motivo }); },
+            function () { UI.toast('Cuenta desbloqueada', u.email, 'lock_open'); }, velo);
+        });
+      });
+      if (f('baja')) f('baja').addEventListener('click', function () {
+        conMotivo('Dar de baja la cuenta', 'Se desactiva y se anonimizan su nombre, correo, teléfono y cédula; se cierran sus sesiones y se revocan sus invitaciones. ' +
+          'Los pedidos y la auditoría se conservan. No se puede deshacer.', 'Dar de baja', true, function (motivo) {
+          hacer(null, 'Dar de baja la cuenta', function () { return TM.api('tm_admin_baja', { p_usuario: u.id, p_motivo: motivo }); },
+            function () { UI.toast('Cuenta dada de baja', u.email, 'person_remove'); }, velo);
+        });
       });
       if (f('recuperacion')) f('recuperacion').addEventListener('click', function () {
         UI.accion(f('recuperacion'), function () {
           return C.conElevacion('Generar un enlace de recuperación', function () { return TM.api('tm_admin_recuperacion', { p_usuario: u.id }); });
         }, function (r) {
           var caja = velo.querySelector('[data-f-enlace]');
-          caja.innerHTML = C.enlaceCopiable(r.enlace, 'Enlace de un solo uso, vence en 30 minutos. También quedó en la bandeja de salida: envíalo por un canal en el que confíes.');
-          C.enlazarCopiar(caja);
+          if (r && r.enlace) {
+            caja.innerHTML = C.enlaceCopiable(r.enlace, 'Enlace de un solo uso, vence en 30 minutos. También quedó en la bandeja de salida: envíalo por un canal en el que confíes.');
+            C.enlazarCopiar(caja);
+          } else {
+            caja.innerHTML = C.aviso('info', 'outbox', 'El enlace (de un solo uso, vence en 30 minutos) quedó en la bandeja de salida de la persona. ' +
+              'Mientras no haya proveedor de correo, lo envía a mano el superadministrador: tú no lo ves, porque con él se fija la contraseña.');
+          }
         }, 'No se generó el enlace');
       });
       if (f('quitar2fa')) f('quitar2fa').addEventListener('click', function () {

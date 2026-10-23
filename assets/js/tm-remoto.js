@@ -310,7 +310,7 @@
           estado: r.estado || null, parroquia: r.parroquia || null, referencia: r.referencia || null,
           destinatario: r.destinatario || null, cedulaDestinatario: r.cedula_destinatario || null,
           telefonoDestinatario: r.telefono_destinatario || null };
-      });
+      }).sort(function (a, b) { return (b.predeterminada ? 1 : 0) - (a.predeterminada ? 1 : 0); });   /* la predeterminada primero (el checkout la propone) */
       e.carritos[s.email] = (d.carrito || []).map(function (r) { return { sku: r.sku, cant: r.cant }; });
     } else {
       e.carritos.invitado = invitado();

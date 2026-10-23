@@ -7,8 +7,15 @@
  *   const C = require('./cuentas-comun');
  *   const codigo = C.totp('JBSWY3DPEHPK3PXP');            // el de ahora
  *   const siguiente = C.totp(clave, 1);                    // el del próximo intervalo
- *   const { sesion, secreto } = await C.cuentaElevada(rpc, correo, clave);
+ *   const { sesion } = await C.cuentaElevada(rpc, correo, clave, secreto);   // cuenta con la 2FA ya activa
+ *   const { sesion, secreto } = await C.cuentaElevada(rpc, correo, clave, null, { activar: true });  // cuenta de pruebas
  *   const { secreto, respaldo } = await C.activar2fa(rpc, sesion, clave);   // el alta pide la contraseña
+ *   const real = C.superadminDelEntorno();   // TM_SUPERADMIN=correo:clave:secreto (o null)
+ *
+ * Nunca se activa la 2FA de una cuenta que la prueba no creó: el secreto y
+ * los códigos de respaldo solo vivirían en la memoria del proceso y la
+ * persona quedaría fuera de su cuenta. Para una cuenta real hace falta su
+ * clave manual (la que muestra Mi cuenta → Seguridad al activarla).
  *
  * `rpc(nombre, params)` es la función de cada suite: devuelve
  * { ok, status, texto, dato }.
@@ -105,13 +112,45 @@ async function elevar(rpc, sesion, secreto) {
   throw new Error('no se pudo elevar la sesión');
 }
 
-/* Una sesión real con la 2FA activa y elevada. Si la cuenta ya tenía la 2FA
-   activa, hace falta su secreto. */
-async function cuentaElevada(rpc, email, clave, secreto) {
+/* Una sesión real con la 2FA activa y elevada. Con `secreto`, la de una
+   cuenta que ya la tiene activa. Sin él, solo si la prueba creó la cuenta
+   (`opciones.activar`): entonces le activa la 2FA. Si no, se detiene con un
+   error claro en vez de activársela a una cuenta ajena. */
+async function cuentaElevada(rpc, email, clave, secreto, opciones) {
   const sesion = await acceder(rpc, email, clave, secreto);
   if (secreto) { await elevar(rpc, sesion, secreto); return { sesion, secreto }; }
+  if (!(opciones && opciones.activar)) {
+    const perfil = await rpc('tm_sesion', { p_sesion: sesion });
+    const conTotp = !!(perfil.dato && perfil.dato.totp);
+    throw new Error(email + (conTotp ? ' tiene la verificación en dos pasos activa y falta su clave manual'
+      : ' no tiene la verificación en dos pasos activa y la prueba no la activa en una cuenta que no creó') +
+      '. ' + COMO_SUPERADMIN);
+  }
   const a = await activar2fa(rpc, sesion, clave);
   return { sesion, secreto: a.secreto, respaldo: a.respaldo };
 }
 
-module.exports = { totp, base32, paso, esperarPaso, acceder, activar2fa, elevar, cuentaElevada };
+const COMO_SUPERADMIN = 'Activa la verificación en dos pasos en Mi cuenta → Seguridad (guarda los códigos de respaldo) y pasa su clave manual: ' +
+  'TM_SUPERADMIN=correo:contraseña:CLAVE_MANUAL.';
+
+/* El superadministrador real de TM_SUPERADMIN=correo:contraseña:clave manual
+   (la clave en base32 que muestra el alta de la 2FA). La contraseña puede
+   llevar «:». Sin la clave manual detiene la prueba con un mensaje claro:
+   nunca le activa la 2FA a la cuenta de la persona. null si no hay variable. */
+function superadminDelEntorno() {
+  const v = process.env.TM_SUPERADMIN;
+  if (!v) return null;
+  const partes = v.split(':');
+  const email = partes[0];
+  const ultimo = (partes.length >= 3 ? partes[partes.length - 1] : '').replace(/\s+/g, '').toUpperCase();
+  const secreto = /^[A-Z2-7]{16,}=*$/.test(ultimo) ? ultimo : null;
+  const clave = partes.slice(1, secreto ? -1 : undefined).join(':');
+  if (!email || !clave || !secreto) {
+    console.error('TM_SUPERADMIN necesita la clave manual de la verificación en dos pasos (correo:contraseña:CLAVE_MANUAL). ' +
+      'Sin ella la prueba no sigue: activarle la 2FA a esa cuenta la dejaría fuera (nadie más conocería su secreto). ' + COMO_SUPERADMIN);
+    process.exit(2);
+  }
+  return { email, clave, secreto };
+}
+
+module.exports = { totp, base32, paso, esperarPaso, acceder, activar2fa, elevar, cuentaElevada, superadminDelEntorno, COMO_SUPERADMIN };

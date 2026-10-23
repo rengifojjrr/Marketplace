@@ -126,6 +126,29 @@ const FIREFOX_MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.5; rv:127.0) Geck
     if (await p.locator('[data-direccion]', { hasText: 'Casa de playa' }).count()) throw new Error('no se borró');
   });
 
+  await pruebaSolo('local', 'en modo local el checkout propone la dirección marcada como predeterminada', async () => {
+    await login('comprador');
+    await abrir('tienda/direcciones');
+    await p.locator('[data-nueva]').click();
+    const f = p.locator('.tm-modal [data-form-dir]');
+    await f.locator('[name=nombre]').fill('Depósito');
+    await f.locator('[name=destinatario]').fill('María González');
+    await f.locator('[name=telefono_destinatario]').fill('0414-555-0303');
+    await f.locator('[name=estado]').selectOption('Lara');
+    await f.locator('[name=ciudad]').fill('Barquisimeto');
+    await f.locator('[name=municipio]').fill('Iribarren');
+    await f.locator('[name=linea]').fill('Zona industrial, galpón 7');
+    await f.locator('[name=predeterminada]').check();
+    await p.locator('.tm-modal [data-ok]').click();
+    await aviso('Dirección guardada');
+    await abrir('tienda/producto?sku=SKU-TEC-0450');
+    await p.locator('[data-agregar]').click();
+    await aviso('Agregado al carrito');
+    await abrir('tienda/checkout');
+    const marcada = await p.locator('input[name=dir]:checked').evaluate((i) => i.closest('label').innerText);
+    if (!/Depósito/.test(marcada)) throw new Error('el checkout propone otra dirección: ' + marcada);
+  });
+
   /* ================= Modo remoto ================= */
   await pruebaSolo('remoto', '«¿Olvidaste tu contraseña?» responde sin revelar si el correo existe y explica la bandeja', async () => {
     liberarTopeRecuperacion();
@@ -301,13 +324,47 @@ const FIREFOX_MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.5; rv:127.0) Geck
     await p.waitForFunction(() => /Predeterminada/.test(([...document.querySelectorAll('[data-direccion]')].find((x) => /Casa/.test(x.innerText)) || {}).innerText || ''));
   });
 
-  await pruebaSolo('remoto', 'el checkout propone las direcciones de la libreta', async () => {
+  await pruebaSolo('remoto', 'el checkout propone la dirección predeterminada de la libreta', async () => {
     await abrir('tienda/producto?sku=SKU-TEC-0450');
     await p.locator('[data-agregar]').click();
     await aviso('Agregado al carrito');
     await abrir('tienda/checkout');
     const t1 = await p.locator('#raiz main').innerText();
     if (!/Casa/.test(t1) || !/\+584245553344/.test(t1)) throw new Error('el checkout no muestra la dirección: ' + t1.slice(0, 300));
+    /* una dirección más nueva marcada como predeterminada pasa a ser la propuesta (la libreta lo promete) */
+    const idTaller = await p.evaluate(() => TM.api('tm_direccion_agregar', { p_datos: { nombre: 'Taller', destinatario: 'Elena Pruebas',
+      telefono_destinatario: '+584245553344', estado: 'Zulia', ciudad: 'Maracaibo', municipio: 'San Francisco', linea: 'Calle 1, galpón 4', predeterminada: true } }, { recargar: true }));
+    await abrir('tienda/checkout');
+    const marcada = await p.locator('input[name=dir]:checked').getAttribute('value');
+    if (marcada !== idTaller) throw new Error('el checkout no propone la predeterminada: ' + marcada + ' en vez de ' + idTaller);
+    const idCasa = await p.evaluate(() => (TM.estado.direcciones[TM.sesion().email] || []).find((d) => d.nombre === 'Casa').id);
+    await abrir('tienda/direcciones');
+    await p.locator('[data-direccion]', { hasText: 'Casa' }).locator('[data-predeterminar-dir]').click();
+    await aviso('El checkout la propondrá primero');
+    await abrir('tienda/checkout');
+    if (await p.locator('input[name=dir]:checked').getAttribute('value') !== idCasa) throw new Error('tras cambiar la predeterminada el checkout no propone Casa');
+  });
+
+  await pruebaSolo('remoto', 'tras ver el paso 2FA real y volver, el paso de una cuenta demo vuelve a explicar su código 123456', async () => {
+    await p.goto(`${BASE}/index.html`, { waitUntil: 'domcontentloaded' });
+    await p.evaluate(() => TM.cerrarSesion());
+    await p.goto(`${BASE}/index.html`, { waitUntil: 'domcontentloaded' });
+    await p.fill('#ac-correo', B.email);
+    await p.fill('#ac-clave', B.clave);
+    await p.locator('form[data-paso=credenciales] button[type=submit]').click();
+    await p.locator('#ac-codigo').waitFor({ state: 'visible', timeout: 15000 });
+    if (!/app de autenticación/.test(await p.locator('[data-mfa-texto]').innerText())) throw new Error('no mostró el paso real');
+    await p.locator('form[data-paso=mfa] [data-ir=credenciales]').click();
+    await p.fill('#ac-correo', 'superadmin@tumbomarket.demo');
+    await p.fill('#ac-clave', 'demo1234');
+    await p.locator('form[data-paso=credenciales] button[type=submit]').click();
+    await p.locator('#ac-codigo').waitFor({ state: 'visible', timeout: 15000 });
+    const texto = await p.locator('[data-mfa-texto]').innerText();
+    const campo = await p.evaluate(() => { const c = document.getElementById('ac-codigo'); return c.getAttribute('maxlength') + '|' + c.getAttribute('inputmode'); });
+    if (!/123456/.test(texto) || /app de autenticación/.test(texto) || campo !== '6|numeric') throw new Error('paso demo: ' + texto + ' · ' + campo);
+    await p.fill('#ac-codigo', '123456');
+    await p.locator('form[data-paso=mfa] button[type=submit]').click();
+    await p.waitForURL(/\/app\//, { timeout: 15000 });
   });
 
   await pruebaSolo('remoto', 'cuentas de prueba: Mi cuenta lo explica y la 2FA de la demo se verifica en el servidor', async () => {
@@ -327,6 +384,8 @@ const FIREFOX_MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.5; rv:127.0) Geck
 
   /* ================= Administración con una cuenta real ================= */
   let saSecreto = null;
+  let saRespaldo = [];
+  let correoOps = null;
   await soloBD('superadmin real: activa la 2FA en Mi cuenta (su rol la exige)', async () => {
     psql(`insert into tumbo.usuarios (email, clave_hash, nombre, rol)
           values (${lit(SA.email)}, extensions.crypt(${lit(SA.clave)}, extensions.gen_salt('bf', 4)), 'Admin E2E', 'superadmin')
@@ -344,10 +403,11 @@ const FIREFOX_MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.5; rv:127.0) Geck
     await p.fill('form[data-form="2fa-alta"] [name=codigo]', C.totp(saSecreto));
     await p.locator('form[data-form="2fa-alta"] button[type=submit]').click();
     await p.locator('[data-respaldo] li').first().waitFor({ timeout: 15000 });
+    saRespaldo = await p.locator('[data-respaldo] li').allInnerTexts();
     await p.locator('[data-accion="respaldo-listo"]').click();
   });
 
-  await soloBD('admin/usuarios: busca, bloquea con motivo y desbloquea (auditado)', async () => {
+  await soloBD('admin/usuarios: busca, bloquea con motivo y desbloquea con motivo (auditado)', async () => {
     await abrir('admin/usuarios');
     await p.fill('[data-buscar-usuarios] [name=texto]', B.email);
     await p.locator('[data-buscar-usuarios] button[type=submit]').click();
@@ -362,6 +422,8 @@ const FIREFOX_MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.5; rv:127.0) Geck
     await p.locator('[data-ficha] [data-f="desbloquear"]').waitFor({ timeout: 15000 });
     if (!/Prueba de bloqueo desde el navegador/.test(await p.locator('[data-ficha]').innerText())) throw new Error('la ficha no muestra el motivo');
     await p.locator('[data-ficha] [data-f="desbloquear"]').click();
+    await p.fill('.tm-modal [data-motivo]', 'Aclarado con la persona');
+    await p.locator('.tm-modal [data-ok]').click();
     await aviso('Cuenta desbloqueada');
   });
 
@@ -380,7 +442,7 @@ const FIREFOX_MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.5; rv:127.0) Geck
   }, /status of 400/);
 
   await soloBD('invitar personal interno: el enlace abre la aceptación y la cuenta entra', async () => {
-    const correoOps = 'ops-e2e-' + SELLO + '@correo-demo.ve';
+    correoOps = 'ops-e2e-' + SELLO + '@correo-demo.ve';
     await abrir('admin/usuarios');
     await p.locator('[data-invitar]').click();
     await p.fill('.tm-modal [data-form-inv] [name=email]', correoOps);
@@ -433,6 +495,25 @@ const FIREFOX_MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.5; rv:127.0) Geck
     await p.waitForURL('**/tienda/inicio.html', { timeout: 15000 });
     await abrir('acceso/clave?token=' + token);
     await p.waitForFunction(() => /ya no vale/.test(document.querySelector('#raiz main').innerText), null, { timeout: 15000 });
+  });
+
+  await soloBD('baja administrativa desde la ficha: con motivo, la cuenta queda anonimizada', async () => {
+    await entrarCon(SA.email, SA.clave, saRespaldo[0]);
+    await abrir('admin/usuarios');
+    await p.fill('[data-buscar-usuarios] [name=texto]', correoOps);
+    await p.locator('[data-buscar-usuarios] button[type=submit]').click();
+    const fila = p.locator('[data-resultados] tr', { hasText: correoOps });
+    await fila.waitFor({ timeout: 15000 });
+    const id = await fila.locator('[data-ver-usuario]').getAttribute('data-ver-usuario');
+    await fila.locator('[data-ver-usuario]').click();
+    await p.locator('[data-ficha] [data-f="baja"]').waitFor({ timeout: 15000 });
+    await p.locator('[data-ficha] [data-f="baja"]').click();
+    await p.fill('.tm-modal [data-motivo]', 'Dejó el equipo de operaciones');
+    await p.locator('.tm-modal [data-ok]').click();
+    await aviso('Cuenta dada de baja');
+    await p.waitForFunction(() => /Eliminada/.test(document.querySelector('[data-ficha]').innerText), null, { timeout: 15000 });
+    if (psql(`select (not activo and eliminado_el is not null and email like 'eliminada-%')::text from tumbo.usuarios where id = ${lit(id)}`) !== 'true') throw new Error('la cuenta no quedó anonimizada');
+    await p.locator('.tm-modal [data-cerrar]').last().click();
   });
 
   await pruebaSolo('remoto', 'todas las páginas nuevas cargan sin errores por rol', async () => {

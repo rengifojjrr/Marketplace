@@ -320,7 +320,7 @@
     }
     var dirs = TM.estado.direcciones[s.email] || [];
     var dirElegida = pendiente.dir && (pendiente.dir === '__agencia__' || dirs.some(function (d) { return d.id === pendiente.dir; }))
-      ? pendiente.dir : (dirs.length ? dirs[0].id : '__agencia__');
+      ? pendiente.dir : (dirs.length ? (dirs.find(function (d) { return d.predeterminada; }) || dirs[0]).id : '__agencia__');
     var envioInicial = (dirElegida === '__agencia__' ? COSTO_ENVIO.agencia : COSTO_ENVIO.domicilio) * sellersDe(items);
     /* El subtotal que se pinta es el que se envía al confirmar: si un precio
        cambia mientras tanto, el servidor no crea el pedido con otro monto. */

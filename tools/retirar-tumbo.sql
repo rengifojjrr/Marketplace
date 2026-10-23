@@ -50,7 +50,8 @@ declare
     'public.tm_permiso_asignar(text,uuid,text,boolean)', 'public.tm_admin_usuarios(text,text,text)',
     'public.tm_admin_usuario(text,uuid)', 'public.tm_admin_sesiones_cerrar(text,uuid,uuid)',
     'public.tm_admin_bloquear(text,uuid,boolean,text)', 'public.tm_admin_recuperacion(text,uuid)',
-    'public.tm_admin_rol(text,uuid,text)', 'public.tm_admin_2fa_quitar(text,uuid,text)', 'public.tm_direccion_editar(text,uuid,jsonb)',
+    'public.tm_admin_rol(text,uuid,text)', 'public.tm_admin_2fa_quitar(text,uuid,text)', 'public.tm_admin_baja(text,uuid,text)',
+    'public.tm_direccion_editar(text,uuid,jsonb)',
     'public.tm_direccion_predeterminada(text,uuid)'];
   f text;
   ajenos text;

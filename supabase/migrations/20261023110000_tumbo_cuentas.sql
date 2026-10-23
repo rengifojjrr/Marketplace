@@ -11,8 +11,8 @@
 --   · recuperación de contraseña con un enlace de un solo uso (30 minutos)
 --     que no revela si el correo existe, con topes por red y por correo;
 --   · sesiones por dispositivo: agente, dispositivo y red; cerrar una o
---     todas las demás; aviso de acceso desde un dispositivo nuevo; 12 horas
---     de vigencia para el equipo interno; último acceso;
+--     todas las demás; aviso de acceso desde un dispositivo o una red
+--     nuevos; 12 horas de vigencia para el equipo interno; último acceso;
 --   · verificación en dos pasos con TOTP real (RFC 6238, HMAC-SHA1, ventana
 --     ±1, sin reutilizar un código), secreto cifrado con pgcrypto, 10
 --     códigos de respaldo, paso 2FA en el acceso (sin sesión hasta
@@ -20,7 +20,8 @@
 --     contrato exigir_elevada;
 --   · invitaciones (equipo del seller, personal interno y comercios nuevos)
 --     y la primera cuenta real de superadministrador;
---   · administración de usuarios y permisos finos (contrato tiene_permiso);
+--   · administración de usuarios (con baja administrativa) y permisos
+--     finos (contrato tiene_permiso);
 --   · libreta de direcciones completa; registro con teléfono y términos.
 -- Las cuentas de prueba (contraseña pública) no cambian nada de esto: no
 -- tienen sesión elevada y solo ven a otras cuentas de prueba.
@@ -132,8 +133,9 @@ create table tumbo.recuperaciones (
 );
 create index recuperaciones_usuario_idx on tumbo.recuperaciones (usuario_id, creado desc);
 
--- Dispositivos desde los que entró cada cuenta (como mucho 20): un acceso
--- desde uno nuevo se avisa.
+-- Dispositivos desde los que entró cada cuenta (como mucho 20) y redes
+-- (prefijo /24 en IPv4, /48 en IPv6; como mucho 30): un acceso desde un
+-- dispositivo nuevo o desde una red nueva se avisa.
 create table tumbo.dispositivos (
   usuario_id  uuid not null references tumbo.usuarios (id) on delete cascade,
   dispositivo text not null,
@@ -141,6 +143,13 @@ create table tumbo.dispositivos (
   ultimo      timestamptz not null default now(),
   red         text,
   primary key (usuario_id, dispositivo)
+);
+create table tumbo.redes_cuenta (
+  usuario_id uuid not null references tumbo.usuarios (id) on delete cascade,
+  red        text not null,
+  primero    timestamptz not null default now(),
+  ultimo     timestamptz not null default now(),
+  primary key (usuario_id, red)
 );
 
 -- Invitaciones: equipo del seller, personal interno y comercios nuevos.
@@ -157,7 +166,8 @@ create table tumbo.invitaciones (
   vence        timestamptz not null,
   estado       text not null default 'pendiente' check (estado in ('pendiente', 'aceptada', 'revocada')),
   cerrada_el   timestamptz,
-  usuario_id   uuid references tumbo.usuarios (id) on delete set null
+  usuario_id   uuid references tumbo.usuarios (id) on delete set null,
+  inicial      boolean not null default false                 -- la de puesta en marcha (SQL): no la hizo ninguna cuenta
 );
 create index invitaciones_email_idx on tumbo.invitaciones (email) where estado = 'pendiente';
 create index invitaciones_seller_idx on tumbo.invitaciones (seller_id, creado desc);
@@ -178,7 +188,7 @@ insert into tumbo.permisos (permiso, descripcion, ambito, implicito_en, asignabl
   ('moderar', 'Moderar productos y contenido', 'interno', '{}', '{ops}'),
   ('kyc', 'Decidir la homologación (KYC) de los comercios', 'interno', '{}', '{ops,finanzas}'),
   ('disputas', 'Resolver reclamos y devoluciones', 'interno', '{ops}', '{finanzas}'),
-  ('usuarios', 'Gestionar cuentas: bloquear, cerrar sesiones y enviar enlaces de recuperación', 'interno', '{}', '{ops}'),
+  ('usuarios', 'Gestionar cuentas de compradores: bloquear, cerrar sesiones y dejar en su bandeja un enlace de recuperación', 'interno', '{}', '{ops}'),
   ('ajustes', 'Cambiar los ajustes de la plataforma', 'interno', '{}', '{ops,finanzas}'),
   ('precios_operador', 'El operador del comercio también cambia precios', 'seller', '{seller,precios}', '{operador}')
 on conflict (permiso) do nothing;
@@ -197,7 +207,7 @@ do $$
 declare t text;
 begin
   foreach t in array array['tumbo.intentos_seguridad', 'tumbo.usuarios_2fa', 'tumbo.respaldo_2fa', 'tumbo.desafios_2fa',
-                           'tumbo.codigos_verificacion', 'tumbo.recuperaciones', 'tumbo.dispositivos', 'tumbo.invitaciones',
+                           'tumbo.codigos_verificacion', 'tumbo.recuperaciones', 'tumbo.dispositivos', 'tumbo.redes_cuenta', 'tumbo.invitaciones',
                            'tumbo.permisos', 'tumbo.permisos_usuario', 'tumbo_privado.secretos'] loop
     execute format('alter table %s enable row level security', t);
     execute format('revoke all on %s from public, anon, authenticated', t);
@@ -339,6 +349,35 @@ create function tumbo_privado.ref_usuario(u tumbo.usuarios) returns text
 language sql immutable set search_path = '' as $$
   select 'cuenta ' || u.id::text || ' (' || u.rol || ')'
 $$;
+
+-- Quién figura como actor en los asientos de la propia cuenta (acceso,
+-- registro, contraseña, 2FA, sesiones, baja, invitación aceptada): una
+-- cuenta propia, por su identificador y no por su nombre (la auditoría es
+-- inmutable y la leen las cuentas de prueba; una cuenta que se da de baja
+-- no debe dejar su nombre en ella). Las cuentas de prueba, con su nombre.
+create function tumbo_privado.actor_cuenta(u tumbo.usuarios) returns tumbo.usuarios
+language plpgsql stable set search_path = '' as $$
+declare
+  v tumbo.usuarios := u;
+begin
+  if u.id is not null and not tumbo_privado.cuenta_demo(u.email) then
+    v.nombre := 'cuenta ' || u.id::text;
+  end if;
+  return v;
+end $$;
+
+-- La red de un acceso para el aviso de «red nueva»: el prefijo /24 (IPv4)
+-- o /48 (IPv6) de la dirección; lo que no es una dirección, tal cual.
+create function tumbo_privado.red_prefijo(p text) returns text
+language plpgsql immutable set search_path = '' as $$
+declare
+  v inet;
+begin
+  v := p::inet;
+  return network(set_masklen(v, case when family(v) = 4 then 24 else 48 end))::text;
+exception when others then
+  return coalesce(nullif(trim(p), ''), 'desconocida');
+end $$;
 
 -- Enmascarados, para mostrar a quien no es el dueño (o en un aviso).
 create function tumbo_privado.correo_oculto(p text) returns text
@@ -606,7 +645,7 @@ end $$;
 
 -- Cambios respecto de la migración 8 (topes de las cuentas demo): guarda el
 -- agente, el dispositivo y la vigencia del rol; anota el último acceso; avisa
--- de un acceso desde un dispositivo nuevo (en las cuentas propias).
+-- de un acceso desde un dispositivo o una red nuevos (en las cuentas propias).
 create or replace function tumbo_privado.abrir_sesion(p_usuario uuid) returns text
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -616,6 +655,9 @@ declare
   v_disp text := tumbo_privado.dispositivo(tumbo_privado.agente());
   v_sobran integer;
   v_nuevo boolean;
+  v_red_nueva boolean;
+  v_primero boolean;
+  v_prefijo text;
   u tumbo.usuarios;
 begin
   perform tumbo_privado.bloquear_usuario(p_usuario, 'sesiones');
@@ -643,19 +685,32 @@ begin
   where id = p_usuario and (ultimo_acceso is null or ultimo_acceso < now() - interval '1 minute');
 
   if not tumbo_privado.cuenta_demo(u.email) then
+    -- Nuevo es un dispositivo (navegador y sistema) o una red que la cuenta
+    -- no usó: quien entra con la contraseña robada desde otra red con el
+    -- mismo navegador también se avisa. El primer acceso no se avisa.
+    v_prefijo := tumbo_privado.red_prefijo(v_red);
+    v_primero := not exists (select 1 from tumbo.dispositivos where usuario_id = p_usuario)
+                 and not exists (select 1 from tumbo.redes_cuenta where usuario_id = p_usuario);
     v_nuevo := not exists (select 1 from tumbo.dispositivos where usuario_id = p_usuario and dispositivo = v_disp);
+    v_red_nueva := not exists (select 1 from tumbo.redes_cuenta where usuario_id = p_usuario and red = v_prefijo);
     insert into tumbo.dispositivos (usuario_id, dispositivo, red) values (p_usuario, v_disp, v_red)
     on conflict (usuario_id, dispositivo) do update set ultimo = now(), red = excluded.red;
-    if v_nuevo and exists (select 1 from tumbo.dispositivos where usuario_id = p_usuario and dispositivo <> v_disp) then
+    insert into tumbo.redes_cuenta (usuario_id, red) values (p_usuario, v_prefijo)
+    on conflict (usuario_id, red) do update set ultimo = now();
+    if not v_primero and (v_nuevo or v_red_nueva) then
       perform tumbo_privado.encolar(p_usuario, 'acceso_nuevo', jsonb_build_object(
         'dispositivo', v_disp, 'red', v_red, 'fecha', tumbo_privado.fecha_legible(now()),
         'enlace', tumbo_privado.url_sitio('app/' || tumbo_privado.enlace_cuenta(u.rol))));
       perform tumbo_privado.notificar('usr:' || p_usuario,
-        'Nuevo inicio de sesión desde ' || v_disp || ': si no fuiste tú, cambia tu contraseña y cierra las demás sesiones',
+        'Nuevo inicio de sesión desde ' || v_disp
+        || case when v_nuevo then '' else ' en una conexión nueva (' || v_red || ')' end
+        || ': si no fuiste tú, cambia tu contraseña y cierra las demás sesiones',
         'devices', tumbo_privado.enlace_cuenta(u.rol));
     end if;
     delete from tumbo.dispositivos where usuario_id = p_usuario and dispositivo in (
       select dispositivo from tumbo.dispositivos where usuario_id = p_usuario order by ultimo desc offset 20);
+    delete from tumbo.redes_cuenta where usuario_id = p_usuario and red in (
+      select red from tumbo.redes_cuenta where usuario_id = p_usuario order by ultimo desc offset 30);
   end if;
   return v_token;
 end $$;
@@ -737,22 +792,24 @@ $$;
 
 -- ¿Ve la persona `yo` la cuenta `o` en la administración? Las cuentas de
 -- prueba solo ven cuentas de prueba (nunca los datos de personas reales);
--- operaciones sin el permiso «usuarios», solo compradores.
+-- operaciones, solo compradores (con o sin el permiso «usuarios»: nunca el
+-- personal interno ni los comercios).
 create function tumbo_privado.ve_usuario(p_yo tumbo.usuarios, p_otro tumbo.usuarios) returns boolean
 language sql stable security definer set search_path = '' as $$
   select p_otro.id is not null
      and (not tumbo_privado.cuenta_demo(p_yo.email) or tumbo_privado.cuenta_demo(p_otro.email))
-     and (p_yo.rol = 'superadmin' or (p_yo.rol = 'ops' and (p_otro.rol = 'comprador' or tumbo_privado.tiene_permiso(p_yo, 'usuarios'))))
+     and (p_yo.rol = 'superadmin' or (p_yo.rol = 'ops' and p_otro.rol = 'comprador'))
 $$;
 
 -- ¿Gestiona (bloquea, cierra sesiones, recupera) esa cuenta? Además de
--- verla: superadmin u ops con el permiso «usuarios», y a un
--- superadministrador solo otro superadministrador.
+-- verla: el superadministrador, cualquiera; operaciones con el permiso
+-- «usuarios», solo compradores (nunca un rol interno ni un comercio: con
+-- un enlace de recuperación se podría quedar con esa cuenta).
 create function tumbo_privado.gestiona_usuario(p_yo tumbo.usuarios, p_otro tumbo.usuarios) returns boolean
 language sql stable security definer set search_path = '' as $$
   select tumbo_privado.ve_usuario(p_yo, p_otro)
-     and (p_yo.rol = 'superadmin' or tumbo_privado.tiene_permiso(p_yo, 'usuarios'))
-     and (p_otro.rol <> 'superadmin' or p_yo.rol = 'superadmin')
+     and (p_yo.rol = 'superadmin'
+          or (p_yo.rol = 'ops' and p_otro.rol = 'comprador' and tumbo_privado.tiene_permiso(p_yo, 'usuarios')))
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -842,7 +899,7 @@ begin
   v_token := tumbo_privado.abrir_sesion(u.id);
   if not exists (select 1 from tumbo.auditoria a
                  where a.accion = 'Inicio de sesión' and a.actor_id = u.id and a.fecha > now() - interval '10 minutes') then
-    perform tumbo_privado.auditar(u, 'Inicio de sesión', u.rol);
+    perform tumbo_privado.auditar(tumbo_privado.actor_cuenta(u), 'Inicio de sesión', u.rol);
   end if;
   return jsonb_build_object('sesion', v_token, 'usuario', tumbo_privado.perfil_json(u));
 end $$;
@@ -891,7 +948,7 @@ begin
   update tumbo.sesiones set elevada_hasta = now() + interval '10 minutes' where token_hash = tumbo_privado.hash_token(v_token);
   if not exists (select 1 from tumbo.auditoria a
                  where a.accion = 'Inicio de sesión' and a.actor_id = u.id and a.fecha > now() - interval '10 minutes') then
-    perform tumbo_privado.auditar(u, 'Inicio de sesión', u.rol || ' · con verificación en dos pasos');
+    perform tumbo_privado.auditar(tumbo_privado.actor_cuenta(u), 'Inicio de sesión', u.rol || ' · con verificación en dos pasos');
   end if;
   return jsonb_build_object('sesion', v_token, 'usuario', tumbo_privado.perfil_json(u));
 end $$;
@@ -932,11 +989,12 @@ end $$;
 -- Registro (redefinido desde la migración 6 de ajustes)
 -- ---------------------------------------------------------------------------
 -- Cambios: respeta el ajuste registro_activo, admite el teléfono (opcional)
--- y guarda la versión y la fecha de los términos aceptados. La firma de tres
--- parámetros se conserva para las llamadas existentes (no registra
--- aceptación de términos); la web usa la de cinco, que la exige.
+-- y exige aceptar la versión vigente de los términos, que guarda con su
+-- fecha. La firma de tres parámetros se conserva (las llamadas existentes
+-- reciben un error claro en vez de un 404), pero tampoco crea una cuenta sin
+-- la aceptación: ninguna cuenta nace sin términos.
 create function tumbo_privado.registrar_comprador(p_email text, p_clave text, p_nombre text, p_telefono text,
-                                                  p_terminos text, p_exigir_terminos boolean) returns jsonb
+                                                  p_terminos text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   v_email text := left(lower(trim(coalesce(p_email, ''))), 200);
@@ -969,8 +1027,9 @@ begin
     v_error := tumbo_privado.error_nombre(v_nombre);
   elsif v_tel is null then
     v_error := 'Escribe un teléfono de Venezuela con su código (por ejemplo +58 412 1234567) o déjalo vacío.';
-  elsif p_exigir_terminos and p_terminos is distinct from v_vigente then
-    v_error := 'Acepta los términos vigentes (versión ' || coalesce(v_vigente, '—') || ') para crear tu cuenta.';
+  elsif p_terminos is distinct from v_vigente then
+    v_error := 'Acepta los términos vigentes (versión ' || coalesce(v_vigente, '—') || ') para crear tu cuenta.'
+               || case when p_terminos is null then ' Si no ves la casilla de los términos, recarga la página.' else '' end;
   elsif exists (select 1 from tumbo.usuarios where email = v_email) then
     v_error := 'Ya existe una cuenta con ese correo: inicia sesión.';
   end if;
@@ -979,7 +1038,7 @@ begin
     begin
       insert into tumbo.usuarios (email, clave_hash, nombre, rol, telefono, terminos_version, terminos_fecha)
       values (v_email, extensions.crypt(p_clave, extensions.gen_salt('bf', 10)), v_nombre, 'comprador', nullif(v_tel, ''),
-              case when p_terminos = v_vigente then v_vigente end, case when p_terminos = v_vigente then now() end)
+              v_vigente, now())
       returning * into u;
     exception when unique_violation then
       -- dos altas simultáneas con el mismo correo
@@ -992,18 +1051,18 @@ begin
     return jsonb_build_object('error', v_error);
   end if;
   perform tumbo_privado.recordar_red(v_email, v_ip);
-  perform tumbo_privado.auditar(u, 'Registro de comprador', 'cuenta nueva');
+  perform tumbo_privado.auditar(tumbo_privado.actor_cuenta(u), 'Registro de comprador', 'cuenta nueva');
   return jsonb_build_object('sesion', tumbo_privado.abrir_sesion(u.id), 'usuario', tumbo_privado.perfil_json(u));
 end $$;
 
 create or replace function public.tm_registrar(p_email text, p_clave text, p_nombre text) returns jsonb
 language sql security definer set search_path = '' as $$
-  select tumbo_privado.registrar_comprador(p_email, p_clave, p_nombre, null, null, false)
+  select tumbo_privado.registrar_comprador(p_email, p_clave, p_nombre, null, null)
 $$;
 
 create function public.tm_registrar(p_email text, p_clave text, p_nombre text, p_telefono text, p_terminos text) returns jsonb
 language sql security definer set search_path = '' as $$
-  select tumbo_privado.registrar_comprador(p_email, p_clave, p_nombre, p_telefono, p_terminos, true)
+  select tumbo_privado.registrar_comprador(p_email, p_clave, p_nombre, p_telefono, p_terminos)
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -1109,7 +1168,7 @@ begin
   delete from tumbo.desafios_2fa where usuario_id = yo.id;
   update tumbo.recuperaciones set usado_el = now() where usuario_id = yo.id and usado_el is null;
   perform tumbo_privado.encolar(yo.id, 'clave_cambiada', jsonb_build_object('fecha', tumbo_privado.fecha_legible(now())));
-  perform tumbo_privado.auditar(yo, 'Contraseña cambiada', 'por la persona · ' || v_cerradas || ' sesiones cerradas');
+  perform tumbo_privado.auditar(tumbo_privado.actor_cuenta(yo), 'Contraseña cambiada', 'por la persona · ' || v_cerradas || ' sesiones cerradas');
   return jsonb_build_object('ok', true, 'cerradas', v_cerradas);
 end $$;
 
@@ -1211,7 +1270,7 @@ begin
   delete from tumbo.sesiones where usuario_id = u.id;
   delete from tumbo.desafios_2fa where usuario_id = u.id;
   perform tumbo_privado.encolar(u.id, 'clave_cambiada', jsonb_build_object('fecha', tumbo_privado.fecha_legible(now())));
-  perform tumbo_privado.auditar(u, 'Contraseña restablecida', case when r.por is null then 'con el enlace de recuperación'
+  perform tumbo_privado.auditar(tumbo_privado.actor_cuenta(u), 'Contraseña restablecida', case when r.por is null then 'con el enlace de recuperación'
                                                                    else 'con un enlace generado por ' || r.por end);
   return jsonb_build_object('ok', true, 'email', u.email);
 end $$;
@@ -1359,7 +1418,7 @@ begin
   delete from tumbo.sesiones where usuario_id = yo.id and token_hash <> tumbo_privado.hash_token(p_sesion);
   get diagnostics v_n = row_count;
   if v_n > 0 then
-    perform tumbo_privado.auditar(yo, 'Sesiones cerradas', v_n || ' sesiones de otros dispositivos, por la persona');
+    perform tumbo_privado.auditar(tumbo_privado.actor_cuenta(yo), 'Sesiones cerradas', v_n || ' sesiones de otros dispositivos, por la persona');
   end if;
   return jsonb_build_object('ok', true, 'cerradas', v_n);
 end $$;
@@ -1436,7 +1495,7 @@ begin
   update tumbo.sesiones set elevada_hasta = now() + interval '10 minutes' where token_hash = tumbo_privado.hash_token(p_sesion);
   perform tumbo_privado.notificar('usr:' || yo.id, 'Activaste la verificación en dos pasos: guarda tus códigos de respaldo', 'verified_user',
                                   tumbo_privado.enlace_cuenta(yo.rol));
-  perform tumbo_privado.auditar(yo, 'Verificación en dos pasos activada', yo.rol);
+  perform tumbo_privado.auditar(tumbo_privado.actor_cuenta(yo), 'Verificación en dos pasos activada', yo.rol);
   return jsonb_build_object('ok', true, 'respaldo', to_jsonb(v_codigos));
 end $$;
 
@@ -1464,7 +1523,7 @@ begin
   update tumbo.sesiones set elevada_hasta = null where usuario_id = yo.id and elevada_hasta is not null;
   perform tumbo_privado.notificar('usr:' || yo.id, 'Desactivaste la verificación en dos pasos de tu cuenta', 'lock_open',
                                   tumbo_privado.enlace_cuenta(yo.rol));
-  perform tumbo_privado.auditar(yo, 'Verificación en dos pasos desactivada', yo.rol);
+  perform tumbo_privado.auditar(tumbo_privado.actor_cuenta(yo), 'Verificación en dos pasos desactivada', yo.rol);
   return jsonb_build_object('ok', true, 'aviso', case when tumbo_privado.rol_obliga_2fa(yo.rol)
     then 'Tu rol la exige para las acciones sensibles: actívala de nuevo para poder hacerlas.' end);
 end $$;
@@ -1487,27 +1546,97 @@ begin
   if not v_ok then
     return jsonb_build_object('error', 'Código incorrecto.');
   end if;
-  perform tumbo_privado.auditar(yo, 'Códigos de respaldo renovados', yo.rol);
+  perform tumbo_privado.auditar(tumbo_privado.actor_cuenta(yo), 'Códigos de respaldo renovados', yo.rol);
   return jsonb_build_object('ok', true, 'respaldo', to_jsonb(tumbo_privado.generar_respaldo(yo.id)));
 end $$;
 
 -- ---------------------------------------------------------------------------
--- Baja de la cuenta (compradores)
+-- Baja de la cuenta (la persona, si es compradora; la administración, para
+-- cualquier cuenta: tm_admin_baja)
 -- ---------------------------------------------------------------------------
+-- Revoca las invitaciones pendientes que hizo una cuenta: al bloquearla,
+-- cambiarle el rol, quitarle el acceso o darla de baja (una cuenta
+-- comprometida no deja invitaciones vivas). Devuelve cuántas.
+create function tumbo_privado.revocar_invitaciones_de(p_usuario uuid) returns integer
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_n integer;
+begin
+  update tumbo.invitaciones set estado = 'revocada', cerrada_el = now()
+  where invitado_por = p_usuario and estado = 'pendiente';
+  get diagnostics v_n = row_count;
+  return v_n;
+end $$;
+
+-- ¿Qué impide dar de baja a esta cuenta compradora? (null: nada). Pedidos en
+-- curso, reclamos sin resolver o un reembolso que aún no llegó: la baja
+-- borra el teléfono y la cédula con los que se devuelve el dinero y la
+-- persona ya no podría entrar a verlo ni reclamarlo. Se llama con el bloqueo
+-- de su carrito tomado (el mismo de tm_crear_pedido).
+create function tumbo_privado.baja_impedida(p_usuario uuid) returns text
+language sql stable security definer set search_path = '' as $$
+  select case
+    when exists (select 1 from tumbo.pedidos where comprador_id = p_usuario
+                 and estado in ('pago_por_verificar', 'por_aceptar', 'preparando', 'listo', 'despachado', 'entregado', 'devolucion'))
+      or exists (select 1 from tumbo.disputas where comprador_id = p_usuario and estado <> 'resuelta')
+      then 'Hay pedidos o reclamos en curso: la cuenta se podrá eliminar cuando terminen.'
+    when exists (select 1 from tumbo.reembolsos r join tumbo.pedidos p on p.id = r.pedido_id
+                 where p.comprador_id = p_usuario and r.estado <> 'enviado')
+      then 'Hay un reembolso que todavía no se ha enviado: la cuenta se podrá eliminar cuando llegue (así no se pierden los datos para devolver el dinero).'
+  end
+$$;
+
 -- Desactiva y anonimiza lo que no es fiscal (nombre, correo, teléfono,
--- cédula, direcciones, carrito, sesiones, 2FA, avisos y mensajes); los
--- pedidos (con la foto de su destino), los reclamos y la auditoría se
--- conservan. Pide la contraseña y la palabra ELIMINAR, y que no haya
--- pedidos ni reclamos en curso. Las cuentas del equipo y de los comercios
--- las da de baja la administración.
+-- cédula, direcciones, carrito, sesiones, 2FA, dispositivos y redes,
+-- códigos, avisos, permisos y mensajes) y revoca sus invitaciones
+-- pendientes; los pedidos (con la foto de su destino), los reclamos y la
+-- auditoría se conservan. Devuelve la cuenta ya anonimizada.
+create function tumbo_privado.anonimizar_cuenta(p_usuario uuid) returns tumbo.usuarios
+language plpgsql security definer set search_path = '' as $$
+declare
+  u tumbo.usuarios;
+begin
+  perform tumbo_privado.bloquear_usuario(p_usuario, 'carrito');
+  perform tumbo_privado.bloquear_usuario(p_usuario, 'direcciones');
+  delete from tumbo.direcciones where usuario_id = p_usuario;
+  delete from tumbo.carrito_items where usuario_id = p_usuario;
+  delete from tumbo.usuarios_2fa where usuario_id = p_usuario;
+  delete from tumbo.respaldo_2fa where usuario_id = p_usuario;
+  delete from tumbo.desafios_2fa where usuario_id = p_usuario;
+  delete from tumbo.codigos_verificacion where usuario_id = p_usuario;
+  delete from tumbo.recuperaciones where usuario_id = p_usuario;
+  delete from tumbo.dispositivos where usuario_id = p_usuario;
+  delete from tumbo.redes_cuenta where usuario_id = p_usuario;
+  delete from tumbo.permisos_usuario where usuario_id = p_usuario;
+  delete from tumbo.preferencias_aviso where usuario_id = p_usuario;
+  delete from tumbo.notificaciones where para = 'usr:' || p_usuario::text;
+  delete from tumbo.salida where usuario_id = p_usuario;
+  delete from tumbo.sesiones where usuario_id = p_usuario;
+  perform tumbo_privado.revocar_invitaciones_de(p_usuario);
+  update tumbo.usuarios
+  set email = 'eliminada-' || id::text || '@cuentas.tumbo.invalid', nombre = 'Cuenta eliminada',
+      clave_hash = extensions.crypt(encode(extensions.gen_random_bytes(24), 'hex'), extensions.gen_salt('bf', 4)),
+      telefono = null, cedula = null, correo_verificado = false, telefono_verificado = false, mfa = false,
+      bloqueado = false, bloqueo_motivo = null, bloqueado_el = null, bloqueado_por = null,
+      activo = false, eliminado_el = now()
+  where id = p_usuario
+  returning * into u;
+  return u;
+end $$;
+
+-- La persona compradora se da de baja: pide la contraseña y la palabra
+-- ELIMINAR, y que no haya pedidos, reclamos ni reembolsos en curso. Las
+-- cuentas del equipo y de los comercios las da de baja la administración
+-- (tm_admin_baja). La auditoría la nombra por su identificador.
 create function public.tm_cuenta_eliminar(p_sesion text, p_clave text, p_confirmacion text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['comprador', 'seller', 'precios', 'operador', 'superadmin', 'ops', 'finanzas']);
   v_ok boolean;
+  v_impide text;
 begin
   if yo.rol <> 'comprador' then
-    return jsonb_build_object('error', 'Las cuentas del equipo y de los comercios las da de baja la administración.');
+    return jsonb_build_object('error', 'Las cuentas del equipo y de los comercios las da de baja la superadministración: escríbele a quien administra tu acceso.');
   end if;
   if tumbo_privado.cuenta_demo(yo.email) then
     return jsonb_build_object('error', 'Las cuentas de prueba no se eliminan.');
@@ -1523,33 +1652,14 @@ begin
   if not v_ok then
     return jsonb_build_object('error', 'La contraseña no es correcta.');
   end if;
-  if exists (select 1 from tumbo.pedidos where comprador_id = yo.id
-             and (estado in ('pago_por_verificar', 'por_aceptar', 'preparando', 'listo', 'despachado', 'entregado', 'devolucion')))
-     or exists (select 1 from tumbo.disputas where comprador_id = yo.id and estado <> 'resuelta') then
-    return jsonb_build_object('error', 'Tienes pedidos o reclamos en curso: podrás eliminar tu cuenta cuando terminen.');
-  end if;
-  perform tumbo_privado.auditar(yo, 'Cuenta eliminada', 'por la persona; pedidos y auditoría conservados');
+  -- con el carrito bloqueado no nace un pedido mientras se decide
   perform tumbo_privado.bloquear_usuario(yo.id, 'carrito');
-  perform tumbo_privado.bloquear_usuario(yo.id, 'direcciones');
-  delete from tumbo.direcciones where usuario_id = yo.id;
-  delete from tumbo.carrito_items where usuario_id = yo.id;
-  delete from tumbo.usuarios_2fa where usuario_id = yo.id;
-  delete from tumbo.respaldo_2fa where usuario_id = yo.id;
-  delete from tumbo.desafios_2fa where usuario_id = yo.id;
-  delete from tumbo.codigos_verificacion where usuario_id = yo.id;
-  delete from tumbo.recuperaciones where usuario_id = yo.id;
-  delete from tumbo.dispositivos where usuario_id = yo.id;
-  delete from tumbo.permisos_usuario where usuario_id = yo.id;
-  delete from tumbo.preferencias_aviso where usuario_id = yo.id;
-  delete from tumbo.notificaciones where para = 'usr:' || yo.id::text;
-  delete from tumbo.salida where usuario_id = yo.id;
-  delete from tumbo.sesiones where usuario_id = yo.id;
-  update tumbo.usuarios
-  set email = 'eliminada-' || yo.id::text || '@cuentas.tumbo.invalid', nombre = 'Cuenta eliminada',
-      clave_hash = extensions.crypt(encode(extensions.gen_random_bytes(24), 'hex'), extensions.gen_salt('bf', 4)),
-      telefono = null, cedula = null, correo_verificado = false, telefono_verificado = false, mfa = false,
-      activo = false, eliminado_el = now()
-  where id = yo.id;
+  v_impide := tumbo_privado.baja_impedida(yo.id);
+  if v_impide is not null then
+    return jsonb_build_object('error', replace(v_impide, 'la cuenta se podrá eliminar', 'podrás eliminar tu cuenta'));
+  end if;
+  yo := tumbo_privado.anonimizar_cuenta(yo.id);
+  perform tumbo_privado.auditar(tumbo_privado.actor_cuenta(yo), 'Cuenta eliminada', 'por la persona; pedidos y auditoría conservados');
   return jsonb_build_object('ok', true);
 end $$;
 
@@ -1641,7 +1751,14 @@ begin
   if (select count(*) from tumbo.invitaciones where invitado_por = yo.id and creado > now() - interval '1 day') >= 30 then
     raise exception 'Enviaste muchas invitaciones hoy: inténtalo mañana.';
   end if;
-  update tumbo.invitaciones set estado = 'revocada', cerrada_el = now() where email = v_email and estado = 'pendiente';
+  -- Una invitación nueva reemplaza las pendientes de su mismo ámbito (las
+  -- de ese comercio, si invita un seller; las de la plataforma, si invita
+  -- la superadministración). Las de otro ámbito siguen vivas: nadie anula
+  -- la invitación de otro comercio ni la del personal interno.
+  update tumbo.invitaciones set estado = 'revocada', cerrada_el = now()
+  where email = v_email and estado = 'pendiente'
+    and ((yo.rol = 'seller' and seller_id = v_seller and rol in ('precios', 'operador'))
+         or (yo.rol = 'superadmin' and seller_id is null));
   insert into tumbo.invitaciones (token_hash, email, rol, seller_id, datos, invitado_por, por, vence)
   values (tumbo_privado.hash_token(v_token), v_email, p_rol, v_seller, v_datos, yo.id, yo.nombre || ' (' || yo.rol || ')', v_vence)
   returning id into v_id;
@@ -1701,11 +1818,24 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
+-- ¿Puede quien hizo la invitación seguir haciéndola? Activo, sin bloquear
+-- y con el rol que la permitía: el seller principal de ese comercio para su
+-- equipo; un superadministrador para el personal interno y los comercios
+-- nuevos. La de puesta en marcha (SQL) no la hizo ninguna cuenta.
+create function tumbo_privado.invitante_vigente(i tumbo.invitaciones) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select i.inicial or exists (
+    select 1 from tumbo.usuarios x
+    where x.id = i.invitado_por and x.activo and not x.bloqueado and not tumbo_privado.cuenta_demo(x.email)
+      and ((i.rol in ('precios', 'operador') and x.rol = 'seller' and x.seller_id is not distinct from i.seller_id)
+           or (i.rol in ('ops', 'finanzas', 'superadmin', 'seller') and i.seller_id is null and x.rol = 'superadmin')))
+$$;
+
 create function tumbo_privado.invitacion_vigente(p_token text) returns tumbo.invitaciones
 language sql stable security definer set search_path = '' as $$
-  select * from tumbo.invitaciones
-  where coalesce(p_token, '') ~ '^[0-9a-f]{64}$' and token_hash = tumbo_privado.hash_token(p_token)
-    and estado = 'pendiente' and vence > now()
+  select * from tumbo.invitaciones i
+  where coalesce(p_token, '') ~ '^[0-9a-f]{64}$' and i.token_hash = tumbo_privado.hash_token(p_token)
+    and i.estado = 'pendiente' and i.vence > now() and tumbo_privado.invitante_vigente(i)
 $$;
 
 -- La página de aceptación: a quién, como qué y quién invita.
@@ -1747,7 +1877,7 @@ begin
     return jsonb_build_object('error', 'Hay demasiados intentos desde tu conexión. Espera unos minutos.');
   end if;
   select * into i from tumbo.invitaciones where id = (tumbo_privado.invitacion_vigente(p_token)).id for update;
-  if not found or i.estado <> 'pendiente' or i.vence <= now() then
+  if not found or i.estado <> 'pendiente' or i.vence <= now() or not tumbo_privado.invitante_vigente(i) then
     perform tumbo_privado.anotar_intento('invitacion', 'aceptar', false);
     return jsonb_build_object('error', 'Esta invitación ya no vale: venció, se revocó o ya se usó. Pide una nueva a quien te invitó.');
   end if;
@@ -1807,7 +1937,9 @@ begin
   end if;
   update tumbo.invitaciones set estado = 'aceptada', cerrada_el = now(), usuario_id = u.id, seller_id = v_seller where id = i.id;
   perform tumbo_privado.anotar_intento('invitacion', 'aceptar', true);
-  perform tumbo_privado.auditar(u, 'Invitación aceptada', u.rol || coalesce(' · ' || v_seller, '') || ' · invitada por ' || i.por);
+  perform tumbo_privado.auditar(tumbo_privado.actor_cuenta(u), 'Invitación aceptada', u.rol || coalesce(' · ' || v_seller, '')
+    || ' · invitación ' || i.id || ' de ' || coalesce((select tumbo_privado.ref_usuario(x) from tumbo.usuarios x where x.id = i.invitado_por),
+                                                       'la puesta en marcha'));
   if i.invitado_por is not null then
     perform tumbo_privado.notificar('usr:' || i.invitado_por, v_nombre || ' aceptó tu invitación como ' || tumbo_privado.nombre_rol(i.rol),
                                     'how_to_reg', null);
@@ -1832,8 +1964,8 @@ begin
     raise exception 'Ese correo ya tiene una cuenta activa.';
   end if;
   update tumbo.invitaciones set estado = 'revocada', cerrada_el = now() where email = v_email and estado = 'pendiente';
-  insert into tumbo.invitaciones (token_hash, email, rol, invitado_por, por, vence)
-  values (tumbo_privado.hash_token(v_token), v_email, 'superadmin', null, 'Puesta en marcha (SQL)', now() + interval '7 days');
+  insert into tumbo.invitaciones (token_hash, email, rol, invitado_por, por, vence, inicial)
+  values (tumbo_privado.hash_token(v_token), v_email, 'superadmin', null, 'Puesta en marcha (SQL)', now() + interval '7 days', true);
   perform tumbo_privado.auditar(null, 'Invitación inicial de superadministrador', tumbo_privado.correo_oculto(v_email));
   return tumbo_privado.url_sitio('app/acceso/invitacion.html?token=' || v_token);
 end $$;
@@ -1878,6 +2010,7 @@ begin
   delete from tumbo.sesiones where usuario_id = o.id;
   delete from tumbo.desafios_2fa where usuario_id = o.id;
   delete from tumbo.permisos_usuario where usuario_id = o.id;
+  perform tumbo_privado.revocar_invitaciones_de(o.id);
   perform tumbo_privado.auditar(yo, 'Acceso al comercio retirado', tumbo_privado.ref_usuario(o) || ' de ' || yo.seller_id);
   return jsonb_build_object('ok', true);
 end $$;
@@ -1946,8 +2079,8 @@ $$;
 
 -- Busca por correo, nombre, teléfono, cédula o identificador (el de la
 -- auditoría) (las 50 más recientes que
--- coincidan). El superadministrador ve a todos; operaciones, a los
--- compradores (a todos con el permiso «usuarios»); con una cuenta de prueba,
+-- coincidan). El superadministrador ve a todos; operaciones, solo a los
+-- compradores (tenga o no el permiso «usuarios»); con una cuenta de prueba,
 -- solo a las cuentas de prueba.
 create function public.tm_admin_usuarios(p_sesion text, p_texto text, p_rol text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
@@ -1985,6 +2118,8 @@ begin
   end if;
   return tumbo_privado.usuario_admin_json(o) || jsonb_build_object(
     'gestiona', tumbo_privado.gestiona_usuario(yo, o) and not tumbo_privado.cuenta_demo(yo.email),
+    'puedeBaja', yo.rol = 'superadmin' and not tumbo_privado.cuenta_demo(yo.email) and not tumbo_privado.cuenta_demo(o.email)
+                 and o.eliminado_el is null and o.id <> yo.id,
     'sesiones', case when tumbo_privado.gestiona_usuario(yo, o) then coalesce((
        select jsonb_agg(tumbo_privado.sesion_json(s, null) order by s.ultimo_uso desc)
        from (select * from tumbo.sesiones s where s.usuario_id = o.id and s.expira > now() order by s.ultimo_uso desc limit 100) s), '[]'::jsonb)
@@ -2030,8 +2165,9 @@ begin
   return jsonb_build_object('ok', true, 'cerradas', v_n);
 end $$;
 
--- Bloquea (con motivo) o desbloquea una cuenta. Bloquear cierra sus
--- sesiones; nadie se bloquea a sí mismo ni deja la plataforma sin
+-- Bloquea o desbloquea una cuenta, siempre con motivo (queda en la
+-- auditoría). Bloquear cierra sus sesiones y revoca las invitaciones que
+-- dejó pendientes; nadie se bloquea a sí mismo ni deja la plataforma sin
 -- superadministrador real.
 create function public.tm_admin_bloquear(p_sesion text, p_usuario uuid, p_bloquear boolean, p_motivo text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
@@ -2039,6 +2175,7 @@ declare
   yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['superadmin', 'ops']);
   o tumbo.usuarios;
   v_motivo text := left(nullif(trim(coalesce(p_motivo, '')), ''), 300);
+  v_revocadas integer;
 begin
   perform tumbo_privado.exigir_admin_elevada(yo);
   o := tumbo_privado.cuenta_gestionada(yo, p_usuario);
@@ -2048,10 +2185,11 @@ begin
   if not o.activo then
     raise exception 'Esa cuenta no está activa.';
   end if;
+  if v_motivo is null or char_length(v_motivo) < 5 then
+    raise exception 'Escribe el motivo del %, de al menos 5 caracteres (queda en la auditoría).',
+      case when coalesce(p_bloquear, false) then 'bloqueo' else 'desbloqueo' end;
+  end if;
   if coalesce(p_bloquear, false) then
-    if v_motivo is null or char_length(v_motivo) < 5 then
-      raise exception 'Escribe el motivo del bloqueo (queda en la auditoría).';
-    end if;
     if o.rol = 'superadmin' and not tumbo_privado.otro_superadmin(o.id) then
       raise exception 'Es el único superadministrador activo: no se puede bloquear.';
     end if;
@@ -2060,20 +2198,25 @@ begin
     where id = o.id;
     delete from tumbo.sesiones where usuario_id = o.id;
     delete from tumbo.desafios_2fa where usuario_id = o.id;
-    perform tumbo_privado.auditar(yo, 'Cuenta bloqueada', tumbo_privado.ref_usuario(o) || ' · ' || v_motivo);
+    v_revocadas := tumbo_privado.revocar_invitaciones_de(o.id);
+    perform tumbo_privado.auditar(yo, 'Cuenta bloqueada', tumbo_privado.ref_usuario(o) || ' · ' || v_motivo
+      || case when v_revocadas > 0 then ' · ' || v_revocadas || ' invitaciones pendientes revocadas' else '' end);
   else
     if not o.bloqueado then
       raise exception 'Esa cuenta no está bloqueada.';
     end if;
     update tumbo.usuarios set bloqueado = false, bloqueo_motivo = null, bloqueado_el = null, bloqueado_por = null where id = o.id;
     perform tumbo_privado.notificar('usr:' || o.id, 'Tu cuenta fue desbloqueada', 'lock_open', null);
-    perform tumbo_privado.auditar(yo, 'Cuenta desbloqueada', tumbo_privado.ref_usuario(o) || coalesce(' · ' || v_motivo, ''));
+    perform tumbo_privado.auditar(yo, 'Cuenta desbloqueada', tumbo_privado.ref_usuario(o) || ' · ' || v_motivo);
   end if;
-  return jsonb_build_object('ok', true);
+  return jsonb_build_object('ok', true, 'invitacionesRevocadas', coalesce(v_revocadas, 0));
 end $$;
 
--- Genera un enlace de recuperación para otra cuenta (y lo deja en la
--- bandeja); se devuelve para enviarlo a mano. Auditado sin el enlace.
+-- Genera un enlace de recuperación para otra cuenta y lo deja en su
+-- bandeja. Solo el superadministrador lo recibe para enviarlo a mano;
+-- operaciones (con el permiso «usuarios», a compradores) solo lo encola: el
+-- enlace no necesita el buzón de la persona, así que quien lo tiene puede
+-- fijar la contraseña. Auditado sin el enlace.
 create function public.tm_admin_recuperacion(p_sesion text, p_usuario uuid) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -2090,12 +2233,15 @@ begin
     raise exception 'Para tu propia cuenta usa «Cambiar contraseña» en Mi cuenta.';
   end if;
   v_enlace := tumbo_privado.crear_recuperacion(o, yo.nombre || ' (' || yo.rol || ')');
-  perform tumbo_privado.auditar(yo, 'Enlace de recuperación generado', tumbo_privado.ref_usuario(o));
-  return jsonb_build_object('ok', true, 'enlace', v_enlace, 'vence', now() + interval '30 minutes');
+  perform tumbo_privado.auditar(yo, 'Enlace de recuperación generado', tumbo_privado.ref_usuario(o)
+    || case when yo.rol = 'superadmin' then '' else ' · solo en su bandeja' end);
+  return jsonb_build_object('ok', true, 'enlace', case when yo.rol = 'superadmin' then v_enlace end,
+                            'enBandeja', true, 'vence', now() + interval '30 minutes');
 end $$;
 
 -- Cambia el rol del personal interno (ops, finanzas, superadmin). Cierra
--- sus sesiones y retira los permisos que el rol nuevo no admite.
+-- sus sesiones, retira los permisos que el rol nuevo no admite y revoca las
+-- invitaciones que dejó pendientes.
 create function public.tm_admin_rol(p_sesion text, p_usuario uuid, p_rol text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -2121,6 +2267,7 @@ begin
   delete from tumbo.desafios_2fa where usuario_id = o.id;
   delete from tumbo.permisos_usuario pu where pu.usuario_id = o.id
     and not exists (select 1 from tumbo.permisos p where p.permiso = pu.permiso and p_rol = any (p.asignable_a));
+  perform tumbo_privado.revocar_invitaciones_de(o.id);
   perform tumbo_privado.auditar(yo, 'Rol cambiado', 'cuenta ' || o.id || ': ' || o.rol || ' → ' || p_rol);
   return jsonb_build_object('ok', true);
 end $$;
@@ -2154,6 +2301,55 @@ begin
   perform tumbo_privado.notificar('usr:' || o.id, 'La administración quitó la verificación en dos pasos de tu cuenta: actívala de nuevo en Mi cuenta → Seguridad',
                                   'lock_open', tumbo_privado.enlace_cuenta(o.rol));
   perform tumbo_privado.auditar(yo, 'Verificación en dos pasos quitada', tumbo_privado.ref_usuario(o) || ' · ' || v_motivo);
+  return jsonb_build_object('ok', true);
+end $$;
+
+-- Baja administrativa (solo el superadministrador, con sesión elevada y
+-- motivo): desactiva y anonimiza la cuenta como la baja de la persona
+-- (anonimizar_cuenta), cierra sus sesiones y revoca sus invitaciones. Para
+-- quien se va del equipo interno o de un comercio, o una compradora que lo
+-- pide por otro canal (con las mismas condiciones que su propia baja). Un
+-- seller principal solo cuando su comercio ya no opera (suspendido,
+-- rechazado o aún en revisión): si no, el comercio quedaría sin quien lo
+-- gestione. Nadie se da de baja a sí mismo por aquí ni deja la plataforma
+-- sin superadministrador real.
+create function public.tm_admin_baja(p_sesion text, p_usuario uuid, p_motivo text) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['superadmin']);
+  o tumbo.usuarios;
+  v_motivo text := left(nullif(trim(coalesce(p_motivo, '')), ''), 300);
+  v_impide text;
+begin
+  perform tumbo_privado.exigir_admin_elevada(yo);
+  o := tumbo_privado.cuenta_gestionada(yo, p_usuario);
+  if o.id = yo.id then
+    raise exception 'No puedes dar de baja tu propia cuenta: pídeselo a otro superadministrador.';
+  end if;
+  if tumbo_privado.cuenta_demo(o.email) then
+    raise exception 'Las cuentas de prueba no se dan de baja.';
+  end if;
+  if o.eliminado_el is not null then
+    raise exception 'Esa cuenta ya está dada de baja.';
+  end if;
+  if v_motivo is null or char_length(v_motivo) < 5 then
+    raise exception 'Escribe el motivo de la baja, de al menos 5 caracteres (queda en la auditoría).';
+  end if;
+  if o.rol = 'superadmin' and not tumbo_privado.otro_superadmin(o.id) then
+    raise exception 'Es el único superadministrador activo: no se puede dar de baja.';
+  end if;
+  if o.rol = 'seller' and exists (select 1 from tumbo.sellers s where s.id = o.seller_id and s.estado in ('aprobado', 'observado')) then
+    raise exception 'Su comercio sigue operando: suspéndelo en «Sellers y KYC» antes de dar de baja a su seller principal.';
+  end if;
+  if o.rol = 'comprador' then
+    perform tumbo_privado.bloquear_usuario(o.id, 'carrito');
+    v_impide := tumbo_privado.baja_impedida(o.id);
+    if v_impide is not null then
+      raise exception '%', v_impide;
+    end if;
+  end if;
+  perform tumbo_privado.anonimizar_cuenta(o.id);
+  perform tumbo_privado.auditar(yo, 'Cuenta dada de baja por la administración', tumbo_privado.ref_usuario(o) || ' · ' || v_motivo);
   return jsonb_build_object('ok', true);
 end $$;
 
@@ -2377,6 +2573,7 @@ begin
     'public.tm_admin_usuarios(text,text,text)', 'public.tm_admin_usuario(text,uuid)',
     'public.tm_admin_sesiones_cerrar(text,uuid,uuid)', 'public.tm_admin_bloquear(text,uuid,boolean,text)',
     'public.tm_admin_recuperacion(text,uuid)', 'public.tm_admin_rol(text,uuid,text)', 'public.tm_admin_2fa_quitar(text,uuid,text)',
+    'public.tm_admin_baja(text,uuid,text)',
     'public.tm_direccion_editar(text,uuid,jsonb)', 'public.tm_direccion_predeterminada(text,uuid)']::regprocedure[]
   loop
     execute format('revoke execute on function %s from public', f);
