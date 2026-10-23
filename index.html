@@ -52,6 +52,7 @@
                  id="ac-clave" type="password" autocomplete="current-password" aria-describedby="ac-clave-err"/>
           <p class="hidden items-center gap-1 mt-1 font-body-sm text-body-sm text-error" id="ac-clave-err" role="alert">
             <span class="material-symbols-outlined text-[16px]" aria-hidden="true">error</span><span data-texto></span></p>
+          <button class="mt-1.5 font-label-md text-label-md text-secondary hover:underline" data-ir="recuperar" type="button">¿Olvidaste tu contraseña?</button>
         </div>
         <button class="w-full h-12 rounded-btn bg-primary-container text-on-primary font-label-md text-label-md
                        flex items-center justify-center gap-2 hover:opacity-90 transition-opacity" type="submit">
@@ -68,7 +69,7 @@
           <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>Volver</button>
         <div class="flex items-start gap-2 p-3 rounded-btn bg-secondary-container mb-5">
           <span class="material-symbols-outlined text-[20px] text-on-secondary-container" aria-hidden="true">lock</span>
-          <p class="font-body-sm text-body-sm text-on-secondary-container">Este rol exige verificación en dos pasos. En la demo el código es <strong class="font-data-mono">123456</strong>.</p>
+          <p class="font-body-sm text-body-sm text-on-secondary-container" data-mfa-texto>Este rol exige verificación en dos pasos. En la demo el código es <strong class="font-data-mono">123456</strong>.</p>
         </div>
         <label class="block font-label-md text-label-md text-on-surface mb-1" for="ac-codigo">Código de verificación</label>
         <input class="w-full h-12 px-3 rounded-btn border border-outline-variant bg-surface-container-low
@@ -80,6 +81,22 @@
         <button class="w-full h-12 mt-5 rounded-btn bg-primary-container text-on-primary font-label-md text-label-md
                        flex items-center justify-center gap-2 hover:opacity-90" type="submit">
           Verificar y entrar<span class="material-symbols-outlined text-[18px]" aria-hidden="true">login</span></button>
+      </form>
+
+      <!-- Recuperar la contraseña -->
+      <form class="hidden" data-paso="recuperar" novalidate>
+        <button class="inline-flex items-center gap-1 font-label-md text-label-md text-on-surface-variant hover:text-on-surface mb-4" data-ir="credenciales" type="button">
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>Volver al acceso</button>
+        <h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Recupera tu contraseña</h2>
+        <p class="font-body-sm text-body-sm text-on-surface-variant mb-4">Escribe el correo de tu cuenta y te enviaremos un enlace para crear una contraseña nueva (vence en 30 minutos).</p>
+        <label class="block font-label-md text-label-md text-on-surface mb-1" for="rc-correo">Correo</label>
+        <input id="rc-correo" type="email" autocomplete="email" placeholder="usuario@correo.com" class="w-full h-11 px-3 mb-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>
+        <p class="hidden items-center gap-1 mb-3 font-body-sm text-body-sm text-error" id="rc-err" role="alert">
+          <span class="material-symbols-outlined text-[16px]" aria-hidden="true">error</span><span data-texto></span></p>
+        <div class="hidden p-3 mb-3 rounded-btn bg-success-container text-on-success-container font-body-sm text-body-sm" data-rc-ok role="status"></div>
+        <button class="w-full h-12 rounded-btn bg-primary-container text-on-primary font-label-md text-label-md
+                       flex items-center justify-center gap-2 hover:opacity-90" type="submit">
+          Enviar enlace<span class="material-symbols-outlined text-[18px]" aria-hidden="true">mail</span></button>
       </form>
 
       <!-- Paso 3: registro de comprador -->
@@ -95,9 +112,12 @@
         <label class="block font-label-md text-label-md text-on-surface mb-1" for="rg-clave">Contraseña</label>
         <input id="rg-clave" type="password" autocomplete="new-password" class="w-full h-11 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>
         <p class="font-body-sm text-body-sm text-on-surface-variant mt-1 mb-3">Mínimo 8 caracteres.</p>
+        <label class="block font-label-md text-label-md text-on-surface mb-1" for="rg-telefono">Teléfono <span class="font-body-sm text-body-sm text-on-surface-variant">(opcional)</span></label>
+        <input id="rg-telefono" type="tel" autocomplete="tel" placeholder="+58 412 1234567" class="w-full h-11 px-3 mb-1 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>
+        <p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Para avisarte de tus pedidos. Un número de Venezuela (móvil o fijo).</p>
         <label class="flex items-start gap-2 mb-4 cursor-pointer">
           <input id="rg-terminos" type="checkbox" class="mt-1 w-4 h-4 rounded border-outline text-secondary focus:ring-secondary/40"/>
-          <span class="font-body-sm text-body-sm text-on-surface-variant">Acepto los términos y las políticas de privacidad de la beta.</span></label>
+          <span class="font-body-sm text-body-sm text-on-surface-variant">Acepto los términos y las políticas de privacidad de la beta<span data-terminos-version></span>.</span></label>
         <p class="hidden items-center gap-1 mb-3 font-body-sm text-body-sm text-error" id="rg-err" role="alert">
           <span class="material-symbols-outlined text-[16px]" aria-hidden="true">error</span><span data-texto></span></p>
         <button class="w-full h-12 rounded-btn bg-primary-container text-on-primary font-label-md text-label-md
@@ -161,7 +181,7 @@
     if (txt) { p.querySelector('[data-texto]').textContent = txt; p.classList.remove('hidden'); p.classList.add('flex'); }
     else { p.classList.add('hidden'); p.classList.remove('flex'); }
   }
-  function limpiar() { ['ac-correo-err', 'ac-clave-err', 'ac-codigo-err', 'rg-err'].forEach(function (i) { error(i, ''); }); }
+  function limpiar() { ['ac-correo-err', 'ac-clave-err', 'ac-codigo-err', 'rg-err', 'rc-err'].forEach(function (i) { error(i, ''); }); }
 
   /* Solo se vuelve a páginas propias de la app y del área del rol. */
   function destino(rol) {
@@ -218,7 +238,9 @@
     ocupar(form, true);
     TM.acceder(correo, clave).then(function (s) {
       ocupar(form, false);
-      if (s.mfa) { mostrar('mfa'); return; }
+      /* con la 2FA real activa el servidor aún no dio la sesión */
+      if (s && s.requiere2fa) { pasoMfa(true); return; }
+      if (TM.mfaPendiente()) { pasoMfa(false); return; }
       entrar(s);
     }, function (e) {
       ocupar(form, false);
@@ -226,12 +248,70 @@
     });
   });
 
+  /* Paso del segundo factor: con la 2FA real (TOTP) el código lo pide el
+     servidor antes de dar la sesión; en las cuentas de prueba con MFA es su
+     código público, que también comprueba el servidor (en modo local, el
+     navegador). */
+  var mfaReal = false;
+  /* el texto y el campo de la demo, para reponerlos si antes se vio el paso real */
+  var mfaDemoHtml = document.querySelector('[data-mfa-texto]').innerHTML;
+  function pasoMfa(real) {
+    mfaReal = !!real;
+    var texto = document.querySelector('[data-mfa-texto]');
+    var campo = document.getElementById('ac-codigo');
+    if (real) {
+      texto.textContent = 'Tu cuenta tiene la verificación en dos pasos activa. Escribe el código de 6 dígitos de tu app de autenticación o, si no tienes el teléfono, uno de tus códigos de respaldo.';
+      campo.setAttribute('maxlength', '9');
+      campo.setAttribute('autocomplete', 'one-time-code');
+      campo.removeAttribute('inputmode');
+    } else {
+      texto.innerHTML = mfaDemoHtml;
+      campo.setAttribute('maxlength', '6');
+      campo.setAttribute('inputmode', 'numeric');
+      campo.removeAttribute('autocomplete');
+    }
+    campo.value = '';
+    mostrar('mfa');
+  }
+
   pasos.mfa.addEventListener('submit', function (ev) {
     ev.preventDefault(); limpiar();
-    if (!TM.confirmarMfa(document.getElementById('ac-codigo').value)) {
-      error('ac-codigo-err', 'Código incorrecto. En la demo es 123456.'); return;
-    }
-    entrar(TM.sesion());
+    var form = pasos.mfa;
+    var codigo = document.getElementById('ac-codigo').value.trim();
+    if (!codigo) { error('ac-codigo-err', 'Escribe el código.'); return; }
+    ocupar(form, true);
+    var p = mfaReal ? TM.acceder2fa(codigo) : Promise.resolve(TM.confirmarMfa(codigo));
+    p.then(function (r) {
+      ocupar(form, false);
+      if (mfaReal) { entrar(r); return; }
+      if (r !== true) { error('ac-codigo-err', 'Código incorrecto. En la demo es 123456.'); return; }
+      entrar(TM.sesion());
+    }, function (e) {
+      ocupar(form, false);
+      error('ac-codigo-err', (e && e.error) || 'Código incorrecto.');
+    });
+  });
+
+  /* «¿Olvidaste tu contraseña?»: la respuesta es la misma exista o no la cuenta. */
+  pasos.recuperar.addEventListener('submit', function (ev) {
+    ev.preventDefault(); limpiar();
+    var form = pasos.recuperar;
+    var ok = form.querySelector('[data-rc-ok]');
+    ok.classList.add('hidden');
+    var correo = document.getElementById('rc-correo').value.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(correo)) { error('rc-err', 'Escribe un correo válido.'); return; }
+    if (TM.requiereServidor()) { error('rc-err', 'Esta función necesita el servidor de Tumbo: en el modo sin conexión las cuentas demo usan demo1234.'); return; }
+    ocupar(form, true);
+    TM.apiPublica('tm_clave_recuperar', { p_email: correo }).then(function (r) {
+      ocupar(form, false);
+      if (r && r.error) { error('rc-err', r.error); return; }
+      ok.textContent = ((r && r.mensaje) || 'Si ese correo tiene una cuenta, te enviamos un enlace.') +
+        ' Mientras Tumbo no tenga conectado un proveedor de correo, el mensaje queda en su bandeja de salida y el equipo lo envía a mano: puede tardar.';
+      ok.classList.remove('hidden');
+    }, function (e) {
+      ocupar(form, false);
+      error('rc-err', (e && e.error) || 'No se pudo enviar. Inténtalo de nuevo.');
+    });
   });
 
   pasos.registro.addEventListener('submit', function (ev) {
@@ -244,8 +324,13 @@
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(correo)) { error('rg-err', 'Escribe un correo válido.'); return; }
     if (clave.length < 8) { error('rg-err', 'La contraseña necesita al menos 8 caracteres.'); return; }
     if (!document.getElementById('rg-terminos').checked) { error('rg-err', 'Debes aceptar los términos para continuar.'); return; }
+    if (TM.modo === 'remoto' && ajustes.registro_activo === false) { error('rg-err', 'El registro de cuentas nuevas está pausado en este momento.'); return; }
+    var telefono = document.getElementById('rg-telefono').value.trim();
+    if (telefono && !/^[+\d][\d\s().-]{6,}$/.test(telefono)) { error('rg-err', 'Escribe un teléfono de Venezuela (por ejemplo +58 412 1234567) o déjalo vacío.'); return; }
     ocupar(form, true);
-    TM.registrar(nombre, correo, clave).then(entrar, function (e) {
+    terminos().then(function (version) {
+      return TM.registrar(nombre, correo, clave, { telefono: telefono, terminos: version });
+    }).then(entrar, function (e) {
       ocupar(form, false);
       error('rg-err', (e && e.error) || 'No se pudo crear la cuenta.');
     });
@@ -258,10 +343,51 @@
     TM.cerrarSesion().then(function () { location.href = 'app/tienda/inicio.html'; });
   });
 
+  /* Ajustes públicos (versión de los términos, registro abierto o pausado). */
+  var ajustes = {};
+  var promesaAjustes = null;
+  function terminos() {
+    if (TM.modo !== 'remoto') return Promise.resolve(null);
+    if (!promesaAjustes) promesaAjustes = TM.apiPublica('tm_ajustes_publicos', {}).then(function (a) { ajustes = a || {}; return ajustes; });
+    return promesaAjustes.then(function (a) { return a.terminos_version || null; }, function () { promesaAjustes = null; return null; });
+  }
+  if (TM.modo === 'remoto') {
+    terminos().then(function (version) {
+      var v = document.querySelector('[data-terminos-version]');
+      if (version && v) v.textContent = ' (versión ' + version + ')';
+      if (ajustes.registro_activo === false) {
+        var aviso = document.createElement('p');
+        aviso.className = 'font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-3';
+        aviso.textContent = 'El registro de cuentas nuevas está pausado en este momento. Si ya tienes cuenta, inicia sesión.';
+        pasos.registro.querySelector('h2').insertAdjacentElement('afterend', aviso);
+      }
+    });
+  }
+
+  /* ?correo= y ?listo=: viene de aceptar una invitación o de fijar la contraseña. */
+  var listo = { clave: 'Tu contraseña cambió y cerramos tus sesiones: entra con la nueva.',
+    invitacion: 'Tu cuenta está lista: entra con tu correo y la contraseña que elegiste. Si tu rol exige la verificación en dos pasos, actívala después en Mi cuenta → Seguridad.' }[new URLSearchParams(location.search).get('listo')];
+  if (listo) {
+    var avisoListo = document.createElement('p');
+    avisoListo.className = 'mb-4 p-3 rounded-btn bg-success-container text-on-success-container font-body-sm text-body-sm';
+    avisoListo.setAttribute('role', 'status');
+    avisoListo.setAttribute('data-listo', '');
+    avisoListo.textContent = listo;
+    pasos.credenciales.insertAdjacentElement('afterbegin', avisoListo);
+  }
+  var correoPrevio = new URLSearchParams(location.search).get('correo');
+  if (correoPrevio && /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(correoPrevio)) {
+    document.getElementById('ac-correo').value = correoPrevio.toLowerCase();
+    document.getElementById('ac-clave').focus();
+  }
+
+  /* ?recuperar=1: viene de un enlace de recuperación vencido. */
+  if (new URLSearchParams(location.search).get('recuperar') === '1') mostrar('recuperar');
+
   /* Volver desde una página protegida con el segundo factor pendiente. */
   if (new URLSearchParams(location.search).get('mfa') === '1') {
     TM.listoSesion().then(function () {
-      if (TM.sesion() && TM.mfaPendiente()) mostrar('mfa');
+      if (TM.sesion() && TM.mfaPendiente()) pasoMfa(false);
     });
   }
 

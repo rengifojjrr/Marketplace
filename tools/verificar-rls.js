@@ -57,6 +57,14 @@ const ESPERADO = {
   finanzas:   { sellers: 4, productos: 6, pedidos: 6, disputas: 0, liquidaciones: 1, kyc: 4, docs: 0, notificaciones: 1, eventos: '4+' }
 };
 
+/* Registro de un comprador de prueba: desde la ola 1 de cuentas el
+   registro exige aceptar la versión vigente de los términos (si el backend
+   aún no la tiene, la firma de tres parámetros). */
+async function registrarComprador(rpc, datos) {
+  const version = ((await rpc('tm_ajustes_publicos', {})).dato || {}).terminos_version;
+  return rpc('tm_registrar', version ? Object.assign({ p_telefono: null, p_terminos: version }, datos) : datos);
+}
+
 (async () => {
   let fallos = 0;
   const ok = (cond, texto, detalle) => {
@@ -157,7 +165,7 @@ const ESPERADO = {
 
   /* Concurrencia: carrito y pedido a la vez desde la misma cuenta no
      descuadran las reservas. */
-  const comp = await rpc('tm_registrar', { p_email: 'carrera-' + Date.now() + '@correo-demo.ve', p_clave: 'clave-carrera-1', p_nombre: 'Prueba Carrera' });
+  const comp = await registrarComprador(rpc, { p_email: 'carrera-' + Date.now() + '@correo-demo.ve', p_clave: 'clave-carrera-1', p_nombre: 'Prueba Carrera' });
   const sc = comp.dato && comp.dato.sesion;
   ok(!!sc, 'comprador de prueba creado', comp.texto.slice(0, 100));
   if (sc) {
@@ -214,7 +222,7 @@ const ESPERADO = {
   ok(!evOp.some((t) => DINERO.test(t)), 'el operador no ve eventos de dinero ni de reclamos', evOp.filter((t) => DINERO.test(t)).join(' | '));
 
   /* Pedido: referencia única y precio que vio el comprador. */
-  const comp2 = await rpc('tm_registrar', { p_email: 'precio-' + Date.now() + '@correo-demo.ve', p_clave: 'clave-precio-1', p_nombre: 'Prueba Precio' });
+  const comp2 = await registrarComprador(rpc, { p_email: 'precio-' + Date.now() + '@correo-demo.ve', p_clave: 'clave-precio-1', p_nombre: 'Prueba Precio' });
   const sp = comp2.dato && comp2.dato.sesion;
   ok(!!sp, 'segundo comprador de prueba creado', comp2.texto.slice(0, 100));
   if (sp) {

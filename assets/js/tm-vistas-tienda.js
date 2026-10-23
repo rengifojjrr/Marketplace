@@ -320,7 +320,7 @@
     }
     var dirs = TM.estado.direcciones[s.email] || [];
     var dirElegida = pendiente.dir && (pendiente.dir === '__agencia__' || dirs.some(function (d) { return d.id === pendiente.dir; }))
-      ? pendiente.dir : (dirs.length ? dirs[0].id : '__agencia__');
+      ? pendiente.dir : (dirs.length ? (dirs.find(function (d) { return d.predeterminada; }) || dirs[0]).id : '__agencia__');
     var envioInicial = (dirElegida === '__agencia__' ? COSTO_ENVIO.agencia : COSTO_ENVIO.domicilio) * sellersDe(items);
     /* El subtotal que se pinta es el que se envía al confirmar: si un precio
        cambia mientras tanto, el servidor no crea el pedido con otro monto. */
@@ -678,98 +678,6 @@
   }
 
   /* =====================================================================
-     Mi cuenta (mosaicos) y direcciones
-     ===================================================================== */
-  function vCuenta(q, s) {
-    var pedidos = TM.estado.pedidos.filter(function (p) { return p.compradorEmail === s.email; });
-    var activos = pedidos.filter(function (p) { return ['entregado', 'cerrado', 'cancelado', 'reembolsado'].indexOf(p.estado) < 0; });
-    var mosaicos = [
-      { id: 'pedidos', t: 'Mis pedidos', d: activos.length + ' activo' + (activos.length === 1 ? '' : 's') + ' · ' + pedidos.length + ' en total', i: 'package_2', h: 'app/tienda/pedidos.html' },
-      { id: 'direcciones', t: 'Direcciones', d: 'Entrega a domicilio y agencias', i: 'place', h: 'app/tienda/direcciones.html' },
-      { id: 'seguridad', t: 'Seguridad', d: 'Contraseña y sesiones (demo)', i: 'lock', h: null },
-      { id: 'notificaciones', t: 'Notificaciones', d: 'Avisos de tus pedidos', i: 'notifications', h: null }
-    ];
-    /* los módulos agregan mosaicos (o reemplazan uno fijo con su mismo id) */
-    APP.navDe('cuenta', s).forEach(function (m) {
-      var nuevo = { id: m.id, t: m.texto, d: m.descripcion || '', i: m.icono || 'apps', h: m.href || null };
-      var fijo = m.id ? mosaicos.findIndex(function (x) { return x.id === m.id; }) : -1;
-      if (fijo >= 0) mosaicos[fijo] = nuevo; else mosaicos.push(nuevo);
-    });
-    return tituloSeccion('Hola, ' + s.nombre.split(' ')[0]) +
-      '<div class="grid sm:grid-cols-2 gap-3 max-w-3xl">' +
-      mosaicos.map(function (m) {
-        var inner = '<span class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-secondary-container text-on-secondary-container shrink-0">' + ic(m.i, 'text-[22px]') + '</span>' +
-          '<span><span class="block font-body-md text-body-md font-bold text-on-surface">' + esc(m.t) + '</span>' +
-          '<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(m.d) + '</span></span>';
-        return m.h
-          ? '<a class="flex items-center gap-3 rounded-card border border-outline-variant bg-surface-container-lowest p-4 hover:border-secondary hover:shadow-nivel-2 transition" href="' + esc(APP.enlace(m.h)) + '">' + inner + '</a>'
-          : '<button data-demo-mosaico class="flex items-center gap-3 rounded-card border border-outline-variant bg-surface-container-lowest p-4 text-left hover:border-secondary transition">' + inner + '</button>';
-      }).join('') + '</div>';
-  }
-
-  function despuesCuenta(raiz) {
-    raiz.querySelectorAll('[data-demo-mosaico]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        UI.toast('Próximamente', 'Esta sección llega en la siguiente versión de la beta.', 'science');
-      });
-    });
-  }
-
-  function vDirecciones(q, s) {
-    var dirs = TM.estado.direcciones[s.email] || [];
-    return tituloSeccion('Mis direcciones', btn('Agregar dirección', { estilo: 'primario', icono: 'add', attr: 'data-nueva' })) +
-      (dirs.length ? '<div class="grid sm:grid-cols-2 gap-3 max-w-3xl">' + dirs.map(function (d) {
-        return '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
-          '<p class="font-body-md text-body-md font-bold text-on-surface">' + esc(d.nombre) +
-          (d.predeterminada ? ' <span class="font-label-sm text-label-sm text-secondary">· predeterminada</span>' : '') + '</p>' +
-          '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(d.linea) + '</p>' +
-          '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(d.municipio) + ', ' + esc(d.ciudad) + ' ' + esc(d.codigo) + ' · ' + esc(d.telefono) + '</p>' +
-          '<button data-quitar-dir="' + esc(d.id) + '" class="mt-2 font-label-md text-label-md text-error hover:underline">Eliminar</button></div>';
-      }).join('') + '</div>'
-      : UI.vacio('place', 'Sin direcciones guardadas', 'Agrega tu primera dirección para agilizar el checkout.'));
-  }
-
-  function despuesDirecciones(raiz, q, s) {
-    var n = raiz.querySelector('[data-nueva]');
-    if (n) n.addEventListener('click', function () {
-      UI.modal(
-        '<h3 class="font-headline-sm text-headline-sm text-primary-container mb-3">Nueva dirección</h3>' +
-        ['Nombre (Casa, Oficina…)|nombre', 'Dirección completa|linea', 'Municipio|municipio', 'Teléfono|telefono'].map(function (par) {
-          var p = par.split('|');
-          return '<label class="block font-label-md text-label-md text-on-surface mb-1 mt-2">' + p[0] + '</label>' +
-            '<input data-campo="' + p[1] + '" class="w-full h-10 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm focus:border-secondary outline-none"/>';
-        }).join('') +
-        '<p data-err class="hidden mt-2 font-body-sm text-body-sm text-error"></p>' +
-        '<div class="flex justify-end gap-2 mt-4">' + btn('Cancelar', { attr: 'data-cerrar' }) + btn('Guardar', { estilo: 'primario', attr: 'data-ok' }) + '</div>',
-        function (velo, cerrar) {
-          velo.querySelector('[data-ok]').addEventListener('click', function () {
-            var v = {};
-            velo.querySelectorAll('[data-campo]').forEach(function (i) { v[i.getAttribute('data-campo')] = i.value.trim(); });
-            if (!v.nombre || !v.linea || !v.municipio) {
-              var e = velo.querySelector('[data-err]');
-              e.textContent = 'Nombre, dirección y municipio son obligatorios.';
-              e.classList.remove('hidden');
-              return;
-            }
-            UI.accion(velo.querySelector('[data-ok]'), function () {
-              return TM.agregarDireccion({ nombre: v.nombre, linea: v.linea, municipio: v.municipio, ciudad: 'Caracas', codigo: '1010', telefono: v.telefono || '—', predeterminada: false });
-            }, function () {
-              cerrar();
-              UI.toast('Dirección guardada', v.nombre, 'place');
-            }, 'No se pudo guardar la dirección');
-          });
-        });
-    });
-    raiz.querySelectorAll('[data-quitar-dir]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        UI.accion(b, function () { return TM.quitarDireccion(b.getAttribute('data-quitar-dir')); }, function () {
-          UI.toast('Dirección eliminada', '', 'place');
-        }, 'No se pudo eliminar');
-      });
-    });
-  }
-
-  /* =====================================================================
      Registro de vistas
      ===================================================================== */
   APP.registrar({
@@ -781,8 +689,7 @@
     'tienda/confirmacion': { armazon: 'tienda', roles: ['comprador'], titulo: 'Pedido registrado', render: vConfirmacion },
     'tienda/pedidos':      { armazon: 'tienda', roles: ['comprador'], titulo: 'Mis pedidos', render: vPedidos },
     'tienda/pedido':       { armazon: 'tienda', roles: ['comprador'], titulo: 'Seguimiento', render: vPedido, despues: despuesPedido },
-    'tienda/reclamo':      { armazon: 'tienda', roles: ['comprador'], titulo: 'Reclamo', render: vReclamo, despues: despuesReclamo },
-    'tienda/cuenta':       { armazon: 'tienda', roles: ['comprador'], titulo: 'Mi cuenta', render: vCuenta, despues: despuesCuenta },
-    'tienda/direcciones':  { armazon: 'tienda', roles: ['comprador'], titulo: 'Direcciones', render: vDirecciones, despues: despuesDirecciones }
+    'tienda/reclamo':      { armazon: 'tienda', roles: ['comprador'], titulo: 'Reclamo', render: vReclamo, despues: despuesReclamo }
+    /* 'tienda/cuenta' y 'tienda/direcciones': assets/js/tm-mod-cuentas*.js */
   });
 })();

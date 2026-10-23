@@ -221,29 +221,63 @@
       });
   }
 
-  /* Reautenticación demo para acciones sensibles (2FA). */
-  function pedir2fa(accion, alValidar) {
-    modal(
+  /* Verificación en dos pasos para acciones sensibles. Con backend la
+     comprueba el servidor (tm_elevar: TOTP o código de respaldo; en las
+     cuentas de prueba, su código público 123456) y la sesión queda elevada
+     10 minutos; en modo local es el código de la demo. alCancelar (opcional)
+     se llama si se cierra sin verificar. */
+  function pedir2fa(accion, alValidar, alCancelar) {
+    var remoto = window.TM && TM.modo === 'remoto';
+    var s = window.TM && TM.sesion ? TM.sesion() : null;
+    var real = remoto && s && !s.demo;
+    var validado = false;
+    var m = modal(
       '<div class="flex items-start gap-2 p-3 rounded-btn bg-secondary-container mb-4">' +
       ic('lock', 'text-[20px] text-on-secondary-container') +
       '<p class="font-body-sm text-body-sm text-on-secondary-container">«' + esc(accion) + '» exige verificación en dos pasos. ' +
-      'En la demo el código es <strong class="font-data-mono">123456</strong>.</p></div>' +
-      '<input data-codigo inputmode="numeric" maxlength="6" placeholder="000000" class="w-full h-12 px-4 mb-1 rounded-btn border border-outline-variant bg-surface-container-low font-data-mono text-data-mono tracking-[0.4em] text-center focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>' +
+      (real ? 'Escribe el código de 6 dígitos de tu app de autenticación (o uno de tus códigos de respaldo).'
+            : 'En la demo el código es <strong class="font-data-mono">123456</strong>.') + '</p></div>' +
+      '<input data-codigo ' + (real ? 'autocomplete="one-time-code" maxlength="9"' : 'inputmode="numeric" maxlength="6"') +
+      ' placeholder="000000" class="w-full h-12 px-4 mb-1 rounded-btn border border-outline-variant bg-surface-container-low font-data-mono text-data-mono tracking-[0.4em] text-center focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>' +
       '<p data-error class="hidden font-body-sm text-body-sm text-error mb-2"></p>' +
       '<div class="flex justify-end gap-2 mt-3">' + btn('Cancelar', { attr: 'data-cerrar' }) +
       btn('Verificar y continuar', { estilo: 'marca', attr: 'data-ok', icono: 'lock_open' }) + '</div>',
       function (velo, cerrar) {
         var campo = velo.querySelector('[data-codigo]');
+        var ok = velo.querySelector('[data-ok]');
+        function mal(texto) {
+          var e = velo.querySelector('[data-error]');
+          e.textContent = texto;
+          e.classList.remove('hidden');
+        }
+        function listo() { validado = true; cerrar(); alValidar(); }
         campo.focus();
-        velo.querySelector('[data-ok]').addEventListener('click', function () {
-          if (campo.value.trim() === '123456') { cerrar(); alValidar(); }
-          else {
-            var e = velo.querySelector('[data-error]');
-            e.textContent = 'Código incorrecto. En la demo es 123456.';
-            e.classList.remove('hidden');
+        campo.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') ok.click(); });
+        ok.addEventListener('click', function () {
+          var codigo = campo.value.trim();
+          if (!remoto) {
+            if (codigo === '123456') listo(); else mal('Código incorrecto. En la demo es 123456.');
+            return;
           }
+          if (ok.disabled) return;
+          ok.disabled = true;
+          TM.api('tm_elevar', { p_codigo: codigo }).then(function (r) {
+            ok.disabled = false;
+            if (r && r.ok) listo(); else mal((r && r.error) || 'Código incorrecto.');
+          }, function (e) {
+            ok.disabled = false;
+            mal(mensajeError(e));
+          });
         });
       });
+    if (alCancelar && window.MutationObserver) {
+      var obs = new MutationObserver(function () {
+        if (m.raiz.isConnected) return;
+        obs.disconnect();
+        if (!validado) alCancelar();
+      });
+      obs.observe(document.body, { childList: true });
+    }
   }
 
   /* Ejecuta una acción asíncrona del almacén: bloquea el botón mientras

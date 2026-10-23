@@ -35,7 +35,24 @@ declare
     'public.tm_ajustes_publicos()', 'public.tm_ajuste_guardar(text,text,jsonb)',
     'public.tm_archivo_preparar(text,text,text,text,bigint,text)', 'public.tm_archivo_confirmar(text,uuid)',
     'public.tm_archivo_acceso(text,uuid)', 'public.tm_salida_listar(text,text,bigint)',
-    'public.tm_salida_marcar(text,bigint,text,text)', 'public.tm_reembolsos(text)', 'public.tm_archivos_limpiar()'];
+    'public.tm_salida_marcar(text,bigint,text,text)', 'public.tm_reembolsos(text)', 'public.tm_archivos_limpiar()',
+    -- ola 1 (cuentas)
+    'public.tm_acceder_2fa(text,text)', 'public.tm_elevar(text,text)', 'public.tm_registrar(text,text,text,text,text)',
+    'public.tm_perfil(text)', 'public.tm_perfil_guardar(text,jsonb)', 'public.tm_clave_cambiar(text,text,text)',
+    'public.tm_clave_recuperar(text)', 'public.tm_clave_enlace(text)', 'public.tm_clave_restablecer(text,text)',
+    'public.tm_verificacion_enviar(text,text)', 'public.tm_verificacion_confirmar(text,text,text)',
+    'public.tm_sesiones(text)', 'public.tm_sesion_cerrar(text,uuid)', 'public.tm_sesiones_cerrar_otras(text)',
+    'public.tm_2fa_iniciar(text,text)', 'public.tm_2fa_confirmar(text,text)', 'public.tm_2fa_desactivar(text,text)',
+    'public.tm_2fa_respaldo(text,text)', 'public.tm_cuenta_eliminar(text,text,text)',
+    'public.tm_invitar(text,text,text,jsonb)', 'public.tm_invitaciones(text)', 'public.tm_invitacion_revocar(text,uuid)',
+    'public.tm_invitacion_ver(text)', 'public.tm_invitacion_aceptar(text,text,text,text)',
+    'public.tm_equipo(text)', 'public.tm_equipo_quitar(text,uuid)', 'public.tm_permisos(text)',
+    'public.tm_permiso_asignar(text,uuid,text,boolean)', 'public.tm_admin_usuarios(text,text,text)',
+    'public.tm_admin_usuario(text,uuid)', 'public.tm_admin_sesiones_cerrar(text,uuid,uuid)',
+    'public.tm_admin_bloquear(text,uuid,boolean,text)', 'public.tm_admin_recuperacion(text,uuid)',
+    'public.tm_admin_rol(text,uuid,text)', 'public.tm_admin_2fa_quitar(text,uuid,text)', 'public.tm_admin_baja(text,uuid,text)',
+    'public.tm_direccion_editar(text,uuid,jsonb)',
+    'public.tm_direccion_predeterminada(text,uuid)'];
   f text;
   ajenos text;
   b text;

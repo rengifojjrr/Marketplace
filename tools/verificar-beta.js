@@ -61,6 +61,8 @@ const PAGINAS = {
     await p.waitForSelector('#ac-codigo', { state: 'visible' });
     await p.fill('#ac-codigo', '000000');
     await p.locator('form[data-paso=mfa] button[type=submit]').click();
+    /* con backend el código lo comprueba el servidor (ola 1): se espera su respuesta */
+    await p.locator('#ac-codigo-err:not(.hidden)').waitFor({ timeout: 15000 }).catch(() => { });
     if (!/123456/.test(await p.locator('#ac-codigo-err').innerText())) throw new Error('acepta un código inválido');
   }, /status of 400/);
 
