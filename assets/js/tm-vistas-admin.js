@@ -21,6 +21,9 @@
     var e = TM.estado;
     var gmv = e.pedidos.filter(function (p) { return ['cancelado', 'pago_por_verificar'].indexOf(p.estado) < 0; })
       .reduce(function (t, p) { return t + TM.totalPedidoUsd(p); }, 0);
+    /* en Bs., cada pedido con su tasa congelada al venderse */
+    var gmvBs = e.pedidos.filter(function (p) { return ['cancelado', 'pago_por_verificar'].indexOf(p.estado) < 0; })
+      .reduce(function (t, p) { return t + TM.totalPedidoUsd(p) * p.tasa; }, 0);
     var abiertas = e.disputas.filter(function (d) { return d.estado !== 'resuelta'; }).length;
     var porConciliar = e.pedidos.filter(function (p) { return p.estado === 'pago_por_verificar'; }).length;
     var kycPend = e.sellers.filter(function (x) { return x.estado === 'en_revision' || x.estado === 'observado'; }).length;
@@ -34,7 +37,7 @@
     ];
     return titulo('Panel ejecutivo') +
       '<section class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">' +
-      UI.kpi('GMV acumulado (demo)', esc(TM.fmtUsd(gmv)), esc(TM.fmtBs(gmv)), 'trending_up') +
+      UI.kpi('GMV acumulado (demo)', esc(TM.fmtUsd(gmv)), esc(TM.fmtBs(gmvBs, 1)), 'trending_up') +
       UI.kpi('Pedidos totales', e.pedidos.length, 'todas las superficies', 'package_2') +
       UI.kpi('Sellers activos', e.sellers.filter(function (x) { return x.estado === 'aprobado'; }).length + ' / ' + e.sellers.length, 'homologados / registrados', 'storefront') +
       UI.kpi('Publicaciones', e.productos.filter(function (p) { return p.estado === 'publicado'; }).length, 'visibles en la tienda', 'inventory_2') +
@@ -170,7 +173,7 @@
         td(UI.badge(p.estado)) +
         td(p.liquidacion ? UI.badge(p.liquidacion) : '<span class="text-on-surface-variant">—</span>') +
         td('<span class="font-data-mono text-data-mono">' + esc(p.envio.courier) + (p.guia ? ' · ' + esc(p.guia) : '') + '</span>') +
-        td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtBs(TM.totalPedidoUsd(p))) + '</span>', 'text-right') +
+        td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtBs(TM.totalPedidoUsd(p), p.tasa)) + '</span>', 'text-right') +
         td(p.estado === 'despachado' && (s.rol === 'ops' || s.rol === 'superadmin')
           ? btn('Confirmar entrega', { icono: 'check_circle', attr: 'data-entregado="' + esc(p.id) + '" title="Con la prueba de entrega del courier"' })
           : p.estado === 'devolucion' && (s.rol === 'ops' || s.rol === 'superadmin') ? botonesDevolucion(p.id) : '', 'text-right');
@@ -251,7 +254,7 @@
         return '<article class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-4">' +
           '<div class="flex flex-wrap items-center gap-2 mb-2">' +
             '<span class="font-data-mono text-data-mono">' + esc(d.id) + '</span>' + UI.badge(d.estado) +
-            '<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(d.pedidoId) + ' · ' + esc(TM.seller(d.sellerId).nombre) + ' · ' + esc(TM.fmtBs(d.montoUsd)) + '</span>' +
+            '<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(d.pedidoId) + ' · ' + esc(TM.seller(d.sellerId).nombre) + ' · ' + esc(TM.fmtBs(d.montoUsd, p && p.tasa)) + '</span>' +
             '<span class="ml-auto font-data-mono text-data-mono text-on-surface-variant">' + esc(d.creado) + '</span></div>' +
           '<div class="grid lg:grid-cols-2 gap-3 mb-3">' +
             '<div class="rounded-btn bg-surface-container-low p-3">' +
@@ -298,136 +301,7 @@
     });
   }
 
-  /* =====================================================================
-     Conciliación (superadmin + finanzas)
-     ===================================================================== */
-  function vConciliacion(q, s) {
-    var cola = TM.estado.pedidos.filter(function (p) { return p.estado === 'pago_por_verificar'; });
-    var filas = cola.map(function (p) {
-      return td('<span class="font-data-mono text-data-mono">' + esc(p.ref || '—') + '</span>') +
-        td('<span class="font-data-mono text-data-mono">' + esc(p.id) + '</span>') +
-        td(esc(p.metodo || 'Pago Móvil')) +
-        td('<span class="font-data-mono text-data-mono">' + esc(TM.fmtBs(TM.totalPedidoUsd(p))) + '</span>') +
-        td('<span class="inline-flex items-center gap-1 font-body-sm text-body-sm text-on-surface-variant">' + ic('account_balance', 'text-[16px]') + 'cotejar en el banco</span>') +
-        td('<div class="flex gap-2 justify-end">' +
-          btn('Rechazar', { estilo: 'borde', icono: 'block', attr: 'data-rechazar-pago="' + esc(p.id) + '"' }) +
-          btn('Conciliar', { estilo: 'primario', icono: 'fact_check', attr: 'data-conciliar="' + esc(p.id) + '"' }) + '</div>', 'text-right');
-    });
-    return avisoRecorte(['pago_por_verificar']) + titulo('Conciliación de pagos',
-        cola.length > 1 ? btn('Conciliar todos (' + cola.length + ')', { estilo: 'marca', icono: 'fact_check',
-          attr: 'data-conciliar-todo="' + esc(cola.map(function (p) { return p.id; }).join(',')) + '"' }) : '') +
-      '<p class="flex items-center gap-1.5 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-4 max-w-2xl">' +
-        ic('science', 'text-[16px]') + 'Modo demo: las referencias se validan contra los pedidos, no contra un banco real.</p>' +
-      UI.tabla(['Referencia', 'Pedido', 'Método', 'Monto esperado', 'Verificación', ''], filas,
-        UI.vacio('task_alt', 'Nada por conciliar', 'Cada compra nueva del marketplace aparece aquí con su referencia hasta que la concilies.')) +
-      '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Conciliar confirma el pedido: el seller recibe la tarea de aceptarlo y el comprador la notificación. Rechazar cancela el pedido y libera su stock reservado.</p>';
-  }
-
-  function despuesConciliacion(raiz, q, s) {
-    raiz.querySelectorAll('[data-conciliar]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var id = b.getAttribute('data-conciliar');
-        UI.accion(b, function () { return TM.conciliarPago(id); }, function () {
-          UI.toast('Pago conciliado', id + ' pasó a «por aceptar».', 'fact_check');
-        });
-      });
-    });
-    raiz.querySelectorAll('[data-rechazar-pago]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var id = b.getAttribute('data-rechazar-pago');
-        UI.confirmar('Rechazar el pago de ' + id, 'El pedido se cancela, su stock reservado se libera y el comprador recibe el motivo.',
-          { accion: 'Rechazar pago', peligro: true, motivo: 'Motivo (visible para el comprador)' }, function (motivo) {
-            UI.accion(null, function () { return TM.rechazarPago(id, motivo); }, function () {
-              UI.toast('Pago rechazado', id + ' quedó cancelado y su stock liberado.', 'block');
-            }, 'No se rechazó el pago');
-          });
-      });
-    });
-    var todo = raiz.querySelector('[data-conciliar-todo]');
-    if (todo) todo.addEventListener('click', function () {
-      /* Solo los pagos que están en pantalla, no los que llegaron después. */
-      var ids = todo.getAttribute('data-conciliar-todo').split(',').filter(Boolean);
-      UI.accion(todo, function () { return TM.conciliarPagos(ids); }, function () {
-        UI.toast('Conciliación masiva', ids.length + ' pagos conciliados.', 'fact_check');
-      });
-    });
-  }
-
-  /* =====================================================================
-     Liquidaciones (superadmin + finanzas)
-     ===================================================================== */
-  function vLiquidaciones(q, s) {
-    var e = TM.estado;
-    function bruto(p) { return TM.totalPedidoUsd(p) - p.envio.costoUsd; }
-    var retenidos = e.pedidos.filter(function (p) { return p.liquidacion === 'retenido'; });
-    var porSeller = {};
-    e.pedidos.filter(function (p) { return p.liquidacion === 'elegible'; })
-      .forEach(function (p) { (porSeller[p.sellerId] = porSeller[p.sellerId] || []).push(p); });
-
-    return avisoRecorte(['fondos_retenido', 'fondos_elegible']) + titulo('Liquidaciones a sellers') +
-      '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Ventanas de reclamo abiertas</h2>' +
-      (retenidos.length ? UI.tabla(['Pedido', 'Seller', 'Entregado', 'Bruto', ''],
-        retenidos.map(function (p) {
-          return td('<span class="font-data-mono text-data-mono">' + esc(p.id) + '</span>') +
-            td(esc(TM.seller(p.sellerId).nombre)) +
-            td(esc(p.entregadoEl || '—')) +
-            td('<span class="font-data-mono text-data-mono">' + esc(TM.fmtUsd(bruto(p))) + '</span>') +
-            td(btn('Cerrar ventana (demo)', { icono: 'lock_open', attr: 'data-cerrar-ventana="' + esc(p.id) + '"' }), 'text-right');
-        }))
-      : '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Ninguna: todos los pedidos entregados cerraron su ventana.</p>') +
-      '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1 mb-6">En producción la ventana se cierra sola a los ' + e.config.ventanaReclamoDias + ' días; en la beta puedes cerrarla a mano para avanzar el recorrido.</p>' +
-
-      '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Corridas pendientes</h2>' +
-      (Object.keys(porSeller).length ? Object.keys(porSeller).map(function (sid) {
-        var lista = porSeller[sid];
-        /* mismo redondeo que el servidor (en centavos) */
-        var b = Math.round(lista.reduce(function (t, p) { return t + bruto(p); }, 0) * 100) / 100;
-        var comision = Math.round(b * e.config.comisionPct) / 100;
-        var tarifas = Math.round(e.config.tarifaFijaUsd * lista.length * 100) / 100;
-        var neto = Math.round((b - comision - tarifas) * 100) / 100;
-        return '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-3">' +
-          '<div class="flex flex-wrap items-center gap-2 mb-1">' +
-          '<span class="font-body-md text-body-md font-bold">' + esc(TM.seller(sid).nombre) + '</span>' +
-          '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(sid) + '</span></div>' +
-          '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">' + lista.length + ' pedido' + (lista.length === 1 ? '' : 's') + ' elegible' + (lista.length === 1 ? '' : 's') + ': ' +
-          lista.map(function (p) { return p.id; }).join(', ') + '</p>' +
-          '<p class="font-body-sm text-body-sm mb-3">Bruto <strong class="font-data-mono">' + esc(TM.fmtUsd(b)) + '</strong> · comisión ' + e.config.comisionPct + ' % + tarifas <strong class="font-data-mono text-error">−' + esc(TM.fmtUsd(comision + tarifas)) + '</strong> · neto <strong class="font-data-mono">' + esc(TM.fmtUsd(neto)) + '</strong></p>' +
-          btn('Ejecutar liquidación (2FA)', { estilo: 'marca', icono: 'lock',
-            attr: 'data-liquidar="' + esc(sid) + '" data-pedidos="' + esc(lista.map(function (p) { return p.id; }).join(',')) + '"' }) + '</div>';
-      }).join('')
-      : UI.vacio('receipt_long', 'Sin corridas pendientes', 'Cuando haya pedidos con fondos elegibles, la corrida por seller aparecerá aquí.')) +
-
-      '<h2 class="font-headline-sm text-headline-sm text-primary-container mt-6 mb-2">Historial</h2>' +
-      UI.tabla(['Liquidación', 'Seller', 'Pedidos', 'Neto', 'Estado', 'Fecha'],
-        e.liquidaciones.map(function (l) {
-          return td('<span class="font-data-mono text-data-mono">' + esc(l.id) + '</span>') +
-            td(esc(TM.seller(l.sellerId).nombre)) + td(l.pedidos.length) +
-            td('<span class="font-data-mono text-data-mono font-bold">' + esc(TM.fmtUsd(l.netoUsd)) + '</span>') +
-            td(UI.badge(l.estado)) + td(esc(l.fecha));
-        }),
-        UI.vacio('receipt_long', 'Sin liquidaciones', 'Aquí queda el historial de corridas ejecutadas.'));
-  }
-
-  function despuesLiquidaciones(raiz, q, s) {
-    raiz.querySelectorAll('[data-cerrar-ventana]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        UI.accion(b, function () { return TM.cerrarVentana(b.getAttribute('data-cerrar-ventana')); }, function () {
-          UI.toast('Ventana cerrada', 'Los fondos del pedido pasaron a elegibles.', 'lock_open');
-        });
-      });
-    });
-    raiz.querySelectorAll('[data-liquidar]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var sid = b.getAttribute('data-liquidar');
-        var pedidos = b.getAttribute('data-pedidos').split(',').filter(Boolean);
-        UI.pedir2fa('Ejecutar liquidación a ' + sid, function () {
-          UI.accion(null, function () { return TM.ejecutarLiquidacion(sid, pedidos); }, function (liq) {
-            UI.toast('Liquidación ' + liq.id + ' ejecutada', 'Neto ' + TM.fmtUsd(Number(liq.netoUsd)) + ' · el seller ya ve su comprobante.', 'receipt_long');
-          }, 'No se ejecutó la liquidación');
-        });
-      });
-    });
-  }
+  /* Conciliación y Liquidaciones: tm-mod-pagos-admin.js (ola 1, pagos). */
 
   /* =====================================================================
      Auditoría (superadmin + finanzas)
@@ -504,8 +378,6 @@
     'admin/moderacion':    { titulo: 'Moderación',      roles: ['superadmin'],             render: vModeracion, despues: despuesModeracion },
     'admin/pedidos':       { titulo: 'Pedidos globales', roles: ['superadmin', 'ops'],     render: vPedidosAdmin, despues: despuesPedidosAdmin },
     'admin/disputas':      { titulo: 'Disputas',        roles: ['superadmin', 'ops'],      render: vDisputasAdmin, despues: despuesDisputasAdmin },
-    'admin/conciliacion':  { titulo: 'Conciliación',    roles: ['superadmin', 'finanzas'], render: vConciliacion, despues: despuesConciliacion },
-    'admin/liquidaciones': { titulo: 'Liquidaciones',   roles: ['superadmin', 'finanzas'], render: vLiquidaciones, despues: despuesLiquidaciones },
     'admin/auditoria':     { titulo: 'Auditoría',       roles: ['superadmin', 'finanzas'], render: vAuditoria, despues: despuesAuditoria }
   });
 })();

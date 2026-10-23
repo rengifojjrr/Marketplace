@@ -75,8 +75,9 @@
     return dias[d.getDay()] + ' ' + n2(d.getDate()) + '/' + n2(d.getMonth() + 1);
   }
 
-  function fmtBs(usd) {
-    var v = usd * estado.config.tasa;
+  /* tasa: la del pedido (congelada al venderse); sin ella, la vigente. */
+  function fmtBs(usd, tasa) {
+    var v = usd * (tasa || estado.config.tasa);
     return 'Bs. ' + v.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   function fmtUsd(usd) {

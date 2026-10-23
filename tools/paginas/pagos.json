@@ -1,0 +1,4 @@
+{
+  "tienda": ["pago", "recibo", "reembolsos"],
+  "admin": ["finanzas", "reembolsos"]
+}
