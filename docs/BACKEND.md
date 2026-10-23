@@ -164,11 +164,11 @@ tools/verificar-beta.js                recorridos completos en navegador
    cuenta de 600 (3.000 en las cuentas demo, para que unas pocas redes no
    dejen sin escrituras a todos; abrir la campana de avisos no cuenta), 50
    sesiones por cuenta y red y 200 por cuenta (con la cuenta llena se cierran
-   las de uso más antiguo de la red que más sesiones tiene: quien acapara se
-   desaloja a sí mismo; el uso se anota cada minuto), 150 productos por
-   comercio, un «Inicio de
-   sesión» auditado por cuenta cada 10 minutos y sin auditar datos triviales
-   del comprador.
+   primero las abandonadas —un día sin uso— y después las de uso más antiguo
+   de la red con más sesiones en uso: quien acapara se desaloja a sí mismo;
+   el uso se anota cada minuto y los accesos a una cuenta van de a uno), 150
+   productos por comercio, un «Inicio de sesión» auditado por cuenta cada 10
+   minutos y sin auditar datos triviales del comprador.
 
    **Límite inherente**: una cuenta con contraseña pública la comparten
    todos. Cada tope por cuenta es también una forma de que un visitante
