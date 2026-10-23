@@ -5,8 +5,10 @@
 --   · cuota de escrituras: en las cuentas demo el respaldo por cuenta pasa
 --     de 600 a 3.000 cada 10 minutos (con 600, cuatro redes bastaban para
 --     dejar sin escrituras a todos los visitantes de la cuenta);
---   · sesiones: con la cuenta llena se desaloja en la red que más sesiones
---     tiene (quien acapara la cuenta se desaloja a sí mismo), no a los demás;
+--   · sesiones: con la cuenta llena se cierran primero las abandonadas y
+--     después las de la red con más sesiones en uso (quien acapara la
+--     cuenta se desaloja a sí mismo), hasta volver al tope; los accesos a
+--     una misma cuenta se hacen de a uno;
 --   · acceso: tope de 30 comprobaciones de contraseña por minuto por red,
 --     antes del techo global (una sola red ya no lo agota);
 --   · lectura: los 50 pedidos más recientes del comprador llegan siempre,
@@ -68,7 +70,10 @@ begin
 end $$;
 
 -- Sesiones: 50 por (cuenta, red) y 200 por cuenta. Con la cuenta llena se
--- cierran las de uso más antiguo de la red que más sesiones tiene.
+-- cierran primero las abandonadas (un día sin uso) y después las de la red
+-- con más sesiones en uso (quien acapara se desaloja a sí mismo), de la de
+-- uso más antiguo a la más reciente, hasta volver al tope. Los accesos a una
+-- misma cuenta se hacen de a uno, así que el recuento no se cruza.
 create or replace function tumbo_privado.abrir_sesion(p_usuario uuid) returns text
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -76,6 +81,7 @@ declare
   v_red text := tumbo_privado.ip_cliente();
   v_sobran integer;
 begin
+  perform tumbo_privado.bloquear_usuario(p_usuario, 'sesiones');
   delete from tumbo.sesiones where expira < now();
   delete from tumbo.sesiones where token_hash in (
     select token_hash from tumbo.sesiones where usuario_id = p_usuario and red = v_red
@@ -83,11 +89,12 @@ begin
   select count(*) - 199 into v_sobran from tumbo.sesiones where usuario_id = p_usuario;
   if v_sobran > 0 then
     delete from tumbo.sesiones where token_hash in (
-      select s.token_hash from tumbo.sesiones s
-      where s.usuario_id = p_usuario
-        and s.red = (select x.red from tumbo.sesiones x where x.usuario_id = p_usuario
-                     group by x.red order by count(*) desc, max(x.ultimo_uso), x.red limit 1)
-      order by s.ultimo_uso, s.creada
+      select s.token_hash from (
+        select x.token_hash, x.ultimo_uso, x.creada,
+               x.ultimo_uso < now() - interval '1 day' as abandonada,
+               count(*) filter (where x.ultimo_uso >= now() - interval '1 day') over (partition by x.red) as en_uso_red
+        from tumbo.sesiones x where x.usuario_id = p_usuario) s
+      order by s.abandonada desc, case when s.abandonada then 0 else s.en_uso_red end desc, s.ultimo_uso, s.creada
       limit v_sobran);
   end if;
   delete from tumbo.cuotas_red where ventana < now() - interval '1 day';
