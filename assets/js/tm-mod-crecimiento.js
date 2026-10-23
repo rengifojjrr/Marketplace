@@ -332,6 +332,10 @@
   C.restante = restante; C.regresiva = regresiva;
   C.csv = csv; C.decimal = decimal; C.descargar = descargar;
   C.insigniaNivel = insigniaNivel;
+  /* URL pública de Storage (el servidor la da relativa al proyecto). */
+  C.urlPublica = function (ruta) {
+    return ruta && remoto() ? String((window.TM_CONFIG || {}).supabaseUrl || '').replace(/\/+$/, '') + ruta : '';
+  };
   C.CAMPO = CAMPO; C.AREA = AREA; C.ETIQUETA = ETIQUETA;
   C.campo = campo; C.titulo = titulo; C.subtitulo = subtitulo; C.caja = caja; C.nota = nota; C.chip = chip; C.formulario = formulario;
   C.ajustesPublicos = function () { return ajustesPublicos(function () { TM._avisar('externo'); }); };

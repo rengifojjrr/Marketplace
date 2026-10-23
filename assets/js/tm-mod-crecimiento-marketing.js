@@ -134,7 +134,7 @@
     return C().subtitulo('Banners de la portada') +
       (editable ? plegable('banner', 'Nuevo banner', 'add_photo_alternate', formBanner(d)) : '') +
       '<div data-banners>' + UI.tabla(['Banner', 'Fechas', 'Estado', ''], (d.banners || []).map(function (b) {
-        return UI.td('<span class="flex items-center gap-3">' + (b.imagen_url ? '<img src="' + esc(b.imagen_url) + '" alt="" class="w-20 h-10 object-cover rounded bg-surface-container"/>' :
+        return UI.td('<span class="flex items-center gap-3">' + (b.imagen_url ? '<img src="' + esc(C().urlPublica(b.imagen_url)) + '" alt="" class="w-20 h-10 object-cover rounded bg-surface-container"/>' :
             '<span class="inline-flex w-20 h-10 items-center justify-center rounded bg-surface-container text-on-surface-variant">' + ic('image', 'text-[18px]') + '</span>') +
             '<span><strong>' + esc(b.titulo) + '</strong>' + (b.texto ? '<span class="block text-on-surface-variant">' + esc(b.texto) + '</span>' : '') +
             (b.enlace ? '<a class="block font-data-mono text-data-mono text-secondary hover:underline" href="' + href(b.enlace) + '">' + esc(b.enlace) + '</a>' : '') + '</span></span>') +

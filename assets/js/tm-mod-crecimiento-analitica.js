@@ -39,7 +39,7 @@
     try {
       fetch(URL_RPC, {
         method: 'POST', keepalive: !!alSalir,
-        headers: { apikey: CFG.supabaseKey, 'content-type': 'application/json' },
+        headers: { apikey: CFG.supabaseKey, authorization: 'Bearer ' + CFG.supabaseKey, 'content-type': 'application/json' },
         body: JSON.stringify({ p_eventos: lote })
       }).catch(function () { });
     } catch (e) { }

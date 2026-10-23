@@ -820,7 +820,7 @@ create table tumbo.moderacion_reglas (
   sembrada    boolean not null default false,
   por         text,
   creado      timestamptz not null default now(),
-  unique (patron, categoria)
+  unique nulls not distinct (patron, categoria)
 );
 alter table tumbo.moderacion_reglas enable row level security;
 revoke all on tumbo.moderacion_reglas from public, anon, authenticated;
@@ -2894,7 +2894,8 @@ language sql stable security definer set search_path = '' as $$
                                          'stock_oferta', o.stock_oferta) order by o.tipo, o.id)
                          from tumbo.ofertas o
                          where o.sku = p.sku and o.activa and o.desde <= now() and o.hasta > now() and p.precio_usd <= o.precio_referencia_usd
-                           and (o.tipo = 'cantidad' or o.precio_oferta_usd < p.precio_usd)), '[]'::jsonb),
+                           and (o.tipo = 'cantidad' or o.precio_oferta_usd < p.precio_usd)
+                           and (o.tipo <> 'relampago' or o.stock_oferta > tumbo_privado.oferta_vendidas(o.id))), '[]'::jsonb),
     'nivel', (select jsonb_build_object('nivel', n.nivel,
                      'nombre', (select z ->> 'nombre' from jsonb_array_elements(coalesce(tumbo_privado.ajuste('niveles') -> 'niveles', '[]'::jsonb)) z
                                 where z ->> 'id' = n.nivel limit 1))

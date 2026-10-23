@@ -62,7 +62,7 @@
   function banner(b) {
     var enlace = conOrigen(b.enlace, 'banner');
     return '<article data-banner="' + b.id + '" class="relative overflow-hidden rounded-card ' + (TONOS[b.tono] || TONOS.marca) + ' p-5 sm:p-6 min-w-0">' +
-      (b.imagen ? '<img src="' + esc(C().remoto() ? String((window.TM_CONFIG || {}).supabaseUrl || '').replace(/\/+$/, '') + b.imagen : '') + '" alt="" ' +
+      (b.imagen ? '<img src="' + esc(C().urlPublica(b.imagen)) + '" alt="" ' +
         'class="absolute inset-0 w-full h-full object-cover opacity-30" loading="lazy"/>' : '') +
       '<div class="relative z-10 max-w-xl">' +
         '<p class="font-headline-sm text-headline-sm mb-1">' + esc(b.titulo) + '</p>' +
