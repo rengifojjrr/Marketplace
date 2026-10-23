@@ -40,6 +40,12 @@
   }
   function invalidarTodo(id) { C().invalidar('disp:'); if (id) C().invalidar(claveDisputa(id)); }
 
+  /* El plazo del comercio para responder (ajuste del servidor). */
+  function horasRespuesta(s) {
+    var p = TM.ayudaCom ? TM.ayudaCom.plazos(s) : null;
+    return p && p.respuesta ? p.respuesta + ' horas' : 'el plazo vigente';
+  }
+
   function textoDecision(r) {
     if (!r) return '';
     if (r.texto) return r.texto.charAt(0).toUpperCase() + r.texto.slice(1) + '.';
@@ -392,7 +398,7 @@
         '<label class="flex items-center gap-2 p-2.5 rounded-btn border border-outline-variant cursor-pointer has-[:checked]:border-secondary has-[:checked]:bg-secondary-container/30">' +
           '<input type="radio" name="pref" value="reemplazo" class="text-secondary focus:ring-secondary/40"/><span class="font-body-sm text-body-sm">Reemplazo del producto</span></label>' +
         '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Al enviar, la liquidación del seller queda <strong>congelada</strong> hasta la decisión de Operaciones. ' +
-        (TM.modo === 'remoto' ? 'El comercio tiene <strong>72 horas</strong> para responder; si no responde, el reclamo se resuelve a tu favor con el reembolso total. ' : '') +
+        (TM.modo === 'remoto' ? 'El comercio tiene <strong>' + esc(horasRespuesta(s)) + '</strong> para responder; si no responde, el reclamo se resuelve a tu favor con el reembolso total. ' : '') +
         'Tu preferencia orienta el caso, pero la decisión final la toma el equipo. ' +
         '<a class="text-secondary hover:underline" href="' + href('app/ayuda/compra-protegida.html') + '">Cómo funciona la Compra Protegida</a></p>' +
         '<div class="mt-3">' + btn('Enviar reclamo', { estilo: 'peligro', icono: 'gavel', attr: 'data-enviar' }) + '</div></li>' +
@@ -481,7 +487,7 @@
     }
     var res = C().remoto() ? resumen() : null;
     return titulo('Reclamos') +
-      (C().remoto() ? C().aviso('azul', 'timer', 'Tienes <strong>72 horas</strong> desde que se abre un reclamo para responder con tu evidencia; si no respondes, se resuelve a favor del comprador con el reembolso total. ' +
+      (C().remoto() ? C().aviso('azul', 'timer', 'Tienes <strong>' + esc(horasRespuesta(s)) + '</strong> desde que se abre un reclamo para responder con tu evidencia; si no respondes, se resuelve a favor del comprador con el reembolso total. ' +
         'Después de la decisión puedes apelar una vez con evidencia nueva.') : '') +
       lista.map(function (d) {
         var x = res && res.listo && res.dato ? res.dato[d.id] : null;

@@ -2010,7 +2010,7 @@ $$;
 create function tumbo_privado.legal_aceptado(p_yo tumbo.usuarios, p_clave text, p_version text) returns boolean
 language sql stable security definer set search_path = '' as $$
   select exists (select 1 from tumbo.aceptaciones_legales a where a.usuario_id = p_yo.id and a.clave = p_clave and a.version = p_version)
-      or (p_clave = 'terminos' and p_yo.terminos_version = p_version)
+      or coalesce(p_clave = 'terminos' and p_yo.terminos_version = p_version, false)
 $$;
 
 -- Público: los documentos vigentes (y, con sesión, lo que falta aceptar).
@@ -3399,7 +3399,9 @@ begin
     end if;
     if v_dec = 'reembolso' then
       update tumbo.pedidos set estado = 'reembolsado', liquidacion = 'reembolsado' where id = v.id;
-      perform tumbo_privado.crear_reembolso(v.id, v_total, 'Apelación del reclamo ' || d.id || ': reembolso total');
+      -- desde un reembolso parcial se devuelve lo que falta (el total ya contado)
+      perform tumbo_privado.crear_reembolso(v.id, v_total - case when c.decision = 'reembolso_parcial' then coalesce(c.reembolso_usd, 0) else 0 end,
+        'Apelación del reclamo ' || d.id || ': reembolso total');
       v_monto := v_total;
     elsif v_dec = 'reembolso_parcial' then
       if v_monto is null or v_monto <= 0 or v_monto >= v_total then
@@ -3709,8 +3711,9 @@ end $$;
 -- pg-safeupdate) lo que cuelga de pedidos, productos y reclamos (el reinicio
 -- vuelve a usar sus identificadores), los casos de soporte de las cuentas de
 -- prueba (los de las personas reales se conservan, sin el pedido) y crea el
--- caso de los reclamos sembrados con su plazo desde hoy. Preferencias,
--- consentimientos y aceptaciones legales son de las cuentas: se conservan.
+-- caso de los reclamos sembrados con su plazo desde hoy. Preferencias y
+-- aceptaciones legales son de las cuentas: se conservan; el consentimiento
+-- de WhatsApp de las cuentas de prueba vuelve a «sin dar».
 -- No siembra mensajes, preguntas ni reseñas: nada inventado.
 create function tumbo_privado.sembrar_ext_comunicacion(p_auditoria boolean) returns void
 language plpgsql security definer set search_path = '' as $$
@@ -3732,6 +3735,13 @@ begin
   update tumbo.tickets set pedido_id = null where pedido_id is not null;
   delete from tumbo.salida where plantilla in ('chat_mensaje', 'pregunta_nueva', 'pregunta_respondida', 'resena_pendiente', 'resena_nueva',
                                                'resena_respondida', 'reclamo_comercio', 'reclamo_evidencia');
+  -- lo de las cuentas de prueba: sus casos ya se borraron; el consentimiento
+  -- de WhatsApp vuelve a «sin dar» (su teléfono lo pone quien prueba)
+  delete from tumbo.salida
+  where plantilla in ('ticket_creado', 'ticket_actualizado')
+    and usuario_id in (select u.id from tumbo.usuarios u where tumbo_privado.cuenta_demo(u.email));
+  delete from tumbo.consentimientos_whatsapp
+  where usuario_id in (select u.id from tumbo.usuarios u where tumbo_privado.cuenta_demo(u.email));
   insert into tumbo.disputa_casos (disputa_id, plazo_seller, respondida_en, decision, resuelta_en)
   select d.id, now() + make_interval(hours => tumbo_privado.comunicacion('horas_respuesta_reclamo', 72)::integer),
          d.respuesta_fecha, d.resolucion_decision, d.resolucion_fecha
