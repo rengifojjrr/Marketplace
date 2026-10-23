@@ -38,6 +38,7 @@
   function resumen() {
     return C().datos('disp:resumen', function () { return TM.api('tm_disputas_resumen', {}); }, 30000);
   }
+  function trasRefrescar(fn) { TM.refrescar().then(fn, fn); }
   function invalidarTodo(id) { C().invalidar('disp:'); if (id) C().invalidar(claveDisputa(id)); }
 
   /* El plazo del comercio para responder (ajuste del servidor). */
@@ -244,8 +245,7 @@
         });
       }, alExito: function () {
         invalidarTodo(d.id);
-        TM.refrescar();
-        UI.toast('Disputa ' + d.id + ' resuelta', 'Les avisamos al comprador y al comercio.', 'gavel');
+        trasRefrescar(function () { UI.toast('Disputa ' + d.id + ' resuelta', 'Les avisamos al comprador y al comercio.', 'gavel'); });
       }, tituloError: 'No se resolvió la disputa' });
   }
 
@@ -689,8 +689,8 @@
           }, function () {
             cerrar();
             invalidarTodo(id);
-            UI.toast('Disputa ' + id + ' resuelta', TITULOS[decision], 'gavel');
-            TM.refrescar();
+            /* el aviso, con la lista ya al día (la devolución muestra sus botones) */
+            trasRefrescar(function () { UI.toast('Disputa ' + id + ' resuelta', TITULOS[decision], 'gavel'); });
           }, 'No se resolvió la disputa', function (e) {
             err.textContent = UI.mensajeError(e);
             err.classList.remove('hidden');

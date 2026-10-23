@@ -46,8 +46,17 @@ async function sesionApi(email) {
 
 (async () => {
   const t = await iniciar();
-  const { p, prueba, pruebaSolo, abrir, login, aviso } = t;
+  const { p, prueba, pruebaSolo, abrir, aviso } = t;
+  /* (desde aquí, los accesos de las cuentas de prueba que haga esta suite se
+     borran al final: el tope es de 60 por cuenta y red cada 15 minutos y lo
+     comparten todas las suites) */
+  const INICIO = BD && process.env.TM_SUPABASE_URL && process.env.TM_LOCAL !== '1' ? psql('select now()') : null;
   await t.reset();
+  /* Entra con la cuenta del rol solo si no es la sesión actual. */
+  async function login(rol) {
+    const actual = await p.evaluate(() => { try { const s = TM.sesion(); return s && s.rol; } catch (e) { return null; } }).catch(() => null);
+    if (actual !== rol) await t.login(rol);
+  }
   console.log('Modo de datos: ' + t.modo + '\n');
   const remoto = t.modo === 'remoto';
   const conBD = remoto && !!BD;
@@ -337,7 +346,8 @@ async function sesionApi(email) {
     await t.reset();
     /* (la preferencia apagada y la cuota de escrituras gastada no pasan a las suites que siguen) */
     if (BD) psql(`delete from tumbo.preferencias_aviso where usuario_id = ${lit(COMPRADOR)};
-                  delete from tumbo.cuotas_red where usuario_id in (select id from tumbo.usuarios where tumbo_privado.cuenta_demo(email));`);
+                  delete from tumbo.cuotas_red where usuario_id in (select id from tumbo.usuarios where tumbo_privado.cuenta_demo(email));
+                  ${INICIO ? `delete from tumbo.intentos_acceso where exito and fecha >= ${lit(INICIO)} and tumbo_privado.cuenta_demo(email);` : ''}`);
   }
   await t.resumen('pruebas E2E de comunicación en verde.');
 })().catch((e) => { console.error(e); process.exit(1); });

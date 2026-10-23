@@ -374,7 +374,7 @@ con `archivo_permitido_comunicacion` y con `sembrar_ext_comunicacion`.
 
 - `node tools/api-comunicacion.js` (con `TM_PGDATABASE` hace además las
   comprobaciones por SQL, la función de envíos contra la simulación de la
-  pasarela y crea cuentas reales de apoyo): 103 comprobaciones contra el
+  pasarela y crea cuentas reales de apoyo): 98 comprobaciones contra el
   backend local (sin la base, las que dependen de ella se informan como
   omitidas).
 - `node tools/e2e-comunicacion.js <url>`: 14 pruebas con servidor y 4 en

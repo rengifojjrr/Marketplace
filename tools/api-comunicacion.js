@@ -104,6 +104,9 @@ const esperar = (ms) => new Promise((ok) => setTimeout(ok, ms));
   };
   const omitida = (texto, motivo) => process.stdout.write(amarillo('– ') + texto + amarillo('  (' + (motivo || 'sin TM_PGDATABASE') + ')') + '\n');
 
+  /* (los accesos de las cuentas de prueba que haga esta suite se borran al
+     final: el tope es de 60 por cuenta y red cada 15 minutos) */
+  const INICIO = BD ? psql('select now()') : null;
   const s = {};
   for (const [rol, email] of Object.entries(CUENTAS)) s[rol] = await sesion(email);
   const r0 = await R.reiniciar(rpc, s.superadmin);
@@ -698,7 +701,8 @@ const esperar = (ms) => new Promise((ok) => setTimeout(ok, ms));
   } else ok(rf.ok, 'superadmin reinicia la demo al terminar', rf.texto);
   /* la cuota de escrituras de las cuentas de prueba (150 cada 10 minutos por
      red) no queda gastada para las suites que siguen */
-  if (BD) psql(`delete from tumbo.cuotas_red where usuario_id in (select id from tumbo.usuarios where tumbo_privado.cuenta_demo(email))`);
+  if (BD) psql(`delete from tumbo.cuotas_red where usuario_id in (select id from tumbo.usuarios where tumbo_privado.cuenta_demo(email));
+                delete from tumbo.intentos_acceso where exito and fecha >= ${lit(INICIO)} and tumbo_privado.cuenta_demo(email);`);
 
   console.log('');
   if (fallos) { console.log(rojo(`FALLOS: ${fallos}`)); process.exit(1); }
