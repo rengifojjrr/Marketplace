@@ -23,8 +23,11 @@ Comprador reclama ──────► fondos congelados ──► Ops resuelve
 Seller crea producto ───► cola de moderación ──► aprobado ──► visible en tienda
 ```
 
-Cada mutación agrega su evento a la **auditoría** (solo lectura) y genera las
-**notificaciones** del rol o usuario que corresponda, en la misma transacción.
+Cada operación de negocio (pedidos, pagos, catálogo, disputas, liquidaciones,
+cuentas) agrega su evento a la **auditoría** (solo lectura) y genera las
+**notificaciones** del rol o usuario que corresponda, en la misma
+transacción; los cambios triviales del comprador (carrito, direcciones,
+avisos leídos) no se auditan.
 «Reiniciar demo» vuelve a la semilla (con backend, solo el superadministrador).
 
 ## Módulos
