@@ -4,7 +4,9 @@
 # -------------------------------------------------------------------------
 # Levanta lo justo para probar el backend real de la beta:
 #   Postgres 16 (:54322) + GoTrue/Auth (:54331) + PostgREST (:54330)
-#   + pasarela con la forma de URL de Supabase (:54321)
+#   + pasarela con la forma de URL de Supabase (:54321), que hace también de
+#   Storage y de la función tumbo-archivos
+# (para un entorno por equipo, con su base y sus puertos: levantar.sh)
 # y aplica supabase/migrations. Requiere postgresql-16 instalado y node.
 #
 #   tools/supabase-local/iniciar.sh         # arranca (descarga binarios la 1.ª vez)
@@ -61,6 +63,9 @@ PSQL=(psql -h /tmp -p 54322 -U postgres -v ON_ERROR_STOP=1 -q)
 if [ "$NUEVO" = 1 ]; then
   "${PSQL[@]}" -f "$RAIZ/tools/supabase-local/bootstrap.sql" 2>/dev/null
 fi
+# Storage mínimo y lo demás que un proyecto trae por base (idempotente; los
+# buckets de Tumbo los crea la migración de fundaciones: TM_REAPLICAR=1)
+PGOPTIONS="-c client_min_messages=warning" "${PSQL[@]}" -d postgres -f "$RAIZ/tools/supabase-local/base.sql" >/dev/null
 
 # --- Auth (crea el esquema auth con sus propias migraciones) ---------------
 cat > "$CACHE/gotrue.env" <<EOF

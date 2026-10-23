@@ -45,9 +45,75 @@
     ]
   };
 
-  /* Registro de vistas: qué roles pueden abrirlas. Se llena desde tm-vistas-*. */
+  /* Registro de vistas: qué roles pueden abrirlas. Se llena desde tm-vistas-*
+     y desde los módulos (tm-mod-*.js). */
   var VISTAS = {};
   function registrar(mapa) { Object.keys(mapa).forEach(function (k) { VISTAS[k] = mapa[k]; }); }
+
+  /* ---------------------------------------------------------------------
+     Extensión por módulos (tm-mod-*.js)
+     · APP.nav(superficie, item): entradas de menú. 'seller' y 'admin' →
+       menú lateral ({vista, texto, icono, roles, orden}); 'cuenta' → menú y
+       mosaicos de la cuenta del comprador ({id, texto, descripcion, icono,
+       href, orden}; un id igual al de un mosaico fijo lo reemplaza); 'pie' →
+       enlaces del pie de la tienda ({texto, href, orden}).
+     · APP.gancho(nombre, fn) / APP.ganchos(nombre, ctx): HTML que los
+       módulos agregan en puntos fijos de las vistas; fn recibe el contexto
+       de la vista. Un gancho que falla se ignora (y queda en la consola).
+     · APP.trasPintar(fn): se llama tras montar o repintar cualquier vista
+       con (raiz, vista, q, s), para enlazar eventos.
+     ------------------------------------------------------------------- */
+  var NAV_EXTRA = { cuenta: [], pie: [] };
+  /* el orden de las entradas fijas: 10, 20, 30… */
+  Object.keys(NAV_PANEL).forEach(function (sup) {
+    NAV_PANEL[sup].forEach(function (i, n) { i.orden = (n + 1) * 10; });
+  });
+  function ordenar(lista) {
+    return lista.map(function (x, n) { return [x, n]; })
+      .sort(function (a, b) { return (a[0].orden - b[0].orden) || (a[1] - b[1]); })
+      .map(function (x) { return x[0]; });
+  }
+  function nav(superficie, item) {
+    var lista = NAV_PANEL[superficie] || NAV_EXTRA[superficie];
+    if (!lista || !item) throw new Error('APP.nav: superficie desconocida «' + superficie + '».');
+    var copia = Object.assign({}, item);
+    if (typeof copia.orden !== 'number') copia.orden = 1000 + lista.length;
+    lista.push(copia);
+    var ordenada = ordenar(lista);
+    lista.length = 0;
+    Array.prototype.push.apply(lista, ordenada);
+  }
+  function navDe(superficie, s) {
+    return (NAV_EXTRA[superficie] || []).filter(function (i) { return !i.roles || (s && i.roles.indexOf(s.rol) >= 0); });
+  }
+  function enlace(ruta) { return /^(https?:|mailto:|tel:)/.test(ruta || '') ? ruta : href(ruta || 'app/tienda/inicio.html'); }
+
+  var GANCHOS = {};
+  function gancho(nombre, fn) {
+    if (typeof fn !== 'function') throw new Error('APP.gancho: «' + nombre + '» necesita una función.');
+    (GANCHOS[nombre] = GANCHOS[nombre] || []).push(fn);
+  }
+  function ganchos(nombre, ctx) {
+    return (GANCHOS[nombre] || []).map(function (fn) {
+      try {
+        var html = fn(ctx || {});
+        return html == null ? '' : String(html);
+      } catch (e) {
+        if (window.console) console.warn('Tumbo: el gancho «' + nombre + '» falló y se omitió.', e);
+        return '';
+      }
+    }).join('');
+  }
+
+  var TRAS_PINTAR = [];
+  function trasPintar(fn) { if (typeof fn === 'function') TRAS_PINTAR.push(fn); }
+  function avisarPintado(raiz, vista, q, s) {
+    TRAS_PINTAR.forEach(function (fn) {
+      try { fn(raiz, vista, q, s); } catch (e) {
+        if (window.console) console.warn('Tumbo: un enlazador de trasPintar falló.', e);
+      }
+    });
+  }
 
   /* «Reiniciar demo»: en modo local cada navegador tiene su copia; con
      backend los datos son compartidos y solo el superadministrador reinicia. */
@@ -86,6 +152,9 @@
             ? '<a class="block px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low" href="' + href('app/tienda/pedidos.html') + '">Mis pedidos</a>' +
               '<a class="block px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low" href="' + href('app/tienda/cuenta.html') + '">Mi cuenta</a>' +
               '<a class="block px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low" href="' + href('app/tienda/direcciones.html') + '">Direcciones</a>' +
+              navDe('cuenta', s).filter(function (i) { return i.href; }).map(function (i) {
+                return '<a class="block px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low" href="' + esc(enlace(i.href)) + '">' + esc(i.texto) + '</a>';
+              }).join('') +
               '<hr class="my-2 border-outline-variant"/>' +
               botonReiniciar(s) +
               '<button data-salir class="block w-full text-left px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low">Cerrar sesión</button>'
@@ -111,13 +180,19 @@
     '</header>';
   }
 
-  function pieTienda() {
+  function pieTienda(s) {
+    var enlaces = navDe('pie', s);
     return '<footer class="bg-primary-container text-white/70 mt-12">' +
       '<div class="max-w-[1280px] mx-auto px-4 py-8 grid sm:grid-cols-3 gap-6 font-body-sm text-body-sm">' +
       '<div><p class="font-bold text-white mb-2">Tumbo Market</p><p>Marketplace curado de Venezuela. Sellers homologados, precios en Bs. con referencia en USD y protección en cada compra.</p></div>' +
       '<div><p class="font-bold text-white mb-2">Ayuda</p><p>Compras, entregas y devoluciones se gestionan desde «Mis pedidos». Cada pedido tiene su línea de tiempo y su botón de reclamo.</p></div>' +
       '<div><p class="font-bold text-white mb-2">Versión beta</p><p>Datos ficticios y operaciones simuladas: aquí no se mueve dinero real ni se crean envíos reales.</p></div>' +
-      '</div><div class="border-t border-white/10 py-3 text-center font-body-sm text-body-sm">© 2026 Tumbo Market · beta de demostración</div></footer>';
+      '</div>' +
+      (enlaces.length ? '<nav data-pie-enlaces class="max-w-[1280px] mx-auto px-4 pb-6 flex flex-wrap gap-x-5 gap-y-2 font-body-sm text-body-sm">' +
+        enlaces.map(function (i) {
+          return '<a class="text-white/80 hover:text-white hover:underline" href="' + esc(enlace(i.href)) + '">' + esc(i.texto) + '</a>';
+        }).join('') + '</nav>' : '') +
+      '<div class="border-t border-white/10 py-3 text-center font-body-sm text-body-sm">© 2026 Tumbo Market · beta de demostración</div></footer>';
   }
 
   /* ---------------------------------------------------------------------
@@ -150,7 +225,7 @@
     var sub = superficie === 'seller'
       ? (TM.seller(s.sellerId) ? TM.seller(s.sellerId).nombre + ' · ' + s.sellerId : s.sellerId)
       : ROLES[s.rol].nombre;
-    var items = NAV_PANEL[superficie].filter(function (i) { return i.roles.indexOf(s.rol) >= 0; });
+    var items = NAV_PANEL[superficie].filter(function (i) { return !i.roles || i.roles.indexOf(s.rol) >= 0; });
 
     var nav = items.map(function (i) {
       var activo = i.vista === vistaActiva;
@@ -326,6 +401,14 @@
     return (!a && !b) || !!(a && b && a.uid === b.uid && a.rol === b.rol);
   }
 
+  /* Seller Center y Backoffice usan el armazón de panel; la tienda y
+     cualquier otra área (p. ej. 'ayuda'), el de la tienda. Una vista puede
+     fijarlo con def.armazon ('tienda' | 'panel'). */
+  function armazonDe(def, vista) {
+    if (def.armazon) return def.armazon === 'tienda' ? 'tienda' : 'panel';
+    return /^(seller|admin)\//.test(vista) ? 'panel' : 'tienda';
+  }
+
   function montar() {
     var vista = document.body.getAttribute('data-vista');
     var def = VISTAS[vista];
@@ -370,15 +453,17 @@
         if (c.value !== c.defaultValue) buscadores[c.name] = c.value;
       });
       var contenido = def.render(params(), s);
-      if (def.armazon === 'tienda') {
+      if (armazonDe(def, vista) === 'tienda') {
         raiz.innerHTML = cabeceraTienda(s && s.rol === 'comprador' ? s : null) +
-          '<main class="max-w-[1280px] mx-auto px-3 sm:px-4 py-5 min-h-[60vh]">' + contenido + '</main>' + pieTienda();
+          '<main class="max-w-[1280px] mx-auto px-3 sm:px-4 py-5 min-h-[60vh]">' + contenido + '</main>' +
+          pieTienda(s && s.rol === 'comprador' ? s : null);
       } else {
         raiz.innerHTML = armazonPanel(s, contenido, vista);
       }
       document.title = (def.titulo || 'Tumbo Market') + ' · Tumbo Market';
       conectarComunes(raiz);
       if (def.despues) def.despues(raiz, params(), s);
+      avisarPintado(raiz, vista, params(), s);
       raiz.querySelectorAll('select').forEach(function (c) { c.dataset.inicial = c.value; });
       raiz.querySelectorAll('[role=search] input[name]').forEach(function (c) {
         if (buscadores[c.name] !== undefined) c.value = buscadores[c.name];
@@ -407,6 +492,9 @@
     document.addEventListener('input', alLiberar);
   }
 
-  window.APP = { ROLES: ROLES, registrar: registrar, params: params, montar: montar, html403: html403 };
+  window.APP = {
+    ROLES: ROLES, registrar: registrar, params: params, montar: montar, html403: html403,
+    nav: nav, navDe: navDe, gancho: gancho, ganchos: ganchos, trasPintar: trasPintar
+  };
   /* montar() lo invoca cada página después de cargar sus vistas. */
 })();

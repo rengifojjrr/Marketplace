@@ -47,6 +47,7 @@
           '<span class="font-headline-md text-headline-md font-bold ' + (c.n ? 'text-primary-container' : 'text-outline') + '">' + c.n + '</span></div>' +
           '<p class="font-body-sm text-body-sm text-on-surface mt-1">' + esc(c.t) + '</p></a>';
       }).join('') + '</div>' +
+      APP.ganchos('panel.admin', { sesion: s }) +
       '<h2 class="font-label-caps text-label-caps uppercase tracking-[0.06em] text-on-surface-variant mb-2">Actividad reciente</h2>' +
       '<div class="rounded-card border border-outline-variant bg-surface-container-lowest divide-y divide-outline-variant">' +
       e.eventos.slice(0, 6).map(function (ev) {

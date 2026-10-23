@@ -59,6 +59,8 @@
       UI.kpi('Publicaciones', productos.filter(function (p) { return p.estado === 'publicado'; }).length + ' / ' + productos.length, 'publicadas / totales', 'inventory_2') +
       '</section>' +
 
+      APP.ganchos('panel.seller', { sesion: s, pedidos: pedidos, productos: productos, disputas: disputas }) +
+
       '<section class="grid lg:grid-cols-2 gap-4">' +
       '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
         '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-3">Salud de la cuenta</h2>' +
@@ -317,7 +319,9 @@
           return '<li class="flex gap-3"><span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container shrink-0">' + ic(t.icono || 'info', 'text-[16px]') + '</span>' +
             '<span><span class="block font-body-sm text-body-sm">' + esc(t.texto) + '</span>' +
             '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(t.fecha) + '</span></span></li>';
-        }).join('') + '</ol></section></div>' +
+        }).join('') + '</ol></section>' +
+        APP.ganchos('pedido.seller', { pedido: p, sesion: s }) +
+      '</div>' +
 
       '<aside class="space-y-4">' +
         '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +

@@ -43,10 +43,13 @@ avisos leídos) no se auditan.
 | `assets/js/tm-vistas-tienda.js` | 11 vistas del comprador y visitante |
 | `assets/js/tm-vistas-seller.js` | 7 vistas del Seller Center |
 | `assets/js/tm-vistas-admin.js` | 8 vistas del Backoffice |
+| `assets/js/tm-mod-*.js` | Módulos por dominio (menús, ganchos, vistas y llamadas `TM.api`); hoy: archivos (`TM.archivos`) y códigos QR (`TM.qr`) |
 
 Las páginas de `app/` son cascarones idénticos generados por
 `tools/generar_paginas.py`: declaran qué vista montar y nada más. La
-estructura, el contenido y los permisos viven en los módulos.
+estructura, el contenido y los permisos viven en los módulos. Cada dominio
+declara sus páginas en `tools/paginas/<dominio>.json` y el cascarón carga
+todos los `tm-mod-*.js` (ver [BACKEND.md](BACKEND.md#arquitectura-modular-y-contratos)).
 
 ## Permisos: ocultar, no bloquear
 
@@ -87,8 +90,9 @@ liquidación) piden reautenticación 2FA dentro de la sesión.
 
 ## Límites deliberados de la beta
 
-Todavía no hay: carga real de imágenes (se usan marcadores), mensajería
-externa (WhatsApp/correo), pagos ni guías reales, MFA real (el segundo factor es
+Todavía no hay: imágenes reales en las fichas (la subida a Storage ya
+existe, la usan las olas siguientes), mensajería externa (WhatsApp/correo: los
+mensajes quedan en la bandeja de salida), pagos ni guías reales, MFA real (el segundo factor es
 un código de demostración) ni cierre automático de ventanas por tiempo (se
 cierra a mano desde Finanzas para poder demostrar el recorrido). Cada límite
 está señalado en la interfaz donde toca. En modo local, además, los datos son
@@ -100,7 +104,9 @@ por navegador.
 en modo local, y `npm run test:nube`, contra el sitio publicado con su backend,
 incluidos los tres recorridos interconectados completos, el RBAC por
 ocultación, el barrido de todas las páginas por rol sin errores de consola y
-la revisión móvil a 390 px.
+la revisión móvil a 390 px. `tools/e2e-fundaciones.js` prueba la
+infraestructura de los módulos, el QR y la subida de archivos, y
+`npm run test:todo` (`tools/verificar-todo.js`) corre todas las suites.
 
 El prototipo original de Google Stitch se conserva en `prototipo/` como
 archivo de referencia visual; sus herramientas están en `tools/legado/`.

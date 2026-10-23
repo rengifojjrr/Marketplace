@@ -139,6 +139,73 @@ contrato, un pago o una firma:
 
 ## Avance
 
-- [ ] Ola 0 — Fundaciones
+- [x] Ola 0 — Fundaciones (ver el resumen abajo)
 - [ ] Ola 1 — Cuentas · Catálogo · Pagos · Logística
 - [ ] Ola 2 — Comunicación · Crecimiento · Plataforma
+
+### Ola 0: lo construido
+
+Detalle en [BACKEND.md](BACKEND.md#arquitectura-modular-y-contratos).
+
+- **Cliente modular.** `TM.api` / `TM.apiPublica` / `TM.requiereServidor()`
+  (en local responden «Esta función necesita el servidor de Tumbo»);
+  `APP.nav` para `seller`, `admin`, `cuenta` y `pie`; `APP.gancho` /
+  `APP.ganchos` con los puntos `producto.galeria`, `producto.compra`,
+  `producto.secciones`, `pedido.comprador`, `pedido.seller`,
+  `inicio.secciones`, `panel.seller` y `panel.admin`; `APP.trasPintar`; áreas
+  nuevas con el armazón de la tienda; páginas por manifiesto
+  (`tools/paginas/*.json`) y carga automática de `assets/js/tm-mod-*.js`.
+- **Archivos.** Propósitos con bucket, tamaño y tipos; permisos por propósito
+  (`tumbo_privado.archivo_permitido`); cuotas; `tm_archivo_preparar` /
+  `tm_archivo_confirmar` / `tm_archivo_acceso`; función
+  `supabase/functions/tumbo-archivos` (Deno, sin dependencias);
+  `TM.archivos.subir` (WebP ≤ 1600 px, calidad 0,82, orientación aplicada),
+  `ver`, `selector` y `enlazar`. Simulación local de Storage y de la función
+  en la pasarela.
+- **Ajustes** (`tumbo.ajustes`, `tm_ajustes_publicos`, `tm_ajuste_guardar`),
+  contacto y verificaciones del usuario, direcciones completas,
+  `pedidos.destino`, **bandeja de salida** (13 plantillas, preferencias,
+  `encolar`, `tm_salida_listar`, `tm_salida_marcar`), **reembolsos** (tabla,
+  `crear_reembolso` en cancelación conciliada, reclamo con reembolso y
+  devolución recibida; `tm_reembolsos`), **contratos** mínimos y **QR**
+  (`TM.qr`, qrcode-generator 2.0.4, MIT).
+- **Pruebas.** Arnés `tools/e2e-comun.js` (verificar-beta.js lo usa con sus
+  24 pruebas intactas), `tools/api-fundaciones.js`, `tools/e2e-fundaciones.js`
+  y `tools/verificar-todo.js`; entorno por equipo con
+  `tools/supabase-local/levantar.sh`.
+
+Desviaciones y decisiones respecto de lo pedido:
+
+- `tm_salida_marcar` lleva un cuarto parámetro opcional, la nota
+  (`(text, bigint, text, text)`). Estados: `manual` = queda para enviarlo a
+  mano; `enviado` y `descartado` cierran el mensaje. Los mensajes con códigos
+  o enlaces de seguridad solo los lee y los da por enviados el superadmin
+  (operaciones solo puede descartarlos).
+- Las cuotas de archivos viven en el ajuste privado `cuotas_archivos`, que
+  suma `mb_por_usuario` (300 MB por cuenta sin comercio, para que un
+  comprador tampoco llene el almacenamiento). En las cuentas demo el tope
+  diario cuenta por usuario y red, con un respaldo por cuenta de diez veces
+  (como los demás topes de la demo).
+- `encolar` admite además `p_usuario = null` con `p_datos.correo`, para
+  invitar a quien aún no tiene cuenta (solo por correo).
+- `tm_archivo_confirmar` devuelve `url_publica` relativa al proyecto
+  (`/storage/v1/object/public/…`); `TM.archivos.subir` la completa con
+  `supabaseUrl`.
+- El reembolso es por el total pagado (productos + envío). Se redefinió
+  también `tm_reiniciar_demo` (desde su última definición): los reembolsos se
+  van con sus pedidos y se borran las filas de los adjuntos y mensajes de
+  pedidos, reclamos y liquidaciones (sus números se reutilizan).
+- `TM.qr` vive en `assets/js/tm-mod-qr.js`; la librería, en
+  `assets/js/vendor/qrcode-generator/` con su LICENSE.
+- Se agregó `tools/e2e-fundaciones.js` (12 pruebas con backend, 9 en local).
+- Las RPC de la función salen desde su red: el tope de escrituras por red
+  agrupa ahí todas las subidas (los topes por cuenta y las cuotas siguen
+  siendo por persona).
+
+Pendiente para la persona dueña del proyecto: aplicar
+`20261023100000_tumbo_fundaciones.sql` en la nube, desplegar la función con
+`supabase functions deploy tumbo-archivos --no-verify-jwt` y comprobar que el
+proyecto tiene Storage activo (la migración crea los buckets solo si existe);
+después, `tools/api-fundaciones.js` contra la nube con `TM_NUBE=1`. Hasta
+entonces el sitio publicado sigue funcionando igual: nada de lo existente
+llama a lo nuevo.

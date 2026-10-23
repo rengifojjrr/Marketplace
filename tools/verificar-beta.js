@@ -23,11 +23,7 @@
  * por el seller pasa por moderación y aparece en la tienda; una disputa
  * congela fondos y su resolución reembolsa al comprador.
  */
-const { chromium } = require('playwright');
-
-const BASE = process.argv[2] || 'http://localhost:8000';
-const verde = (s) => `\x1b[32m${s}\x1b[0m`;
-const rojo = (s) => `\x1b[31m${s}\x1b[0m`;
+const { iniciar, ETIQUETAS } = require('./e2e-comun');
 
 const PAGINAS = {
   comprador: ['tienda/inicio', 'tienda/resultados', 'tienda/producto?sku=SKU-MOT-0832', 'tienda/carrito',
@@ -43,106 +39,14 @@ const PAGINAS = {
 };
 
 (async () => {
-  /* Para un sitio publicado se sale por el proxy del entorno si lo hay. */
-  const externo = !/\/\/(localhost|127\.0\.0\.1)[:/]/.test(BASE);
-  /* Un backend que no es local es el compartido: la prueba reinicia su demo. */
-  const apiNube = process.env.TM_SUPABASE_URL && !/\/\/(localhost|127\.0\.0\.1)[:/]/.test(process.env.TM_SUPABASE_URL);
-  if ((externo || apiNube) && process.env.TM_NUBE !== '1') {
-    console.error('Esa prueba usa el backend compartido y reinicia su demo para todos. Confírmalo con TM_NUBE=1.');
-    process.exit(2);
-  }
-  const navegador = await chromium.launch(externo && process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY } } : {});
-  const ctx = await navegador.newContext({ viewport: { width: 1440, height: 950 } });
-  /* Sitio en local y backend en la nube detrás de un proxy: las llamadas a
-     la API salen desde aquí (NODE_USE_ENV_PROXY=1) y vuelven al navegador. */
-  const api = process.env.TM_SUPABASE_URL || '';
-  if (!externo && process.env.HTTPS_PROXY && /^https:/.test(api)) {
-    await ctx.route(api + '/**', async (r) => {
-      const req = r.request();
-      const res = await fetch(req.url(), { method: req.method(), headers: req.headers(), body: req.postDataBuffer() || undefined });
-      const cab = {};
-      res.headers.forEach((v, k) => { if (!/^(content-encoding|content-length|transfer-encoding)$/i.test(k)) cab[k] = v; });
-      await r.fulfill({ status: res.status, headers: cab, body: Buffer.from(await res.arrayBuffer()) });
-    });
-  }
-  if (process.env.TM_LOCAL === '1' || (!externo && !process.env.TM_SUPABASE_URL)) {
-    /* modo local: datos en el navegador, sin backend */
-    await ctx.route('**/assets/js/tm-config.js', (r) => r.fulfill({ contentType: 'application/javascript',
-      body: "window.TM_CONFIG = { supabaseUrl: '', supabaseKey: '' };" }));
-  } else if (process.env.TM_SUPABASE_URL) {
-    /* sin consulta periódica salvo TM_TIEMPO_REAL=1: las pruebas deciden cuándo repintar */
-    const cfg = 'window.TM_CONFIG = ' + JSON.stringify({ supabaseUrl: process.env.TM_SUPABASE_URL,
-      supabaseKey: process.env.TM_SUPABASE_KEY, tiempoReal: process.env.TM_TIEMPO_REAL === '1' }) + ';';
-    await ctx.route('**/assets/js/tm-config.js', (r) => r.fulfill({ contentType: 'application/javascript', body: cfg }));
-  }
-  const p = await ctx.newPage();
-  let modo = 'local';
-
-  const errores = [];
-  p.on('pageerror', (e) => errores.push('JS: ' + e.message.split('\n')[0]));
-  p.on('console', (m) => { if (m.type() === 'error') errores.push('consola: ' + m.text().slice(0, 140)); });
-
-  const pruebas = [];
-  /* `permitir`: errores de red esperados (p. ej. el 400 de un rechazo que la
-     prueba provoca a propósito). */
-  const prueba = async (n, fn, permitir) => {
-    const antes = errores.length;
-    try {
-      await fn();
-      const nuevos = errores.slice(antes).filter((e) => !(permitir && permitir.test(e)));
-      if (nuevos.length) throw new Error('errores de consola: ' + nuevos[0]);
-      pruebas.push([n, true, '']);
-      process.stdout.write(verde('✓ ') + n + '\n');
-    } catch (e) {
-      pruebas.push([n, false, e.message]);
-      process.stdout.write(rojo('✗ ') + n + rojo('  → ' + e.message.split('\n')[0]) + '\n');
-    }
-  };
-
-  const abrir = async (ruta) => {
-    await p.goto(`${BASE}/app/${ruta.replace('?', '.html?')}${ruta.includes('?') ? '' : '.html'}`,
-      { waitUntil: 'domcontentloaded' });
-    await p.waitForSelector('#raiz > *', { timeout: 8000 });
-    await p.waitForTimeout(120);
-  };
-
-  const login = async (etiqueta) => {
-    await p.goto(`${BASE}/index.html`, { waitUntil: 'domcontentloaded' });
-    await p.waitForSelector('[data-lista] button');
-    await p.locator('[data-lista] button', { hasText: etiqueta }).first().click();
-    await p.locator('form[data-paso=credenciales] button[type=submit]').click();
-    await Promise.race([
-      p.waitForURL(/\/app\//, { timeout: 15000 }),
-      p.locator('#ac-codigo').waitFor({ state: 'visible', timeout: 15000 })
-    ]);
-    if (await p.locator('#ac-codigo').isVisible().catch(() => false)) {
-      await p.fill('#ac-codigo', '123456');
-      await p.locator('form[data-paso=mfa] button[type=submit]').click();
-    }
-    await p.waitForSelector('#raiz > *', { timeout: 15000 });
-    await p.waitForTimeout(150);
-  };
-
-  /* Espera el aviso que confirma que la acción terminó (en modo remoto la
-     acción viaja al servidor: navegar antes la cortaría). */
-  const aviso = async (texto) => {
-    await p.locator('.tm-toast', { hasText: texto }).first().waitFor({ timeout: 15000 });
-  };
-
-  const reset = async () => {
-    await p.goto(`${BASE}/index.html`, { waitUntil: 'domcontentloaded' });
-    modo = await p.evaluate(() => TM.modo);
-    if (modo === 'remoto') {
-      await login('Superadministrador');
-      await p.evaluate(() => TM.reiniciarDemo());
-    }
-    await p.goto(`${BASE}/index.html`, { waitUntil: 'domcontentloaded' });
-    await p.evaluate(() => { localStorage.clear(); });
-  };
+  /* El arnés (tools/e2e-comun.js) lanza el navegador, elige el modo de
+     datos y da login, abrir, aviso, reset, prueba y resumen. */
+  const t = await iniciar();
+  const { p, ctx, BASE, errores, prueba, abrir, login, aviso, reset } = t;
 
   /* ================= Acceso ================= */
   await reset();
-  console.log('Modo de datos: ' + modo + '\n');
+  console.log('Modo de datos: ' + t.modo + '\n');
 
   await prueba('login: credenciales inválidas y MFA se rechazan', async () => {
     await p.waitForSelector('[data-lista] button');
@@ -478,9 +382,9 @@ const PAGINAS = {
     await p.locator('form[data-paso=registro] button[type=submit]').click();
     await p.waitForURL('**/tienda/inicio.html', { timeout: 15000 });
     await p.waitForSelector('#raiz > *');
-    const esperado = modo === 'remoto' ? 'Hola, Daniela' : 'Hola, María';
+    const esperado = t.modo === 'remoto' ? 'Hola, Daniela' : 'Hola, María';
     if (!(await p.locator('#raiz header').innerText()).includes(esperado)) throw new Error('la cuenta nueva no quedó con sesión');
-    if (modo === 'remoto') {
+    if (t.modo === 'remoto') {
       await abrir('tienda/pedidos');
       if (!/Aún no tienes pedidos/.test(await p.locator('#raiz').innerText())) throw new Error('la cuenta nueva ve pedidos ajenos');
     }
@@ -498,9 +402,7 @@ const PAGINAS = {
   /* ================= Barrido de páginas por rol ================= */
   await prueba('todas las páginas de cada rol cargan sin errores', async () => {
     for (const rol of Object.keys(PAGINAS)) {
-      const etiqueta = { comprador: 'Comprador', seller: 'Seller principal', precios: 'Gestor de precios',
-        operador: 'Operador', superadmin: 'Superadministrador', ops: 'Operaciones', finanzas: 'Finanzas' }[rol];
-      await login(etiqueta);
+      await login(ETIQUETAS[rol]);
       for (const ruta of PAGINAS[rol]) {
         const antes = errores.length;
         await abrir(ruta);
@@ -537,13 +439,5 @@ const PAGINAS = {
     await m.close();
   });
 
-  const mal = pruebas.filter(([, ok]) => !ok);
-  console.log('');
-  if (mal.length) {
-    console.log(rojo(`FALLOS: ${mal.length} de ${pruebas.length}`));
-    await navegador.close();
-    process.exit(1);
-  }
-  console.log(verde(`✓ ${pruebas.length} pruebas E2E en verde: la beta está interconectada de punta a punta.`));
-  await navegador.close();
+  await t.resumen('pruebas E2E en verde: la beta está interconectada de punta a punta.');
 })();

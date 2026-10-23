@@ -4,7 +4,12 @@
 -- los de Tumbo y que ningún objeto de fuera depende de ellos; si algo no
 -- cuadra, se detiene sin borrar nada. Las funciones public.tm_* se borran
 -- por firma exacta (una función de otra aplicación con el mismo nombre no se
--- toca). Todo ocurre en una sola sentencia: o se borra todo o nada.
+-- toca). De los buckets de Storage de Tumbo (tumbo-publico y tumbo-privado)
+-- se borran los archivos de Tumbo, y el bucket solo si queda vacío; ningún
+-- otro bucket se toca. Donde Storage no deja borrar objetos por SQL
+-- (Supabase lo exige por su API), se avisa y ese bucket queda para vaciarlo
+-- desde el panel. Todo lo demás ocurre en una sola sentencia: o se borra
+-- todo o nada.
 do $$
 declare
   firmas text[] := array[
@@ -24,9 +29,15 @@ declare
     'public.tm_ejecutar_liquidacion(text,text,text[])', 'public.tm_guardar_producto(text,jsonb,boolean)',
     'public.tm_ajustar_producto(text,text,text,numeric)', 'public.tm_pausar_producto(text,text,boolean)',
     'public.tm_moderar_producto(text,text,boolean,text)', 'public.tm_decidir_kyc(text,text,text,text)',
-    'public.tm_reiniciar_demo(text)'];
+    'public.tm_reiniciar_demo(text)',
+    -- ola 0 (fundaciones)
+    'public.tm_ajustes_publicos()', 'public.tm_ajuste_guardar(text,text,jsonb)',
+    'public.tm_archivo_preparar(text,text,text,text,bigint,text)', 'public.tm_archivo_confirmar(text,uuid)',
+    'public.tm_archivo_acceso(text,uuid)', 'public.tm_salida_listar(text,text,bigint)',
+    'public.tm_salida_marcar(text,bigint,text,text)', 'public.tm_reembolsos(text)'];
   f text;
   ajenos text;
+  b text;
 begin
   if to_regnamespace('tumbo') is null and to_regnamespace('tumbo_privado') is null then
     raise notice 'Tumbo no está instalado en esta base.';
@@ -72,6 +83,27 @@ begin
       select to_regprocedure(f2)::oid from unnest(firmas) f2 where to_regprocedure(f2) is not null));
   if ajenos is not null then
     raise exception 'Hay objetos de otras aplicaciones que dependen de Tumbo (%): revísalos antes de retirarlo.', ajenos;
+  end if;
+
+  -- Storage: solo los objetos de Tumbo, y el bucket si queda vacío.
+  if to_regclass('storage.objects') is not null and to_regclass('tumbo.archivos') is not null then
+    foreach b in array array['tumbo-publico', 'tumbo-privado'] loop
+      begin
+        -- registrados en tumbo.archivos o con la forma de ruta que da Tumbo
+        -- (<propósito>/<seller o usuario>/<uuid>.<ext>, p. ej. los que dejó un reinicio de la demo)
+        delete from storage.objects o
+        where o.bucket_id = b
+          and (exists (select 1 from tumbo.archivos a where a.bucket = b and a.ruta = o.name)
+               or o.name ~ '^(producto|perfil|kyc|evidencia|comprobante|guia|entrega|chat|liquidacion)/[A-Za-z0-9-]+/[0-9a-f-]{36}\.(jpg|png|webp|pdf|mp4|bin)$');
+      exception when others then
+        raise notice 'Storage no deja borrar los archivos de «%» por SQL (%): vacíalo desde el panel de Supabase.', b, sqlerrm;
+      end;
+      if not exists (select 1 from storage.objects o where o.bucket_id = b) then
+        delete from storage.buckets where id = b;
+      else
+        raise notice 'El bucket «%» no quedó vacío: se conserva.', b;
+      end if;
+    end loop;
   end if;
 
   foreach f in array firmas loop

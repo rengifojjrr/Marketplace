@@ -30,14 +30,20 @@ para **no tocar nada** de lo que ya hay:
   - los usuarios de las otras aplicaciones no tienen cuenta en Tumbo.
 - **Una sola puerta.** Lo único visible son las funciones `public.tm_*`. Cada
   una recibe el token de sesión, valida rol, propiedad y estado, y responde
-  solo con lo que ese rol puede ver.
+  solo con lo que ese rol puede ver. La función de archivos `tumbo-archivos`
+  y los buckets `tumbo-publico`/`tumbo-privado` de Storage también pasan por
+  ellas: quién sube o ve cada archivo lo deciden las `tm_archivo_*`.
 
 Para quitar Tumbo del proyecto basta con ejecutar
 [`tools/retirar-tumbo.sql`](../tools/retirar-tumbo.sql). Antes de borrar
 comprueba que los esquemas son los de Tumbo y que ningún objeto de otra
 aplicación depende de ellos (si algo no cuadra, se detiene sin tocar nada);
 después borra los dos esquemas y las funciones `public.tm_*` **por firma
-exacta** (una función de otra aplicación con el mismo nombre no se toca). La
+exacta** (una función de otra aplicación con el mismo nombre no se toca), y
+de los buckets de Tumbo sus archivos (el bucket, solo si queda vacío; donde
+Storage no deja borrar por SQL, avisa para vaciarlo desde el panel; ningún
+otro bucket se toca). La función `tumbo-archivos` se borra desde el panel o
+con `supabase functions delete tumbo-archivos`. La
 primera migración usa `create schema tumbo` sin `if not exists`: si el nombre
 ya estuviera ocupado por otra aplicación, falla en vez de adueñarse de él.
 
@@ -65,12 +71,18 @@ supabase/migrations/
   20261022170600_tumbo_cuentas_demo.sql  cuentas demo compartidas, colas de trabajo y auditoría por tramos
   20261022170700_tumbo_topes_demo.sql  topes de las cuentas demo sin bloqueos cruzados
   20261022170800_tumbo_acceso_demo.sql  acceso a las cuentas demo sin coste de bcrypt
+  20261023100000_tumbo_fundaciones.sql  ola 0: ajustes, archivos, bandeja de salida, reembolsos y contratos
+supabase/functions/tumbo-archivos/     función (Deno) que firma subidas y descargas de Storage
 assets/js/tm-config.js                 URL y clave publicable del proyecto
 assets/js/tm-remoto.js                 motor remoto: llama a /rest/v1/rpc/tm_* con fetch (sin librerías)
+assets/js/tm-mod-*.js                  módulos por dominio (ola 0: archivos y códigos QR)
 tools/retirar-tumbo.sql                quita Tumbo del proyecto sin tocar nada más
-tools/supabase-local/                  Postgres + PostgREST en local para probar sin la nube
+tools/supabase-local/                  Postgres + PostgREST + Storage y función simulados, en local
 tools/verificar-rls.js                 permisos rol por rol contra la API
+tools/api-*.js                         reglas y permisos de cada dominio por la API
 tools/verificar-beta.js                recorridos completos en navegador
+tools/e2e-*.js                         pruebas en navegador de cada dominio (arnés: tools/e2e-comun.js)
+tools/verificar-todo.js                todas las suites, con las mismas variables
 ```
 
 ## Modelo de seguridad
@@ -186,7 +198,8 @@ tools/verificar-beta.js                recorridos completos en navegador
    vaciar eventos (también al reiniciar la demo).
 7. **Segundo factor**: en la beta es un código fijo (`123456`) verificado en el
    navegador. Es una puerta de demostración, no una defensa. Para producción:
-   TOTP en el servidor exigido por las funciones financieras.
+   TOTP en el servidor exigido por las funciones financieras (el contrato
+   `tumbo_privado.exigir_elevada` ya está en su sitio: la ola 1 lo llena).
 8. **Defensa en profundidad**: RLS activo y sin políticas en todas las tablas
    de `tumbo`; aunque alguien expusiera el esquema por error, ninguna fila
    sería legible.
@@ -211,7 +224,175 @@ tools/verificar-beta.js                recorridos completos en navegador
 | `tm_ajustar_producto` | precio: seller, precios · stock: seller, operador | edición en línea |
 | `tm_moderar_producto` · `tm_decidir_kyc` | superadmin | publicación y homologación |
 | `tm_marcar_notificaciones_leidas` | con sesión | lectura individual de avisos |
-| `tm_reiniciar_demo` | superadmin | vuelve los datos de negocio a la semilla (cuentas y auditoría se conservan) |
+| `tm_reiniciar_demo` | superadmin | vuelve los datos de negocio a la semilla (cuentas, ajustes y auditoría se conservan; reembolsos, adjuntos de pedidos y mensajes de pedidos se van con ellos) |
+| `tm_ajustes_publicos()` | cualquiera | los ajustes públicos `{clave: valor}` (interruptores, aviso de incidencia, soporte, datos de cobro) |
+| `tm_ajuste_guardar(sesión, clave, valor)` | superadmin (con sesión elevada) | cambia un ajuste existente conservando su tipo; auditado con el valor anterior y el nuevo |
+| `tm_archivo_preparar(sesión, propósito, entidad, tipo, bytes, nombre)` | según el propósito | valida permisos, tipo, tamaño y cuotas, y registra la subida: `{id, bucket, ruta}` |
+| `tm_archivo_confirmar(sesión, id)` | quien preparó | comprueba en Storage tamaño y tipo, deja el archivo «listo»: `{id, url_publica}` |
+| `tm_archivo_acceso(sesión, id)` | según el propósito (los públicos, cualquiera) | `{bucket, ruta, …}` para firmar la descarga; un archivo ajeno responde «no encontrado» |
+| `tm_salida_listar(sesión, estado, antes)` | superadmin, ops | bandeja de mensajes salientes, 50 por página: `{mensajes, siguiente}` |
+| `tm_salida_marcar(sesión, id, estado, nota)` | superadmin, ops | `manual`, `enviado` o `descartado`; auditado |
+| `tm_reembolsos(sesión)` | comprador (los suyos), finanzas, superadmin | reembolsos creados por cancelaciones, reclamos y devoluciones |
+
+## Arquitectura modular y contratos
+
+Desde la ola 0 (ver [PLAN-PRODUCCION.md](PLAN-PRODUCCION.md)) cada dominio
+crece en sus propias piezas, sin tocar las de los demás:
+
+- **Cliente.** Cada dominio tiene `assets/js/tm-mod-<dominio>.js`, que el
+  cascarón de todas las páginas carga en orden alfabético después de las
+  vistas existentes. Ahí el módulo:
+  - llama al servidor con `TM.api(nombre, params, {recargar})` (con la sesión;
+    `recargar: true` vuelve a pedir la caché después) o `TM.apiPublica(nombre,
+    params)` (sin sesión). En modo local ambas responden «Esta función
+    necesita el servidor de Tumbo» y `TM.requiereServidor()` es `true`: lo
+    nuevo no se simula en el navegador;
+  - registra sus vistas (`APP.registrar`) y declara sus páginas en
+    `tools/paginas/<dominio>.json` ([formato](../tools/paginas/README.md));
+    un área nueva como `ayuda` usa el armazón de la tienda;
+  - agrega entradas de menú con `APP.nav('seller' | 'admin' | 'cuenta' | 'pie',
+    item)` (con `orden` opcional; en la cuenta, un `id` igual al de un mosaico
+    fijo lo reemplaza);
+  - pinta en puntos fijos de las vistas con `APP.gancho(nombre, fn)`:
+    `producto.galeria` (reemplaza la imagen única), `producto.compra`,
+    `producto.secciones`, `pedido.comprador`, `pedido.seller`,
+    `inicio.secciones`, `panel.seller` y `panel.admin` (fn recibe los datos
+    que la vista ya tiene: producto, pedido, sesión…; si falla, se omite);
+  - enlaza eventos tras cada pintado con `APP.trasPintar(fn)`.
+  Utilidades comunes: `TM.qr(texto, tamaño)` → SVG (qrcode-generator, MIT,
+  en `assets/js/vendor/`) y `TM.archivos` (abajo).
+- **Servidor.** Una migración por equipo y ola, que solo agrega, termina con
+  los permisos por firma exacta de sus `tm_*` nuevas. Los equipos se hablan
+  por contratos en `tumbo_privado` (no invocables desde la API), que la ola 0
+  dejó en su versión mínima:
+
+  | Contrato | Hoy | Lo completa |
+  | --- | --- | --- |
+  | `exigir_elevada(yo)` | no exige nada | Cuentas (2FA en el servidor) |
+  | `tiene_permiso(yo, permiso)` | solo el superadmin | Cuentas (permisos finos) |
+  | `cotizar_envio(seller, destino, items)` | agencia MRW 2,5 USD (1–3 días) y domicilio Zoom 4 USD (2–4 días) | Logística |
+  | `aplicar_promociones(usuario, items, cupón)` | las líneas con su precio vigente, sin descuento | Crecimiento |
+  | `riesgo_pedido(usuario, datos)` | `{"puntaje": 0, "motivos": []}` | Crecimiento |
+  | `crear_reembolso(pedido, monto_usd, motivo)` | registra el reembolso y avisa a Finanzas | Pagos |
+  | `encolar(usuario, plantilla, datos)` | deja los mensajes en la bandeja | Comunicación (envío real) |
+  | `ajuste(clave)` | lee `tumbo.ajustes` | Crecimiento (edición desde el backoffice) |
+- **Pruebas por dominio**: `tools/api-<dominio>.js` y `tools/e2e-<dominio>.js`
+  (con el arnés `tools/e2e-comun.js`); `tools/verificar-todo.js` corre todo.
+
+### Ajustes
+
+`tumbo.ajustes` guarda la configuración de la plataforma como JSON. Los
+marcados como públicos los lee cualquiera con `tm_ajustes_publicos()`; el
+resto solo el servidor (`tumbo_privado.ajuste`). La semilla deja todo lo que
+depende de la persona dueña del proyecto **marcado como pendiente**, nunca con
+datos inventados:
+
+| Clave | Público | Valor inicial |
+| --- | --- | --- |
+| `pagos_beneficiario` | sí | `configurado: false` y, por método (Pago Móvil, Transferencia), banco, teléfono o cuenta, RIF y titular «PENDIENTE DE CONFIGURAR» |
+| `checkout_activo`, `registro_activo` | sí | `true` (los interruptores los aplica la ola 2) |
+| `aviso_incidencia` | sí | `null` |
+| `soporte` | sí | WhatsApp, correo y horario «PENDIENTE DE CONFIGURAR» |
+| `cuotas_archivos` | no | 100 archivos por usuario y día, 300 MB por comercio y 300 MB por cuenta sin comercio |
+
+Solo el superadministrador los cambia (`tm_ajuste_guardar`, que ya pasa por
+`exigir_elevada`); el tipo de cada ajuste se conserva y cada cambio queda en
+la auditoría con el valor anterior y el nuevo.
+
+### Archivos
+
+Fotos de productos, documentos KYC, comprobantes, evidencias, guías… viven en
+Supabase Storage, en dos buckets que crea la migración (solo si el proyecto
+tiene Storage): `tumbo-publico` (público, imágenes de hasta 5 MB) y
+`tumbo-privado` (privado, hasta 15 MB). Cada archivo tiene un **propósito**
+que fija su bucket, su tamaño, sus tipos y quién lo sube o lo ve:
+
+| Propósito | Bucket | Máx. | Tipos | Sube | Ve además |
+| --- | --- | --- | --- | --- | --- |
+| `producto` | público | 5 MB | imágenes | seller u operador del comercio dueño del SKU (nuevo: entidad = su seller) | cualquiera |
+| `perfil` | público | 3 MB | imágenes | seller principal | cualquiera |
+| `kyc` | privado | 8 MB | imágenes y PDF | seller principal | superadmin |
+| `evidencia` | privado | 15 MB | imágenes, PDF y video MP4 | comprador y seller del reclamo o del pedido, ops y superadmin | — |
+| `comprobante` | privado | 5 MB | imágenes y PDF | comprador del pedido | finanzas y superadmin |
+| `guia`, `entrega` | privado | 5 / 8 MB | imágenes y PDF | seller u operador del pedido, ops y superadmin | el comprador |
+| `chat` | privado | 8 MB | imágenes y PDF | comprador, seller y operador del pedido | — |
+| `liquidacion` | privado | 5 MB | PDF e imágenes | finanzas y superadmin | el seller de la liquidación |
+
+El comercio solo alcanza los pedidos que ya ve (con el pago conciliado).
+El recorrido de una subida:
+
+1. el navegador (`TM.archivos.subir`) optimiza las imágenes: WebP, lado mayor
+   de 1600 px como máximo, calidad 0,82 y la orientación de la foto aplicada;
+2. la función `tumbo-archivos` llama a `tm_archivo_preparar`, que valida
+   permisos, tipo, tamaño y cuotas y decide la ruta
+   (`<propósito>/<seller o usuario>/<uuid>.<ext>`), y pide a Storage una URL
+   de subida firmada para esa ruta (no sobrescribe);
+3. el navegador sube con `PUT` a esa URL;
+4. `tm_archivo_confirmar` busca el objeto en `storage.objects` y lo deja
+   «listo» solo si su tamaño y su tipo reales están autorizados.
+
+Para ver un archivo privado, la función llama a `tm_archivo_acceso` y firma
+una URL de descarga de 5 minutos (`TM.archivos.ver(id)`). Cuotas contra el
+abuso del almacenamiento compartido (ajuste `cuotas_archivos`): archivos por
+usuario y día —en las cuentas demo, por usuario y red, con un respaldo por
+cuenta de diez veces— y MB en total por comercio o por cuenta sin comercio
+(lo pendiente cuenta una hora). `TM.archivos.selector(opciones)` pinta un
+selector listo (elegir archivo y, en el móvil, tomar foto; vista previa,
+progreso y quitar) que se activa solo tras cada pintado.
+
+La función **se despliega sin verificación de JWT**, porque autentica con la
+sesión de Tumbo (cabecera `x-tumbo-sesion`), no con Supabase Auth:
+
+```bash
+supabase functions deploy tumbo-archivos --no-verify-jwt
+```
+
+Usa las variables que Supabase da a toda función (`SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`); la clave de servicio solo
+firma URLs y nunca sale del servidor. Como sus llamadas a la API salen desde
+la red de la función, el tope de escrituras por red cuenta ahí todas las
+subidas; los topes por cuenta y las cuotas de archivos siguen siendo por
+persona. `tm_archivo_confirmar` lee `storage.objects` con los privilegios del
+dueño de las funciones (`postgres`, que en Supabase no pasa por RLS). Al
+reiniciar la demo se borran las filas de los adjuntos de pedidos, reclamos y
+liquidaciones (sus números se vuelven a usar); los objetos que queden en
+Storage ya no se pueden ver ni firmar, y `tools/retirar-tumbo.sql` los
+reconoce por su ruta.
+
+### Bandeja de mensajes salientes
+
+`tumbo.plantillas` tiene, por clave y canal (correo, WhatsApp, SMS), el
+asunto y el cuerpo con `{{variables}}`: bienvenida, verificación de correo y
+de teléfono, recuperación de contraseña, invitación, pago confirmado, pedido
+despachado, listo para retiro, pago por vencer, pedido por aceptar (seller),
+reclamo actualizado, reembolso enviado y liquidación pagada.
+`tumbo_privado.encolar(usuario, plantilla, datos)` rellena cada canal en un
+solo recorrido (en el correo, los datos escapados para HTML; en los demás,
+sin caracteres de control), manda el correo a la cuenta y WhatsApp/SMS solo
+si tiene teléfono, respeta `tumbo.preferencias_aviso` (salvo códigos,
+recuperación e invitaciones) y deja el mensaje `pendiente` en
+`tumbo.salida`. **Todavía no sale nada**: el envío por proveedor llega en la
+ola 2. Operaciones y el superadministrador ven la bandeja
+(`tm_salida_listar`) y la marcan a mano (`tm_salida_marcar`: `manual`,
+`enviado` o `descartado`, con nota y auditoría); los mensajes con códigos o
+enlaces de seguridad solo los lee y los da por enviados el superadministrador.
+
+### Reembolsos
+
+Cancelar un pedido ya conciliado, resolver un reclamo con reembolso o
+recibir una devolución crean un registro en `tumbo.reembolsos` (productos +
+envío, en bolívares con la tasa del pedido, estado `pendiente`) y avisan a
+Finanzas, en vez de solo avisar. El comprador ve los de sus pedidos y
+Finanzas todos con `tm_reembolsos`; enviarlos y conciliarlos es de la ola 1
+(Pagos).
+
+### Contacto, direcciones y destino
+
+`tumbo.usuarios` suma teléfono, cédula, correo y teléfono verificados y último
+acceso (el perfil del navegador lleva el teléfono y las verificaciones, no la
+cédula); `tumbo.direcciones` suma estado, parroquia, referencia y los datos
+del destinatario (cédula y teléfono), y `tumbo.pedidos.destino` guardará la
+foto de la dirección al crear el pedido (la llena la ola 1).
 
 ## Cambios de otros usuarios
 
@@ -227,13 +408,17 @@ Realtime: en un proyecto compartido delataría la actividad de Tumbo.
 ## Desplegar o actualizar
 
 1. Aplicar las migraciones en orden (SQL Editor, `supabase db push` o el
-   conector MCP). La cuarta siembra las cuentas demo y los datos.
-2. Poner la **Project URL** y la **publishable key** en
+   conector MCP). La cuarta siembra las cuentas demo y los datos; la de
+   fundaciones crea los buckets de Storage.
+2. Desplegar la función de archivos sin verificación de JWT:
+   `supabase functions deploy tumbo-archivos --no-verify-jwt`.
+3. Poner la **Project URL** y la **publishable key** en
    `assets/js/tm-config.js` y publicar.
-3. Verificar:
+4. Verificar:
 
    ```bash
    NODE_USE_ENV_PROXY=1 TM_SUPABASE_URL=… TM_SUPABASE_KEY=… node tools/verificar-rls.js
+   NODE_USE_ENV_PROXY=1 TM_NUBE=1 TM_SUPABASE_URL=… TM_SUPABASE_KEY=… node tools/api-fundaciones.js
    TM_NUBE=1 node tools/verificar-beta.js https://rengifojjrr.github.io/Marketplace
    ```
 
@@ -244,7 +429,7 @@ Realtime: en un proyecto compartido delataría la actividad de Tumbo.
    node tools/verificar-beta.js http://127.0.0.1:8099` (las llamadas a la API
    salen por el proceso de la prueba). Sin variables y con el sitio en local,
    `npm test` usa el modo local y no toca la nube.
-4. Publicar el sitio: GitHub Pages lo reconstruye desde `main`. Los push
+5. Publicar el sitio: GitHub Pages lo reconstruye desde `main`. Los push
    hechos con la credencial de una integración (como la de una sesión de
    Claude) no siempre disparan la publicación: si no aparece un nuevo
    «pages-build-deployment» en Actions, un commit hecho desde la web de
@@ -256,14 +441,30 @@ Realtime: en un proyecto compartido delataría la actividad de Tumbo.
 
 ## Probar en local sin la nube
 
+Cada equipo levanta su propio entorno, con su base y sus puertos (tabla de
+[PLAN-PRODUCCION.md](PLAN-PRODUCCION.md)):
+
 ```bash
-tools/supabase-local/iniciar.sh            # Postgres + PostgREST + pasarela (y Auth, que Tumbo no usa)
-python3 -m http.server 8099                # el sitio
-TM_SUPABASE_URL=http://127.0.0.1:54321 \
-TM_SUPABASE_KEY=$(node tools/supabase-local/pasarela.js --clave) \
-node tools/verificar-beta.js http://127.0.0.1:8099
-PGDATABASE=… tools/supabase-local/reaplicar.sh   # vuelve a aplicar las migraciones desde cero
+tools/supabase-local/levantar.sh tumbo3 54350 54351   # Postgres + base + migraciones + PostgREST + pasarela
+python3 -m http.server 8099 --bind 127.0.0.1          # el sitio
+K=$(node tools/supabase-local/pasarela.js --clave)
+NODE_PATH=$(npm root -g) TM_PGDATABASE=tumbo3 TM_SUPABASE_URL=http://127.0.0.1:54351 \
+  TM_SUPABASE_KEY=$K node tools/verificar-todo.js http://localhost:8099   # todo: API, navegador con backend y en local
+tools/supabase-local/levantar.sh parar 54350 54351    # detiene lo que levantó
+PGDATABASE=… tools/supabase-local/reaplicar.sh        # vuelve a aplicar las migraciones desde cero
 ```
+
+`levantar.sh` crea la base si no existe con lo que un proyecto Supabase trae
+por base (`tools/supabase-local/base.sql`: roles de la API, `extensions` con
+pgcrypto, privilegios y un esquema `storage` mínimo), aplica todas las
+migraciones y arranca PostgREST y la pasarela. La pasarela hace también de
+**Storage** (URL firmadas de subida y de descarga, objetos públicos; los
+archivos se guardan en `~/.cache/tumbo-supabase/storage/<base>` y su fila de
+`storage.objects` se escribe con psql) y de la **función `tumbo-archivos`**,
+con la misma lógica que la real. `TM_PGDATABASE` habilita en
+`tools/api-*.js` las comprobaciones por SQL de los contratos internos.
+`tools/supabase-local/iniciar.sh` sigue levantando el stack completo
+original (con Auth, que Tumbo no usa).
 
 El stack local usa el binario oficial de PostgREST y reproduce los roles y
 tiempos límite del proyecto. La pasarela pone `cf-connecting-ip` con la

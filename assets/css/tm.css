@@ -77,3 +77,14 @@ body { min-height: 100vh; }
 @keyframes tm-aparece { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .tm-cargando__giro { animation-duration: 2.4s; } }
 button[aria-busy="true"] { opacity: .65; cursor: progress; }
+
+/* --- Selector de archivos (tm-mod-archivos.js) ---------------------------- */
+/* lo que se oculta con el atributo hidden no lo reabre una clase de Tailwind */
+[data-tm-archivo] [hidden] { display: none !important; }
+[data-tm-archivo][aria-busy="true"] label { opacity: .65; pointer-events: none; }
+/* «Tomar foto» solo en pantallas táctiles (en el escritorio no hay cámara trasera) */
+.tm-solo-tactil { display: none; }
+@media (pointer: coarse) { .tm-solo-tactil { display: inline-flex; } }
+
+/* --- Códigos QR (tm-mod-qr.js) ------------------------------------------- */
+.tm-qr { display: block; max-width: 100%; height: auto; }

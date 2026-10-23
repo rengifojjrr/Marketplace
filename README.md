@@ -90,7 +90,9 @@ assets/js/
   tm-ui.js            Componentes compartidos
   tm-app.js           Armazones, navegación por rol y RBAC
   tm-vistas-*.js      Las vistas de cada superficie
+  tm-mod-*.js         Módulos por dominio (archivos, códigos QR…)
 supabase/migrations/  Esquema, RLS, funciones de negocio y semilla
+supabase/functions/   Función de archivos (firma subidas y descargas de Storage)
 prototipo/            El prototipo original de Google Stitch (referencia)
 docs/                 Investigación, especificación y arquitectura
 tools/                Generadores, fuentes, verificación E2E y Supabase local
@@ -104,13 +106,16 @@ npm run build         # recompila estilos y regenera las páginas
 npm test              # 24 pruebas E2E en Chromium sobre localhost:8000, en modo local (no toca la nube)
 npm run test:nube     # las mismas contra el sitio publicado (reinicia la demo compartida)
 npm run test:api      # permisos rol por rol contra la API (requiere backend)
+npm run test:todo     # todas las suites (API, navegador con backend y en local)
 ```
 
 Las páginas de `app/` son cascarones generados: **no se editan a mano**. El
-contenido vive en `assets/js/tm-vistas-*.js`.
+contenido vive en `assets/js/tm-vistas-*.js` y en los módulos
+`assets/js/tm-mod-*.js`; las páginas nuevas se declaran en `tools/paginas/`.
 
 Para trabajar contra el backend sin tocar la nube hay un Supabase mínimo en
-local (Postgres + Auth + PostgREST, sin Docker): ver
+local (Postgres + PostgREST + Storage y la función de archivos simulados, sin
+Docker; `tools/supabase-local/levantar.sh`): ver
 [docs/BACKEND.md](docs/BACKEND.md#probar-en-local-sin-la-nube).
 
 ## Documentación

@@ -89,7 +89,8 @@
   }
 
   function perfil(u) {
-    return u ? { uid: u.id, email: u.email, nombre: u.nombre, rol: u.rol, sellerId: u.sellerId, mfa: !!u.mfa } : null;
+    return u ? { uid: u.id, email: u.email, nombre: u.nombre, rol: u.rol, sellerId: u.sellerId, mfa: !!u.mfa,
+      telefono: u.telefono || null, correoVerificado: !!u.correoVerificado, telefonoVerificado: !!u.telefonoVerificado } : null;
   }
 
   /* Llamada cruda a una función. Si la sesión venció, se olvida aquí mismo
@@ -470,6 +471,26 @@
   }
 
   /* ---------------------------------------------------------------------
+     API de los módulos (tm-mod-*.js)
+     ------------------------------------------------------------------- */
+  /* Cualquier función tm_* con la sesión actual. Con opciones.recargar, la
+     caché se recarga después (como las acciones de arriba). Los errores
+     llegan como { error } con el mensaje del servidor. */
+  function api(nombre, params, opciones) {
+    if (!/^tm_[a-z0-9_]+$/.test(String(nombre))) return Promise.reject({ error: 'Función desconocida.' });
+    var llamada = llamar(nombre, Object.assign({ p_sesion: token() }, params || {}));
+    if (!opciones || !opciones.recargar) return llamada;
+    return llamada.then(function (dato) {
+      return refrescar('propio').then(function () { return dato; }, function () { return dato; });
+    });
+  }
+  /* Sin sesión: lecturas públicas (ajustes, catálogo…). */
+  function apiPublica(nombre, params) {
+    if (!/^tm_[a-z0-9_]+$/.test(String(nombre))) return Promise.reject({ error: 'Función desconocida.' });
+    return llamar(nombre, params || {});
+  }
+
+  /* ---------------------------------------------------------------------
      Instalación sobre TM
      ------------------------------------------------------------------- */
   var T = window.TM;
@@ -484,6 +505,12 @@
   T.confirmarMfa = confirmarMfa;
   T.mfaPendiente = mfaPendiente;
   T.puedeReiniciar = function (s) { return !!(s && s.rol === 'superadmin'); };
+  T.api = api;
+  T.apiPublica = apiPublica;
+  T.requiereServidor = function () { return false; };
+  /* Para los módulos que hablan con otras piezas del proyecto (p. ej. la
+     función de archivos): el token de sesión de este navegador. */
+  T._sesionToken = token;
   T.reiniciarDemo = function () { return rpc('tm_reiniciar_demo'); };
 
   T.misNotificaciones = misNotificaciones;

@@ -48,7 +48,7 @@
   /* =====================================================================
      Inicio
      ===================================================================== */
-  function vInicio() {
+  function vInicio(q, s) {
     var cat = TM.catalogoPublico();
     var destacados = cat.slice().sort(function (a, b) { return (b.resenas || 0) - (a.resenas || 0); }).slice(0, 8);
     var sellers = TM.estado.sellers.filter(function (s) { return s.estado === 'aprobado'; });
@@ -60,6 +60,8 @@
       '<a class="inline-flex items-center gap-2 min-h-[44px] px-5 rounded-btn bg-warning text-on-warning font-label-md text-label-md" href="' + href('app/tienda/resultados.html') + '">' +
       ic('search', 'text-[18px]') + 'Explorar el catálogo</a></div>' +
       ic('storefront', 'absolute -right-6 -bottom-8 text-[180px] text-white/5 hidden sm:block') + '</section>' +
+
+    APP.ganchos('inicio.secciones', { sesion: s, catalogo: cat }) +
 
     '<section class="mb-8"><div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">' +
       TM.estado.categorias.map(function (c) {
@@ -138,6 +140,8 @@
     var disponible = p.stockFis - p.stockRes;
     var catN = (TM.estado.categorias.find(function (c) { return c.id === p.categoria; }) || {}).nombre || p.categoria;
     var relacionados = TM.catalogoPublico().filter(function (x) { return x.categoria === p.categoria && x.sku !== p.sku; }).slice(0, 4);
+    var ctx = { producto: p, seller: vend, sesion: s, disponible: disponible };
+    var galeria = APP.ganchos('producto.galeria', ctx);
 
     return '' +
     '<nav class="font-body-sm text-body-sm text-on-surface-variant mb-3">' +
@@ -146,7 +150,7 @@
       '<span class="text-on-surface">' + esc(p.nombre) + '</span></nav>' +
 
     '<div class="grid lg:grid-cols-[1.1fr_1.3fr_360px] gap-6 items-start">' +
-      '<div>' + UI.imgProducto(p, 'w-full aspect-square object-cover') + '</div>' +
+      '<div>' + (galeria || UI.imgProducto(p, 'w-full aspect-square object-cover')) + '</div>' +
 
       '<div>' +
         '<h1 class="font-headline-md text-headline-md text-on-surface mb-1">' + esc(p.nombre) + '</h1>' +
@@ -163,6 +167,7 @@
 
       '<aside class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
         UI.precio(p.precioUsd, true) +
+        APP.ganchos('producto.compra', ctx) +
         '<p class="mt-3 font-body-sm text-body-sm text-tertiary font-semibold">' +
           (disponible > 0 ? 'Recíbelo el ' + TM.fechaCorta(2) + ' en ' + esc(TM.estado.config.ciudadEntrega) : 'Sin stock por ahora') + '</p>' +
         '<p class="font-body-sm text-body-sm ' + (disponible > 3 ? 'text-on-surface-variant' : 'text-error font-semibold') + ' mb-3">' +
@@ -183,6 +188,8 @@
         '<p class="flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant">' +
           ic('undo', 'text-[16px] mt-0.5') + 'Devolución dentro de los ' + TM.estado.config.ventanaReclamoDias + ' días posteriores a la entrega.</p>' +
       '</aside></div>' +
+
+    APP.ganchos('producto.secciones', ctx) +
 
     (relacionados.length ? '<section class="mt-10">' + tituloSeccion('Relacionados en ' + catN) +
       '<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">' + relacionados.map(UI.tarjetaProducto).join('') + '</div></section>' : '');
@@ -534,6 +541,7 @@
             (d.resolucion.decision === 'reembolso' ? 'reembolso total a tu favor.' : d.resolucion.decision === 'devolucion' ? 'devolución del producto.' : 'cerrado a favor del seller.') +
             (d.resolucion.nota ? ' ' + esc(d.resolucion.nota) : '') + '</p>' : '<p class="font-body-sm text-body-sm text-on-surface-variant mt-2">Operaciones está revisando el caso.</p>') +
           '</section>' : '') +
+        APP.ganchos('pedido.comprador', { pedido: p, disputa: d, sesion: s }) +
       '</div>' +
 
       '<aside class="space-y-4">' +
@@ -676,11 +684,17 @@
     var pedidos = TM.estado.pedidos.filter(function (p) { return p.compradorEmail === s.email; });
     var activos = pedidos.filter(function (p) { return ['entregado', 'cerrado', 'cancelado', 'reembolsado'].indexOf(p.estado) < 0; });
     var mosaicos = [
-      { t: 'Mis pedidos', d: activos.length + ' activo' + (activos.length === 1 ? '' : 's') + ' · ' + pedidos.length + ' en total', i: 'package_2', h: 'app/tienda/pedidos.html' },
-      { t: 'Direcciones', d: 'Entrega a domicilio y agencias', i: 'place', h: 'app/tienda/direcciones.html' },
-      { t: 'Seguridad', d: 'Contraseña y sesiones (demo)', i: 'lock', h: null },
-      { t: 'Notificaciones', d: 'Avisos de tus pedidos', i: 'notifications', h: null }
+      { id: 'pedidos', t: 'Mis pedidos', d: activos.length + ' activo' + (activos.length === 1 ? '' : 's') + ' · ' + pedidos.length + ' en total', i: 'package_2', h: 'app/tienda/pedidos.html' },
+      { id: 'direcciones', t: 'Direcciones', d: 'Entrega a domicilio y agencias', i: 'place', h: 'app/tienda/direcciones.html' },
+      { id: 'seguridad', t: 'Seguridad', d: 'Contraseña y sesiones (demo)', i: 'lock', h: null },
+      { id: 'notificaciones', t: 'Notificaciones', d: 'Avisos de tus pedidos', i: 'notifications', h: null }
     ];
+    /* los módulos agregan mosaicos (o reemplazan uno fijo con su mismo id) */
+    APP.navDe('cuenta', s).forEach(function (m) {
+      var nuevo = { id: m.id, t: m.texto, d: m.descripcion || '', i: m.icono || 'apps', h: m.href || null };
+      var fijo = m.id ? mosaicos.findIndex(function (x) { return x.id === m.id; }) : -1;
+      if (fijo >= 0) mosaicos[fijo] = nuevo; else mosaicos.push(nuevo);
+    });
     return tituloSeccion('Hola, ' + s.nombre.split(' ')[0]) +
       '<div class="grid sm:grid-cols-2 gap-3 max-w-3xl">' +
       mosaicos.map(function (m) {
@@ -688,7 +702,7 @@
           '<span><span class="block font-body-md text-body-md font-bold text-on-surface">' + esc(m.t) + '</span>' +
           '<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(m.d) + '</span></span>';
         return m.h
-          ? '<a class="flex items-center gap-3 rounded-card border border-outline-variant bg-surface-container-lowest p-4 hover:border-secondary hover:shadow-nivel-2 transition" href="' + href(m.h) + '">' + inner + '</a>'
+          ? '<a class="flex items-center gap-3 rounded-card border border-outline-variant bg-surface-container-lowest p-4 hover:border-secondary hover:shadow-nivel-2 transition" href="' + esc(/^https?:/.test(m.h) ? m.h : href(m.h)) + '">' + inner + '</a>'
           : '<button data-demo-mosaico class="flex items-center gap-3 rounded-card border border-outline-variant bg-surface-container-lowest p-4 text-left hover:border-secondary transition">' + inner + '</button>';
       }).join('') + '</div>';
   }

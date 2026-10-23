@@ -776,6 +776,14 @@
     guardar();
   }
 
+  /* Lo nuevo de la plataforma (funciones tm_* de los módulos) solo existe en
+     el servidor: en modo local se avisa en vez de simularlo. */
+  function sinServidor() {
+    var e = new Error('Esta función necesita el servidor de Tumbo.');
+    e.error = e.message;
+    return Promise.reject(e);
+  }
+
   /* ---------------------------------------------------------------------
      API pública
      ------------------------------------------------------------------- */
@@ -792,6 +800,12 @@
     refrescar: function () { avisar('propio'); return Promise.resolve(); },
     puedeReiniciar: function () { return true; },
     reiniciarDemo: asincrona(reiniciarDemo),
+
+    /* API de los módulos: en local no hay servidor (tm-remoto.js las reemplaza) */
+    api: sinServidor,
+    apiPublica: sinServidor,
+    requiereServidor: function () { return true; },
+    _sesionToken: function () { return null; },
 
     sesion: sesion,
     acceder: asincrona(acceder),
