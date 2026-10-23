@@ -202,30 +202,34 @@
           L.fila('Paga el envío', esc({ seller: 'el comercio', comprador: 'el comprador', tumbo: 'Tumbo' }[d.devolucion.paga] || d.devolucion.paga)) +
           L.fila('Guía de vuelta', d.devolucion.guia ? esc(d.devolucion.courier + ' · ' + d.devolucion.guia) : '—') +
           L.fila('Inspección', d.devolucion.inspeccion ? esc(d.devolucion.inspeccion + (d.devolucion.inspeccion_nota ? ' · ' + d.devolucion.inspeccion_nota : '')) : '—') + '</dl>' +
-          '<p class="font-body-sm text-body-sm text-on-surface-variant mt-2">' + esc(d.devolucion.instrucciones) + '</p>') : '') +
+          '<p class="font-body-sm text-body-sm text-on-surface-variant mt-2">' + esc(d.devolucion.instrucciones || '') + '</p>') : '') +
         (d.incidencias.length ? L.tarjeta('Incidencias', '<ul class="space-y-2">' + d.incidencias.map(function (i) {
           return '<li class="flex flex-wrap items-start justify-between gap-2 font-body-sm text-body-sm border-b border-outline-variant pb-2 last:border-0">' +
             '<span class="min-w-0"><strong>' + esc(i.nombre) + '</strong> · ' + esc(i.por || '') + ' · ' + esc(L.fechaHora(i.creado)) + ' ' +
             (i.estado === 'abierta' ? L.chip('abierta', 'ambar') : L.chip('resuelta', 'verde')) +
             '<span class="block text-on-surface-variant break-words">' + esc(i.detalle || '') + (i.resolucion ? ' → ' + esc(i.resolucion) : '') + '</span></span>' +
-            (i.estado === 'abierta' ? btn('Resolver', { attr: 'data-resolver-incidencia="' + i.id + '"' }) : '') + '</li>';
+            (i.estado === 'abierta' && !d.bloqueado ? btn('Resolver', { attr: 'data-resolver-incidencia="' + i.id + '"' }) : '') + '</li>';
         }).join('') + '</ul>') : '') +
         L.tarjeta('Línea de tiempo', '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Une los eventos que ven el comprador y el comercio con lo interno del equipo (marcado «interno»).</p>' + L.linea(linea), ' data-linea-360') +
       '</div>' +
       '<aside class="space-y-4">' +
         '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 space-y-2" data-acciones-360>' +
           '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Acciones</h2>' +
-          (acciones || '<p class="font-body-sm text-body-sm text-on-surface-variant">No hay acciones pendientes en este estado.</p>') + '</div>' +
+          (d.bloqueado
+            ? '<p class="flex items-start gap-1.5 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2" data-360-bloqueado>' +
+              ic('lock', 'text-[16px] mt-0.5 shrink-0') + 'Es el pedido de una persona o un comercio real: con una cuenta de prueba solo lo consultas (sin lo que escribió el equipo real). ' +
+              'Lo gestiona una cuenta real del equipo con verificación en dos pasos.</p>'
+            : (acciones || '<p class="font-body-sm text-body-sm text-on-surface-variant">No hay acciones pendientes en este estado.</p>')) + '</div>' +
         '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
           '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Responsable</h2>' +
-          '<select data-responsable class="' + L.CLASE_SELECT + '"><option value="">Sin asignar</option>' + d.responsables.map(function (r) {
+          '<select data-responsable' + (d.bloqueado ? ' disabled' : '') + ' class="' + L.CLASE_SELECT + '"><option value="">Sin asignar</option>' + d.responsables.map(function (r) {
             return '<option value="' + esc(r.id) + '"' + (r.id === e.responsable_id ? ' selected' : '') + '>' + esc(r.nombre) + (r.id === s.uid ? ' (tú)' : '') + '</option>';
           }).join('') + '</select></div>' +
         '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
           '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Notas internas</h2>' +
-          '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">No las ven el comprador ni el comercio.</p>' +
-          '<form data-nota class="mb-3"><textarea name="texto" rows="2" maxlength="1000" class="' + L.CLASE_AREA + '" placeholder="Ej.: llamé al courier, confirman entrega mañana"></textarea>' +
-          '<div class="mt-2">' + btn('Agregar nota', { estilo: 'primario', icono: 'sticky_note_2', tipo: 'submit' }) + '</div></form>' +
+          '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">No las ven el comprador ni el comercio' + (d.bloqueado ? ' ni las cuentas de prueba' : '') + '.</p>' +
+          (d.bloqueado ? '' : '<form data-nota class="mb-3"><textarea name="texto" rows="2" maxlength="1000" class="' + L.CLASE_AREA + '" placeholder="Ej.: llamé al courier, confirman entrega mañana"></textarea>' +
+          '<div class="mt-2">' + btn('Agregar nota', { estilo: 'primario', icono: 'sticky_note_2', tipo: 'submit' }) + '</div></form>') +
           (d.notas.length ? '<ul class="space-y-2" data-notas>' + d.notas.map(function (n) {
             return '<li class="font-body-sm text-body-sm border-b border-outline-variant pb-2 last:border-0"><span class="block break-words">' + esc(n.texto) + '</span>' +
               '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(n.autor) + ' · ' + esc(L.fechaHora(n.creado)) + '</span></li>';

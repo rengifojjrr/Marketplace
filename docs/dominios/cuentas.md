@@ -17,7 +17,7 @@ invitaciones), `tm-mod-cuentas-acceso.js` (contraseña nueva e invitación) y
 | Comprador | Mi cuenta (`tienda/cuenta`): perfil (nombre, cédula, teléfono +58), verificar correo y teléfono con código, cambiar la contraseña, 2FA con TOTP, sesiones por dispositivo y baja de la cuenta. Libreta de direcciones completa (`tienda/direcciones`). |
 | Seller principal | Mi cuenta (`seller/cuenta`, 2FA obligatoria para lo sensible) y su equipo (`seller/equipo`): invitar gestores de precios y operadores, quitar el acceso, dar a un operador el permiso de cambiar precios. |
 | Gestor de precios, operador | Mi cuenta (`seller/cuenta`). |
-| Operaciones | Mi cuenta (`admin/cuenta`) y consulta de compradores en `admin/usuarios` (nunca ve al personal interno ni a los comercios); con el permiso `usuarios` (y su 2FA) además bloquea y desbloquea compradores (con motivo), cierra sus sesiones y deja en su bandeja un enlace de recuperación (no lo recibe: lo envía el superadministrador). |
+| Operaciones | Mi cuenta (`admin/cuenta`, 2FA obligatoria para lo sensible desde la revisión de la integración) y consulta de compradores en `admin/usuarios` (nunca ve al personal interno ni a los comercios); con el permiso `usuarios` (y su 2FA) además bloquea y desbloquea compradores (con motivo), cierra sus sesiones y deja en su bandeja un enlace de recuperación (no lo recibe: lo envía el superadministrador). |
 | Finanzas | Mi cuenta (`admin/cuenta`, 2FA obligatoria para lo sensible). |
 | Superadministrador | Todo lo anterior en `admin/usuarios`, para cualquier cuenta: buscar por correo, nombre, teléfono, cédula o identificador; ficha con sesiones (cerrar una o todas), bloquear o desbloquear con motivo, enlace de recuperación (lo recibe para enviarlo a mano), quitar la 2FA a quien perdió el teléfono, cambiar el rol del personal interno, permisos finos, **baja administrativa** (con motivo); invitar personal interno o un comercio nuevo. |
 
@@ -261,7 +261,8 @@ elevada: pedir el código y repetir) y `42501` (rol, o la 2FA no está activa).
 
 - **`tumbo_privado.exigir_elevada(p_yo)`**: rechaza siempre las cuentas demo
   (`42501`, mismo mensaje que en la ola 0); los roles con 2FA obligatoria
-  (superadmin, finanzas, seller principal) necesitan tenerla activa
+  (superadmin, finanzas, seller principal y, desde la revisión de la
+  integración, operaciones: `rol_obliga_2fa`) necesitan tenerla activa
   (`42501`); con la 2FA activa, la sesión de la llamada debe estar elevada
   (`TMELV`). Los demás roles sin 2FA pasan. La sesión de la llamada la anota
   `tumbo_privado.usuario()` en el ajuste de la transacción
@@ -438,3 +439,26 @@ checkout de Pagos propone la predeterminada también en modo local, y
 En el navegador, `TM.api` pide el código ante un `TMELV` de cualquier
 dominio y `conElevacion` le da el nombre de la acción.
 Sigue pendiente que los demás dominios consulten `tiene_permiso`.
+
+**Revisión de la integración** (corregido antes de desplegar, al final de la
+misma migración): Operaciones tiene la 2FA obligatoria (`rol_obliga_2fa`:
+sin ella `exigir_elevada` no le pedía nada, p. ej. al cambiar el enlace de
+rastreo de un courier); `baja_impedida` también impide la baja con un pago
+por pagar o reportado, o reportado y vencido hace menos de 60 días sin
+resolverse (al verificarlo nacería un reembolso para una cuenta sin
+dueña); `anonimizar_cuenta` (baja propia y administrativa) borra además lo
+que guardan los otros dominios de sus compras: el destino de sus pedidos
+queda en la ciudad y el estado, de sus pagos se borran la cédula, el
+teléfono, el correo y el titular del pagador, de sus reembolsos el destino
+(queda el banco), y su nombre en la línea de tiempo de pedidos y pagos, en
+sus cancelaciones y en el historial de sus reembolsos queda «Comprador»
+(se conservan los montos, la referencia del pago y los datos fiscales de
+las facturas que pidió; el aviso de la baja lo dice); la invitación de un
+comercio nuevo valida el dígito verificador del RIF (`normalizar_rif`
+usa `rif_normalizado` de Catálogo). Nueva vista **`admin/bandeja`**
+(superadmin y operaciones, en `tm-mod-cuentas-admin.js`): la bandeja de
+salida sobre `tm_salida_listar` / `tm_salida_marcar`, con copiar, abrir el
+correo o WhatsApp (`wa.me`) y marcar enviado; los códigos y enlaces de
+seguridad solo los ve y los envía el superadministrador real. Los textos
+de verificación y recuperación dicen que el código o el enlace queda en la
+bandeja y lo envía el equipo a mano.

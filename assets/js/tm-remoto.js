@@ -282,7 +282,11 @@
         desdeIso: r.desde || null, kycVerificado: !!r.kyc_verificado, horario: r.horario || '', politicas: r.politicas || '',
         logo: urlPublica(r.logo_url), portada: urlPublica(r.portada_url),
         razonSocial: k.razon_social || '', direccionFiscal: k.direccion_fiscal || '', ciudadDespacho: k.ciudad_despacho || '',
-        telefono: k.telefono || '', expediente: k.expediente || null, enviado: fecha(k.enviado)
+        telefono: k.telefono || '', expediente: k.expediente || null, enviado: fecha(k.enviado),
+        /* a una cuenta de prueba no le llega el expediente de un comercio real (expediente_visible) */
+        expedienteOculto: !!(s && s.demo && ['superadmin', 'finanzas'].indexOf(s.rol) >= 0) && !kyc[r.id],
+        /* comercio real ante una cuenta de prueba del equipo: el servidor rechaza moderarlo */
+        bloqueado: !!r.bloqueado
       };
     });
 
@@ -322,8 +326,11 @@
         id: r.id, pedidoId: r.pedido_id, compradorEmail: s && r.mio ? s.email : null,
         sellerId: r.seller_id, motivo: r.motivo, descripcion: r.descripcion, evidencia: r.evidencia || [],
         montoUsd: num(r.monto_usd), estado: r.estado, creado: fecha(r.creado),
-        respuestaSeller: r.respuesta_texto ? { texto: r.respuesta_texto, evidencia: r.respuesta_evidencia || [], fecha: fecha(r.respuesta_fecha) } : null,
-        resolucion: r.resolucion_decision ? { decision: r.resolucion_decision, nota: r.resolucion_nota || '', fecha: fecha(r.resolucion_fecha) } : null
+        respuestaSeller: r.respuesta_texto ? { texto: r.respuesta_texto, evidencia: r.respuesta_evidencia || [], fecha: fecha(r.respuesta_fecha) }
+          : r.bloqueado && r.respuesta_fecha ? { texto: '(Respuesta del comercio oculta a las cuentas de prueba.)', evidencia: [], fecha: fecha(r.respuesta_fecha) } : null,
+        resolucion: r.resolucion_decision ? { decision: r.resolucion_decision, nota: r.resolucion_nota || '', fecha: fecha(r.resolucion_fecha) } : null,
+        /* el reclamo de una persona o un comercio real ante una cuenta de prueba del equipo: sin acciones */
+        bloqueado: !!r.bloqueado
       };
     });
 
@@ -429,13 +436,12 @@
   /* ---------------------------------------------------------------------
      Acciones
      ------------------------------------------------------------------- */
-  /* Función de negocio con la sesión actual; al terminar, recarga la caché. */
-  function rpc(nombre, params) {
-    var p = Object.assign({ p_sesion: token() }, params || {});
-    /* la acción ya se hizo: si la recarga falla, el sondeo la traerá */
-    return llamar(nombre, p).then(function (dato) {
-      return refrescar('propio').then(function () { return dato; }, function () { return dato; });
-    });
+  /* Función de negocio con la sesión actual; al terminar, recarga la caché
+     (la acción ya se hizo: si la recarga falla, el sondeo la traerá). Pasa
+     por api(): si el servidor pide la sesión elevada (TMELV: KYC, dinero de
+     un pedido real…), se pide el código y se repite, como en los módulos. */
+  function rpc(nombre, params, accion) {
+    return api(nombre, params, { recargar: true, accion: accion });
   }
 
   var TOPE_UNIDADES = 10;
@@ -601,7 +607,7 @@
   /* Para los módulos que hablan con otras piezas del proyecto (p. ej. la
      función de archivos): el token de sesión de este navegador. */
   T._sesionToken = token;
-  T.reiniciarDemo = function () { return rpc('tm_reiniciar_demo'); };
+  T.reiniciarDemo = function () { return rpc('tm_reiniciar_demo', {}, 'Reiniciar la demo'); };
 
   T.misNotificaciones = misNotificaciones;
   /* Historial completo de auditoría (200 por página, del más nuevo al más
@@ -629,15 +635,15 @@
       p_metodo: d.metodo, p_ref: d.ref, p_total_usd: Math.round(subtotal * 100) / 100
     });
   };
-  T.conciliarPago = function (id) { return rpc('tm_conciliar_pago', { p_id: id }); };
+  T.conciliarPago = function (id) { return rpc('tm_conciliar_pago', { p_id: id }, 'Conciliar el pago'); };
   T.conciliarPagos = conciliarPagos;
-  T.rechazarPago = function (id, motivo) { return rpc('tm_rechazar_pago', { p_id: id, p_motivo: motivo || null }); };
+  T.rechazarPago = function (id, motivo) { return rpc('tm_rechazar_pago', { p_id: id, p_motivo: motivo || null }, 'Rechazar el pago'); };
   T.aceptarPedido = function (id) { return rpc('tm_aceptar_pedido', { p_id: id }); };
   T.marcarListo = function (id, peso) { return rpc('tm_marcar_listo', { p_id: id, p_peso: parseFloat(peso) || null }); };
   T.despachar = function (id) { return rpc('tm_despachar', { p_id: id }); };
   T.confirmarEntrega = function (id) { return rpc('tm_confirmar_entrega', { p_id: id }); };
   T.cancelarPedido = function (id, motivo) { return rpc('tm_cancelar_pedido', { p_id: id, p_motivo: motivo || null }); };
-  T.cerrarVentana = function (id) { return rpc('tm_cerrar_ventana', { p_id: id }); };
+  T.cerrarVentana = function (id) { return rpc('tm_cerrar_ventana', { p_id: id }, 'Cerrar la ventana de reclamo'); };
 
   T.abrirDisputa = function (pedidoId, d) {
     return rpc('tm_abrir_disputa', { p_pedido: pedidoId, p_motivo: d.motivo, p_descripcion: d.descripcion, p_evidencia: d.evidencia || [] });
@@ -646,12 +652,12 @@
     return rpc('tm_responder_disputa', { p_id: id, p_texto: texto, p_evidencia: evidencia || [] });
   };
   T.resolverDisputa = function (id, decision, nota) {
-    return rpc('tm_resolver_disputa', { p_id: id, p_decision: decision, p_nota: nota || null });
+    return rpc('tm_resolver_disputa', { p_id: id, p_decision: decision, p_nota: nota || null }, 'Resolver el reclamo');
   };
-  T.cerrarDevolucion = function (id, recibida) { return rpc('tm_cerrar_devolucion', { p_id: id, p_recibida: !!recibida }); };
+  T.cerrarDevolucion = function (id, recibida) { return rpc('tm_cerrar_devolucion', { p_id: id, p_recibida: !!recibida }, 'Cerrar la devolución'); };
   /* La corrida liquida exactamente los pedidos que se mostraron. */
   T.ejecutarLiquidacion = function (sellerId, pedidos) {
-    return rpc('tm_ejecutar_liquidacion', { p_seller: sellerId, p_pedidos: pedidos || [] });
+    return rpc('tm_ejecutar_liquidacion', { p_seller: sellerId, p_pedidos: pedidos || [] }, 'Preparar la liquidación');
   };
 
   T.guardarProducto = guardarProducto;
@@ -664,7 +670,7 @@
     return rpc('tm_moderar_producto', { p_sku: sku, p_aprobar: !!aprobar, p_motivo: motivo || null });
   };
   T.decidirKyc = function (id, decision, motivo) {
-    return rpc('tm_decidir_kyc', { p_seller: id, p_decision: decision, p_motivo: motivo || null });
+    return rpc('tm_decidir_kyc', { p_seller: id, p_decision: decision, p_motivo: motivo || null }, 'Decidir la homologación');
   };
 
   T.agregarDireccion = function (d) { return rpc('tm_direccion_agregar', { p_datos: d }); };

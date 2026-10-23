@@ -551,10 +551,13 @@
         retenidos.map(function (p) {
           return td(mono(p.id)) + td(esc(TM.seller(p.sellerId).nombre)) + td(esc(p.entregadoEl || '—')) +
             td(mono(TM.fmtUsd(brutoLocal(p)))) +
-            td(btn('Cerrar ventana (demo)', { icono: 'lock_open', attr: 'data-cerrar-ventana="' + esc(p.id) + '"' }), 'text-right');
+            td(btn(TM.modo === 'remoto' ? 'Cerrar ventana' : 'Cerrar ventana (demo)', { icono: 'lock_open', attr: 'data-cerrar-ventana="' + esc(p.id) + '"' }), 'text-right');
         }))
       : '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Ninguna: todos los pedidos entregados cerraron su ventana.</p>') +
-      '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1 mb-6">En producción la ventana se cierra sola a los ' + e.config.ventanaReclamoDias + ' días; en la beta puedes cerrarla a mano para avanzar el recorrido.</p>';
+      '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1 mb-6">' + (TM.modo === 'remoto'
+        ? 'La ventana se cierra sola a los ' + e.config.ventanaReclamoDias + ' días de la entrega (lo hace la revisión de SLA). La de un pedido de la demo puedes cerrarla antes para avanzar el recorrido; ' +
+          'la de una persona o un comercio real, solo cuando venció y con una cuenta real del equipo (el comprador conserva su plazo para reclamar).'
+        : 'En producción la ventana se cierra sola a los ' + e.config.ventanaReclamoDias + ' días; en la beta puedes cerrarla a mano para avanzar el recorrido.') + '</p>';
   }
 
   function vLiquidacionesLocal() {
@@ -900,7 +903,7 @@
     'banco:VES': 'Banco (bolívares)', 'banco:USD': 'Banco (dólares, Zelle)', 'banco:USDT': 'Billetera USDT', 'caja:USD': 'Caja (efectivo en dólares)',
     por_pagar_seller: 'Por pagar a sellers', ingreso_comision: 'Ingresos por comisión y tarifas', igtf_por_pagar: 'IGTF por pagar',
     descuentos_tumbo: 'Descuentos asumidos por Tumbo', reembolsos_por_pagar: 'Reembolsos por pagar', credito_clientes: 'Crédito de clientes',
-    ajustes_seller: 'Ajustes a sellers', diferencial_cambiario: 'Diferencial cambiario'
+    ajustes_seller: 'Ajustes a sellers', diferencial_cambiario: 'Diferencial cambiario', ingreso_envios: 'Ingresos por envíos (retenidos por Tumbo)'
   };
   var EXPORTS = [['pagos', 'Pagos'], ['conciliaciones', 'Conciliaciones'], ['liquidaciones', 'Liquidaciones'], ['comisiones', 'Comisiones'],
     ['reembolsos', 'Reembolsos'], ['libro_ventas', 'Libro de ventas'], ['asientos', 'Asientos del libro mayor']];

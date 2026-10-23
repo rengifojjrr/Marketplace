@@ -90,6 +90,7 @@ tools/verificar-rls.js                 permisos rol por rol contra la API
 tools/api-*.js                         reglas y permisos de cada dominio por la API
 tools/verificar-beta.js                recorridos completos en navegador
 tools/e2e-*.js                         pruebas en navegador de cada dominio (arnés: tools/e2e-comun.js)
+tools/reinicio-comun.js                reinicio de la demo en las pruebas (con datos reales, con una cuenta real de pruebas)
 tools/verificar-todo.js                todas las suites, con las mismas variables
 ```
 
@@ -206,7 +207,7 @@ tools/verificar-todo.js                todas las suites, con las mismas variable
    vaciar eventos (también al reiniciar la demo).
 7. **Segundo factor** (ola 1, Cuentas): TOTP (RFC 6238) verificado en
    Postgres, con el secreto cifrado y códigos de respaldo; obligatorio para
-   superadmin, finanzas y el seller principal en lo sensible. Lo que no
+   superadmin, finanzas, Operaciones y el seller principal en lo sensible. Lo que no
    admite marcha atrás pide **sesión elevada**
    (`tumbo_privado.exigir_elevada`: el código confirmado en los últimos 10
    minutos), que rechaza siempre a las cuentas de prueba —su contraseña y su
@@ -218,6 +219,11 @@ tools/verificar-todo.js                todas las suites, con las mismas variable
    los dominios): ni sus mensajes (bandeja), ni su expediente KYC, ni sus
    datos de pago o de reembolso, ni el destino de sus pedidos (lectura
    general, 360, etiquetas, recibo), ni sus asientos en la auditoría.
+   Tampoco **actúan** sobre ellas: una cuenta de prueba del equipo no
+   resuelve el reclamo, cierra la devolución o la ventana, cancela, confirma
+   la entrega ni modera los productos de una persona o un comercio real
+   (`tumbo_privado.exigir_cuenta_real` y `exigir_si_real`); esos pedidos,
+   reclamos y comercios le llegan con `bloqueado` y sin el detalle.
 9. **Defensa en profundidad**: RLS activo y sin políticas en todas las tablas
    de `tumbo`; aunque alguien expusiera el esquema por error, ninguna fila
    sería legible.
@@ -235,14 +241,15 @@ tools/verificar-todo.js                todas las suites, con las mismas variable
 | `tm_aceptar_pedido` · `tm_marcar_listo` · `tm_despachar` | seller, operador | preparación y salida; el despacho descuenta el stock (con courier, la guía es obligatoria: `tm_despachar_guia`) |
 | `tm_confirmar_entrega` | comprador (ops y superadmin, con la foto de la prueba: `tm_entrega_confirmar`) | abre la ventana de reclamo, fondos retenidos; no con un reclamo abierto |
 | `tm_cancelar_pedido` | comprador | antes de que el comercio acepte, al momento (libera la reserva); ya aceptado, como solicitud al comercio |
-| `tm_abrir_disputa` · `tm_responder_disputa` · `tm_resolver_disputa` | comprador · seller · superadmin y ops | reclamo con fondos congelados hasta la decisión |
+| `tm_abrir_disputa` · `tm_responder_disputa` · `tm_resolver_disputa` | comprador · seller · superadmin y ops | reclamo con fondos congelados hasta la decisión (la de un pedido real, una cuenta real con sesión elevada) |
 | `tm_cerrar_devolucion(pedido, recibida)` | superadmin, ops | devolución recibida (reembolso, y stock si llegó apta: después de la inspección) o no (fondos al seller) |
-| `tm_cerrar_ventana` · `tm_ejecutar_liquidacion(seller, pedidos)` | superadmin, finanzas | fondos elegibles → **prepara** la corrida (la aprueba otra persona y se paga después; la de un comercio real, con sesión elevada) |
+| `tm_cerrar_ventana` | superadmin, finanzas | adelanta el cierre de la ventana de reclamo en la demo; la de un pedido real solo se cierra al vencer (sola, en `tarea_sla`, o a mano con sesión elevada) |
+| `tm_ejecutar_liquidacion(seller, pedidos)` | superadmin, finanzas | fondos elegibles → **prepara** la corrida (la aprueba otra persona y se paga después; la de un comercio real, con sesión elevada) |
 | `tm_guardar_producto` · `tm_pausar_producto` | seller, operador | alta, edición, revisión, pausa |
 | `tm_ajustar_producto` | precio: seller, precios · stock: seller, operador | edición en línea |
 | `tm_moderar_producto` · `tm_decidir_kyc` | superadmin (el KYC, con sesión elevada) | publicación y homologación |
 | `tm_marcar_notificaciones_leidas` | con sesión | lectura individual de avisos |
-| `tm_reiniciar_demo` | superadmin | vuelve los datos de negocio a la semilla (cuentas, ajustes y auditoría se conservan; los reembolsos y los mensajes de pedidos se van con ellos y todos los archivos se descartan) |
+| `tm_reiniciar_demo` | superadmin (si hay datos de personas o comercios reales, solo una cuenta real con sesión elevada) | vuelve los datos de negocio a la semilla (cuentas, ajustes, auditoría y las direcciones de las personas reales se conservan; los reembolsos y los mensajes de pedidos se van con ellos y todos los archivos se descartan); la auditoría dice qué datos reales borró |
 | `tm_ajustes_publicos()` | cualquiera | los ajustes públicos `{clave: valor}` (interruptores, aviso de incidencia, soporte, datos de cobro) |
 | `tm_ajuste_guardar(sesión, clave, valor)` | superadmin con sesión elevada (nunca una cuenta de prueba) | cambia un ajuste existente con su tipo (null solo en los vaciables); auditado con el valor anterior y el nuevo |
 | `tm_archivo_preparar(sesión, propósito, entidad, tipo, bytes, nombre)` | según el propósito | valida permisos, tipo, tamaño y cuotas, y registra la subida: `{id, bucket, ruta}` |
@@ -301,7 +308,45 @@ equipo le pidió a otro (no agrega funciones `public.tm_*`):
   fija (la promesa es de Logística); en Disputas, la devolución lleva al
   detalle 360 para registrar la inspección antes del reembolso.
 
-Pruebas: `tools/api-integracion.js` (con `TM_PGDATABASE`).
+#### Revisión de la integración
+
+Lo que corrigió la revisión de la integración, en la misma migración:
+
+- **Las cuentas de prueba no actúan sobre lo real**: `seller_real` es un
+  solo contrato (un comercio con alguna cuenta que no es de prueba) y
+  `pedido_real` (comprador o comercio real) decide. Resolver reclamos,
+  cerrar devoluciones y ventanas, cancelar como Operaciones, confirmar la
+  entrega y moderar productos piden una cuenta real (con sesión elevada si
+  el pedido es real); `tm_cargar` y `tm_pedido_360` entregan esos reclamos,
+  comercios y pedidos con `bloqueado` y sin notas, evidencias, fotos ni
+  responsables, y la línea de tiempo nombra «Comprador», no a la persona.
+  Operaciones tiene la 2FA obligatoria.
+- **Ventana de reclamo**: la de un pedido real no se adelanta; la cierra
+  `tarea_sla` al vencer (`ventanas_cerradas` en el resumen).
+- **Dinero**: un pago reportado y vencido que llega tarde queda atado al
+  movimiento del banco (`movimientos_banco.reembolso_id`), así no se
+  reembolsa dos veces ni se acepta como tardío uno ya devuelto; la
+  liquidación pasa a `ingreso_envios` el envío que Tumbo cobró y retiene;
+  la baja la impide también un pago propio sin verificar.
+- **Stock**: cancelar por quiebre, daño o falta de stock baja también el
+  físico y lo registra en el kardex.
+- **Datos personales**: la baja borra además el destino del pedido, el
+  pagador, los destinos de reembolso y el nombre en las líneas de tiempo; el
+  reinicio con datos reales lo pide una cuenta real (dice qué borra) y
+  conserva las direcciones de las personas reales.
+- **RIF**: se guarda normalizado y se rechaza con su motivo (letra, 8
+  números, dígito verificador).
+- **En el navegador**: Administración tiene la bandeja de mensajes
+  salientes (`admin/bandeja.html`); el panel del seller muestra sus
+  métricas reales de envío; los reclamos adjuntan evidencias reales
+  (`TM.archivos`); Disputas muestra el reembolso total con el envío; el
+  expediente y la moderación de un comercio real quedan reservados para
+  una cuenta de prueba.
+
+Pruebas: `tools/api-integracion.js` (con `TM_PGDATABASE`) y
+`tools/e2e-integracion.js`. Como las suites con `TM_PGDATABASE` crean datos
+reales, reinician la demo con `tools/reinicio-comun.js` (una cuenta real de
+pruebas con la 2FA, que se desactiva al terminar).
 
 ## Arquitectura modular y contratos
 

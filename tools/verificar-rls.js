@@ -13,6 +13,7 @@
  *
  * Desde un entorno con proxy: NODE_USE_ENV_PROXY=1 node tools/verificar-rls.js
  */
+const R = require('./reinicio-comun');
 const URL_BASE = process.env.TM_SUPABASE_URL;
 const CLAVE = process.env.TM_SUPABASE_KEY;
 if (!URL_BASE || !CLAVE) { console.error('Faltan TM_SUPABASE_URL y TM_SUPABASE_KEY'); process.exit(2); }
@@ -75,7 +76,7 @@ async function registrarComprador(rpc, datos) {
   const s = {};
   for (const [rol, email] of Object.entries(CUENTAS)) s[rol] = await sesion(email);
 
-  const r0 = await rpc('tm_reiniciar_demo', { p_sesion: s.superadmin });
+  const r0 = await R.reiniciar(rpc, s.superadmin);
   ok(r0.ok, 'superadmin reinicia la demo', r0.texto);
   s.ops2 = await sesion(CUENTAS.ops);
   const stockCaucho = (await rpc('tm_cargar', { p_sesion: s.superadmin })).dato.productos.find((p) => p.sku === 'SKU-MOT-0832').stock_fis;
@@ -267,7 +268,7 @@ async function registrarComprador(rpc, datos) {
   const a4 = await rpc('tm_cargar', { p_sesion: s.ops });
   ok(a3.ok && a4.dato && a4.dato.sesion_invalida, 'cerrar sesión invalida el token');
 
-  const r9 = await rpc('tm_reiniciar_demo', { p_sesion: s.superadmin });
+  const r9 = await R.reiniciar(rpc, s.superadmin);
   ok(r9.ok, 'la demo queda reiniciada', r9.texto);
 
   console.log('');

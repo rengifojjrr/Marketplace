@@ -58,9 +58,14 @@
         '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">2 · Cuéntanos y adjunta evidencia</h2>' +
         '<textarea data-desc rows="3" placeholder="Describe el problema con el mayor detalle posible…" class="w-full px-3 py-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"></textarea>' +
         '<p data-err-desc class="hidden mt-1 font-body-sm text-body-sm text-error"></p>' +
-        '<div class="flex flex-wrap items-center gap-2 mt-3">' +
-        btn('Adjuntar foto (demo)', { icono: 'photo_camera', attr: 'data-adjuntar' }) +
-        '<span data-adjuntos class="font-body-sm text-body-sm text-on-surface-variant">Sin archivos adjuntos</span></div>' +
+        /* con servidor, la evidencia sube de verdad (propósito «evidencia»,
+           del pedido); sin él, la demo solo anota el nombre */
+        (TM.modo === 'remoto' && TM.archivos
+          ? '<div data-evidencias class="mt-3"><p data-adjuntos class="mb-2 font-body-sm text-body-sm text-on-surface-variant">Sin archivos adjuntos (hasta 10).</p>' +
+            TM.archivos.selector({ proposito: 'evidencia', entidad: p.id, texto: 'Adjuntar foto, video o PDF' }) + '</div>'
+          : '<div class="flex flex-wrap items-center gap-2 mt-3">' +
+            btn('Adjuntar foto (demo)', { icono: 'photo_camera', attr: 'data-adjuntar' }) +
+            '<span data-adjuntos class="font-body-sm text-body-sm text-on-surface-variant">Sin archivos adjuntos</span></div>') +
         '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant">El video de la apertura del paquete acelera la decisión.</p></li>' +
 
       '<li data-paso="3" class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
@@ -76,7 +81,22 @@
 
   function despuesReclamo(raiz, q, s) {
     var adjuntos = [];
+    var nombres = [];
     var chip = raiz.querySelector('[data-adjuntos]');
+    var ev = raiz.querySelector('[data-evidencias]');
+    if (ev) ev.addEventListener('tm-archivo', function (e) {
+      if (adjuntos.length >= 10 || !e.detail || !e.detail.id) return;
+      adjuntos.push(e.detail.id);
+      nombres.push(e.detail.nombre || ('archivo ' + adjuntos.length));
+      chip.textContent = 'Adjuntos: ' + nombres.join(', ');
+      /* un selector nuevo para el siguiente archivo */
+      var viejo = ev.querySelector('[data-tm-archivo]');
+      if (viejo && adjuntos.length < 10) {
+        viejo.insertAdjacentHTML('afterend', TM.archivos.selector({ proposito: 'evidencia', entidad: q.get('id'), texto: 'Adjuntar otro archivo' }));
+        viejo.remove();
+        TM.archivos.enlazar(ev);
+      } else if (viejo) viejo.remove();
+    });
     var a = raiz.querySelector('[data-adjuntar]');
     if (a) a.addEventListener('click', function () {
       adjuntos.push('evidencia-' + (adjuntos.length + 1) + '.jpg');

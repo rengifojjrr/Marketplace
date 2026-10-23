@@ -249,7 +249,9 @@
             : '<p class="font-body-sm text-body-sm text-on-surface-variant" data-no-llego-desde>¿No te llegó? Podrás reportarlo desde el ' + esc(L.fecha(noLlego.desde)) +
               ', si para entonces no lo recibiste.</p>') : '') +
           (cancelable && !solicitud ? btn(cancelable === 'solicitud' ? 'Pedir cancelación' : 'Cancelar pedido', { estilo: 'peligro', icono: 'cancel', attr: 'data-cancelar="' + cancelable + '"', clase: 'w-full' }) : '') +
-          btn('Descargar recibo (demo)', { icono: 'download', attr: 'data-recibo', clase: 'w-full' }) +
+          /* con servidor, el recibo real lo ofrece Pagos («Recibo (no fiscal)»
+             en este mismo pedido); sin él, el de la demo */
+          (L.remoto() ? '' : btn('Descargar recibo (demo)', { icono: 'download', attr: 'data-recibo', clase: 'w-full' })) +
         '</div></aside></div>';
   }
 

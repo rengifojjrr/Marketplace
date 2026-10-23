@@ -19,6 +19,7 @@
  * sesión elevada, TM_SUPERADMIN=correo:clave[:secreto TOTP].
  */
 const path = require('path');
+const R = require('./reinicio-comun');
 const { spawnSync } = require('child_process');
 
 const URL_BASE = (process.env.TM_SUPABASE_URL || '').replace(/\/+$/, '');
@@ -102,7 +103,7 @@ const json = (consulta) => JSON.parse(psql(consulta) || 'null');
 
   const s = {};
   for (const [rol, email] of Object.entries(CUENTAS)) s[rol] = await sesion(email);
-  const r0 = await rpc('tm_reiniciar_demo', { p_sesion: s.superadmin });
+  const r0 = await R.reiniciar(rpc, s.superadmin);
   ok(r0.ok, 'superadmin reinicia la demo', r0.texto);
 
   /* Cuentas de apoyo */
@@ -839,7 +840,7 @@ const json = (consulta) => JSON.parse(psql(consulta) || 'null');
      suites (Pagos y Catálogo no dejan que una cuenta de prueba toque los
      datos de un comercio real) */
   if (BD) psql(`update tumbo.usuarios set seller_id = null, rol = 'comprador', activo = false where email = ${lit(APOYO.sel9.email)}`);
-  const rf = await rpc('tm_reiniciar_demo', { p_sesion: s.superadmin });
+  const rf = await R.reiniciar(rpc, s.superadmin);
   if (BD) {
     const tras = json(`select jsonb_build_object('envios', (select count(*) from tumbo.envios), 'inc', (select count(*) from tumbo.incidencias),
                          'notas', (select count(*) from tumbo.notas_pedido), 'sol', (select count(*) from tumbo.solicitudes_cancelacion),

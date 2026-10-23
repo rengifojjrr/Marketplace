@@ -30,6 +30,7 @@
  * sobreviven al reinicio de la demo y cambiarían lo que ven las demás suites.
  */
 const crypto = require('crypto');
+const R = require('./reinicio-comun');
 const http = require('http');
 const { spawnSync } = require('child_process');
 const C = require('./cuentas-comun');
@@ -181,7 +182,7 @@ const tokenDe = (texto) => ((texto || '').match(/token=([0-9a-f]{64})/) || [])[1
 
   const s = {};
   for (const [rol, email] of Object.entries(CUENTAS)) s[rol] = await C.acceder(rpcAcceso, email, 'demo1234');
-  const r0 = await rpc('tm_reiniciar_demo', { p_sesion: s.superadmin });
+  const r0 = await R.reiniciar(rpc, s.superadmin);
   ok(r0.ok, 'superadmin reinicia la demo', r0.texto);
   const pub = (await rpc('tm_ajustes_publicos', {})).dato || {};
   const VERSION = pub.terminos_version;
@@ -577,8 +578,12 @@ const tokenDe = (texto) => ((texto || '').match(/token=([0-9a-f]{64})/) || [])[1
     const dup = await rpc('tm_invitar', { p_sesion: real.sesion, p_email: B1.email, p_rol: 'ops', p_datos: {} });
     const malRol = await rpc('tm_invitar', { p_sesion: real.sesion, p_email: correo('pr'), p_rol: 'precios', p_datos: {} });
     const malRif = await rpc('tm_invitar', { p_sesion: real.sesion, p_email: correo('rif'), p_rol: 'seller', p_datos: { comercio: 'Comercio Raro', ciudad: 'Coro', rif: 'XYZ' } });
-    ok(/ya tiene una cuenta activa/.test(dup.texto) && /operaciones, finanzas, superadministrador o un comercio nuevo/.test(malRol.texto) && /RIF/.test(malRif.texto),
-      'no se invita a un correo con cuenta, a un rol de comercio sin comercio ni con un RIF inválido', dup.texto + ' | ' + malRol.texto + ' | ' + malRif.texto);
+    /* con la forma correcta pero el dígito verificador errado: el expediente no nacería con un RIF que no se puede guardar */
+    const malDv = await rpc('tm_invitar', { p_sesion: real.sesion, p_email: correo('rif'), p_rol: 'seller', p_datos: { comercio: 'Comercio Raro', ciudad: 'Coro', rif: 'J-41234567-0' } });
+    ok(/ya tiene una cuenta activa/.test(dup.texto) && /operaciones, finanzas, superadministrador o un comercio nuevo/.test(malRol.texto) && /RIF/.test(malRif.texto) &&
+       /dígito verificador/.test(malDv.texto),
+      'no se invita a un correo con cuenta, a un rol de comercio sin comercio ni con un RIF inválido (ni con su dígito verificador errado)',
+      dup.texto + ' | ' + malRol.texto + ' | ' + malRif.texto + ' | ' + malDv.texto);
     /* una cuenta de finanzas real (para comprobar que operaciones no la alcanza) */
     FIN = { email: correo('fin'), clave: CL('fin1') };
     const invF = await rpc('tm_invitar', { p_sesion: real.sesion, p_email: FIN.email, p_rol: 'finanzas', p_datos: {} });
@@ -603,7 +608,7 @@ const tokenDe = (texto) => ((texto || '').match(/token=([0-9a-f]{64})/) || [])[1
     }
   }
   if (real && SP) {
-    const invS = await rpc('tm_invitar', { p_sesion: real.sesion, p_email: SP.email, p_rol: 'seller', p_datos: { comercio: SP.comercio, ciudad: 'Valencia', rif: 'j-40123456-7' } });
+    const invS = await rpc('tm_invitar', { p_sesion: real.sesion, p_email: SP.email, p_rol: 'seller', p_datos: { comercio: SP.comercio, ciudad: 'Valencia', rif: 'j-40123456-9' } });
     const tokS = tokenDe(invS.dato && invS.dato.enlace);
     const verS = await rpc('tm_invitacion_ver', { p_token: tokS });
     const acS = await rpc('tm_invitacion_aceptar', { p_token: tokS, p_nombre: 'Sara Comercio', p_clave: SP.clave, p_terminos: VERSION });
@@ -612,7 +617,7 @@ const tokenDe = (texto) => ((texto || '').match(/token=([0-9a-f]{64})/) || [])[1
     ok(verS.dato.comercioNuevo && acS.dato.ok && /^SEL-\d{3,}$/.test(SP.sellerId || ''), 'el comercio nuevo se crea al aceptar la invitación (seller principal)', acS.texto);
     if (BD) {
       ok(psql(`select s.estado || '|' || k.rif || '|' || (select string_agg(estado, ',') from tumbo.seller_documentos d where d.seller_id = s.id)
-               from tumbo.sellers s join tumbo.sellers_kyc k on k.seller_id = s.id where s.id = ${lit(SP.sellerId)}`) === 'en_revision|J-40123456-7|pendiente,pendiente,pendiente,pendiente',
+               from tumbo.sellers s join tumbo.sellers_kyc k on k.seller_id = s.id where s.id = ${lit(SP.sellerId)}`) === 'en_revision|J-40123456-9|pendiente,pendiente,pendiente,pendiente',
          'queda en revisión para el KYC, con su RIF y los 4 documentos pendientes');
     }
     const notifSA = ((await rpc('tm_cargar', { p_sesion: real.sesion })).dato.notificaciones || []).some((n) => n.texto.indexOf(SP.comercio) >= 0);
@@ -991,7 +996,7 @@ const tokenDe = (texto) => ((texto || '').match(/token=([0-9a-f]{64})/) || [])[1
       'los inicios de sesión y los cambios de contraseña de una cuenta propia nombran la cuenta, no a la persona', audAcceso.dato.eventos.map((e) => e.accion).join(', ').slice(0, 200));
   } else omitida('la auditoría nombra las cuentas propias por su identificador', 'sin una cuenta real que lea la auditoría: TM_PGDATABASE o TM_SUPERADMIN');
 
-  const rF = await rpc('tm_reiniciar_demo', { p_sesion: s.superadmin });
+  const rF = await R.reiniciar(rpc, s.superadmin);
   ok(rF.ok, 'la demo queda reiniciada', rF.texto);
   } catch (e) {
     fallos++;

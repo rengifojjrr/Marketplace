@@ -27,6 +27,7 @@
  * Desde un entorno con proxy: NODE_USE_ENV_PROXY=1 node tools/api-fundaciones.js
  */
 const { spawn, spawnSync } = require('child_process');
+const R = require('./reinicio-comun');
 const fs = require('fs');
 const http = require('http');
 const net = require('net');
@@ -144,7 +145,7 @@ async function registrarComprador(rpc, datos) {
 
   const s = {};
   for (const [rol, email] of Object.entries(CUENTAS)) s[rol] = await sesion(email);
-  const r0 = await rpc('tm_reiniciar_demo', { p_sesion: s.superadmin });
+  const r0 = await R.reiniciar(rpc, s.superadmin);
   ok(r0.ok, 'superadmin reinicia la demo', r0.texto);
 
   /* Un superadministrador real (fuera de las cuentas de prueba). */
@@ -619,7 +620,7 @@ async function registrarComprador(rpc, datos) {
     const ultima = await preparar('seller', 'producto', 'SEL-014', 'image/webp', 1000);
     ok(ultima.ok, `el seller llega a su tope diario (${topeSeller})`, ultima.texto);
   }
-  const r8 = await rpc('tm_reiniciar_demo', { p_sesion: s.superadmin });
+  const r8 = await R.reiniciar(rpc, s.superadmin);
   const np2 = await rpc('tm_guardar_producto', { p_sesion: s.seller, p_datos: { nombre: 'Otro producto de prueba', precioUsd: '30', categoria: 'tecnologia' }, p_enviar: false });
   const vieja = await funcion(null, { accion: 'ver', id: foto.dato && foto.dato.id });
   ok(cfoto.ok && r8.ok && np2.ok && np2.dato === np1.dato && !vieja.ok && /No encontramos/.test(vieja.texto),
@@ -636,7 +637,7 @@ async function registrarComprador(rpc, datos) {
     omitida('reiniciar la demo no reinicia el tope diario de archivos', 'con TM_PGDATABASE y un superadmin real');
   }
 
-  const r9 = await rpc('tm_reiniciar_demo', { p_sesion: s.superadmin });
+  const r9 = await R.reiniciar(rpc, s.superadmin);
   const tras = await rpc('tm_reembolsos', { p_sesion: s.superadmin });
   ok(r9.ok && tras.ok && tras.dato.length === 0, 'el reinicio de la demo se lleva los reembolsos con sus pedidos', r9.texto);
 

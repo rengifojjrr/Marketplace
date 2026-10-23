@@ -399,3 +399,28 @@ la inspección; las vistas retiradas de `tm-vistas-*.js` ya no se registran
 ahí. `tools/api-catalogo.js` despacha con guía e inspecciona antes de
 cerrar; `tools/api-logistica.js` crea con el checkout de Pagos el pedido que
 necesita un courier y deja SEL-009 sin su seller real al terminar.
+
+**Revisión de la integración** (corregido antes de desplegar, al final de la
+misma migración):
+
+- Las cuentas de prueba del equipo no cambian un pedido de una persona o un
+  comercio real (`bloquear_pedido` lo rechaza: cancelación de Operaciones,
+  entrega con prueba, devoluciones, novedades, notas, responsable, aviso de
+  agencia…) y lo que mueve dinero (`tm_cancelar_ops`,
+  `tm_entrega_confirmar`, `tm_cerrar_devolucion`, la resolución del
+  reclamo) pide a las cuentas reales la sesión elevada (`exigir_si_real`;
+  Operaciones tiene la 2FA obligatoria).
+- `tarea_sla` cierra las ventanas de reclamo vencidas (entregado y
+  retenido, sin reclamo, pasados `ventana_reclamo_dias`): los fondos pasan a
+  elegibles y el calendario de liquidaciones los paga
+  (`ventanas_cerradas` en su resumen).
+- Cancelar con «sin stock», «producto dañado» o «quiebre de stock» saca la
+  unidad del stock físico (ajuste en el kardex con el pedido) en vez de
+  devolverla a la venta y avisar «volvió a estar disponible».
+- El detalle 360 de un pedido real ante una cuenta de prueba no lleva lo
+  que escribió el equipo real (notas, detalle de novedades y de la
+  devolución, quién despachó o entregó), ni las fotos de la guía o la
+  entrega, ni acciones (`bloqueado`); el comprador figura como «Comprador»
+  y los responsables posibles son las cuentas de prueba. `archivo_permitido`
+  tampoco le deja ver ni subir la guía, la entrega o la evidencia de ese
+  pedido.

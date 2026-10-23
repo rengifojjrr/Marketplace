@@ -425,10 +425,157 @@
     cargar().catch(function (e) { UI.toast('No pudimos cargar tu equipo', UI.mensajeError(e), 'error'); });
   }
 
+  /* =====================================================================
+     admin/bandeja (superadministrador y operaciones): la bandeja de salida.
+     Tumbo todavía no tiene proveedor de correo ni de WhatsApp (ola 2): los
+     códigos de verificación, los enlaces de recuperación y los avisos
+     esperan aquí para que el equipo los envíe a mano (copiar, abrir el
+     correo o wa.me) y los marque como enviados. Los de seguridad solo los
+     ve y los envía el superadministrador con su cuenta real; al cerrarlos
+     el servidor borra el código o el enlace.
+     ===================================================================== */
+  var estadoBandeja = { filtro: 'pendiente', mensajes: null, siguiente: null, cargando: false };
+  var FILTROS_BANDEJA = [['pendiente', 'Por enviar'], ['manual', 'Para enviar a mano'], ['enviado', 'Enviados'], ['descartado', 'Descartados'], ['', 'Todos']];
+  var CANALES = { correo: ['Correo', 'mail'], whatsapp: ['WhatsApp', 'chat'], sms: ['SMS', 'sms'] };
+
+  /* El cuerpo del correo viene en HTML (plantilla con los datos escapados):
+     se muestra y se copia como texto, sin ejecutar nada. */
+  function textoMensaje(m) {
+    var t = String(m.cuerpo || '');
+    if (m.canal === 'correo' && /<[a-z]/i.test(t)) {
+      try { t = new DOMParser().parseFromString(t, 'text/html').body.textContent || ''; } catch (e) { t = t.replace(/<[^>]*>/g, ' '); }
+    }
+    t = t.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    if (m.enlace && t.indexOf(m.enlace) < 0) t += '\n\n' + m.enlace;
+    return t;
+  }
+  function enlaceEnvio(m, texto) {
+    if (m.canal === 'whatsapp' || m.canal === 'sms') {
+      var tel = String(m.destino || '').replace(/[^0-9]/g, '');
+      if (/^0\d{10}$/.test(tel)) tel = '58' + tel.slice(1);
+      return tel ? 'https://wa.me/' + tel + '?text=' + encodeURIComponent(texto) : '';
+    }
+    if (m.canal === 'correo' && /@/.test(m.destino || '')) {
+      return 'mailto:' + encodeURIComponent(m.destino) + '?subject=' + encodeURIComponent(m.asunto || 'Tumbo Market') + '&body=' + encodeURIComponent(texto);
+    }
+    return '';
+  }
+  function tarjetaMensaje(m) {
+    var abierto = m.estado === 'pendiente' || m.estado === 'manual' || m.estado === 'fallido';
+    var canal = CANALES[m.canal] || [m.canal, 'send'];
+    var texto = textoMensaje(m);
+    var seguro = /solo lo ve el superadministrador/.test(m.cuerpo || '');
+    var envio = abierto && !seguro ? enlaceEnvio(m, texto) : '';
+    return '<article class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-3" data-mensaje="' + esc(m.id) + '">' +
+      '<div class="flex flex-wrap items-start justify-between gap-2 mb-2">' +
+        '<div><p class="flex items-center gap-1 font-label-md text-label-md text-on-surface">' + ic(canal[1], 'text-[18px]') + esc(canal[0]) + ' · ' +
+          '<span class="font-data-mono text-data-mono">' + esc(m.destino) + '</span></p>' +
+        '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(m.usuario || 'Sin cuenta (invitación)') + ' · ' + esc(m.plantilla) + ' · ' + esc(K().fecha(m.creado)) + '</p></div>' +
+        '<span class="inline-flex px-2 py-0.5 rounded-full font-label-sm text-label-sm bg-surface-container-high text-on-surface-variant">' +
+          esc({ pendiente: 'Por enviar', manual: 'Para enviar a mano', enviado: 'Enviado', descartado: 'Descartado', fallido: 'Falló' }[m.estado] || m.estado) + '</span>' +
+      '</div>' +
+      (m.asunto ? '<p class="font-semibold font-body-sm text-body-sm mb-1">' + esc(m.asunto) + '</p>' : '') +
+      '<pre class="whitespace-pre-wrap break-words font-body-sm text-body-sm bg-surface-container-low rounded-btn p-3 mb-2">' + esc(texto) + '</pre>' +
+      (m.nota ? '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Nota: ' + esc(m.nota) + (m.por ? ' · ' + esc(m.por) : '') + '</p>' : '') +
+      (abierto ? '<div class="flex flex-wrap gap-2">' +
+        (seguro ? '' : btn('Copiar', { icono: 'content_copy', clase: 'min-h-[32px] px-3', attr: 'data-copiar="' + esc(texto) + '"' })) +
+        (envio ? '<a class="inline-flex items-center gap-1 min-h-[32px] px-3 rounded-btn border border-outline-variant font-label-md text-label-md" target="_blank" rel="noopener noreferrer" href="' +
+          esc(envio) + '">' + ic(m.canal === 'correo' ? 'mail' : 'chat', 'text-[18px]') + (m.canal === 'correo' ? 'Abrir el correo' : 'Abrir WhatsApp') + '</a>' : '') +
+        (seguro ? '' : btn('Marcar enviado', { estilo: 'primario', icono: 'done', clase: 'min-h-[32px] px-3', attr: 'data-marcar="enviado"' })) +
+        (m.estado !== 'manual' && !seguro ? btn('Dejar para después', { clase: 'min-h-[32px] px-3', attr: 'data-marcar="manual"' }) : '') +
+        btn('Descartar', { estilo: 'peligro', clase: 'min-h-[32px] px-3', attr: 'data-marcar="descartado"' }) +
+      '</div>' : '') +
+    '</article>';
+  }
+  function listaBandeja() {
+    var l = estadoBandeja.mensajes;
+    if (!l) return '<p class="font-body-sm text-body-sm text-on-surface-variant">Cargando la bandeja…</p>';
+    if (!l.length) return UI.vacio('outbox', 'Nada por aquí', 'Cuando Tumbo deje un código, un enlace o un aviso para enviar, aparecerá en esta lista.');
+    return l.map(tarjetaMensaje).join('') +
+      (estadoBandeja.siguiente ? '<div class="text-center mt-2">' + btn('Ver más', { icono: 'expand_more', attr: 'data-mas-bandeja' }) + '</div>' : '');
+  }
+  function vBandeja(q, s) {
+    var C = K();
+    if (!C.remoto()) return C.titulo('Bandeja de salida') + C.avisoServidor('Los mensajes salientes (códigos, enlaces y avisos) viven en el servidor.');
+    var yo = C.yo();
+    return C.titulo('Bandeja de salida') +
+      C.aviso('info', 'outbox', '<strong>El envío automático por correo y WhatsApp todavía no está conectado.</strong> Los códigos de verificación, ' +
+        'los enlaces de recuperación y los avisos esperan aquí: envíalos a mano (copia el texto o ábrelo en el correo o en WhatsApp) y márcalos como enviados. ' +
+        'Los códigos vencen a los 15 minutos y los enlaces de recuperación a los 30.') +
+      (yo.rol === 'superadmin' && !yo.demo ? '' : C.aviso('ambar', 'lock', 'Los mensajes con un código o un enlace de seguridad solo los ve y los envía el superadministrador con su cuenta real' +
+        (yo.demo ? '; con una cuenta de prueba solo ves los mensajes de las cuentas de prueba.' : '.'))) +
+      '<div class="flex flex-wrap gap-2 mb-4" role="tablist">' + FILTROS_BANDEJA.map(function (f) {
+        var activo = estadoBandeja.filtro === f[0];
+        return '<button type="button" role="tab" aria-selected="' + activo + '" data-filtro-bandeja="' + esc(f[0]) + '" class="min-h-[36px] px-3 rounded-full border font-label-md text-label-md ' +
+          (activo ? 'bg-primary-container text-on-primary border-primary-container' : 'border-outline-variant text-on-surface') + '">' + esc(f[1]) + '</button>';
+      }).join('') + '</div>' +
+      '<div data-bandeja>' + listaBandeja() + '</div>';
+  }
+  function despuesBandeja(raiz) {
+    var C = K();
+    if (!C.remoto()) return;
+    function pintar() {
+      var caja = raiz.querySelector('[data-bandeja]');
+      if (!caja) return;
+      caja.innerHTML = listaBandeja();
+      enlazar(caja);
+    }
+    function cargar(mas) {
+      if (estadoBandeja.cargando) return Promise.resolve();
+      estadoBandeja.cargando = true;
+      return TM.api('tm_salida_listar', { p_estado: estadoBandeja.filtro || null, p_antes: mas ? estadoBandeja.siguiente : null })
+        .then(function (r) {
+          estadoBandeja.mensajes = (mas ? estadoBandeja.mensajes || [] : []).concat((r && r.mensajes) || []);
+          estadoBandeja.siguiente = r ? r.siguiente : null;
+        })
+        .catch(function (e) { UI.toast('No pudimos cargar la bandeja', UI.mensajeError(e), 'error'); })
+        .then(function () { estadoBandeja.cargando = false; pintar(); });
+    }
+    function enlazar(caja) {
+      C.enlazarCopiar(caja);
+      caja.querySelectorAll('[data-marcar]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var estado = b.getAttribute('data-marcar');
+          var id = b.closest('[data-mensaje]').getAttribute('data-mensaje');
+          function hacer(nota) {
+            UI.accion(b, function () { return TM.api('tm_salida_marcar', { p_id: Number(id), p_estado: estado, p_nota: nota || null }); },
+              function () {
+                UI.toast(estado === 'enviado' ? 'Mensaje marcado como enviado' : estado === 'descartado' ? 'Mensaje descartado' : 'Queda para enviarlo a mano', '', 'outbox');
+                cargar(false);
+              }, 'No se pudo marcar el mensaje');
+          }
+          if (estado === 'descartado') {
+            UI.confirmar('Descartar el mensaje', 'No se enviará. Si tiene un código o un enlace de seguridad, se borra.', { accion: 'Descartar', peligro: true, motivo: 'Nota (opcional)' }, hacer);
+          } else hacer(null);
+        });
+      });
+      var mas = caja.querySelector('[data-mas-bandeja]');
+      if (mas) mas.addEventListener('click', function () { cargar(true); });
+    }
+    raiz.querySelectorAll('[data-filtro-bandeja]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        estadoBandeja.filtro = b.getAttribute('data-filtro-bandeja');
+        estadoBandeja.mensajes = null;
+        raiz.querySelectorAll('[data-filtro-bandeja]').forEach(function (x) {
+          var activo = x === b;
+          x.setAttribute('aria-selected', String(activo));
+          x.className = 'min-h-[36px] px-3 rounded-full border font-label-md text-label-md ' +
+            (activo ? 'bg-primary-container text-on-primary border-primary-container' : 'border-outline-variant text-on-surface');
+        });
+        pintar();
+        cargar(false);
+      });
+    });
+    pintar();
+    cargar(false);
+  }
+
   APP.registrar({
     'admin/usuarios': { roles: ['superadmin', 'ops'], titulo: 'Usuarios', render: vUsuarios, despues: despuesUsuarios },
+    'admin/bandeja': { roles: ['superadmin', 'ops'], titulo: 'Bandeja de salida', render: vBandeja, despues: despuesBandeja },
     'seller/equipo': { roles: ['seller'], titulo: 'Equipo', render: vEquipo, despues: despuesEquipo }
   });
   APP.nav('admin', { vista: 'admin/usuarios', texto: 'Usuarios', icono: 'group', roles: ['superadmin', 'ops'], orden: 85 });
+  APP.nav('admin', { vista: 'admin/bandeja', texto: 'Bandeja de salida', icono: 'outbox', roles: ['superadmin', 'ops'], orden: 86 });
   APP.nav('seller', { vista: 'seller/equipo', texto: 'Equipo', icono: 'group', roles: ['seller'], orden: 60 });
 })();

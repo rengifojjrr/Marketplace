@@ -327,3 +327,15 @@ revisión KYC de una cuenta real pide el código desde `TM.api`.
 `tools/api-catalogo.js` despacha con `tm_despachar_guia`, inspecciona la
 devolución antes de cerrarla, activa la 2FA de su superadministrador y deja
 inactivas al terminar sus cuentas reales de SEL-014.
+
+**Revisión de la integración** (corregido antes de desplegar, al final de la
+misma migración): una cuenta de prueba no modera los productos de un
+comercio real (`moderar_producto`, uno a uno y en lote; `seller_real`), y
+en `admin/moderacion` y `admin/sellers` esos comercios llegan marcados
+(`bloqueado` en `tm_cargar.sellers`): sin acciones y con el expediente
+«reservado (comercio real)» en vez de «Incompleto». `TM.decidirKyc` (y
+todas las acciones del motor remoto) pide el código cuando vence la sesión
+elevada, como `TM.api`. `tools/api-catalogo.js` modera y decide los
+reclamos de SEL-014 con su superadministrador real mientras SEL-014 tiene
+cuentas reales de pruebas, y al terminar las desvincula del comercio (una
+cuenta real inactiva lo seguiría haciendo real para el dinero).

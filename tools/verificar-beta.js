@@ -307,7 +307,13 @@ const PAGINAS = {
     await abrir('tienda/reclamo?id=TM-2026-00431');
     await p.locator('[name=motivo][value="Producto incorrecto"]').check();
     await p.fill('[data-desc]', 'Llegó un monitor de 22 pulgadas en lugar del de 24 que compré.');
-    await p.locator('[data-adjuntar]').click();
+    if (conServidor()) {
+      /* con servidor la evidencia sube de verdad (propósito «evidencia» del pedido) */
+      await p.setInputFiles('[data-evidencias] [data-tm-archivo-input]:not([capture])', { name: 'caja.png', mimeType: 'image/png', buffer: PNG });
+      await p.locator('[data-adjuntos]', { hasText: 'Adjuntos:' }).waitFor({ timeout: 15000 });
+    } else {
+      await p.locator('[data-adjuntar]').click();
+    }
     await p.locator('[data-enviar]').click();
     await p.waitForURL('**/pedido.html?id=TM-2026-00431', { timeout: 15000 });
     await p.waitForSelector('#raiz > *');

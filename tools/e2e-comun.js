@@ -19,6 +19,7 @@
  * API salen desde este proceso (NODE_USE_ENV_PROXY=1) y vuelven al navegador.
  */
 const { chromium } = require('playwright');
+const REINICIO = require('./reinicio-comun');
 
 const verde = (s) => `\x1b[32m${s}\x1b[0m`;
 const rojo = (s) => `\x1b[31m${s}\x1b[0m`;
@@ -138,13 +139,22 @@ async function iniciar(opciones) {
     },
 
     /* Con backend, reinicia los datos de la demo (como superadmin); en
-       ambos modos deja el navegador sin sesión ni datos guardados. */
+       ambos modos deja el navegador sin sesión ni datos guardados. Si hay
+       datos de personas reales (los de las suites por la API), la cuenta de
+       prueba no puede reiniciar: lo hace la cuenta real de las pruebas
+       (tools/reinicio-comun.js). */
     async reset() {
       await p.goto(`${BASE}/index.html`, { waitUntil: 'domcontentloaded' });
       t.modo = await p.evaluate(() => TM.modo);
       if (t.modo === 'remoto') {
         await t.login('Superadministrador');
-        await p.evaluate(() => TM.reiniciarDemo());
+        const error = await p.evaluate(() => TM.reiniciarDemo().then(() => null, (e) => (e && e.error) || String(e)));
+        if (error && REINICIO.RECHAZO.test(error)) {
+          const r = await REINICIO.reiniciarSinSesion();
+          if (!r.ok) throw new Error('no se pudo reiniciar la demo: ' + r.texto);
+        } else if (error) {
+          throw new Error('no se pudo reiniciar la demo: ' + error);
+        }
       }
       await p.goto(`${BASE}/index.html`, { waitUntil: 'domcontentloaded' });
       await p.evaluate(() => { localStorage.clear(); });

@@ -323,14 +323,15 @@ otra posterior; lo que se unió fue lo que cada equipo le pidió a otro:
   cuentas reales activas a los comercios de la semilla (con una, Pagos los
   trata como reales y la demo no los liquida).
 
-**Pruebas del árbol integrado** (base nueva `tumbo_integ`, `verificar-todo.js`:
-las 19 suites en verde): por la API, `verificar-rls` 140 comprobaciones,
-`api-catalogo` 178, `api-cuentas` 152, `api-fundaciones` 124,
-`api-integracion` 17, `api-logistica` 123 y `api-pagos` 146; en el
-navegador con el backend, `verificar-beta` 24, `e2e-catalogo` 18,
-`e2e-cuentas` 20, `e2e-fundaciones` 15, `e2e-logistica` 19 y `e2e-pagos` 15;
-en modo local, `verificar-beta` 24, `e2e-catalogo` 7, `e2e-cuentas` 3,
-`e2e-fundaciones` 12, `e2e-logistica` 4 y `e2e-pagos` 6.
+**Pruebas del árbol integrado** (base nueva `tumbo_integ`, `verificar-todo.js`,
+con las correcciones de la revisión: las 21 suites en verde): por la API,
+`verificar-rls` 140 comprobaciones, `api-catalogo` 178, `api-cuentas` 152,
+`api-fundaciones` 124, `api-integracion` 40, `api-logistica` 123 y
+`api-pagos` 146; en el navegador con el backend, `verificar-beta` 24,
+`e2e-catalogo` 18, `e2e-cuentas` 20, `e2e-fundaciones` 15,
+`e2e-integracion` 7, `e2e-logistica` 19 y `e2e-pagos` 15; en modo local,
+`verificar-beta` 24, `e2e-catalogo` 7, `e2e-cuentas` 3, `e2e-fundaciones` 12,
+`e2e-integracion` 3, `e2e-logistica` 4 y `e2e-pagos` 6.
 
 **Desviaciones y decisiones de la integración**:
 
@@ -345,6 +346,42 @@ en modo local, `verificar-beta` 24, `e2e-catalogo` 7, `e2e-cuentas` 3,
   registro de cada archivo nombra el módulo que las registra) en vez de
   quedar como declaraciones vacías.
 
+**Revisión de la integración** (en la misma migración, que aún no estaba
+desplegada; pruebas en `api-integracion.js`, `e2e-integracion.js` y las
+suites de cada dominio): de los 24 hallazgos de los revisores ninguno se
+descartó. Lo que se corrigió:
+
+- **Cuentas de prueba sobre datos reales**: `seller_real` es un solo
+  contrato (un comercio con alguna cuenta real, activa o no: un comercio que
+  no es `comercio_de_prueba` siempre es real; uno con cuentas reales y de
+  prueba es real para el dinero y de prueba para la privacidad) y
+  `pedido_real` decide en reclamos, devoluciones, ventana, cancelación de
+  Operaciones, confirmación de entrega y moderación (`exigir_cuenta_real`,
+  `exigir_si_real`); `tm_cargar` y `tm_pedido_360` entregan lo real con
+  `bloqueado` y sin el detalle; la línea de tiempo y los eventos de pagos y
+  reembolsos nombran «Comprador»; la URL firmada de un archivo sigue las
+  mismas reglas; Operaciones tiene la 2FA obligatoria.
+- **Dinero**: un pago tardío y su reembolso quedan atados al movimiento del
+  banco (`movimientos_banco.reembolso_id`), así no se devuelve dos veces;
+  un pago devuelto para corregir conserva su primer reporte y lo cancelado
+  después se reembolsa al verificar (`pedidos_del_pago`); la liquidación pasa a
+  `ingreso_envios` el envío que Tumbo retiene; la baja la impide un pago
+  propio sin verificar.
+- **Reglas**: la ventana de reclamo de un pedido real se cierra sola al
+  vencer (`tarea_sla`) y no se adelanta; cancelar por quiebre, daño o falta
+  de stock baja el físico con su asiento en el kardex.
+- **Datos personales**: la baja borra el destino, el pagador, los destinos
+  de reembolso y el nombre en las líneas de tiempo; el reinicio con datos
+  reales exige una cuenta real (y lo deja en la auditoría).
+- **RIF** normalizado y con el motivo del rechazo.
+- **Cliente**: bandeja de mensajes salientes en Administración, métricas
+  reales en el panel del seller, evidencias reales en los reclamos, montos
+  y textos honestos en Disputas, expediente y moderación de un comercio
+  real reservados, sin el botón de recibo de la demo en el modo remoto.
+- **Pruebas**: con datos reales, las suites reinician la demo con
+  `tools/reinicio-comun.js` (una cuenta real de pruebas con la 2FA) y, si
+  se cortan, retiran sus cuentas reales de los comercios de la semilla.
+
 **`TM_SUPERADMIN`**: desde la ola 1 es `correo:contraseña:CLAVE_MANUAL` (la
 clave manual en base32 que muestra Mi cuenta → Seguridad al activar la 2FA).
 Las pruebas nunca le activan la 2FA a una cuenta que no crearon: con el
@@ -357,14 +394,11 @@ formato anterior (`correo:clave`) se detienen con un mensaje claro.
   hoy solo Cuentas consulta `tiene_permiso` (`usuarios`): asignarle
   `conciliar` a Operaciones todavía no le abre la conciliación. Cada dominio
   debe consultarlo en sus funciones y en sus menús.
-- «Comercio de prueba» no se define igual en todos lados: para Catálogo
-  (`comercio_de_prueba`) lo es si tiene alguna cuenta de prueba o ninguna
-  real; para Pagos (`seller_real`), deja de serlo en cuanto tiene una cuenta
-  real activa. Conviene unificarlo en un contrato.
-- El reinicio de la demo (que una cuenta de prueba puede pedir) vacía
-  pedidos, productos y expedientes de **todos** los comercios, también los
-  reales: antes de operar con comercios reales en el mismo proyecto hay que
-  acotarlo a los datos de la demo.
+- El reinicio de la demo sigue vaciando pedidos, productos y expedientes de
+  **todos** los comercios; desde la revisión de la integración, con datos
+  reales solo lo pide una cuenta real con sesión elevada (y conserva las
+  direcciones de las personas reales). Antes de operar con comercios reales
+  en el mismo proyecto conviene acotarlo a los datos de la demo.
 
 Pendiente para la persona dueña del proyecto: aplicar en la nube las
 migraciones `20261023110000` a `20261023140000` y la de integración

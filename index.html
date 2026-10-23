@@ -306,7 +306,8 @@
       ocupar(form, false);
       if (r && r.error) { error('rc-err', r.error); return; }
       ok.textContent = ((r && r.mensaje) || 'Si ese correo tiene una cuenta, te enviamos un enlace.') +
-        ' Mientras Tumbo no tenga conectado un proveedor de correo, el mensaje queda en su bandeja de salida y el equipo lo envía a mano: puede tardar.';
+        ' Mientras Tumbo no tenga conectado el envío automático por correo, el enlace queda en su bandeja de salida y el equipo lo envía a mano: puede tardar. ' +
+        'Si no te llega, escríbele a soporte.';
       ok.classList.remove('hidden');
     }, function (e) {
       ocupar(form, false);

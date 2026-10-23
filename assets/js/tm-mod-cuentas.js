@@ -203,10 +203,10 @@
   function bloqueVerificacion(v) {
     var correo = v.tipo === 'correo';
     return '<form data-form="codigo" novalidate class="mt-4 rounded-btn border border-outline-variant bg-surface-container-low p-4">' +
-      '<p class="font-body-sm text-body-sm text-on-surface mb-2"><strong>Te enviamos un código de 6 dígitos ' + (correo ? 'a tu correo ' : 'a tu teléfono ') +
-      esc(v.destino || '') + '.</strong> Vence en ' + esc(v.minutos || 15) + ' minutos y sirve una sola vez.</p>' +
-      K.aviso('gris', 'outgoing_mail', 'Tumbo todavía no tiene conectado un proveedor de ' + (correo ? 'correo' : 'WhatsApp ni SMS') +
-        ': el mensaje queda en su bandeja de salida y el equipo lo envía a mano, así que puede tardar un poco en llegarte.') +
+      '<p class="font-body-sm text-body-sm text-on-surface mb-2"><strong>Tu código de 6 dígitos para ' + (correo ? 'el correo ' : 'el teléfono ') +
+      esc(v.destino || '') + ' quedó listo para enviarse.</strong> Vence en ' + esc(v.minutos || 15) + ' minutos y sirve una sola vez.</p>' +
+      K.aviso('gris', 'outgoing_mail', 'Tumbo todavía no tiene conectado el envío automático por ' + (correo ? 'correo' : 'WhatsApp ni SMS') +
+        ': el código queda en su bandeja de salida y el equipo te lo envía a mano, así que puede tardar. Si vence antes de que te llegue, pide otro.') +
       '<div class="flex flex-wrap items-end gap-2">' +
       '<div><label class="block font-label-md text-label-md text-on-surface mb-1" for="cta-codigo-verif">Código</label>' +
       '<input id="cta-codigo-verif" name="codigo" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000" ' +
@@ -299,7 +299,8 @@
     if (!p || p.demo || p.rol !== 'comprador') return '';
     return '<details class="group"><summary class="cursor-pointer font-label-md text-label-md text-error">Quiero eliminar mi cuenta</summary>' +
       '<div class="mt-3">' + K.aviso('rojo', 'warning', 'Se borran tu nombre, correo, teléfono, cédula, direcciones, carrito y sesiones, y ya no podrás entrar. ' +
-        'Los pedidos y su historial se conservan sin tus datos personales porque son registros fiscales y de la operación. No se puede deshacer.') +
+        'Los pedidos y su historial se conservan sin tus datos personales (la dirección de entrega queda en la ciudad y el estado; los datos de quien pagó y de dónde recibiste reembolsos, en el banco) ' +
+        'porque son registros fiscales y de la operación; los datos fiscales de las facturas que pediste (cédula o RIF y razón social) se conservan por obligación legal. No se puede deshacer.') +
       '<form data-form="eliminar" novalidate class="grid sm:grid-cols-2 gap-3">' +
       K.entrada({ nombre: 'clave', etiqueta: 'Tu contraseña', tipo: 'password', auto: 'current-password' }) +
       K.entrada({ nombre: 'confirmacion', etiqueta: 'Escribe ELIMINAR para confirmar', auto: 'off' }) +
@@ -488,7 +489,7 @@
           bloque.insertAdjacentHTML('beforeend', bloqueVerificacion(verificacion[uid]));
           var campo = bloque.querySelector('form[data-form="codigo"] [name=codigo]');
           if (campo) campo.focus();
-          UI.toast('Código enviado a la bandeja', 'Vence en ' + r.minutos + ' minutos.', 'outgoing_mail');
+          UI.toast('Código en la bandeja de salida', 'El equipo te lo envía a mano · vence en ' + r.minutos + ' minutos.', 'outgoing_mail');
         }, 'No se envió el código');
       }
       if (accion === 'cancelar-verificacion') {

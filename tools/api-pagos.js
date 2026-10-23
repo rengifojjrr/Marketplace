@@ -22,6 +22,7 @@
  * Desde un entorno con proxy: NODE_USE_ENV_PROXY=1 node tools/api-pagos.js
  */
 const { spawnSync } = require('child_process');
+const R = require('./reinicio-comun');
 const C2 = require('./cuentas-comun');
 
 const URL_BASE = (process.env.TM_SUPABASE_URL || '').replace(/\/+$/, '');
@@ -86,7 +87,7 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
 
   const s = {};
   for (const [rol, email] of Object.entries(CUENTAS)) s[rol] = await sesion(email);
-  const r0 = await rpc('tm_reiniciar_demo', { p_sesion: s.superadmin });
+  const r0 = await R.reiniciar(rpc, s.superadmin);
   ok(r0.ok, 'superadmin reinicia la demo', r0.texto);
 
   if (BD) {
@@ -785,7 +786,9 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
   /* retención, ajustes, anulación y calendario */
   const retDemo = await rpc('tm_retencion_seller', { p_sesion: s.finanzas, p_seller: 'SEL-014', p_retener: true, p_motivo: 'La demo retiene' });
   const ret = await rpc('tm_retencion_seller', { p_sesion: fin, p_seller: 'SEL-014', p_retener: true, p_motivo: 'Revisión de reclamos' });
-  await rpc('tm_resolver_disputa', { p_sesion: s.ops, p_id: 'DSP-0098', p_decision: 'liberar', p_nota: null });
+  /* (TM-2026-00428 es de SEL-014, un comercio real en esta suite: su disputa la resuelve una cuenta real) */
+  const rd = await rpc('tm_resolver_disputa', { p_sesion: s.admin, p_id: 'DSP-0098', p_decision: 'liberar', p_nota: null });
+  if (!rd.ok) process.stdout.write(rojo('  (la disputa DSP-0098 no se resolvió: ' + rd.texto.slice(0, 160) + ')') + '\n');
   const prR = await rpc('tm_ejecutar_liquidacion', { p_sesion: fin, p_seller: 'SEL-014', p_pedidos: ['TM-2026-00428'] });
   const lib = await rpc('tm_retencion_seller', { p_sesion: fin, p_seller: 'SEL-014', p_retener: false, p_motivo: 'Revisión terminada' });
   ok(!retDemo.ok && /cuentas de prueba/.test(retDemo.texto) && ret.ok && !prR.ok && /retenidos/.test(prR.texto) && lib.ok,
@@ -904,10 +907,11 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
   }
 
   /* ================= Reinicio ================= */
-  /* el seller real de pruebas se retira del comercio de la demo: las suites
-     siguientes lo usan con sus cuentas de prueba */
-  psql(`update tumbo.usuarios set activo = false where email = '${REALES.sellerReal.email}'`);
-  const r9 = await rpc('tm_reiniciar_demo', { p_sesion: s.superadmin });
+  /* el seller real de pruebas se retira del comercio de la demo (sin su
+     cuenta, aunque inactiva, SEL-014 sigue siendo real para Pagos): las
+     suites siguientes lo usan con sus cuentas de prueba */
+  psql(`update tumbo.usuarios set seller_id = null, rol = 'comprador', activo = false where email = '${REALES.sellerReal.email}'`);
+  const r9 = await R.reiniciar(rpc, s.superadmin);
   const cola9 = await rpc('tm_pagos_cola', { p_sesion: s.finanzas, p_filtro: 'por_verificar' });
   const lm9 = await rpc('tm_libro_mayor', { p_sesion: s.finanzas, p_desde: '2026-01-01', p_hasta: null });
   ok(r9.ok && cola9.dato.length === 1 && cola9.dato[0].pedidos[0].id === 'TM-2026-00433' &&
@@ -917,10 +921,21 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
   psql(`delete from tumbo.tasas where estado in ('aplicada', 'propuesta', 'descartada') and (fuente = 'BCV vía pruebas' or fuente like 'Carga manual%');
         delete from tumbo.alertas_finanzas where clave = 'tasa_desactualizada';
         update tumbo.config set tasa = 36.20 where id;`);
-  await rpc('tm_reiniciar_demo', { p_sesion: s.superadmin });
+  await R.reiniciar(rpc, s.superadmin);
   ok(Number((await cargar(null)).config.tasa) === 36.2, 'la base de pruebas vuelve a la tasa de la semilla');
 
   console.log('');
   if (fallos) { console.log(rojo(`FALLOS: ${fallos}`)); process.exit(1); }
   console.log(verde('✓ Pagos y finanzas verificados por la API: checkout, pagos, crédito, conciliación, reembolsos, tasa, liquidaciones, libro mayor y privacidad.'));
-})().catch((e) => { console.error(rojo(e.stack || e.message)); process.exit(1); });
+})().catch((e) => {
+  console.error(rojo(e.stack || e.message));
+  /* si la suite se corta, el seller real de pruebas no se queda en SEL-014 (las suites siguientes lo usan con sus
+     cuentas de prueba) y la tasa vuelve a la de la semilla */
+  if (BD) try {
+    psql(`update tumbo.usuarios set seller_id = null, rol = 'comprador', activo = false where email = '${REALES.sellerReal.email}';
+          delete from tumbo.tasas where estado in ('aplicada', 'propuesta', 'descartada') and (fuente = 'BCV vía pruebas' or fuente like 'Carga manual%');
+          delete from tumbo.alertas_finanzas where clave = 'tasa_desactualizada';
+          update tumbo.config set tasa = 36.20 where id;`);
+  } catch (e2) { }
+  process.exit(1);
+});

@@ -73,10 +73,12 @@
             '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(x.id) + ' · ' + esc(x.rif) + '</span>' +
             UI.badge(x.estado) +
             (remoto ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm">' +
-              ic('folder_open', 'text-[14px]') + 'Expediente: ' + esc(EXP[x.expediente || 'incompleto'] || x.expediente) + '</span>' + C().insignia(x) : '') + '</div>' +
+              ic(x.expedienteOculto ? 'lock' : 'folder_open', 'text-[14px]') + 'Expediente: ' +
+              (x.expedienteOculto ? 'reservado (comercio real)' : esc(EXP[x.expediente || 'incompleto'] || x.expediente)) + '</span>' + C().insignia(x) : '') + '</div>' +
           '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">' + esc(x.ciudad) + ' · en el marketplace desde ' + esc(x.desde) + ' · ' + esc(x.descripcion) + '</p>' +
           (x.observacion ? '<p class="font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-2">' + esc(x.observacion) + '</p>' : '') +
-          (remoto
+          (remoto && x.expedienteOculto ? ''
+            : remoto
             ? '<dl class="grid sm:grid-cols-2 gap-x-6 gap-y-1 font-body-sm text-body-sm mb-3">' +
                 '<div><dt class="inline text-on-surface-variant">Razón social: </dt><dd class="inline">' + esc(x.razonSocial || '—') + '</dd></div>' +
                 '<div><dt class="inline text-on-surface-variant">Teléfono: </dt><dd class="inline">' + esc(x.telefono || '—') + '</dd></div>' +
@@ -96,7 +98,9 @@
                   '</li>';
               }).join('') + '</ul>'
             : '<div class="flex flex-wrap gap-2 mb-3">' + docs.map(docChip).join('') + '</div>') +
-          decisiones(x) + '</article>';
+          (x.expedienteOculto
+            ? '<p class="font-body-sm text-body-sm text-on-surface-variant" data-decisiones-reservadas>Es un comercio real: su expediente y las decisiones sobre él son de una cuenta real del equipo con verificación en dos pasos.</p>'
+            : decisiones(x)) + '</article>';
       }).join('') +
       '<p class="font-body-sm text-body-sm text-on-surface-variant">Suspender oculta el catálogo del seller en la tienda y bloquea ventas nuevas; no borra su historial. ' +
       (remoto ? 'La insignia «Verificado por Tumbo» se gana cuando los cuatro documentos están aprobados. ' : '') + 'Toda decisión queda en auditoría.</p>';
@@ -182,8 +186,10 @@
           if (p.pesoKg) ficha.push('Peso: ' + p.pesoKg + ' kg');
           if (C().textoMedidas(p)) ficha.push('Medidas: ' + C().textoMedidas(p));
         }
+        var real = remoto && TM.seller(p.sellerId).bloqueado;
         return '<article data-moderar="' + esc(p.sku) + '" class="flex flex-wrap sm:flex-nowrap gap-4 rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-4">' +
-          '<input type="checkbox" data-sel="' + esc(p.sku) + '"' + (SEL[p.sku] ? ' checked' : '') + ' aria-label="Seleccionar ' + esc(p.sku) + '" class="w-4 h-4 mt-1 rounded border-outline text-secondary shrink-0"/>' +
+          (real ? '<span class="w-4 shrink-0"></span>'
+            : '<input type="checkbox" data-sel="' + esc(p.sku) + '"' + (SEL[p.sku] ? ' checked' : '') + ' aria-label="Seleccionar ' + esc(p.sku) + '" class="w-4 h-4 mt-1 rounded border-outline text-secondary shrink-0"/>') +
           '<div class="shrink-0">' + (fotos.length
             ? '<button type="button" data-fotos-moderacion="' + esc(p.sku) + '" class="block" aria-label="Ver las fotos de ' + esc(p.sku) + '">' +
               '<img src="' + esc(fotos[0].url) + '" alt="' + esc(p.nombre) + '" class="w-24 h-24 object-contain bg-white rounded-lg border border-outline-variant"/></button>' +
@@ -204,11 +210,14 @@
             (p.contenidoCaja ? '<p class="font-body-sm text-body-sm mt-1"><span class="text-on-surface-variant">En la caja:</span> ' + esc(p.contenidoCaja) + '</p>' : '') +
             (faltan.length ? '<p class="font-body-sm text-body-sm text-error mt-1">Faltan atributos obligatorios: ' + esc(faltan.map(function (a) { return a.nombre; }).join(', ')) + '</p>' : '') +
           '</div>' +
-          '<div class="flex sm:flex-col gap-2 shrink-0">' +
-            btn(p.volverAPausa ? 'Aprobar (seguirá pausado)' : 'Aprobar y publicar', { estilo: 'exito', icono: 'check_circle',
-              attr: 'data-aprobar="' + esc(p.sku) + '"' + (p.volverAPausa ? ' data-pausado' : '') }) +
-            btn('Rechazar', { estilo: 'peligro', icono: 'cancel', attr: 'data-rechazar="' + esc(p.sku) + '"' }) +
-          '</div></article>';
+          (real
+            ? '<p class="sm:w-48 shrink-0 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2" data-moderar-real>' +
+              'Es de un comercio real: lo modera una cuenta real del equipo (las cuentas de prueba solo moderan los de la demo).</p>'
+            : '<div class="flex sm:flex-col gap-2 shrink-0">' +
+              btn(p.volverAPausa ? 'Aprobar (seguirá pausado)' : 'Aprobar y publicar', { estilo: 'exito', icono: 'check_circle',
+                attr: 'data-aprobar="' + esc(p.sku) + '"' + (p.volverAPausa ? ' data-pausado' : '') }) +
+              btn('Rechazar', { estilo: 'peligro', icono: 'cancel', attr: 'data-rechazar="' + esc(p.sku) + '"' }) +
+              '</div>') + '</article>';
       }).join('')
       : UI.vacio('task_alt', 'Cola vacía', 'No hay productos esperando moderación. Los envíos de los sellers aparecen aquí al instante.')) +
       '<p class="font-body-sm text-body-sm text-on-surface-variant">Al aprobar, el producto queda publicado y visible en la tienda de inmediato, salvo que el seller lo tuviera pausado: entonces sigue pausado hasta que lo reanude.</p>';

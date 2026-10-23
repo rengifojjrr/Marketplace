@@ -24,6 +24,10 @@
      solo (APP.trasPintar), en un modal hay que llamarlo a mano. Al terminar,
      el selector guarda el id en su campo oculto y dispara «tm-archivo»
      (detail = el resultado de subir); al quitar, «tm-archivo-quitado».
+   TM.archivos.lista(ids) → HTML de una lista de archivos ya subidos (p. ej.
+     la evidencia de un reclamo): cada id es un botón que abre su URL
+     firmada (enlazar lo activa); un nombre que no es un id se muestra tal
+     cual.
    La URL de la función sale de tm-config.js:
      supabaseUrl + '/functions/v1/tumbo-archivos'.
    En modo local todo responde «Esta función necesita el servidor de Tumbo».
@@ -236,7 +240,24 @@
       '</div>';
   }
 
+  var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  function lista(ids) {
+    return (ids || []).map(function (x, i) {
+      return UUID.test(String(x)) && !TM.requiereServidor()
+        ? '<button type="button" data-tm-ver-archivo="' + esc(x) + '" class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline">' +
+          ic('attach_file', 'text-[16px]') + 'Archivo ' + (i + 1) + '</button>'
+        : '<span>' + esc(x) + '</span>';
+    }).join(', ');
+  }
+
   function enlazar(raiz) {
+    (raiz || document).querySelectorAll('[data-tm-ver-archivo]:not([data-tm-enlazado])').forEach(function (b) {
+      b.setAttribute('data-tm-enlazado', '');
+      b.addEventListener('click', function () {
+        UI.accion(b, function () { return ver(b.getAttribute('data-tm-ver-archivo')); },
+          function (url) { window.open(url, '_blank', 'noopener'); }, 'No se pudo abrir el archivo');
+      });
+    });
     (raiz || document).querySelectorAll('[data-tm-archivo]:not([data-tm-enlazado])').forEach(function (caja) {
       caja.setAttribute('data-tm-enlazado', '');
       var q = function (sel) { return caja.querySelector(sel); };
@@ -317,6 +338,6 @@
     });
   }
 
-  window.TM.archivos = { subir: subir, ver: ver, selector: selector, enlazar: enlazar, optimizar: optimizar };
+  window.TM.archivos = { subir: subir, ver: ver, selector: selector, enlazar: enlazar, optimizar: optimizar, lista: lista };
   if (window.APP && APP.trasPintar) APP.trasPintar(function (raiz) { enlazar(raiz); });
 })();

@@ -374,3 +374,39 @@ la 2FA obligatoria) y las vistas de pedidos de Logística usan
 `TM.fmtTotalPedido` y `TM.fmtBs(monto, tasa)`. `tools/api-pagos.js` activa
 la 2FA de sus cuentas reales y comprueba el contrato de envío (no los 2,5 y
 4 USD de la versión mínima).
+
+**Revisión de la integración** (corregido antes de desplegar, al final de la
+misma migración):
+
+- **El dinero tardío de un pago vencido es un solo hecho.** «Pago recibido
+  tarde» (`tm_pago_tardio`) ya no acepta un pago cuyo dinero devolvió la
+  conciliación (un movimiento reembolsado o un reembolso sin venta) y, al
+  reembolsar, cierra con ese reembolso el movimiento que esperaba en la cola
+  como «pago vencido». La cola (`tm_conciliacion_resolver` «reembolsar»)
+  marca el pago como tardío (así ya no se reactiva ni se devuelve otra vez)
+  y, si «pago recibido tarde» ya lo devolvió sin movimiento, cierra el
+  movimiento con ese reembolso en vez de crear otro. Cada movimiento
+  devuelto guarda su reembolso (`movimientos_banco.reembolso_id`).
+- **Corregir no cambia qué se pagó.** Un pago que vuelve a «pendiente»
+  (`tm_pago_corregir`) conserva su primer reporte (`tm_pago_reportar` ya no
+  pisa `reportado_el`) y `pedidos_del_pago` usa la misma regla pendiente,
+  reportado o verificado: el pedido que el comprador canceló después de
+  reportar sigue cubierto y se reembolsa al verificar; `verificar_pago`
+  fija el conjunto con la regla del pago ya verificado, la misma de
+  `asentar_pago` y `pago_esperado` (antes el pedido cancelado quedaba como
+  venta del comercio sin reembolso, o con un excedente que cargaba dos veces
+  el banco).
+- **Envío retenido por Tumbo.** Con `liquidaciones.envio_al_seller` en
+  false, al pagar la corrida el envío de sus pedidos pasa de
+  `por_pagar_seller` a la cuenta nueva `ingreso_envios` (asiento «envio»).
+- **Un solo contrato de «real».** `seller_real` cuenta también las cuentas
+  dadas de baja o inactivas: un comercio que tuvo una cuenta real sigue
+  siendo real para el dinero (antes, dar de baja a su seller lo volvía «de
+  prueba» para Pagos). Un comercio que no es de prueba para Catálogo
+  (`comercio_de_prueba`) siempre es real; uno con cuentas reales y de prueba
+  es real para el dinero y de prueba para la privacidad.
+- **El comprador real ante las cuentas de prueba.** `pago_json` (`tm_pago_ver`,
+  `tm_pago_tardio`) no lleva su nombre a una cuenta de prueba del equipo;
+  el checkout y el reporte escriben los eventos como «Comprador» (no con su
+  nombre), `reembolso_evento` también, y `tm_reembolsos_gestion` muestra a
+  una cuenta de prueba solo el papel de quien actuó en un reembolso real.

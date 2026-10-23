@@ -1,5 +1,5 @@
 {
   "seller": ["cuenta", "equipo"],
-  "admin": ["cuenta", "usuarios"],
+  "admin": ["cuenta", "usuarios", "bandeja"],
   "acceso": ["clave", "invitacion"]
 }

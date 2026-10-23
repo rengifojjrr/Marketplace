@@ -18,6 +18,7 @@
  * Sin ninguno, lo que necesita sesión elevada se informa como omitido.
  */
 const { spawnSync } = require('child_process');
+const R = require('./reinicio-comun');
 const C2 = require('./cuentas-comun');
 
 const URL_BASE = (process.env.TM_SUPABASE_URL || '').replace(/\/+$/, '');
@@ -117,7 +118,7 @@ function psql(consulta) {
     else if (secretoReal) await C2.elevar(rpc, s.real, secretoReal);
   };
   for (const [rol, email] of Object.entries(DEMO)) s[rol] = await sesion(email);
-  const r0 = await rpc('tm_reiniciar_demo', { p_sesion: s.superadmin });
+  const r0 = await R.reiniciar(rpc, s.superadmin);
   ok(r0.ok, 'superadmin reinicia la demo', r0.texto);
 
   if (BD) {
@@ -144,6 +145,12 @@ function psql(consulta) {
     }
   }
   const SIN_REAL = 'sin un superadministrador real: TM_PGDATABASE o TM_SUPERADMIN';
+  /* con TM_PGDATABASE, SEL-014 tiene cuentas reales de pruebas (vend, prec,
+     oper): para el control y el dinero es un comercio real, así que sus
+     productos los modera y sus reclamos los decide una cuenta real del
+     equipo (las cuentas de prueba solo actúan sobre los datos de la demo) */
+  const moderador = BD && s.real ? s.real : s.superadmin;
+  const equipo = BD && s.real ? s.real : s.ops;
   /* las subidas de esta suite no deben agotar el tope diario de archivos */
   if (s.real) await rpc('tm_ajuste_guardar', { p_sesion: s.real, p_clave: 'cuotas_archivos',
     p_valor: { archivos_por_dia: 100000, mb_por_seller: 300, mb_por_usuario: 300 } });
@@ -322,7 +329,7 @@ function psql(consulta) {
   const pubCond = await rpc('tm_guardar_producto', { p_sesion: s.vend, p_datos: { sku: 'SKU-TEC-0301', condicion: 'reacondicionado' }, p_enviar: false });
   const tras2 = (await carga(s.vend)).productos.find((p) => p.sku === 'SKU-TEC-0301');
   ok(pubCond.ok && tras2.estado === 'en_revision', 'cambiar la condición de un producto publicado lo devuelve a moderación', pubCond.texto);
-  await rpc('tm_moderar_producto', { p_sesion: s.superadmin, p_sku: 'SKU-TEC-0301', p_aprobar: true, p_motivo: null });
+  await rpc('tm_moderar_producto', { p_sesion: moderador, p_sku: 'SKU-TEC-0301', p_aprobar: true, p_motivo: null });
 
   /* ================= Galería ================= */
   let fotos = [];
@@ -332,7 +339,7 @@ function psql(consulta) {
   const g1 = await rpc('tm_guardar_producto', { p_sesion: s.vend, p_datos: { sku: 'SKU-TEC-0450', imagenes: [fotos[0].id, fotos[1].id] }, p_enviar: false });
   const tg1 = (await carga(s.vend)).productos.find((p) => p.sku === 'SKU-TEC-0450');
   ok(g1.ok && tg1.estado === 'en_revision' && tg1.imagenes.length === 2, 'agregar fotos a un producto publicado lo devuelve a moderación', g1.texto);
-  await rpc('tm_moderar_producto', { p_sesion: s.superadmin, p_sku: 'SKU-TEC-0450', p_aprobar: true, p_motivo: null });
+  await rpc('tm_moderar_producto', { p_sesion: moderador, p_sku: 'SKU-TEC-0450', p_aprobar: true, p_motivo: null });
   const tg2 = (await carga(null)).productos.find((p) => p.sku === 'SKU-TEC-0450');
   ok(tg2 && tg2.imagenes.map((i) => i.id).join() === [fotos[0].id, fotos[1].id].join() && /\/storage\/v1\/object\/public\/tumbo-publico\//.test(tg2.imagenes[0].url),
     'la tienda recibe la galería en su orden con URL públicas');
@@ -383,7 +390,7 @@ function psql(consulta) {
   ok(!v6.ok && /comparten la categoría/.test(v6.texto), 'las variantes comparten la categoría del principal', v6.texto);
   await rpc('tm_guardar_producto', { p_sesion: s.vend, p_datos: { sku: PADRE }, p_enviar: true });
   await rpc('tm_guardar_producto', { p_sesion: s.vend, p_datos: { sku: HIJO }, p_enviar: true });
-  const lote = await rpc('tm_moderar_lote', { p_sesion: s.superadmin, p_skus: [PADRE, HIJO, 'SKU-MOT-0832'], p_aprobar: true, p_motivo: null });
+  const lote = await rpc('tm_moderar_lote', { p_sesion: moderador, p_skus: [PADRE, HIJO, 'SKU-MOT-0832'], p_aprobar: true, p_motivo: null });
   ok(lote.ok && lote.dato.hechos.length === 2 && lote.dato.errores.length === 1 && lote.dato.errores[0].sku === 'SKU-MOT-0832',
     'la moderación en lote decide cada producto y dice cuál no se pudo', lote.texto);
   const fam = await buscar('franela');
@@ -393,7 +400,7 @@ function psql(consulta) {
   ok(famL.total === 1 && famL.resultados[0].sku === HIJO && famL.facetas.atributos.some((a) => a.clave === 'talla'),
     'los atributos alimentan los filtros (talla L) y sus facetas', JSON.stringify(famL.resultados.map((x) => x.sku)));
   ok(!(await rpc('tm_moderar_lote', { p_sesion: s.vend, p_skus: [PADRE], p_aprobar: true, p_motivo: null })).ok, 'solo el superadmin modera en lote');
-  const lr = await rpc('tm_moderar_lote', { p_sesion: s.superadmin, p_skus: [PADRE], p_aprobar: false, p_motivo: '' });
+  const lr = await rpc('tm_moderar_lote', { p_sesion: moderador, p_skus: [PADRE], p_aprobar: false, p_motivo: '' });
   ok(!lr.ok && /motivo/.test(lr.texto), 'rechazar en lote exige el motivo', lr.texto);
   /* la foto del principal solo cuenta si está publicado (la de un borrador no pasó moderación) */
   let fotoP = null;
@@ -401,13 +408,13 @@ function psql(consulta) {
   const zp = fotoP ? await rpc('tm_guardar_producto', { p_sesion: s.vend, p_datos: { nombre: 'Franela Zorbaxx edición', marca: 'Zorbaxx', categoria: 'moda-ropa',
     precioUsd: '20', stockFis: '5', atributos: { talla: 'M', color: 'Azul' }, variantesPor: ['talla'], imagenes: [fotoP.id] }, p_enviar: false }) : { ok: false };
   const zh = zp.ok ? await rpc('tm_guardar_producto', { p_sesion: s.vend, p_datos: { padreSku: zp.dato, atributos: { talla: 'L', color: 'Azul' }, precioUsd: '21', stockFis: '3' }, p_enviar: true }) : { ok: false };
-  if (zh.ok) await rpc('tm_moderar_producto', { p_sesion: s.superadmin, p_sku: zh.dato, p_aprobar: true, p_motivo: null });
+  if (zh.ok) await rpc('tm_moderar_producto', { p_sesion: moderador, p_sku: zh.dato, p_aprobar: true, p_motivo: null });
   const zb1 = await buscar('zorbaxx');
   ok(zh.ok && zb1.total === 1 && zb1.resultados[0].sku === zh.dato && zb1.resultados[0].imagen === null,
     'una variante sin fotos no muestra la del principal en borrador', zp.texto + ' ' + zh.texto + ' ' + JSON.stringify(zb1.resultados));
   if (zp.ok) {
     await rpc('tm_guardar_producto', { p_sesion: s.vend, p_datos: { sku: zp.dato }, p_enviar: true });
-    await rpc('tm_moderar_producto', { p_sesion: s.superadmin, p_sku: zp.dato, p_aprobar: true, p_motivo: null });
+    await rpc('tm_moderar_producto', { p_sesion: moderador, p_sku: zp.dato, p_aprobar: true, p_motivo: null });
   }
   const zb2 = await buscar('zorbaxx', { categoria: 'moda-ropa', atributos: { talla: ['L'] } });
   ok(zb2.total === 1 && zb2.resultados[0].sku === zh.dato && /\/storage\/v1\/object\/public\//.test(zb2.resultados[0].imagen || ''),
@@ -513,13 +520,14 @@ function psql(consulta) {
   const desp = await rpc('tm_despachar_guia', { p_sesion: s.oper, p_id: 'TM-2026-00434', p_datos: { courier: 'zoom', guia: 'ZM43401' } });
   const k3 = await kardex(s.vend, 'SKU-MOT-0777');
   ok(desp.ok && k3[0] && k3[0].tipo === 'venta' && k3[0].cantidad === -1 && k3[0].ref === 'TM-2026-00434', 'el despacho deja la venta en el kardex con su pedido', JSON.stringify(k3[0]));
-  await rpc('tm_resolver_disputa', { p_sesion: s.ops, p_id: 'DSP-0098', p_decision: 'devolucion', p_nota: null });
+  await elevarReal();
+  await rpc('tm_resolver_disputa', { p_sesion: equipo, p_id: 'DSP-0098', p_decision: 'devolucion', p_nota: null });
   /* el reembolso va después de la inspección (Logística); esta devolución no
      tiene guía de vuelta, así que Operaciones la registra con una nota */
-  const insp = await rpc('tm_devolucion_inspeccionar', { p_sesion: s.ops, p_id: 'TM-2026-00428', p_resultado: 'apto',
+  const insp = await rpc('tm_devolucion_inspeccionar', { p_sesion: equipo, p_id: 'TM-2026-00428', p_resultado: 'apto',
     p_nota: 'Llegó completo a la oficina del comercio', p_foto: null });
   ok(insp.ok, 'Operaciones inspecciona la devolución antes de cerrarla', insp.texto);
-  const dev = await rpc('tm_cerrar_devolucion', { p_sesion: s.ops, p_id: 'TM-2026-00428', p_recibida: true });
+  const dev = await rpc('tm_cerrar_devolucion', { p_sesion: equipo, p_id: 'TM-2026-00428', p_recibida: true });
   const k4 = await kardex(s.vend, 'SKU-MOT-0832');
   ok(dev.ok && k4[0] && k4[0].tipo === 'devolucion' && k4[0].cantidad === 2 && k4[0].ref === 'TM-2026-00428', 'la devolución recibida queda en el kardex', JSON.stringify(k4[0]));
   const um = await rpc('tm_stock_umbral', { p_sesion: s.oper, p_sku: 'SKU-TEC-0450', p_umbral: 30 });
@@ -729,7 +737,7 @@ function psql(consulta) {
 
   /* ================= Reinicio ================= */
   await rpc('tm_favorito', { p_sesion: s.comprador, p_sku: 'SKU-TEC-0450', p_activo: true });
-  const r9 = await rpc('tm_reiniciar_demo', { p_sesion: s.superadmin });
+  const r9 = await R.reiniciar(rpc, s.superadmin);
   const c9 = await carga(s.comprador);
   const p9 = await carga(null);
   ok(r9.ok && c9.favoritos.length === 0 && c9.alertas.length === 0 && p9.sellers.every((x) => !x.kyc_verificado && !x.logo_url) &&
@@ -751,10 +759,10 @@ function psql(consulta) {
   }
   if (BD) {
     /* deja la base como la semilla para las demás suites (verificar-rls cuenta sellers y expedientes):
-       sin el comercio real de pruebas y sin cuentas reales activas en los comercios de la semilla
-       (con una, Pagos trata a SEL-014 como un comercio real y la demo no lo liquida) */
-    psql(`update tumbo.usuarios set seller_id = null, rol = 'comprador', activo = false where email in ('${PROPIAS.hogar[0]}', '${PROPIAS.vreal[0]}');
-          update tumbo.usuarios set activo = false where email in ('${PROPIAS.vend[0]}', '${PROPIAS.prec[0]}', '${PROPIAS.oper[0]}');
+       sin el comercio real de pruebas y sin cuentas reales en los comercios de la semilla (con una,
+       aunque esté inactiva, Pagos trata a SEL-014 como un comercio real y la demo no lo liquida) */
+    psql(`update tumbo.usuarios set seller_id = null, rol = 'comprador', activo = false
+          where email in ('${PROPIAS.hogar[0]}', '${PROPIAS.vreal[0]}', '${PROPIAS.vend[0]}', '${PROPIAS.prec[0]}', '${PROPIAS.oper[0]}');
           delete from tumbo.seller_documentos where seller_id = 'SEL-990';
           delete from tumbo.sellers_kyc where seller_id = 'SEL-990';
           delete from tumbo.archivos where seller_id = 'SEL-990' and estado = 'descartado';
@@ -764,4 +772,9 @@ function psql(consulta) {
   console.log('');
   if (fallos) { console.log(rojo(`FALLOS: ${fallos}`)); process.exit(1); }
   console.log(verde('✓ Catálogo y comercio verificados por la API.'));
-})().catch((e) => { console.error(rojo(e.stack || e.message)); process.exit(1); });
+})().catch((e) => {
+  console.error(rojo(e.stack || e.message));
+  /* si la suite se corta, sus cuentas reales no se quedan en los comercios de la semilla (las suites siguientes los usan con sus cuentas de prueba) */
+  if (BD) try { psql(`update tumbo.usuarios set seller_id = null, rol = 'comprador', activo = false where email in (${Object.values(PROPIAS).filter((c) => c[3]).map((c) => `'${c[0]}'`).join(', ')})`); } catch (e2) { }
+  process.exit(1);
+});

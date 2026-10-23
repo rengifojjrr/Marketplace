@@ -39,6 +39,21 @@
     var entregados = pedidos.filter(function (p) { return ['entregado', 'cerrado'].indexOf(p.estado) >= 0; }).length || 1;
     var tasaDisputas = Math.round(100 * disputas.length / entregados);
 
+    /* Con servidor, la aceptación a tiempo y las cancelaciones del comercio
+       salen de las métricas de Logística (las mismas de seller/pedidos, 30
+       días); sin ellas no se muestra un valor inventado. */
+    var met = TM.log && TM.log.dato ? (TM.log.dato('seller:cola', 'tm_envios_cola', {}) || {}).metricas : null;
+    var pct = function (a, b) { return b ? Math.round(100 * a / b) + ' %' : '—'; };
+    var salud = [{ n: 'Reclamos sobre entregas', v: tasaDisputas + ' %', ok: tasaDisputas <= 10, meta: '≤ 10 %' }];
+    if (met) {
+      salud.push({ n: 'Pedidos aceptados dentro del SLA', v: pct(met.aceptados_a_tiempo, met.aceptados) + ' · ' + met.aceptados + ' en 30 días',
+                   ok: !met.aceptados || met.aceptados_a_tiempo / met.aceptados >= 0.95, meta: '≥ 95 %' });
+      salud.push({ n: 'Cancelaciones del comercio', v: pct(met.cancelaciones_seller, met.pedidos) + ' · ' + met.cancelaciones_seller + ' de ' + met.pedidos,
+                   ok: !met.pedidos || met.cancelaciones_seller / met.pedidos <= 0.025, meta: '≤ 2,5 % · 30 días' });
+    } else {
+      salud.push({ n: 'Pedidos por aceptar', v: porAceptar.length ? 'pendientes: ' + porAceptar.length : 'al día', ok: !porAceptar.length, meta: 'acéptalos dentro de 24 h' });
+    }
+
     var tareas = [];
     if (porAceptar.length) tareas.push({ i: 'notifications', tono: 'text-warning', t: porAceptar.length + ' pedido' + (porAceptar.length === 1 ? '' : 's') + ' por aceptar', d: 'El SLA de 24 h corre desde la conciliación.', h: 'app/seller/pedidos.html' });
     if (abiertas.length) tareas.push({ i: 'gavel', tono: 'text-error', t: abiertas.length + ' reclamo' + (abiertas.length === 1 ? '' : 's') + ' esperando tu respuesta', d: 'Los fondos del pedido quedan congelados hasta la decisión.', h: 'app/seller/disputas.html' });
@@ -67,9 +82,7 @@
       '<section class="grid lg:grid-cols-2 gap-4">' +
       '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
         '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-3">Salud de la cuenta</h2>' +
-        [{ n: 'Reclamos sobre entregas', v: tasaDisputas + ' %', ok: tasaDisputas <= 10, meta: '≤ 10 %' },
-         { n: 'Pedidos aceptados dentro del SLA', v: porAceptar.length ? 'pendientes: ' + porAceptar.length : '100 %', ok: !porAceptar.length, meta: '100 %' },
-         { n: 'Cancelaciones del seller', v: '0 %', ok: true, meta: '≤ 2,5 %' }].map(function (m) {
+        salud.map(function (m) {
           return '<div class="flex items-center justify-between gap-2 py-2 border-b border-outline-variant last:border-0">' +
             '<span class="font-body-sm text-body-sm text-on-surface">' + esc(m.n) +
             '<span class="block text-on-surface-variant">meta ' + esc(m.meta) + '</span></span>' +
@@ -105,12 +118,13 @@
           '<span class="font-data-mono text-data-mono text-on-surface">' + esc(d.id) + '</span>' + UI.badge(d.estado) +
           '<span class="font-body-sm text-body-sm text-on-surface-variant">sobre ' + esc(d.pedidoId) + ' · ' + esc(TM.fmtBs(d.montoUsd, (TM.pedido(d.pedidoId) || {}).tasa)) + '</span></div>' +
         '<p class="font-body-md text-body-md text-on-surface mb-1"><strong>' + esc(d.motivo) + '.</strong> ' + esc(d.descripcion) + '</p>' +
-        (d.evidencia.length ? '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Evidencia del comprador: ' + d.evidencia.map(esc).join(', ') + '</p>' : '') +
+        (d.evidencia.length ? '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Evidencia del comprador: ' +
+          (TM.archivos ? TM.archivos.lista(d.evidencia) : d.evidencia.map(esc).join(', ')) + '</p>' : '') +
         (d.respuestaSeller
           ? '<div class="rounded-btn bg-surface-container-low p-3 font-body-sm text-body-sm"><strong>Tu respuesta (' + esc(d.respuestaSeller.fecha) + '):</strong> ' + esc(d.respuestaSeller.texto) + '</div>'
           : (d.estado === 'abierta'
             ? '<div class="mt-2"><textarea data-resp="' + esc(d.id) + '" rows="2" placeholder="Explica tu versión y describe tu evidencia de empaque…" class="w-full px-3 py-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm focus:border-secondary outline-none"></textarea>' +
-              '<div class="mt-2 flex gap-2">' + btn('Responder con evidencia', { estilo: 'primario', icono: 'forum', attr: 'data-responder="' + esc(d.id) + '"' }) + '</div></div>'
+              '<div class="mt-2 flex gap-2">' + btn('Enviar mi respuesta', { estilo: 'primario', icono: 'forum', attr: 'data-responder="' + esc(d.id) + '"' }) + '</div></div>'
             : '')) +
         (d.resolucion ? '<p class="mt-2 font-body-sm text-body-sm"><strong>Resolución de Operaciones:</strong> ' +
           (d.resolucion.decision === 'reembolso' ? 'reembolso al comprador.' : d.resolucion.decision === 'devolucion' ? 'devolución del producto.' : 'caso cerrado a tu favor: fondos liberados.') + '</p>' : '') +
@@ -125,7 +139,8 @@
         var id = b.getAttribute('data-responder');
         var texto = raiz.querySelector('[data-resp="' + id + '"]').value.trim();
         if (texto.length < 10) { UI.toast('Falta tu versión', 'Describe qué pasó con al menos 10 caracteres.', 'error'); return; }
-        UI.accion(b, function () { return TM.responderDisputa(id, texto, ['evidencia-packing.jpg']); }, function () {
+        /* sin adjuntos inventados: la respuesta lleva el texto del comercio */
+        UI.accion(b, function () { return TM.responderDisputa(id, texto, []); }, function () {
           UI.toast('Respuesta enviada', 'Operaciones la verá en el expediente.', 'forum');
         });
       });
