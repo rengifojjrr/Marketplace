@@ -31,12 +31,12 @@
 insert into tumbo.ajustes (clave, valor, tipo, vaciable, publico, descripcion) values
   ('impuestos', '{"iva_pct": 16, "igtf_pct": 3, "categorias_exentas": []}', 'object', false, true,
    'IVA incluido en el precio de los productos (salvo los exentos) e IGTF de los pagos en divisas, en %.'),
-  ('conciliacion', '{"tolerancia_bs": 1, "dias": 3, "digitos_sufijo": 6}', 'object', false, false,
-   'Cruce con el estado de cuenta: tolerancia del monto en Bs., días de margen alrededor de la fecha del pago y dígitos mínimos para aceptar una referencia que el banco recorta.'),
+  ('conciliacion', '{"tolerancia_bs": 1, "dias": 3, "digitos_sufijo": 6, "filas_dia_usuario": 5000, "filas_dia_total": 20000}', 'object', false, false,
+   'Cruce con el estado de cuenta: tolerancia del monto en Bs., días de margen alrededor de la fecha del pago, dígitos mínimos para aceptar una referencia que el banco recorta y tope de movimientos nuevos por persona y en total cada 24 horas.'),
   ('reembolsos', '{"umbral_doble_usd": 200}', 'object', false, false,
-   'Reembolsos: desde este monto (USD) los aprueban dos personas distintas con sesión elevada.'),
-  ('tasa_bcv', '{"url": "https://ve.dolarapi.com/v1/dolares/oficial", "horas_alerta": 24}', 'object', false, false,
-   'Fuente pública de la tasa oficial (BCV) y horas sin actualizarse antes de avisar a Finanzas.'),
+   'Reembolsos: desde este monto (USD) los aprueban dos personas distintas con sesión elevada (los de dinero que llegó de más o sin venta, siempre).'),
+  ('tasa_bcv', '{"url": "https://ve.dolarapi.com/v1/dolares/oficial", "horas_alerta": 24, "variacion_max_pct": 15}', 'object', false, false,
+   'Fuente pública de la tasa oficial (BCV), horas sin actualizarse antes de avisar a Finanzas y variación máxima (%) que se aplica sola: una mayor queda propuesta para que una persona la confirme.'),
   ('liquidaciones', '{"envio_al_seller": true}', 'object', false, false,
    'Regla de liquidación: el seller paga la guía y recibe el envío cobrado al comprador.')
 on conflict (clave) do nothing;
@@ -161,8 +161,10 @@ create index pago_eventos_pago_idx on tumbo.pago_eventos (pago_id, id);
 
 -- El pedido guarda lo que se le cobró al venderse: su pago, descuentos,
 -- IVA incluido, IGTF, crédito aplicado, el total en Bs. con su tasa, la
--- comisión y la tarifa vigentes, el plazo de envío cotizado y los datos
--- fiscales para la factura. (destino ya existe desde la ola 0.)
+-- comisión y la tarifa vigentes y el plazo de envío cotizado. (destino ya
+-- existe desde la ola 0.) Los datos fiscales del comprador quedan en su
+-- pago (tumbo.pagos.fiscal), que solo leen las funciones de este dominio:
+-- la lectura general (tm_cargar) entrega el pedido completo.
 alter table tumbo.pedidos
   add column pago_id             text references tumbo.pagos (id),
   add column descuento_usd       numeric(12,2) not null default 0,
@@ -175,13 +177,18 @@ alter table tumbo.pedidos
   add column comision_pct        numeric(5,2),
   add column tarifa_usd          numeric(10,2),
   add column envio_dias          text,
-  add column fiscal              jsonb,
   add column vencido_el          timestamptz,
   add column cancelado_el        timestamptz;
 create index pedidos_pago_idx on tumbo.pedidos (pago_id);
 
 -- Reembolsos: a quién y por dónde, con su doble aprobación y su envío.
+-- tipo: 'pedido' (lo pagado por un pedido, con tope), 'excedente' (dinero
+-- que llegó de más en un pago verificado) o 'sin_venta' (dinero que llegó
+-- por un pago que no se cumplió: tarde, rechazado, parcial o repetido).
+-- destino guarda solo un resumen (tipo, banco y los datos enmascarados): la
+-- lectura de reembolsos de la ola 0 lo entrega completo a Finanzas.
 alter table tumbo.reembolsos
+  add column tipo           text not null default 'pedido' check (tipo in ('pedido', 'excedente', 'sin_venta')),
   add column pago_id        text,
   add column comprador_id   uuid,
   add column requiere_doble boolean not null default false,
@@ -191,6 +198,14 @@ alter table tumbo.reembolsos
   add column error          text,
   add column enviado_el     timestamptz;
 create index reembolsos_comprador_idx on tumbo.reembolsos (comprador_id, creado desc);
+
+-- El destino completo de cada reembolso (teléfono, cédula, correo y titular):
+-- solo lo leen las funciones de este dominio, con la privacidad de la demo.
+create table tumbo.reembolso_destinos (
+  reembolso_id bigint primary key,
+  datos        jsonb not null,
+  actualizado  timestamptz not null default now()
+);
 
 -- Quién hizo qué con cada reembolso (no lo ve el comprador).
 create table tumbo.reembolso_eventos (
@@ -204,24 +219,32 @@ create table tumbo.reembolso_eventos (
 );
 create index reembolso_eventos_idx on tumbo.reembolso_eventos (reembolso_id, id);
 
--- Crédito en Tumbo del comprador (movimientos: + reembolso, − compra).
+-- Crédito en Tumbo del comprador (movimientos: + reembolso, − compra,
+-- + devolución de lo usado en un pedido cuyo pago no se cumplió).
+-- pedido_uso: el pedido que usó (−) o al que se le devolvió (+) ese crédito;
+-- la suma por pedido es lo que ese pedido tiene usado ahora.
 create table tumbo.creditos (
   id         bigint generated always as identity primary key,
   usuario_id uuid not null references tumbo.usuarios (id),
   monto_usd  numeric(12,2) not null check (monto_usd <> 0),
   motivo     text not null,
   referencia text,
+  pedido_uso text,
   creado     timestamptz not null default now()
 );
 create index creditos_usuario_idx on tumbo.creditos (usuario_id, id);
+create index creditos_pedido_idx on tumbo.creditos (pedido_uso) where pedido_uso is not null;
 
--- Tasa oficial con historial. Las automáticas se aplican al llegar; las
+-- Tasa oficial con historial. Las automáticas se aplican al llegar si son
+-- de la fecha vigente o posterior y no se alejan más de lo configurado; si
+-- se alejan quedan «propuesta» hasta que una persona las confirma. Las
 -- manuales son «propuesta» hasta que otra persona las confirma.
 create table tumbo.tasas (
   id                   bigint generated always as identity primary key,
   fecha                date not null,
   valor                numeric(14,4) not null check (valor > 0 and valor < 10000000),
   fuente               text not null,
+  automatica           boolean not null default false,
   estado               text not null default 'aplicada' check (estado in ('propuesta', 'aplicada', 'descartada')),
   propuesta_por        uuid,
   propuesta_por_nombre text,
@@ -299,7 +322,7 @@ create table tumbo.movimientos_banco (
   monto         numeric(14,2) not null,
   descripcion   text not null default '',
   huella        text not null,
-  estado        text not null default 'nuevo' check (estado in ('nuevo', 'conciliado', 'excepcion', 'ignorado')),
+  estado        text not null default 'nuevo' check (estado in ('nuevo', 'conciliado', 'excepcion', 'ignorado', 'reembolsado')),
   excepcion     text check (excepcion is null or excepcion in
                   ('monto_distinto', 'duplicado', 'no_identificado', 'pago_parcial', 'fuera_de_fecha', 'pago_vencido')),
   pago_id       text,
@@ -313,7 +336,9 @@ create index movimientos_banco_estado_idx on tumbo.movimientos_banco (estado, id
 create index movimientos_banco_ref_idx on tumbo.movimientos_banco (ref_numero);
 
 -- Cuentas de liquidación de los sellers (verificadas por Finanzas: el
--- titular debe ser el RIF del comercio). Un cambio rige 48 h después.
+-- titular debe ser el RIF del comercio). Un cambio rige 48 h después y el
+-- seller lo puede anular mientras no rija. ficticia: las de la semilla de
+-- la demo (las únicas que las cuentas de prueba ven completas).
 create table tumbo.cuentas_liquidacion (
   id           bigint generated always as identity primary key,
   seller_id    text not null references tumbo.sellers (id),
@@ -324,11 +349,13 @@ create table tumbo.cuentas_liquidacion (
   numero       text check (numero is null or numero ~ '^[0-9]{20}$'),
   tipo_cuenta  text check (tipo_cuenta is null or tipo_cuenta in ('corriente', 'ahorro')),
   telefono     text check (telefono is null or telefono ~ '^04[0-9]{9}$'),
-  estado       text not null default 'pendiente' check (estado in ('pendiente', 'verificada', 'rechazada', 'reemplazada')),
+  estado       text not null default 'pendiente' check (estado in ('pendiente', 'verificada', 'rechazada', 'reemplazada', 'anulada')),
   vigente_desde timestamptz,
   motivo       text,
+  ficticia     boolean not null default false,
   creado       timestamptz not null default now(),
   creado_por   text not null,
+  creado_por_id uuid,
   verificada_por text,
   verificada_el timestamptz,
   check ((tipo = 'cuenta' and numero is not null and tipo_cuenta is not null) or (tipo = 'pago_movil' and telefono is not null))
@@ -646,6 +673,59 @@ begin
                             'monto', case when g.moneda = 'VES' then v_bs else v_usd end, 'pedidos', n);
 end $$;
 
+-- El crédito en Tumbo que un pedido tiene usado ahora (lo que se descontó
+-- al comprar menos lo que se le devolvió).
+create function tumbo_privado.credito_vigente(p_pedido text) returns numeric
+language sql stable security definer set search_path = '' as $$
+  select greatest(0, -coalesce(sum(c.monto_usd), 0)) from tumbo.creditos c where c.pedido_uso = p_pedido
+$$;
+
+-- Deja el crédito de cada pedido de un pago como corresponde a su estado:
+-- un pedido que el pago cubre (por verificar o verificado) lo tiene usado;
+-- uno que ya no cubre (cancelado antes de pagar, o de un pago cancelado,
+-- vencido o rechazado) lo devuelve al saldo del comprador, una sola vez.
+-- Con p_cobrar (pago recibido tarde) vuelve a descontar lo devuelto de un
+-- pedido que se reactiva; si el comprador ya lo gastó, no se puede. Quien
+-- llama tiene bloqueado el pago (eso evita devolver dos veces) y, para
+-- cobrar, al comprador. El crédito reservado no se asienta en el libro
+-- mayor hasta que el pago se verifica.
+create function tumbo_privado.pago_ajustar_creditos(p_pago text, p_cobrar boolean) returns void
+language plpgsql security definer set search_path = '' as $$
+declare
+  g tumbo.pagos;
+  x tumbo.pedidos;
+  v_desea numeric;
+  v_actual numeric;
+  v_saldo numeric;
+begin
+  select * into g from tumbo.pagos where id = p_pago;
+  if not found then
+    return;
+  end if;
+  for x in select * from tumbo.pedidos where pago_id = g.id and credito_usd > 0 order by id loop
+    v_desea := case when g.estado in ('pendiente', 'reportado', 'verificado')
+                         and exists (select 1 from tumbo_privado.pedidos_del_pago(g) y where y.id = x.id)
+                    then x.credito_usd else 0 end;
+    v_actual := tumbo_privado.credito_vigente(x.id);
+    if v_actual > v_desea then
+      insert into tumbo.creditos (usuario_id, monto_usd, motivo, referencia, pedido_uso)
+      values (g.comprador_id, v_actual - v_desea,
+              'Devolución del crédito usado en el pedido ' || x.id || ' (pago ' || g.id || ' ' ||
+              case g.estado when 'vencido' then 'vencido' when 'rechazado' then 'rechazado' when 'cancelado' then 'cancelado'
+                            else 'sin ese pedido' end || ')', g.id, x.id);
+      perform tumbo_privado.pago_evento(g.id, 'Sistema', 'Crédito en Tumbo de ' || x.id || ' devuelto al comprador (' ||
+                                        tumbo_privado.fmt_usd(v_actual - v_desea) || ')', 'undo');
+    elsif v_actual < v_desea and p_cobrar then
+      select coalesce(sum(monto_usd), 0) into v_saldo from tumbo.creditos where usuario_id = g.comprador_id;
+      if v_saldo < v_desea - v_actual then
+        raise exception 'El comprador ya usó el crédito en Tumbo que se le devolvió por %: no se puede reactivar, genera el reembolso.', x.id;
+      end if;
+      insert into tumbo.creditos (usuario_id, monto_usd, motivo, referencia, pedido_uso)
+      values (g.comprador_id, -(v_desea - v_actual), 'Usado de nuevo en el pedido ' || x.id || ' (pago ' || g.id || ' recibido tarde)', g.id, x.id);
+    end if;
+  end loop;
+end $$;
+
 create function tumbo_privado.pago_evento(p_pago text, p_actor text, p_texto text, p_icono text, p_interno boolean default false) returns void
 language sql security definer set search_path = '' as $$
   insert into tumbo.pago_eventos (pago_id, actor, texto, icono, interno)
@@ -759,7 +839,37 @@ language sql stable security definer set search_path = '' as $$
   select case when c.id is null then null else jsonb_build_object(
     'id', c.id, 'tipo', c.tipo, 'banco', c.banco, 'banco_nombre', (select b.nombre from tumbo.bancos b where b.codigo = c.banco),
     'titular', c.titular, 'rif', c.rif, 'numero', c.numero, 'tipo_cuenta', c.tipo_cuenta, 'telefono', c.telefono,
-    'estado', c.estado, 'vigente_desde', c.vigente_desde, 'motivo', c.motivo, 'creado', c.creado) end
+    'estado', c.estado, 'vigente_desde', c.vigente_desde, 'motivo', c.motivo, 'creado', c.creado, 'ficticia', c.ficticia) end
+$$;
+
+-- «••••6666»: deja ver solo los últimos caracteres de un dato.
+create function tumbo_privado.enmascarar(p text, p_visibles integer default 4) returns text
+language sql immutable set search_path = '' as $$
+  select case when p is null or p = '' then p
+              when char_length(p) <= p_visibles then repeat('•', char_length(p))
+              else repeat('•', least(char_length(p) - p_visibles, 8)) || right(p, p_visibles) end
+$$;
+
+-- La cuenta con el número, el teléfono y el RIF enmascarados (lo que guarda
+-- la corrida pagada y lo que ve quien no puede ver los datos completos).
+create function tumbo_privado.cuenta_resumen(c tumbo.cuentas_liquidacion) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select case when c.id is null then null
+              else tumbo_privado.cuenta_json(c) || jsonb_build_object(
+                     'numero', tumbo_privado.enmascarar(c.numero), 'telefono', tumbo_privado.enmascarar(c.telefono),
+                     'rif', left(c.rif, 2) || '•••••' || right(c.rif, 2), 'oculta', true) end
+$$;
+
+-- ¿Puede esta persona ver la cuenta completa? Las cuentas de prueba solo
+-- ven las ficticias de la semilla.
+create function tumbo_privado.ve_cuenta(p_yo tumbo.usuarios, c tumbo.cuentas_liquidacion) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select not tumbo_privado.cuenta_demo(p_yo.email) or coalesce(c.ficticia, false)
+$$;
+
+create function tumbo_privado.cuenta_json_para(c tumbo.cuentas_liquidacion, p_yo tumbo.usuarios) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select case when tumbo_privado.ve_cuenta(p_yo, c) then tumbo_privado.cuenta_json(c) else tumbo_privado.cuenta_resumen(c) end
 $$;
 
 create function tumbo_privado.liquidacion_evento(p_liq text, p_yo tumbo.usuarios, p_accion text, p_nota text) returns void
@@ -782,34 +892,99 @@ language sql stable security definer set search_path = '' as $$
          or exists (select 1 from tumbo.usuarios u where u.id = p_comprador and tumbo_privado.cuenta_demo(u.email))
 $$;
 
+-- ¿Es una persona real (no una cuenta de prueba de la demo)?
+create function tumbo_privado.comprador_real(p_usuario uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from tumbo.usuarios u where u.id = p_usuario and not tumbo_privado.cuenta_demo(u.email))
+$$;
+
+-- ¿Es un comercio real? Lo es si alguna cuenta activa de su equipo no es de
+-- prueba (el comercio de la demo solo tiene cuentas de prueba).
+create function tumbo_privado.seller_real(p_seller text) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from tumbo.usuarios u
+                 where u.seller_id = p_seller and u.activo and not tumbo_privado.cuenta_demo(u.email))
+$$;
+
+-- Las acciones de dinero o de control sobre una persona o un comercio real
+-- exigen sesión elevada (contrato de Cuentas: hoy rechaza las cuentas de
+-- prueba, cuya contraseña es pública). Sobre los datos de la demo, las
+-- cuentas de prueba pueden practicar.
+create function tumbo_privado.exigir_si_real(p_yo tumbo.usuarios, p_real boolean) returns void
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if not coalesce(p_real, true) then
+    return;
+  end if;
+  if p_yo.id is not null and tumbo_privado.cuenta_demo(p_yo.email) then
+    raise exception 'Es de una persona o un comercio real: las cuentas de prueba solo actúan sobre los datos de la demo (hace falta una cuenta real del equipo con verificación en dos pasos).'
+      using errcode = '42501';
+  end if;
+  perform tumbo_privado.exigir_elevada(p_yo);
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- Tasa oficial (BCV)
 -- ---------------------------------------------------------------------------
--- Aplica una tasa automática: la guarda en el historial (si es la misma de la
--- misma fecha y fuente, solo anota la consulta) y actualiza tumbo.config.tasa.
-create function tumbo_privado.registrar_tasa(p_valor numeric, p_fecha date, p_fuente text) returns bigint
+-- Registra una tasa de la fuente automática: 'repetida' (la misma de la
+-- misma fecha y fuente: solo anota la consulta), 'antigua' (de una fecha
+-- anterior a la vigente: no se aplica, nunca deshace una más reciente, p. ej.
+-- la cargada a mano), 'propuesta' (se aleja de la vigente más que
+-- tasa_bcv.variacion_max_pct: queda para que una persona de Finanzas la
+-- confirme, y se le avisa) o 'aplicada' (al historial y a tumbo.config.tasa).
+create function tumbo_privado.registrar_tasa(p_valor numeric, p_fecha date, p_fuente text) returns text
 language plpgsql security definer set search_path = '' as $$
 declare
   t tumbo.tasas;
-  v_id bigint;
+  pr tumbo.tasas;
   v_valor numeric := round(p_valor, 4);
+  v_fuente text := left(coalesce(p_fuente, ''), 80);
+  v_actual numeric;
+  v_max numeric := greatest(1, least(100, tumbo_privado.numero(coalesce(tumbo_privado.ajuste('tasa_bcv'), '{}'::jsonb) -> 'variacion_max_pct', 15)));
 begin
-  if p_valor is null or p_valor <= 0 or p_valor >= 10000000 or p_fecha is null then
+  if p_valor is null or p_valor <= 0 or p_valor >= 10000000 or p_fecha is null or p_fecha > tumbo_privado.hoy_caracas() + 3 then
     raise exception 'Tasa inválida.';
   end if;
-  select * into t from tumbo.tasas where estado = 'aplicada' order by aplicada_el desc nulls last, id desc limit 1 for update;
-  if found and t.fecha = p_fecha and t.valor = v_valor and t.fuente = left(p_fuente, 80) then
+  perform pg_advisory_xact_lock(hashtextextended('tumbo:tasa', 0));
+  select * into t from tumbo.tasas where estado = 'aplicada' order by aplicada_el desc nulls last, id desc limit 1;
+  if found and t.fecha = p_fecha and t.valor = v_valor and t.fuente = v_fuente then
     update tumbo.tasas set ultima_consulta = now() where id = t.id;
     update tumbo.config set tasa = t.valor where id and tasa <> t.valor;
-    return t.id;
+    return 'repetida';
   end if;
-  insert into tumbo.tasas (fecha, valor, fuente, estado, aplicada_el, ultima_consulta)
-  values (p_fecha, v_valor, left(p_fuente, 80), 'aplicada', now(), now())
-  returning id into v_id;
+  if found and p_fecha < t.fecha then
+    return 'antigua';
+  end if;
+  select tasa into v_actual from tumbo.config;
+  if v_actual > 0 and abs(v_valor - v_actual) * 100 / v_actual > v_max then
+    select * into pr from tumbo.tasas where estado = 'propuesta' order by id desc limit 1 for update;
+    if found and pr.automatica and pr.valor = v_valor and pr.fecha = p_fecha then
+      update tumbo.tasas set ultima_consulta = now() where id = pr.id;
+      return 'propuesta';
+    end if;
+    if found and not pr.automatica then
+      -- una persona ya propuso una tasa: se decide esa primero
+      return 'propuesta';
+    end if;
+    if found then
+      update tumbo.tasas set estado = 'descartada', nota = 'Reemplazada por una consulta más reciente de la fuente' where id = pr.id;
+    end if;
+    insert into tumbo.tasas (fecha, valor, fuente, automatica, estado, propuesta_por_nombre, nota, ultima_consulta)
+    values (p_fecha, v_valor, v_fuente, true, 'propuesta', 'Fuente automática',
+            'Se aleja ' || round(abs(v_valor - v_actual) * 100 / v_actual, 1) || ' % de la vigente (' || tumbo_privado.fmt_bs(v_actual) || '): confírmala o descártala',
+            now());
+    perform tumbo_privado.notificar('rol:finanzas', 'La fuente de la tasa BCV trae ' || tumbo_privado.fmt_bs(v_valor) || ', muy distinta de la vigente (' ||
+      tumbo_privado.fmt_bs(v_actual) || '): confírmala o descártala', 'currency_exchange', 'admin/finanzas.html');
+    perform tumbo_privado.auditar(null, 'Tasa automática retenida', tumbo_privado.fmt_bs(v_valor) || ' por USD · ' || to_char(p_fecha, 'DD/MM/YYYY') ||
+      ' · ' || v_fuente || ' · vigente ' || tumbo_privado.fmt_bs(v_actual));
+    return 'propuesta';
+  end if;
+  insert into tumbo.tasas (fecha, valor, fuente, automatica, estado, aplicada_el, ultima_consulta)
+  values (p_fecha, v_valor, v_fuente, true, 'aplicada', now(), now());
   update tumbo.config set tasa = v_valor where id;
   perform tumbo_privado.auditar(null, 'Tasa actualizada',
-    tumbo_privado.fmt_bs(v_valor) || ' por USD · ' || to_char(p_fecha, 'DD/MM/YYYY') || ' · ' || left(p_fuente, 80));
-  return v_id;
+    tumbo_privado.fmt_bs(v_valor) || ' por USD · ' || to_char(p_fecha, 'DD/MM/YYYY') || ' · ' || v_fuente);
+  return 'aplicada';
 end $$;
 
 -- La tasa de la respuesta de la fuente pública (ve.dolarapi.com:
@@ -847,6 +1022,7 @@ declare
   v_estado integer;
   v_cuerpo text;
   v jsonb;
+  v_res text;
   n integer := 0;
 begin
   if to_regclass('net._http_response') is null then
@@ -867,9 +1043,15 @@ begin
       v := null;
     end;
     if v_estado between 200 and 299 and v is not null then
-      perform tumbo_privado.registrar_tasa((v ->> 'valor')::numeric, (v ->> 'fecha')::date, 'BCV vía ' || coalesce(nullif(s.fuente, ''), 'fuente pública'));
-      update tumbo.tasa_solicitudes set procesado = now(), resultado = 'ok ' || (v ->> 'valor') where id = s.id;
-      n := n + 1;
+      begin
+        v_res := tumbo_privado.registrar_tasa((v ->> 'valor')::numeric, (v ->> 'fecha')::date, 'BCV vía ' || coalesce(nullif(s.fuente, ''), 'fuente pública'));
+      exception when others then
+        v_res := 'inválida';
+      end;
+      update tumbo.tasa_solicitudes set procesado = now(), resultado = v_res || ' ' || (v ->> 'valor') || ' del ' || (v ->> 'fecha') where id = s.id;
+      if v_res in ('aplicada', 'repetida') then
+        n := n + 1;
+      end if;
     else
       update tumbo.tasa_solicitudes set procesado = now(), resultado = 'respuesta ' || v_estado || ' no válida' where id = s.id;
     end if;
@@ -913,7 +1095,8 @@ begin
   return v_res;
 end $$;
 
--- La tasa vigente con su fecha y su fuente (la vitrina la muestra).
+-- La tasa vigente con su fecha y su fuente (la vitrina la muestra) y si
+-- lleva más de tasa_bcv.horas_alerta horas sin actualizarse.
 create function public.tm_tasa_vigente() returns jsonb
 language sql stable security definer set search_path = '' as $$
   select jsonb_build_object(
@@ -921,8 +1104,10 @@ language sql stable security definer set search_path = '' as $$
     'fecha', t.fecha, 'fuente', coalesce(t.fuente, 'Tasa de referencia de la demo (sin fuente oficial cargada)'),
     'actualizada', coalesce(t.ultima_consulta, t.aplicada_el),
     'oficial', t.id is not null and t.valor = c.tasa,
-    'desactualizada', t.id is null or coalesce(t.ultima_consulta, t.aplicada_el) < now() - interval '24 hours')
+    'horas_alerta', h.horas,
+    'desactualizada', t.id is null or coalesce(t.ultima_consulta, t.aplicada_el) < now() - make_interval(hours => h.horas))
   from tumbo.config c
+  cross join lateral (select greatest(1, least(240, tumbo_privado.numero(coalesce(tumbo_privado.ajuste('tasa_bcv'), '{}'::jsonb) -> 'horas_alerta', 24)::integer)) as horas) h
   left join lateral (select * from tumbo.tasas x where x.estado = 'aplicada'
                      order by x.aplicada_el desc nulls last, x.id desc limit 1) t on true
 $$;
@@ -943,8 +1128,9 @@ $$;
 --   · IVA incluido en los productos no exentos (informativo), IGTF sobre lo
 --     que se paga en divisas, crédito en Tumbo si se pide usarlo;
 --   · total en USD y en Bs. con la tasa vigente.
--- p_datos: {entrega: 'domicilio'|'agencia', direccion_id, metodo, cupon,
---           envios: {seller: clave}, usar_credito, fiscal: {documento, razon_social}}
+-- p_datos: {entrega: 'domicilio'|'agencia', direccion_id, agencia: {ciudad, estado},
+--           metodo, cupon, envios: {seller: clave}, usar_credito,
+--           fiscal: {documento, razon_social}}
 create function tumbo_privado.checkout_calcular(p_yo tumbo.usuarios, p_datos jsonb) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -956,6 +1142,8 @@ declare
   v_igtf numeric := tumbo_privado.numero(v_imp -> 'igtf_pct', 3);
   v_entrega text := coalesce(v_d ->> 'entrega', '');
   v_destino jsonb;
+  v_ag_ciudad text;
+  v_ag_estado text;
   v_fiscal jsonb;
   v_doc text;
   v_razon text;
@@ -1006,8 +1194,17 @@ begin
       raise exception 'Elige una dirección de entrega válida.';
     end if;
   elsif v_entrega = 'agencia' then
-    v_destino := jsonb_build_object('tipo', 'agencia', 'destinatario', p_yo.nombre, 'cedula', p_yo.cedula,
-                                    'telefono_destinatario', p_yo.telefono, 'ciudad', 'Caracas');
+    -- la ciudad (y el estado) donde retira: los que eligió o, si no, los de
+    -- su dirección predeterminada (o la más reciente). Sin ellos no se
+    -- inventa ninguna: Logística cotiza sin ciudad.
+    v_ag_ciudad := nullif(left(regexp_replace(trim(coalesce(v_d -> 'agencia' ->> 'ciudad', '')), '[[:cntrl:]<>]+', '', 'g'), 80), '');
+    v_ag_estado := nullif(left(regexp_replace(trim(coalesce(v_d -> 'agencia' ->> 'estado', '')), '[[:cntrl:]<>]+', '', 'g'), 40), '');
+    if v_ag_ciudad is null then
+      select nullif(trim(d.ciudad), ''), nullif(trim(d.estado), '') into v_ag_ciudad, v_ag_estado
+      from tumbo.direcciones d where d.usuario_id = p_yo.id order by d.predeterminada desc, d.creado desc limit 1;
+    end if;
+    v_destino := jsonb_strip_nulls(jsonb_build_object('tipo', 'agencia', 'destinatario', p_yo.nombre, 'cedula', p_yo.cedula,
+                                    'telefono_destinatario', p_yo.telefono, 'ciudad', v_ag_ciudad, 'estado', v_ag_estado));
   else
     raise exception 'Elige cómo quieres recibir el pedido.';
   end if;
@@ -1208,10 +1405,15 @@ begin
   set estado = 'verificado', verificado_el = now(), verificado_por = tumbo_privado.actor(p_yo),
       movimiento_id = coalesce(p_mov, movimiento_id), observacion = null
   where id = g.id;
+  -- el crédito de un pedido que el pago ya no cubre vuelve al comprador
+  perform tumbo_privado.pago_ajustar_creditos(g.id, false);
   perform tumbo_privado.pago_evento(g.id, v_actor, 'Pago verificado' || coalesce(' · ' || p_nota, ''), 'fact_check');
   perform tumbo_privado.asentar_pago(g.id, tumbo_privado.actor(p_yo));
+  -- lo cancelado después de reportar se reembolsa completo (dinero, IGTF y
+  -- el crédito que sigue usado)
   foreach v_id in array v_reemb loop
-    perform tumbo_privado.crear_reembolso(v_id, (tumbo_privado.montos_pedido(x2) ->> 'pagado')::numeric,
+    perform tumbo_privado.crear_reembolso(v_id,
+      (tumbo_privado.montos_pedido(x2) ->> 'dinero')::numeric + tumbo_privado.credito_vigente(x2.id),
       'Pedido ' || v_id || ' cancelado después de reportar el pago ' || g.id)
     from tumbo.pedidos x2 where x2.id = v_id;
   end loop;
@@ -1359,15 +1561,21 @@ begin
     v_estado := case when v_contra then 'por_aceptar' else 'pago_por_verificar' end;
     insert into tumbo.pedidos (id, comprador_id, seller_id, estado, envio_tipo, envio_dir, courier, costo_envio_usd, tasa, metodo,
                                ref, pago_vence, red, pago_id, destino, descuento_usd, descuento_tumbo_usd, iva_usd, igtf_usd,
-                               credito_usd, exento_usd, monto_bs, comision_pct, tarifa_usd, envio_dias, fiscal, sla_horas)
+                               credito_usd, exento_usd, monto_bs, comision_pct, tarifa_usd, envio_dias, sla_horas)
     values (v_id, p_yo.id, s ->> 'seller_id', v_estado, v_c ->> 'entrega', left(v_dir, 300),
             coalesce(nullif(s -> 'envio' ->> 'courier', ''), 'Por asignar'), (s ->> 'envio_usd')::numeric, cfg.tasa, m.nombre,
             coalesce(v_r ->> 'ref', ''), v_vence, v_red, v_pago,
             (v_c -> 'destino') || jsonb_build_object('courier', s -> 'envio' ->> 'courier', 'opcion', s -> 'envio' ->> 'clave'),
             (s ->> 'descuento_usd')::numeric, (s ->> 'descuento_tumbo_usd')::numeric, (s ->> 'iva_usd')::numeric,
             (s ->> 'igtf_usd')::numeric, (s ->> 'credito_usd')::numeric, (s ->> 'exento_usd')::numeric, (s ->> 'pedido_bs')::numeric,
-            cfg.comision_pct, cfg.tarifa_fija_usd, s ->> 'envio_dias', v_c -> 'fiscal',
+            cfg.comision_pct, cfg.tarifa_fija_usd, s ->> 'envio_dias',
             case when v_contra then 24 end);
+    -- el crédito en Tumbo se descuenta por pedido: si el pago no se cumple,
+    -- cada pedido devuelve el suyo (pago_ajustar_creditos)
+    if (s ->> 'credito_usd')::numeric > 0 then
+      insert into tumbo.creditos (usuario_id, monto_usd, motivo, referencia, pedido_uso)
+      values (p_yo.id, -(s ->> 'credito_usd')::numeric, 'Usado en el pedido ' || v_id || ' (pago ' || v_pago || ')', v_pago, v_id);
+    end if;
     insert into tumbo.pedido_items (pedido_id, sku, nombre, img, cant, precio_usd)
     select v_id, p.sku, p.nombre, p.img, c.cant, p.precio_usd
     from tumbo.carrito_items c join tumbo.productos p on p.sku = c.sku
@@ -1396,10 +1604,6 @@ begin
   perform tumbo_privado.pago_evento(v_pago, p_yo.nombre,
     case when p_legado is not null then 'Pago registrado con la referencia ' || (v_r ->> 'ref')
          else 'Checkout confirmado: ' || array_to_string(v_ids, ', ') end, 'shopping_cart');
-  if (v_c ->> 'credito_usd')::numeric > 0 then
-    insert into tumbo.creditos (usuario_id, monto_usd, motivo, referencia)
-    values (p_yo.id, -(v_c ->> 'credito_usd')::numeric, 'Usado en el pago ' || v_pago, v_pago);
-  end if;
   delete from tumbo.carrito_items where usuario_id = p_yo.id;
   if v_total = 0 then
     perform tumbo_privado.verificar_pago(v_pago, null::tumbo.usuarios, null, 'pagado con crédito en Tumbo');
@@ -1466,9 +1670,12 @@ create trigger pedidos_cancelado_el before update of estado on tumbo.pedidos
   for each row execute function tumbo_privado.pedido_cancelado_el();
 
 -- Si el comprador cancela todos los pedidos de un pago que aún no reportó,
--- el pago queda cancelado. Si ya lo había reportado, Finanzas recibe el
--- aviso: si el dinero llegó, al verificarlo se reembolsa lo cancelado. (Un
--- pago bloqueado por otra operación se deja: esa operación vuelve a mirar.)
+-- el pago queda cancelado; el crédito en Tumbo que usaba un pedido
+-- cancelado antes de pagar vuelve a su saldo. Si ya lo había reportado,
+-- Finanzas recibe el aviso: si el dinero llegó, al verificarlo se reembolsa
+-- lo cancelado (con su crédito); si no llega, el crédito vuelve al rechazar
+-- o vencer el pago. (Un pago bloqueado por otra operación se deja: esa
+-- operación vuelve a mirar.)
 create function tumbo_privado.pedido_sincroniza_pago() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -1483,6 +1690,7 @@ begin
       update tumbo.pagos set estado = 'cancelado' where id = g.id;
       perform tumbo_privado.pago_evento(g.id, 'Sistema', 'Pago cancelado: el comprador canceló sus pedidos', 'cancel');
     end if;
+    perform tumbo_privado.pago_ajustar_creditos(g.id, false);
   else
     update tumbo.pagos set observacion = 'El comprador canceló ' || new.id || ' después de reportar el pago: si el dinero llegó, al verificarlo se reembolsa.'
     where id = g.id;
@@ -1511,6 +1719,8 @@ declare
   v_pagos text[];
   v_ids text[];
   v_legado text[];
+  v_ya text[];
+  v_id text;
 begin
   select coalesce(array_agg(id order by id), '{}') into v_pagos
   from (select id from tumbo.pagos
@@ -1525,8 +1735,13 @@ begin
     where g.id = any (v_pagos)
       and not exists (select 1 from tumbo.pedidos p where p.pago_id = g.id and p.estado = 'pago_por_verificar')
     returning g.id)
+  select coalesce(array_agg(id order by id), '{}') into v_ya from vencidos;
   insert into tumbo.pago_eventos (pago_id, actor, texto, icono)
-  select id, 'Sistema', 'Pago vencido sin verificar', 'schedule' from vencidos;
+  select id, 'Sistema', 'Pago vencido sin verificar', 'schedule' from unnest(v_ya) as id;
+  -- (pagos cuyos pedidos ya estaban cancelados: su crédito vuelve al comprador)
+  foreach v_id in array v_ya loop
+    perform tumbo_privado.pago_ajustar_creditos(v_id, false);
+  end loop;
   select coalesce(array_agg(id order by id), '{}') into v_legado
   from (select id from tumbo.pedidos
         where pago_id is null and estado = 'pago_por_verificar' and pago_vence < now()
@@ -1543,6 +1758,7 @@ declare
   v tumbo.pedidos;
   v_hechos text[] := '{}';
   v_pagos text[] := '{}';
+  v_pago text;
 begin
   for v in select * from tumbo.pedidos where id = any (p_ids) and estado = 'pago_por_verificar' order by id loop
     update tumbo.pedidos set estado = 'cancelado', liquidacion = null, vencido_el = now() where id = v.id;
@@ -1562,6 +1778,10 @@ begin
   insert into tumbo.pago_eventos (pago_id, actor, texto, icono)
   select g.id, 'Sistema', 'Pago vencido: no se verificó a tiempo y los pedidos liberaron su stock', 'schedule'
   from tumbo.pagos g where g.id = any (v_pagos) and g.estado = 'vencido';
+  -- el crédito en Tumbo que usaban sus pedidos vuelve al comprador
+  foreach v_pago in array v_pagos loop
+    perform tumbo_privado.pago_ajustar_creditos(v_pago, false);
+  end loop;
   if cardinality(v_hechos) > 0 then
     perform tumbo_privado.auditar(null, 'Pedidos vencidos',
       cardinality(v_hechos) || ': ' || array_to_string(v_hechos[1:50], ', ') || case when cardinality(v_hechos) > 50 then '…' else '' end);
@@ -1862,6 +2082,7 @@ begin
   if v.estado <> 'pago_por_verificar' then
     raise exception 'El pedido % ya no está pendiente de conciliación.', p_id;
   end if;
+  perform tumbo_privado.exigir_si_real(yo, tumbo_privado.comprador_real(v.comprador_id));
   if v.pago_vence < now() then
     raise exception 'El pago de % venció (48 horas sin verificar): el pedido se cancela y su stock se libera.', p_id;
   end if;
@@ -1882,6 +2103,7 @@ begin
   if v.estado <> 'pago_por_verificar' then
     raise exception 'El pedido % ya no está pendiente de conciliación.', p_id;
   end if;
+  perform tumbo_privado.exigir_si_real(yo, tumbo_privado.comprador_real(v.comprador_id));
   perform tumbo_privado.bloquear_stock(p_id);
   update tumbo.pedidos set estado = 'cancelado', liquidacion = null where id = p_id;
   update tumbo.productos p set stock_res = greatest(0, p.stock_res - i.cant), actualizado = now()
@@ -1896,6 +2118,9 @@ end $$;
 -- el pago o uno de sus pedidos. Verifica a mano un pago cotejado en el banco
 -- (también uno pendiente: el dinero llegó aunque el comprador no lo
 -- reportara). Un pago vencido ya no se concilia aquí: «pago recibido tarde».
+-- El pago de una persona real exige sesión elevada: las cuentas de prueba
+-- solo concilian los de las cuentas de prueba (si no, cualquiera daría por
+-- pagado su propio pedido con la contraseña pública).
 create or replace function public.tm_conciliar_pago(p_sesion text, p_id text) returns void
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -1911,6 +2136,7 @@ begin
   if g.estado not in ('pendiente', 'reportado') then
     raise exception 'El pedido % ya no está pendiente de conciliación.', p_id;
   end if;
+  perform tumbo_privado.exigir_si_real(yo, tumbo_privado.comprador_real(g.comprador_id));
   if g.vence < now() then
     raise exception 'El pago de % venció sin verificarse: sus pedidos se cancelan y su stock se libera. Si el dinero llegó, usa «pago recibido tarde».', p_id;
   end if;
@@ -1918,8 +2144,10 @@ begin
 end $$;
 
 -- Rechazar (desde la migración 5): ahora sobre el pago completo. Sus
--- pedidos por verificar se cancelan y liberan su reserva; el comprador ve
--- el motivo. Para una referencia errada, mejor tm_pago_corregir.
+-- pedidos por verificar se cancelan y liberan su reserva, el crédito en
+-- Tumbo que usaban vuelve al comprador y él ve el motivo. Para una
+-- referencia errada, mejor tm_pago_corregir. Si después aparece dinero de
+-- ese pago, se devuelve desde la conciliación («reembolsar»).
 create or replace function public.tm_rechazar_pago(p_sesion text, p_id text, p_motivo text) returns void
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -1941,6 +2169,7 @@ begin
   if g.contra_entrega then
     raise exception 'Un pago contra entrega no se rechaza: cancela el pedido o regístralo cuando llegue el efectivo.';
   end if;
+  perform tumbo_privado.exigir_si_real(yo, tumbo_privado.comprador_real(g.comprador_id));
   update tumbo.pagos set estado = 'rechazado', observacion = v_motivo where id = g.id;
   perform 1 from tumbo.pedidos where pago_id = g.id order by id for update;
   perform 1 from tumbo.productos
@@ -1957,6 +2186,7 @@ begin
     v_ids := v_ids || x.id;
   end loop;
   perform tumbo_privado.pago_evento(g.id, 'Finanzas', 'Pago rechazado: ' || v_motivo, 'block');
+  perform tumbo_privado.pago_ajustar_creditos(g.id, false);
   perform tumbo_privado.auditar(yo, 'Pago rechazado',
     coalesce(g.referencia, 'sin referencia') || ' → ' || g.id || ' (' || array_to_string(v_ids, ', ') || ') · ' || v_motivo);
 end $$;
@@ -1983,6 +2213,7 @@ begin
   if g.estado <> 'reportado' then
     raise exception 'Solo se pide corregir un pago reportado.';
   end if;
+  perform tumbo_privado.exigir_si_real(yo, tumbo_privado.comprador_real(g.comprador_id));
   if g.correcciones >= 2 then
     raise exception 'Ya se pidió corregir este pago 2 veces: si la referencia sigue sin aparecer, recházalo.';
   end if;
@@ -1991,6 +2222,9 @@ begin
   set estado = 'pendiente', correcciones = correcciones + 1, referencia = null, ref_clave = null, avisado = null,
       observacion = v_motivo, vence = v_vence
   where id = g.id;
+  -- un pedido cancelado después del reporte deja de estar cubierto: su
+  -- crédito vuelve al comprador
+  perform tumbo_privado.pago_ajustar_creditos(g.id, false);
   update tumbo.pedidos set ref = '', pago_vence = v_vence where pago_id = g.id and estado = 'pago_por_verificar';
   insert into tumbo.pedido_eventos (pedido_id, actor, texto, icono)
   select x.id, 'Finanzas', 'Finanzas pidió corregir el pago (' || v_motivo || ')', 'edit_note'
@@ -2003,9 +2237,13 @@ begin
   perform tumbo_privado.auditar(yo, 'Corrección de pago pedida', g.id || ' · ' || coalesce(g.referencia, '') || ' · ' || v_motivo);
 end $$;
 
--- Pago recibido tarde (vencido hace menos de 7 días): «verificar» reactiva
--- los pedidos que venció si aún hay stock (vuelve a reservarlo);
--- «reembolsar» lo da por recibido y genera el reembolso de esos pedidos.
+-- Pago recibido tarde: «verificar» (vencido hace menos de 7 días) reactiva
+-- los pedidos que venció si aún hay stock (vuelve a reservarlo y a
+-- descontar el crédito en Tumbo que se le había devuelto) y verifica el
+-- pago; «reembolsar» (vencido hace cualquier tiempo) no vende nada: genera
+-- el reembolso del dinero que llegó (tipo «sin_venta», con doble
+-- aprobación), una sola vez por pago. El pago de una persona real exige
+-- sesión elevada.
 create function public.tm_pago_tardio(p_sesion text, p_id text, p_accion text, p_nota text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -2013,8 +2251,12 @@ declare
   v_nota text := left(nullif(trim(coalesce(p_nota, '')), ''), 200);
   v_pago text := tumbo_privado.pago_de(p_id);
   g tumbo.pagos;
+  g2 tumbo.pagos;
   r record;
   x tumbo.pedidos;
+  v_usd numeric;
+  v_pedido text;
+  v_reemb bigint;
 begin
   if p_accion is null or p_accion not in ('verificar', 'reembolsar') then
     raise exception 'Indica si se verifica (con stock) o se reembolsa.';
@@ -2022,45 +2264,78 @@ begin
   if v_pago is null then
     raise exception 'El pedido % es de antes de los pagos guiados: no admite pago tardío.', p_id;
   end if;
+  -- (orden de bloqueos: el comprador antes que el pago, como el checkout)
+  perform tumbo_privado.bloquear_usuario((select comprador_id from tumbo.pagos where id = v_pago), 'carrito');
   select * into g from tumbo.pagos where id = v_pago for update;
-  if g.estado <> 'vencido' or g.vence < now() - interval '7 days' then
-    raise exception 'Solo un pago vencido hace menos de 7 días se puede recibir tarde.';
+  if g.estado <> 'vencido' then
+    raise exception 'Solo un pago vencido se puede recibir tarde.';
+  end if;
+  perform tumbo_privado.exigir_si_real(yo, tumbo_privado.comprador_real(g.comprador_id));
+  if g.tardio then
+    raise exception 'El dinero tardío de este pago ya se registró.';
+  end if;
+  if p_accion = 'reembolsar' then
+    if v_nota is null or char_length(v_nota) < 5 then
+      raise exception 'Escribe una nota que diga dónde viste el dinero (queda en la auditoría).';
+    end if;
+    -- lo que el comprador pagó: lo que el pago cubría cuando lo reportó (o
+    -- al vencer, si no lo reportó)
+    g2 := g;
+    g2.estado := case when g.reportado_el is null then 'pendiente' else 'reportado' end;
+    g2.tardio := true;
+    v_usd := (tumbo_privado.pago_esperado(g2) ->> 'usd')::numeric;
+    if coalesce(v_usd, 0) <= 0 then
+      raise exception 'Este pago no tenía dinero por recibir.';
+    end if;
+    select y.id into v_pedido from tumbo_privado.pedidos_del_pago(g2) y order by y.id limit 1;
+    v_reemb := tumbo_privado.crear_reembolso_interno(v_pedido, v_usd,
+      'Dinero recibido tarde del pago ' || g.id || ' (vencido): se devuelve', 'sin_venta');
+    -- (la nota de Finanzas queda en el historial del reembolso, no en lo que ve el comprador)
+    perform tumbo_privado.reembolso_evento(v_reemb, yo, 'crear', v_nota);
+    update tumbo.pagos set tardio = true, observacion = 'Dinero recibido tarde: se devuelve (R-' || v_reemb || ')' where id = g.id;
+    perform tumbo_privado.pago_evento(g.id, 'Finanzas', 'Dinero recibido tarde: reembolso R-' || v_reemb || ' de ' || tumbo_privado.fmt_usd(v_usd), 'undo');
+    perform tumbo_privado.auditar(yo, 'Pago recibido tarde', g.id || ' → reembolsar R-' || v_reemb || ' · ' || tumbo_privado.fmt_usd(v_usd) || ' · ' || v_nota);
+    return tumbo_privado.pago_json((select y from tumbo.pagos y where y.id = g.id), yo);
+  end if;
+  if g.vence < now() - interval '7 days' then
+    raise exception 'Solo un pago vencido hace menos de 7 días se puede reactivar: si el dinero llegó, reembólsalo.';
   end if;
   perform 1 from tumbo.pedidos where pago_id = g.id order by id for update;
   perform 1 from tumbo.productos
   where sku in (select i.sku from tumbo.pedido_items i join tumbo.pedidos p on p.id = i.pedido_id
                 where p.pago_id = g.id and p.vencido_el is not null and p.estado = 'cancelado')
   order by sku for update;
-  if p_accion = 'verificar' then
-    for r in
-      select i.pedido_id, i.sku, i.cant, pr.nombre, pr.estado, pr.stock_fis - pr.stock_res as disp, se.estado as seller_estado
-      from tumbo.pedido_items i join tumbo.pedidos p on p.id = i.pedido_id
-      join tumbo.productos pr on pr.sku = i.sku join tumbo.sellers se on se.id = pr.seller_id
-      where p.pago_id = g.id and p.vencido_el is not null and p.estado = 'cancelado' order by i.sku
-    loop
-      if r.cant > r.disp or r.seller_estado <> 'aprobado' then
-        raise exception 'Ya no hay stock de «%» para reactivar el pedido %: genera el reembolso.', r.nombre, r.pedido_id;
-      end if;
-    end loop;
-    for x in select * from tumbo.pedidos where pago_id = g.id and vencido_el is not null and estado = 'cancelado' order by id loop
-      update tumbo.pedidos set estado = 'pago_por_verificar', liquidacion = null where id = x.id;
-      update tumbo.productos p set stock_res = p.stock_res + i.cant, actualizado = now()
-      from tumbo.pedido_items i where i.pedido_id = x.id and i.sku = p.sku;
-      perform tumbo_privado.evento(x.id, 'Finanzas', 'Pago recibido tarde · pedido reactivado y stock reservado de nuevo', 'history');
-    end loop;
-  end if;
+  for r in
+    select i.pedido_id, i.sku, i.cant, pr.nombre, pr.estado, pr.stock_fis - pr.stock_res as disp, se.estado as seller_estado
+    from tumbo.pedido_items i join tumbo.pedidos p on p.id = i.pedido_id
+    join tumbo.productos pr on pr.sku = i.sku join tumbo.sellers se on se.id = pr.seller_id
+    where p.pago_id = g.id and p.vencido_el is not null and p.estado = 'cancelado' order by i.sku
+  loop
+    if r.cant > r.disp or r.seller_estado <> 'aprobado' then
+      raise exception 'Ya no hay stock de «%» para reactivar el pedido %: genera el reembolso.', r.nombre, r.pedido_id;
+    end if;
+  end loop;
+  for x in select * from tumbo.pedidos where pago_id = g.id and vencido_el is not null and estado = 'cancelado' order by id loop
+    update tumbo.pedidos set estado = 'pago_por_verificar', liquidacion = null where id = x.id;
+    update tumbo.productos p set stock_res = p.stock_res + i.cant, actualizado = now()
+    from tumbo.pedido_items i where i.pedido_id = x.id and i.sku = p.sku;
+    perform tumbo_privado.evento(x.id, 'Finanzas', 'Pago recibido tarde · pedido reactivado y stock reservado de nuevo', 'history');
+  end loop;
   update tumbo.pagos set estado = case when reportado_el is null then 'pendiente' else 'reportado' end, tardio = true, vence = null
   where id = g.id;
-  perform tumbo_privado.verificar_pago(g.id, yo, null,
-    'pago recibido tarde' || case when p_accion = 'reembolsar' then ', sin stock: se reembolsa' else '' end || coalesce(' · ' || v_nota, ''));
-  perform tumbo_privado.auditar(yo, 'Pago recibido tarde', g.id || ' → ' || p_accion || coalesce(' · ' || v_nota, ''));
+  -- el crédito en Tumbo que se le devolvió al vencer se vuelve a descontar
+  perform tumbo_privado.pago_ajustar_creditos(g.id, true);
+  perform tumbo_privado.verificar_pago(g.id, yo, null, 'pago recibido tarde' || coalesce(' · ' || v_nota, ''));
+  perform tumbo_privado.auditar(yo, 'Pago recibido tarde', g.id || ' → verificar' || coalesce(' · ' || v_nota, ''));
   return tumbo_privado.pago_json((select y from tumbo.pagos y where y.id = g.id), yo);
 end $$;
 
 -- La cola de Finanzas: por verificar (pendientes y reportados, de los más
--- antiguos a los más nuevos), vencidos de los últimos 7 días (pago tardío) o
--- los últimos verificados y rechazados. Incluye los pedidos de antes de la
--- ola 1 que siguen por verificar (sin pago).
+-- antiguos a los más nuevos), vencidos de los últimos 60 días (pago tardío:
+-- reactivables los de 7 días) o los últimos verificados y rechazados.
+-- Incluye los pedidos de antes de la ola 1 que siguen por verificar (sin
+-- pago). «bloqueado»: quien mira es una cuenta de prueba y el comprador es
+-- una persona real (solo lo gestiona una cuenta real con sesión elevada).
 create function public.tm_pagos_cola(p_sesion text, p_filtro text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -2081,6 +2356,8 @@ begin
              'comprador', case when tumbo_privado.ve_comprador(yo, g.comprador_id) then u.nombre else 'Cuenta real (oculta a las cuentas de prueba)' end,
              'creado', g.creado, 'reportado_el', g.reportado_el, 'verificado_el', g.verificado_el,
              'verificado_por', g.verificado_por, 'tardio', g.tardio,
+             'reactivable', g.estado = 'vencido' and not g.tardio and g.vence > now() - interval '7 days',
+             'bloqueado', tumbo_privado.cuenta_demo(yo.email) and tumbo_privado.comprador_real(g.comprador_id),
              'pedidos', (select coalesce(jsonb_agg(jsonb_build_object('id', x.id, 'estado', x.estado, 'seller', x.seller_id) order by x.id), '[]'::jsonb)
                          from tumbo.pedidos x where x.pago_id = g.id))
            order by case when v_filtro = 'por_verificar' then g.creado end, g.creado desc, g.id), '[]'::jsonb)
@@ -2088,7 +2365,7 @@ begin
   from (select * from tumbo.pagos q
         where case v_filtro
                 when 'por_verificar' then q.estado in ('pendiente', 'reportado')
-                when 'vencidos' then q.estado = 'vencido' and q.vence > now() - interval '7 days'
+                when 'vencidos' then q.estado = 'vencido' and q.vence > now() - interval '60 days'
                 when 'verificados' then q.estado = 'verificado'
                 else q.estado = 'rechazado' end
         order by case when v_filtro = 'por_verificar' then q.creado end, q.creado desc, q.id
@@ -2102,6 +2379,7 @@ begin
                'esperado', jsonb_build_object('usd', tumbo_privado.bruto_pedido(p.id) + p.costo_envio_usd,
                                               'bs', round((tumbo_privado.bruto_pedido(p.id) + p.costo_envio_usd) * p.tasa, 2)),
                'vence', p.pago_vence, 'creado', p.creado,
+               'bloqueado', tumbo_privado.cuenta_demo(yo.email) and tumbo_privado.comprador_real(p.comprador_id),
                'pedidos', jsonb_build_array(jsonb_build_object('id', p.id, 'estado', p.estado, 'seller', p.seller_id)))
              order by p.creado)
       from (select * from tumbo.pedidos where pago_id is null and estado = 'pago_por_verificar' order by creado limit 500) p), '[]'::jsonb);
@@ -2124,13 +2402,15 @@ begin
                    from tumbo.bancos_formatos f), '[]'::jsonb);
 end $$;
 
--- Cambia el formato de un banco (columnas, separador, decimales, fecha).
+-- Cambia el formato de un banco (columnas, separador, decimales, fecha). Con
+-- él se leen los estados de cuenta reales: exige sesión elevada.
 create function public.tm_conciliacion_formato_guardar(p_sesion text, p_banco text, p_formato jsonb) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['superadmin', 'finanzas']);
   f tumbo.bancos_formatos;
 begin
+  perform tumbo_privado.exigir_elevada(yo);
   select * into f from tumbo.bancos_formatos where banco = p_banco for update;
   if not found then
     raise exception 'Ese banco no tiene formato.';
@@ -2231,11 +2511,18 @@ end $$;
 -- Importa las filas de un estado de cuenta (las lee el navegador con el
 -- formato del banco): [{fecha: 'AAAA-MM-DD', referencia, monto, descripcion}].
 -- Hasta 2.000 filas; los movimientos ya importados no se repiten. Cruza
--- cada abono nuevo y devuelve el resumen.
+-- cada abono nuevo y devuelve el resumen. Exige sesión elevada (el cruce
+-- verifica pagos de personas reales) y tiene tope de movimientos nuevos por
+-- persona y en total cada 24 horas (ajuste conciliacion).
 create function public.tm_conciliacion_importar(p_sesion text, p_banco text, p_filas jsonb, p_archivo text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['superadmin', 'finanzas']);
+  v_cfg jsonb := coalesce(tumbo_privado.ajuste('conciliacion'), '{}'::jsonb);
+  v_tope_yo integer := greatest(100, tumbo_privado.numero(v_cfg -> 'filas_dia_usuario', 5000)::integer);
+  v_tope_total integer := greatest(100, tumbo_privado.numero(v_cfg -> 'filas_dia_total', 20000)::integer);
+  v_dia_yo bigint;
+  v_dia_total bigint;
   v_imp bigint;
   f jsonb;
   n integer := 0;
@@ -2251,6 +2538,7 @@ declare
   v_conc integer := 0;
   v_exc integer := 0;
 begin
+  perform tumbo_privado.exigir_elevada(yo);
   if not exists (select 1 from tumbo.bancos_formatos where banco = p_banco) then
     raise exception 'Elige el banco del estado de cuenta.';
   end if;
@@ -2297,6 +2585,15 @@ begin
     end if;
     v_id := null;
   end loop;
+  -- topes contra abuso (cada movimiento nuevo se guarda y va a la cola)
+  select coalesce(sum(nuevas) filter (where por_id = yo.id), 0), coalesce(sum(nuevas), 0) into v_dia_yo, v_dia_total
+  from tumbo.importaciones_banco where creado > now() - interval '24 hours' and id <> v_imp;
+  if v_dia_yo + cardinality(v_nuevos) > v_tope_yo then
+    raise exception 'Llegaste al tope de % movimientos nuevos en 24 horas (ya importaste %): sigue mañana o pide que se amplíe.', v_tope_yo, v_dia_yo;
+  end if;
+  if v_dia_total + cardinality(v_nuevos) > v_tope_total then
+    raise exception 'El equipo llegó al tope de % movimientos nuevos en 24 horas: sigue mañana o pide que se amplíe.', v_tope_total;
+  end if;
   foreach v_id in array v_nuevos loop
     v_res := tumbo_privado.conciliar_movimiento(v_id, yo);
     v_cont := v_cont || jsonb_build_object(v_res, coalesce((v_cont ->> v_res)::integer, 0) + 1);
@@ -2320,7 +2617,7 @@ declare
   v_estado text := coalesce(nullif(p_estado, ''), 'excepcion');
   v jsonb;
 begin
-  if v_estado not in ('excepcion', 'conciliado', 'ignorado', 'nuevo', 'todos') then
+  if v_estado not in ('excepcion', 'conciliado', 'ignorado', 'nuevo', 'reembolsado', 'todos') then
     raise exception 'Ese estado no existe.';
   end if;
   select coalesce(jsonb_agg(jsonb_build_object('id', m.id, 'banco', m.banco, 'fecha', m.fecha, 'referencia', m.referencia,
@@ -2332,7 +2629,7 @@ begin
   from (select * from tumbo.movimientos_banco
         where (v_estado = 'todos' or estado = v_estado) and (p_antes is null or id < p_antes)
         order by id desc limit 100) m;
-  return jsonb_build_object('movimientos', v,
+  return jsonb_build_object('movimientos', v, 'prueba', tumbo_privado.cuenta_demo(yo.email),
     'siguiente', case when jsonb_array_length(v) = 100 then (v -> 99 ->> 'id')::bigint end,
     'resumen', (select coalesce(jsonb_object_agg(x.estado, x.n), '{}'::jsonb)
                 from (select estado, count(*) as n from tumbo.movimientos_banco group by estado) x),
@@ -2340,9 +2637,16 @@ begin
                       from (select * from tumbo.importaciones_banco order by id desc limit 10) i));
 end $$;
 
--- Resolver una excepción: «vincular» el movimiento a un pago (lo verifica
--- con una nota; si sobra dinero, genera el reembolso del excedente; un pago
--- ya verificado solo se asocia) o «ignorar» (no es un pago de Tumbo).
+-- Resolver una excepción (con sesión elevada: son movimientos del banco
+-- real), siempre con nota:
+--   · «vincular» el movimiento a un pago abierto (lo verifica; si sobra
+--     dinero, genera el reembolso del excedente; un pago ya verificado solo
+--     se asocia);
+--   · «reembolsar» el dinero de un pago que no se va a cumplir (rechazado,
+--     vencido, cancelado, o un pago repetido de uno ya verificado): un
+--     reembolso «sin_venta» por el monto del movimiento, con doble
+--     aprobación. Un pago abierto primero se rechaza (o vence);
+--   · «ignorar» (no es un pago de Tumbo).
 create function public.tm_conciliacion_resolver(p_sesion text, p_id bigint, p_accion text, p_pago text, p_nota text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -2354,9 +2658,12 @@ declare
   v_esp numeric;
   v_exceso numeric;
   v_pedido text;
+  v_usd numeric;
+  v_reemb bigint;
 begin
-  if p_accion is null or p_accion not in ('vincular', 'ignorar') then
-    raise exception 'Indica si se vincula a un pago o se ignora.';
+  perform tumbo_privado.exigir_elevada(yo);
+  if p_accion is null or p_accion not in ('vincular', 'ignorar', 'reembolsar') then
+    raise exception 'Indica si se vincula a un pago, se reembolsa o se ignora.';
   end if;
   if v_nota is null or char_length(v_nota) < 5 then
     raise exception 'Escribe una nota que explique la decisión (queda en la auditoría).';
@@ -2381,6 +2688,33 @@ begin
   if g.moneda <> 'VES' then
     raise exception 'Ese pago no es en bolívares: no corresponde a un movimiento del banco.';
   end if;
+  if p_accion = 'reembolsar' then
+    if mv.monto <= 0 then
+      raise exception 'Ese movimiento no es un abono: no hay nada que devolver.';
+    end if;
+    if g.estado in ('pendiente', 'reportado') then
+      raise exception 'El pago % sigue abierto: si el dinero no alcanza, recházalo (o deja que venza) y después reembolsa el movimiento.', g.id;
+    end if;
+    if g.estado = 'verificado' and g.movimiento_id is null then
+      raise exception 'El pago % se verificó sin movimiento del banco: vincula primero el que lo pagó; si llegó otro, reembólsalo después.', g.id;
+    end if;
+    if g.estado = 'verificado' and g.movimiento_id = mv.id then
+      raise exception 'Ese movimiento es el que pagó %: no se reembolsa desde aquí.', g.id;
+    end if;
+    v_usd := round(mv.monto / g.tasa, 2);
+    select x.id into v_pedido from tumbo.pedidos x where x.pago_id = g.id order by x.id limit 1;
+    v_reemb := tumbo_privado.crear_reembolso_interno(v_pedido, v_usd,
+      'Dinero recibido por el pago ' || g.id || ' (' || g.estado || '): se devuelve el movimiento ' || coalesce(nullif(mv.referencia, ''), 's/r') ||
+      ' de ' || tumbo_privado.fmt_bs(mv.monto), 'sin_venta');
+    perform tumbo_privado.reembolso_evento(v_reemb, yo, 'crear', v_nota);
+    update tumbo.movimientos_banco set estado = 'reembolsado', pago_id = g.id, nota = v_nota || ' (R-' || v_reemb || ')',
+      resuelto_por = tumbo_privado.actor(yo), resuelto_el = now()
+    where id = mv.id;
+    perform tumbo_privado.pago_evento(g.id, 'Finanzas', 'Llegó dinero de este pago (' || tumbo_privado.fmt_bs(mv.monto) || '): se devuelve en R-' || v_reemb, 'undo');
+    perform tumbo_privado.auditar(yo, 'Movimiento bancario reembolsado', mv.banco || ' ' || mv.referencia || ' ' || tumbo_privado.fmt_bs(mv.monto) ||
+      ' → ' || g.id || ' · R-' || v_reemb || ' · ' || v_nota);
+    return jsonb_build_object('estado', 'reembolsado', 'pago', g.id, 'reembolso', v_reemb);
+  end if;
   if exists (select 1 from tumbo.movimientos_banco o where o.pago_id = g.id and o.estado = 'conciliado' and o.id <> mv.id) then
     raise exception 'El pago % ya tiene otro movimiento conciliado.', g.id;
   end if;
@@ -2395,14 +2729,14 @@ begin
     end if;
     v_esp := (tumbo_privado.pago_esperado(g) ->> 'bs')::numeric;
     if mv.monto < v_esp - v_tol then
-      raise exception 'El movimiento (%) no cubre el pago (%): pide al comprador que complete el monto o recházalo.',
+      raise exception 'El movimiento (%) no cubre el pago (%): recházalo y reembolsa el movimiento.',
         tumbo_privado.fmt_bs(mv.monto), tumbo_privado.fmt_bs(v_esp);
     end if;
     perform tumbo_privado.verificar_pago(g.id, yo, mv.id, 'vinculado al movimiento ' || mv.banco || ' ' || mv.referencia || ' · ' || v_nota);
     v_exceso := round((mv.monto - v_esp) / g.tasa, 2);
     if mv.monto > v_esp + v_tol and v_exceso > 0 then
       select id into v_pedido from tumbo.pedidos where pago_id = g.id order by id limit 1;
-      perform tumbo_privado.crear_reembolso_interno(v_pedido, v_exceso, 'Excedente del pago ' || g.id || ' (' || tumbo_privado.fmt_bs(mv.monto - v_esp) || ')', false);
+      perform tumbo_privado.crear_reembolso_interno(v_pedido, v_exceso, 'Excedente del pago ' || g.id || ' (' || tumbo_privado.fmt_bs(mv.monto - v_esp) || ')', 'excedente');
     end if;
   else
     raise exception 'El pago % está %: no admite este movimiento.', g.id, g.estado;
@@ -2416,24 +2750,36 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- Reembolsos
 -- ---------------------------------------------------------------------------
--- Crea un reembolso. Con p_tope, como mucho lo que el comprador pagó por ese
--- pedido (con IGTF) menos lo ya reembolsado; sin p_tope es un excedente
--- (dinero que llegó de más). Si el pago del pedido nunca se verificó (p.
--- ej. contra entrega sin cobrar) no hay nada que devolver: null. Asienta el
--- reembolso por pagar en el libro mayor y avisa a Finanzas y al comprador.
-create function tumbo_privado.crear_reembolso_interno(p_pedido text, p_monto_usd numeric, p_motivo text, p_tope boolean) returns bigint
+-- Crea un reembolso según su tipo:
+--   · 'pedido' (contrato crear_reembolso): lo pagado por un pedido de un
+--     pago verificado (o de antes de la ola 1), como mucho lo que el
+--     comprador pagó (con IGTF) menos lo ya reembolsado de ese pedido en
+--     cualquier estado (un fallido se puede reintentar: sigue contando). Un
+--     pedido cancelado o reembolsado al que se le pide devolver todo lo
+--     cobrado sin el IGTF (bruto + envío) se devuelve completo, con el IGTF.
+--     Si el pago nunca se verificó no hay nada que devolver: null.
+--   · 'excedente' (dinero que llegó de más en un pago verificado) y
+--     'sin_venta' (dinero que llegó por un pago que no se cumplió): sin tope,
+--     siempre con doble aprobación.
+-- Asienta el reembolso por pagar en el libro mayor y avisa a Finanzas y al
+-- comprador.
+create function tumbo_privado.crear_reembolso_interno(p_pedido text, p_monto_usd numeric, p_motivo text, p_tipo text) returns bigint
 language plpgsql security definer set search_path = '' as $$
 declare
   v tumbo.pedidos;
   g tumbo.pagos;
   m jsonb;
   v_monto numeric := round(coalesce(p_monto_usd, 0), 2);
-  v_ya numeric;
+  v_ya numeric := 0;
+  v_pagado numeric;
   v_id bigint;
   v_umbral numeric := tumbo_privado.numero(coalesce(tumbo_privado.ajuste('reembolsos'), '{}'::jsonb) -> 'umbral_doble_usd', 200);
   v_completo boolean;
 begin
-  select * into v from tumbo.pedidos where id = p_pedido;
+  if p_tipo is null or p_tipo not in ('pedido', 'excedente', 'sin_venta') then
+    raise exception 'Tipo de reembolso desconocido.';
+  end if;
+  select * into v from tumbo.pedidos where id = p_pedido for update;
   if not found then
     raise exception 'Pedido % no encontrado.', p_pedido;
   end if;
@@ -2442,32 +2788,40 @@ begin
   end if;
   if v.pago_id is not null then
     select * into g from tumbo.pagos where id = v.pago_id;
-    if g.estado <> 'verificado' then
+    if p_tipo <> 'sin_venta' and g.estado <> 'verificado' then
       return null;
     end if;
+  elsif p_tipo <> 'pedido' then
+    raise exception 'El pedido % es de antes de los pagos guiados: no admite ese reembolso.', p_pedido;
   end if;
   m := tumbo_privado.montos_pedido(v);
-  if p_tope and v.pago_id is not null then
-    select coalesce(sum(r.monto_usd), 0) into v_ya from tumbo.reembolsos r
-    where r.pedido_id = v.id and r.estado <> 'fallido' and coalesce(r.motivo, '') not like 'Excedente%';
-    v_monto := least(v_monto, (m ->> 'pagado')::numeric - v_ya);
+  v_pagado := (m ->> 'pagado')::numeric;
+  if p_tipo = 'pedido' and v.pago_id is not null then
+    select coalesce(sum(r.monto_usd), 0) into v_ya from tumbo.reembolsos r where r.pedido_id = v.id and r.tipo = 'pedido';
+    -- todo lo cobrado sin el IGTF (lo que piden la cancelación y el reclamo): completo
+    if v.estado in ('cancelado', 'reembolsado') and v_monto >= v_pagado - (m ->> 'igtf')::numeric - 0.005 then
+      v_monto := v_pagado;
+    end if;
+    v_monto := least(v_monto, v_pagado - v_ya);
     if v_monto <= 0 then
       return null;
     end if;
   end if;
-  insert into tumbo.reembolsos (pedido_id, monto_usd, monto_bs, tasa, motivo, por, pago_id, comprador_id, requiere_doble)
-  values (v.id, v_monto, round(v_monto * v.tasa, 2), v.tasa,
+  insert into tumbo.reembolsos (pedido_id, monto_usd, monto_bs, tasa, motivo, por, pago_id, comprador_id, requiere_doble, tipo)
+  values (v.id, v_monto, round(v_monto * coalesce(g.tasa, v.tasa), 2), coalesce(g.tasa, v.tasa),
           left(coalesce(nullif(trim(coalesce(p_motivo, '')), ''), 'Reembolso'), 300), 'Sistema', v.pago_id, v.comprador_id,
-          v_monto >= v_umbral)
+          p_tipo <> 'pedido' or v_monto >= v_umbral, p_tipo)
   returning id into v_id;
-  -- libro mayor (solo con pago verificado de la ola 1: los anteriores no se asentaron)
+  -- libro mayor (solo con pago de la ola 1: los anteriores no se asentaron)
   if v.pago_id is not null then
-    if not p_tope then
-      perform tumbo_privado.asentar('reembolso', 'R-' || v_id, 'Excedente del pago ' || v.pago_id || ' por devolver', 'Sistema',
+    if p_tipo <> 'pedido' then
+      perform tumbo_privado.asentar('reembolso', 'R-' || v_id,
+        case when p_tipo = 'excedente' then 'Excedente del pago ' || v.pago_id || ' por devolver'
+             else 'Dinero sin venta del pago ' || v.pago_id || ' por devolver' end, 'Sistema',
         jsonb_build_array(jsonb_build_object('cuenta', 'banco:' || g.moneda, 'debe', v_monto),
                           jsonb_build_object('cuenta', 'reembolsos_por_pagar', 'haber', v_monto)));
     else
-      v_completo := v_monto = (m ->> 'pagado')::numeric;
+      v_completo := v_ya = 0 and v_monto = v_pagado;
       perform tumbo_privado.asentar('reembolso', 'R-' || v_id, 'Reembolso del pedido ' || v.id || ' por pagar', 'Sistema',
         case when v_completo then jsonb_build_array(
           jsonb_build_object('cuenta', 'por_pagar_seller', 'seller', v.seller_id, 'debe', (m ->> 'base_seller')::numeric + (m ->> 'envio')::numeric),
@@ -2482,8 +2836,9 @@ begin
   perform tumbo_privado.notificar('rol:finanzas',
     'Reembolso de ' || tumbo_privado.fmt_usd(v_monto) || ' por enviar (' || v.id || ')', 'undo', 'admin/reembolsos.html');
   perform tumbo_privado.notificar('usr:' || v.comprador_id,
-    'Tienes un reembolso de ' || tumbo_privado.fmt_usd(v_monto) || ' del pedido ' || v.id || ': indica dónde quieres recibirlo',
-    'undo', 'tienda/reembolsos.html');
+    'Tienes un reembolso de ' || tumbo_privado.fmt_usd(v_monto) ||
+    case when p_tipo = 'pedido' then ' del pedido ' || v.id else ' del pago ' || coalesce(v.pago_id, v.id) end ||
+    ': indica dónde quieres recibirlo', 'undo', 'tienda/reembolsos.html');
   return v_id;
 end $$;
 
@@ -2492,12 +2847,29 @@ end $$;
 create or replace function tumbo_privado.crear_reembolso(p_pedido text, p_monto_usd numeric, p_motivo text) returns bigint
 language plpgsql security definer set search_path = '' as $$
 begin
-  return tumbo_privado.crear_reembolso_interno(p_pedido, p_monto_usd, p_motivo, true);
+  return tumbo_privado.crear_reembolso_interno(p_pedido, p_monto_usd, p_motivo, 'pedido');
 end $$;
+
+-- Resumen de un destino de reembolso con los datos enmascarados (lo que se
+-- guarda en reembolsos.destino, que la lectura de la ola 0 entrega a
+-- Finanzas): tipo, banco y lo justo para reconocerlo.
+create function tumbo_privado.destino_resumen(d jsonb) returns jsonb
+language sql immutable set search_path = '' as $$
+  select case d ->> 'tipo'
+    when 'pago_movil' then jsonb_build_object('tipo', 'pago_movil', 'banco', d ->> 'banco', 'banco_nombre', d ->> 'banco_nombre',
+                                              'telefono', tumbo_privado.enmascarar(d ->> 'telefono'),
+                                              'cedula', left(d ->> 'cedula', 2) || '•••' || right(d ->> 'cedula', 3), 'resumen', true)
+    when 'zelle' then jsonb_build_object('tipo', 'zelle',
+                                         'correo', left(d ->> 'correo', 1) || '•••@' || split_part(d ->> 'correo', '@', 2),
+                                         'titular', left(d ->> 'titular', 1) || '•••', 'resumen', true)
+    else jsonb_build_object('tipo', d ->> 'tipo') end
+$$;
 
 -- El comprador elige dónde recibir su reembolso: Pago Móvil (banco,
 -- teléfono y cédula), Zelle (correo y titular) o crédito en Tumbo (se
--- acredita al momento). Solo mientras esté pendiente o haya fallado.
+-- acredita al momento, salvo que el reembolso necesite doble aprobación:
+-- entonces espera a Finanzas como los demás). Solo mientras esté pendiente
+-- o haya fallado. El detalle queda en tumbo.reembolso_destinos.
 create function public.tm_reembolso_destino(p_sesion text, p_id bigint, p_destino jsonb) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -2517,6 +2889,9 @@ begin
   end if;
   if r.estado not in ('pendiente', 'fallido') then
     raise exception 'Ese reembolso ya está en proceso: el destino no se puede cambiar.';
+  end if;
+  if (select count(*) from tumbo.reembolso_eventos e where e.reembolso_id = r.id and e.accion = 'destino' and e.fecha > now() - interval '1 hour') >= 10 then
+    raise exception 'Cambiaste el destino muchas veces en la última hora: espera un poco.';
   end if;
   if v_tipo = 'pago_movil' then
     v_tel := tumbo_privado.telefono_movil(p_destino ->> 'telefono');
@@ -2542,26 +2917,45 @@ begin
   else
     raise exception 'Elige cómo quieres recibir el reembolso: Pago Móvil, Zelle o crédito en Tumbo.';
   end if;
-  update tumbo.reembolsos set destino = v_dest, estado = 'pendiente', error = null, actualizado = now() where id = r.id;
+  insert into tumbo.reembolso_destinos (reembolso_id, datos) values (r.id, v_dest)
+  on conflict (reembolso_id) do update set datos = excluded.datos, actualizado = now();
+  update tumbo.reembolsos set destino = tumbo_privado.destino_resumen(v_dest), estado = 'pendiente', error = null, actualizado = now()
+  where id = r.id;
   perform tumbo_privado.reembolso_evento(r.id, yo, 'destino', v_tipo);
-  if v_tipo = 'credito' then
+  if v_tipo = 'credito' and not r.requiere_doble then
     -- crédito en Tumbo: se acredita al momento (no sale dinero)
-    insert into tumbo.creditos (usuario_id, monto_usd, motivo, referencia)
-    values (yo.id, r.monto_usd, 'Reembolso del pedido ' || r.pedido_id, 'R-' || r.id);
-    update tumbo.reembolsos set estado = 'enviado', referencia = 'CRÉDITO-' || r.id, moneda_envio = 'CREDITO',
-      monto_enviado = r.monto_usd, enviado_el = now(), actualizado = now(), por = 'Sistema'
-    where id = r.id;
-    if r.pago_id is not null then
-      perform tumbo_privado.asentar('reembolso_enviado', 'R-' || r.id, 'Reembolso del pedido ' || r.pedido_id || ' acreditado en Tumbo', 'Sistema',
-        jsonb_build_array(jsonb_build_object('cuenta', 'reembolsos_por_pagar', 'debe', r.monto_usd),
-                          jsonb_build_object('cuenta', 'credito_clientes', 'haber', r.monto_usd)));
-    end if;
+    perform tumbo_privado.reembolso_acreditar(r.id, yo);
     perform tumbo_privado.auditar(yo, 'Reembolso acreditado en Tumbo', 'R-' || r.id || ' · ' || r.pedido_id || ' · ' || tumbo_privado.fmt_usd(r.monto_usd));
   else
-    perform tumbo_privado.notificar('rol:finanzas', 'El reembolso R-' || r.id || ' (' || r.pedido_id || ') ya tiene destino: puedes enviarlo',
+    perform tumbo_privado.notificar('rol:finanzas', 'El reembolso R-' || r.id || ' (' || r.pedido_id || ') ya tiene destino: ' ||
+                                    case when r.requiere_doble then 'lo aprueba otra persona antes de enviarlo' else 'puedes enviarlo' end,
                                     'undo', 'admin/reembolsos.html');
   end if;
-  return (select to_jsonb(x) - 'por' from tumbo.reembolsos x where x.id = r.id);
+  return (select (to_jsonb(x) - 'por') || jsonb_build_object('destino', v_dest) from tumbo.reembolsos x where x.id = r.id);
+end $$;
+
+-- Acredita un reembolso en el crédito en Tumbo del comprador: lo deja
+-- enviado y lo asienta (reembolsos por pagar → crédito de clientes).
+create function tumbo_privado.reembolso_acreditar(p_id bigint, p_yo tumbo.usuarios) returns void
+language plpgsql security definer set search_path = '' as $$
+declare
+  r tumbo.reembolsos;
+  v_comprador uuid;
+begin
+  select * into r from tumbo.reembolsos where id = p_id;
+  select comprador_id into v_comprador from tumbo.pedidos where id = r.pedido_id;
+  insert into tumbo.creditos (usuario_id, monto_usd, motivo, referencia)
+  values (v_comprador, r.monto_usd, 'Reembolso del pedido ' || r.pedido_id, 'R-' || r.id);
+  update tumbo.reembolsos set estado = 'enviado', referencia = 'CRÉDITO-' || r.id, moneda_envio = 'CREDITO', tasa_envio = null,
+    monto_enviado = r.monto_usd, enviado_el = now(), actualizado = now(), error = null,
+    por = case when p_yo.id is null or p_yo.rol = 'comprador' then 'Sistema' else tumbo_privado.actor(p_yo) end
+  where id = r.id;
+  if r.pago_id is not null then
+    perform tumbo_privado.asentar('reembolso_enviado', 'R-' || r.id, 'Reembolso del pedido ' || r.pedido_id || ' acreditado en Tumbo',
+      case when p_yo.id is null or p_yo.rol = 'comprador' then 'Sistema' else tumbo_privado.actor(p_yo) end,
+      jsonb_build_array(jsonb_build_object('cuenta', 'reembolsos_por_pagar', 'debe', r.monto_usd),
+                        jsonb_build_object('cuenta', 'credito_clientes', 'haber', r.monto_usd)));
+  end if;
 end $$;
 
 -- El saldo de crédito en Tumbo del comprador y sus movimientos.
@@ -2592,14 +2986,18 @@ begin
   end if;
   select * into cfg from tumbo.config;
   return jsonb_build_object(
+    'prueba', tumbo_privado.cuenta_demo(yo.email),
     'umbral_doble_usd', tumbo_privado.numero(coalesce(tumbo_privado.ajuste('reembolsos'), '{}'::jsonb) -> 'umbral_doble_usd', 200),
     'tasa_hoy', cfg.tasa,
     'reembolsos', coalesce((
       select jsonb_agg(jsonb_build_object(
                'id', r.id, 'pedido_id', r.pedido_id, 'pago_id', r.pago_id, 'monto_usd', r.monto_usd, 'monto_bs', r.monto_bs, 'tasa', r.tasa,
-               'motivo', r.motivo, 'estado', r.estado, 'referencia', r.referencia, 'error', r.error,
-               'destino', case when tumbo_privado.ve_comprador(yo, p.comprador_id) then r.destino
-                               when r.destino is not null then jsonb_build_object('tipo', r.destino ->> 'tipo', 'oculto', true) end,
+               'motivo', r.motivo, 'estado', r.estado, 'referencia', r.referencia, 'error', r.error, 'tipo', r.tipo,
+               'bloqueado', tumbo_privado.cuenta_demo(yo.email) and tumbo_privado.comprador_real(p.comprador_id),
+               'destino', case when r.destino is null then null
+                               when tumbo_privado.ve_comprador(yo, p.comprador_id)
+                                 then coalesce((select dd.datos from tumbo.reembolso_destinos dd where dd.reembolso_id = r.id), r.destino)
+                               else jsonb_build_object('tipo', r.destino ->> 'tipo', 'oculto', true) end,
                'requiere_doble', r.requiere_doble, 'moneda_envio', r.moneda_envio, 'tasa_envio', r.tasa_envio,
                'monto_enviado', r.monto_enviado, 'enviado_el', r.enviado_el, 'creado', r.creado,
                'comprador', case when tumbo_privado.ve_comprador(yo, p.comprador_id) then u.nombre else 'Cuenta real (oculta a las cuentas de prueba)' end,
@@ -2624,6 +3022,9 @@ end $$;
 --     a la tasa del día (se guarda); por Zelle, en USD;
 --   · fallar: en proceso → fallido, con el motivo (el comprador revisa su
 --     destino); reintentar: fallido → pendiente.
+-- Al crédito en Tumbo solo llegan aquí los de doble aprobación: «enviar»
+-- lo acredita sin referencia. El reembolso de una persona real exige sesión
+-- elevada en cualquier paso (las cuentas de prueba, solo los de prueba).
 create function public.tm_reembolso_procesar(p_sesion text, p_id bigint, p_accion text, p_datos jsonb) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -2643,6 +3044,9 @@ begin
   if not found then
     raise exception 'No encontramos ese reembolso.';
   end if;
+  -- el reembolso de una persona real: sesión elevada (las cuentas de prueba
+  -- solo practican con los de las cuentas de prueba)
+  perform tumbo_privado.exigir_si_real(yo, tumbo_privado.comprador_real((select comprador_id from tumbo.pedidos where id = r.pedido_id)));
   select * into cfg from tumbo.config;
   select e.usuario_id into v_tomo from tumbo.reembolso_eventos e where e.reembolso_id = r.id and e.accion = 'tomar' order by e.id desc limit 1;
 
@@ -2668,7 +3072,8 @@ begin
   elsif p_accion = 'enviar' then
     if r.estado <> 'en_proceso' then raise exception 'Solo se envía un reembolso en proceso.'; end if;
     v_ref := upper(trim(coalesce(p_datos ->> 'referencia', '')));
-    if char_length(v_ref) < 4 or char_length(v_ref) > 40 or v_ref !~ '^[A-Z0-9 ./_-]+$' then
+    if r.destino ->> 'tipo' <> 'credito'
+       and (char_length(v_ref) < 4 or char_length(v_ref) > 40 or v_ref !~ '^[A-Z0-9 ./_-]+$') then
       raise exception 'Escribe la referencia del envío (de 4 a 40 letras sin tilde, números, espacios y . / _ -).';
     end if;
     if r.requiere_doble then
@@ -2677,6 +3082,16 @@ begin
                      and e.fecha > (select max(f.fecha) from tumbo.reembolso_eventos f where f.reembolso_id = r.id and f.accion = 'tomar')) then
         raise exception 'Este reembolso llega al umbral: necesita la aprobación de otra persona antes de enviarse.';
       end if;
+    end if;
+    if r.destino ->> 'tipo' = 'credito' then
+      -- crédito en Tumbo (con su doble aprobación ya dada): se acredita
+      perform tumbo_privado.reembolso_acreditar(r.id, yo);
+      perform tumbo_privado.reembolso_evento(r.id, yo, 'enviar', 'crédito en Tumbo');
+      perform tumbo_privado.notificar('usr:' || (select comprador_id from tumbo.pedidos where id = r.pedido_id),
+        'Acreditamos en tu crédito en Tumbo el reembolso del pedido ' || r.pedido_id || ' (' || tumbo_privado.fmt_usd(r.monto_usd) || ')',
+        'undo', 'tienda/reembolsos.html');
+      perform tumbo_privado.auditar(yo, 'Reembolso acreditado en Tumbo', 'R-' || r.id || ' · ' || r.pedido_id || ' · ' || tumbo_privado.fmt_usd(r.monto_usd));
+      return (select to_jsonb(x) from tumbo.reembolsos x where x.id = r.id);
     end if;
     v_moneda := case when r.destino ->> 'tipo' = 'zelle' then 'USD' else 'VES' end;
     v_enviado := case when v_moneda = 'USD' then r.monto_usd else round(r.monto_usd * cfg.tasa, 2) end;
@@ -2730,7 +3145,7 @@ begin
     'ultima_solicitud', (select jsonb_build_object('creado', s.creado, 'procesado', s.procesado, 'resultado', s.resultado)
                          from tumbo.tasa_solicitudes s order by s.id desc limit 1),
     'historial', coalesce((select jsonb_agg(jsonb_build_object('id', t.id, 'fecha', t.fecha, 'valor', t.valor, 'fuente', t.fuente,
-                                                               'estado', t.estado, 'propuesta_por', t.propuesta_por_nombre,
+                                                               'estado', t.estado, 'propuesta_por', t.propuesta_por_nombre, 'automatica', t.automatica,
                                                                'aprobada_por', t.aprobada_por_nombre, 'nota', t.nota, 'creado', t.creado,
                                                                'aplicada_el', t.aplicada_el, 'ultima_consulta', t.ultima_consulta,
                                                                'mia', t.propuesta_por = yo.id) order by t.id desc)
@@ -2843,7 +3258,31 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- Cuentas de liquidación de los sellers
 -- ---------------------------------------------------------------------------
--- El seller principal ve las de su comercio; Finanzas, todas.
+-- Aviso fuera de la app (correo y WhatsApp de la bandeja de salida) a las
+-- personas dueñas del comercio de cada cambio en su cuenta de liquidación:
+-- la espera de 48 horas sirve para que el dueño note un cambio que no hizo.
+insert into tumbo.plantillas (clave, canal, asunto, cuerpo) values
+  ('cuenta_liquidacion', 'correo', 'Cambio en la cuenta donde cobra {{comercio}}',
+   E'Hola, {{nombre}}:\n\n{{detalle}}\n\nSi no fuiste tú, entra a Tumbo Seller Center, anula el cambio antes de que rija y escríbele a soporte.\n\n{{enlace}}'),
+  ('cuenta_liquidacion', 'whatsapp', '',
+   'Tumbo Seller Center: {{detalle}} Si no fuiste tú, anúlalo en {{enlace}} y escríbele a soporte.')
+on conflict (clave, canal) do nothing;
+
+create function tumbo_privado.avisar_cuenta_liquidacion(c tumbo.cuentas_liquidacion, p_detalle text) returns void
+language plpgsql security definer set search_path = '' as $$
+declare
+  u record;
+begin
+  for u in select id from tumbo.usuarios where seller_id = c.seller_id and rol = 'seller' and activo loop
+    perform tumbo_privado.encolar(u.id, 'cuenta_liquidacion', jsonb_build_object(
+      'comercio', (select nombre from tumbo.sellers where id = c.seller_id), 'detalle', p_detalle,
+      'enlace', 'app/seller/finanzas.html'));
+  end loop;
+  perform tumbo_privado.notificar('seller:' || c.seller_id, p_detalle, 'account_balance', 'seller/finanzas.html');
+end $$;
+
+-- El seller principal ve las de su comercio; Finanzas, todas. Las cuentas de
+-- prueba solo ven completas las ficticias de la semilla.
 create function public.tm_cuentas_liquidacion(p_sesion text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -2852,9 +3291,10 @@ begin
   return jsonb_build_object(
     'bancos', (select jsonb_agg(jsonb_build_object('codigo', b.codigo, 'nombre', b.nombre) order by b.nombre) from tumbo.bancos b),
     'cuentas', coalesce((
-      select jsonb_agg(tumbo_privado.cuenta_json(c) || jsonb_build_object(
+      select jsonb_agg(tumbo_privado.cuenta_json_para(c, yo) || jsonb_build_object(
                'seller_id', c.seller_id, 'seller', s.nombre, 'rif_comercio', k.rif,
                'vigente', c.id = (tumbo_privado.cuenta_vigente(c.seller_id)).id,
+               'anulable', c.estado = 'pendiente' or (c.estado = 'verificada' and c.vigente_desde > now()),
                'verificada_por', case when yo.rol <> 'seller' then c.verificada_por end, 'creado_por', c.creado_por)
              order by c.seller_id, c.id desc)
       from tumbo.cuentas_liquidacion c join tumbo.sellers s on s.id = c.seller_id
@@ -2866,7 +3306,8 @@ end $$;
 -- El seller principal registra la cuenta donde cobra (cuenta bancaria o
 -- Pago Móvil) con sesión elevada (2FA). Queda pendiente hasta que Finanzas
 -- la verifique; si ya tenía una verificada, la nueva rige 48 horas después
--- de registrarla.
+-- de registrarla. Las personas dueñas del comercio reciben el aviso por
+-- correo y WhatsApp (bandeja de salida).
 create function public.tm_cuenta_liquidacion_guardar(p_sesion text, p_datos jsonb) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -2878,6 +3319,7 @@ declare
   v_numero text := regexp_replace(coalesce(p_datos ->> 'numero', ''), '[^0-9]', '', 'g');
   v_tel text := tumbo_privado.telefono_movil(p_datos ->> 'telefono');
   v_id bigint;
+  c tumbo.cuentas_liquidacion;
 begin
   perform tumbo_privado.exigir_elevada(yo);
   if v_tipo is null or v_tipo not in ('cuenta', 'pago_movil') then
@@ -2908,17 +3350,23 @@ begin
   if (select count(*) from tumbo.cuentas_liquidacion where seller_id = yo.seller_id and creado > now() - interval '30 days') >= 5 then
     raise exception 'Registraste muchas cuentas este mes: escríbele a soporte.';
   end if;
-  insert into tumbo.cuentas_liquidacion (seller_id, tipo, banco, titular, rif, numero, tipo_cuenta, telefono, creado_por)
+  insert into tumbo.cuentas_liquidacion (seller_id, tipo, banco, titular, rif, numero, tipo_cuenta, telefono, creado_por, creado_por_id)
   values (yo.seller_id, v_tipo, v_banco, v_titular, v_rif, case when v_tipo = 'cuenta' then v_numero end,
           case when v_tipo = 'cuenta' then p_datos ->> 'tipo_cuenta' end, case when v_tipo = 'pago_movil' then v_tel end,
-          tumbo_privado.actor(yo))
-  returning id into v_id;
+          tumbo_privado.actor(yo), yo.id)
+  returning * into c;
+  v_id := c.id;
   perform tumbo_privado.notificar('rol:finanzas', 'Cuenta de liquidación de ' || yo.seller_id || ' por verificar', 'account_balance', 'admin/liquidaciones.html');
+  perform tumbo_privado.avisar_cuenta_liquidacion(c,
+    yo.nombre || ' registró una cuenta nueva para cobrar (' || (select nombre from tumbo.bancos where codigo = c.banco) || ' ' ||
+    coalesce(tumbo_privado.enmascarar(c.numero), tumbo_privado.enmascarar(c.telefono)) || '). Queda pendiente de verificación' ||
+    case when (tumbo_privado.cuenta_vigente(c.seller_id)).id is not null then ' y, si se verifica, rige 48 horas después de registrada.' else '.' end);
   perform tumbo_privado.auditar(yo, 'Cuenta de liquidación registrada', yo.seller_id || ' · ' || v_tipo || ' ' || v_banco || ' · ' || v_rif);
-  return tumbo_privado.cuenta_json((select c from tumbo.cuentas_liquidacion c where c.id = v_id));
+  return tumbo_privado.cuenta_json(c);
 end $$;
 
--- Finanzas verifica la cuenta: el RIF del titular debe ser el del comercio.
+-- Finanzas verifica la cuenta (con sesión elevada: decide a dónde va el
+-- dinero de un comercio): el RIF del titular debe ser el del comercio.
 create function public.tm_cuenta_liquidacion_verificar(p_sesion text, p_id bigint, p_aprobar boolean, p_motivo text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -2928,6 +3376,7 @@ declare
   v_motivo text := left(nullif(trim(coalesce(p_motivo, '')), ''), 300);
   v_desde timestamptz;
 begin
+  perform tumbo_privado.exigir_elevada(yo);
   select * into c from tumbo.cuentas_liquidacion where id = p_id for update;
   if not found or c.estado <> 'pendiente' then
     raise exception 'Esa cuenta ya no está esperando verificación.';
@@ -2953,10 +3402,39 @@ begin
     update tumbo.cuentas_liquidacion set estado = 'verificada', vigente_desde = v_desde, motivo = null,
       verificada_por = tumbo_privado.actor(yo), verificada_el = now()
     where id = c.id;
-    perform tumbo_privado.notificar('seller:' || c.seller_id, 'Tu cuenta de liquidación fue verificada: rige desde el ' ||
-      tumbo_privado.fecha_caracas(v_desde), 'account_balance', 'seller/finanzas.html');
+    perform tumbo_privado.avisar_cuenta_liquidacion(c,
+      'Finanzas verificó la cuenta nueva donde cobra tu comercio (' || (select nombre from tumbo.bancos where codigo = c.banco) || ' ' ||
+      coalesce(tumbo_privado.enmascarar(c.numero), tumbo_privado.enmascarar(c.telefono)) || '): rige desde el ' || tumbo_privado.fecha_caracas(v_desde) || '.');
     perform tumbo_privado.auditar(yo, 'Cuenta de liquidación verificada', c.seller_id || ' · ' || c.banco || ' · rige ' || tumbo_privado.fecha_caracas(v_desde));
   end if;
+  return tumbo_privado.cuenta_json_para((select x from tumbo.cuentas_liquidacion x where x.id = c.id), yo);
+end $$;
+
+-- El seller principal anula (con sesión elevada) una cuenta que todavía no
+-- rige: pendiente de verificación o verificada dentro de sus 48 horas de
+-- espera. Las liquidaciones siguen yendo a la cuenta vigente.
+create function public.tm_cuenta_liquidacion_anular(p_sesion text, p_id bigint, p_motivo text) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['seller']);
+  c tumbo.cuentas_liquidacion;
+  v_motivo text := left(nullif(trim(coalesce(p_motivo, '')), ''), 300);
+begin
+  perform tumbo_privado.exigir_elevada(yo);
+  select * into c from tumbo.cuentas_liquidacion where id = p_id and seller_id = yo.seller_id for update;
+  if not found then
+    raise exception 'No encontramos esa cuenta.';
+  end if;
+  if not (c.estado = 'pendiente' or (c.estado = 'verificada' and c.vigente_desde > now())) then
+    raise exception 'Esa cuenta ya rige o ya no está activa: para cambiarla registra otra.';
+  end if;
+  update tumbo.cuentas_liquidacion set estado = 'anulada', motivo = coalesce(v_motivo, 'Anulada por el comercio') where id = c.id;
+  perform tumbo_privado.notificar('rol:finanzas', 'El comercio ' || c.seller_id || ' anuló una cuenta de liquidación que aún no regía', 'account_balance',
+                                  'admin/liquidaciones.html');
+  perform tumbo_privado.avisar_cuenta_liquidacion(c,
+    yo.nombre || ' anuló la cuenta nueva (' || (select nombre from tumbo.bancos where codigo = c.banco) || ' ' ||
+    coalesce(tumbo_privado.enmascarar(c.numero), tumbo_privado.enmascarar(c.telefono)) || '): se sigue cobrando en la cuenta vigente.');
+  perform tumbo_privado.auditar(yo, 'Cuenta de liquidación anulada', c.seller_id || ' · #' || c.id || coalesce(' · ' || v_motivo, ''));
   return tumbo_privado.cuenta_json((select x from tumbo.cuentas_liquidacion x where x.id = c.id));
 end $$;
 
@@ -3067,9 +3545,15 @@ language plpgsql security definer set search_path = '' as $$
 declare
   yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['superadmin', 'finanzas']);
 begin
+  -- el dinero de un comercio real: sesión elevada
+  perform tumbo_privado.exigir_si_real(yo, tumbo_privado.seller_real(p_seller));
   return tumbo_privado.preparar_liquidacion(p_seller, p_pedidos, yo);
 end $$;
 
+-- Aprobar: la segunda firma. La da otra persona que quien preparó la
+-- corrida y que quien registró cualquiera de sus ajustes manuales (así
+-- cada ajuste también tiene dos firmas, también en las corridas que prepara
+-- el calendario). Un comercio real exige sesión elevada.
 create function public.tm_liquidacion_aprobar(p_sesion text, p_id text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -3084,8 +3568,12 @@ begin
   if l.ciclo is distinct from 'preparada' then
     raise exception 'Solo se aprueba una corrida preparada.';
   end if;
+  perform tumbo_privado.exigir_si_real(yo, tumbo_privado.seller_real(l.seller_id));
   if exists (select 1 from tumbo.liquidacion_eventos e where e.liquidacion_id = l.id and e.accion = 'preparar' and e.usuario_id = yo.id) then
     raise exception 'La aprueba otra persona: tú preparaste esta corrida.';
+  end if;
+  if exists (select 1 from tumbo.ajustes_seller a where a.id = any (l.ajuste_ids) and a.por_id = yo.id) then
+    raise exception 'La aprueba otra persona: tú registraste un ajuste que va en esta corrida.';
   end if;
   v_ret := tumbo_privado.retencion_seller(l.seller_id);
   if v_ret is not null then
@@ -3100,7 +3588,8 @@ end $$;
 -- Pagar: con la referencia de la transferencia (y, si se quiere, el
 -- comprobante subido con TM.archivos, propósito «liquidacion»). Se paga en
 -- Bs. a la tasa del día (USD de referencia), se guardan la tasa, la cuenta
--- usada y el diferencial cambiario contra la tasa de cada venta.
+-- usada (enmascarada: la completa sigue en tumbo.cuentas_liquidacion) y el
+-- diferencial cambiario contra la tasa de cada venta.
 create function public.tm_liquidacion_pagar(p_sesion text, p_id text, p_referencia text, p_comprobante uuid) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -3122,6 +3611,13 @@ begin
   end if;
   if l.ciclo is null or l.ciclo not in ('aprobada', 'fallida') then
     raise exception 'Solo se paga una corrida aprobada (o una que falló).';
+  end if;
+  perform tumbo_privado.exigir_si_real(yo, tumbo_privado.seller_real(l.seller_id));
+  -- la corrida del calendario no tiene quien la preparó: la paga otra
+  -- persona que quien la aprobó (siempre intervienen dos)
+  if not exists (select 1 from tumbo.liquidacion_eventos e where e.liquidacion_id = l.id and e.accion = 'preparar' and e.usuario_id is not null)
+     and exists (select 1 from tumbo.liquidacion_eventos e where e.liquidacion_id = l.id and e.accion = 'aprobar' and e.usuario_id = yo.id) then
+    raise exception 'Esta corrida la preparó el calendario y tú la aprobaste: la paga otra persona.';
   end if;
   v_ret := tumbo_privado.retencion_seller(l.seller_id);
   if v_ret is not null then
@@ -3146,7 +3642,7 @@ begin
   v_neto_bs := round(l.neto_usd * cfg.tasa, 2);
   update tumbo.liquidaciones
   set ciclo = 'pagada', estado = 'pagada', pagada_el = now(), fecha = tumbo_privado.hoy_caracas(), referencia_pago = v_ref,
-      comprobante_archivo = p_comprobante, cuenta = tumbo_privado.cuenta_json(c), tasa_pago = cfg.tasa, neto_bs = v_neto_bs,
+      comprobante_archivo = p_comprobante, cuenta = tumbo_privado.cuenta_resumen(c), tasa_pago = cfg.tasa, neto_bs = v_neto_bs,
       diferencial_bs = v_dif, motivo = null
   where id = l.id;
   update tumbo.pedidos set liquidacion = 'liquidado', liquidacion_id = l.id where id = any (l.pedidos);
@@ -3189,6 +3685,7 @@ begin
   if not found or l.ciclo is distinct from 'aprobada' then
     raise exception 'Solo falla una corrida aprobada.';
   end if;
+  perform tumbo_privado.exigir_si_real(yo, tumbo_privado.seller_real(l.seller_id));
   if v_motivo is null then
     raise exception 'Indica qué pasó con la transferencia.';
   end if;
@@ -3211,6 +3708,7 @@ begin
   if not found or l.ciclo is null or l.ciclo not in ('preparada', 'aprobada', 'fallida') then
     raise exception 'Solo se anula una corrida que no se ha pagado.';
   end if;
+  perform tumbo_privado.exigir_si_real(yo, tumbo_privado.seller_real(l.seller_id));
   if v_motivo is null then
     raise exception 'Indica por qué se anula la corrida.';
   end if;
@@ -3234,10 +3732,12 @@ begin
   select * into cfg from tumbo.config;
   return jsonb_build_object(
     'tasa', cfg.tasa,
+    'prueba', tumbo_privado.cuenta_demo(yo.email),
     'por_preparar', coalesce((
       select jsonb_agg(jsonb_build_object(
                'seller_id', s.id, 'seller', s.nombre, 'retencion', tumbo_privado.retencion_seller(s.id),
-               'cuenta', tumbo_privado.cuenta_json(tumbo_privado.cuenta_vigente(s.id)),
+               'cuenta', tumbo_privado.cuenta_json_para(tumbo_privado.cuenta_vigente(s.id), yo),
+               'bloqueado', tumbo_privado.cuenta_demo(yo.email) and tumbo_privado.seller_real(s.id),
                'pedidos', x.pedidos, 'bruto', x.bruto, 'envio', x.envio, 'comision', x.comision, 'tarifa', x.tarifa,
                'ajustes', coalesce(a.total, 0), 'ajustes_detalle', coalesce(a.detalle, '[]'::jsonb),
                'neto', x.bruto + x.envio + coalesce(a.total, 0) - x.comision - x.tarifa) order by s.id)
@@ -3255,7 +3755,10 @@ begin
     'en_curso', coalesce((
       select jsonb_agg(to_jsonb(l) || jsonb_build_object(
                'seller', s.nombre, 'retencion', tumbo_privado.retencion_seller(l.seller_id),
-               'cuenta_vigente', tumbo_privado.cuenta_json(tumbo_privado.cuenta_vigente(l.seller_id)),
+               'bloqueado', tumbo_privado.cuenta_demo(yo.email) and tumbo_privado.seller_real(l.seller_id),
+               'cuenta_vigente', tumbo_privado.cuenta_json_para(tumbo_privado.cuenta_vigente(l.seller_id), yo),
+               'ajustes_por', coalesce((select jsonb_agg(distinct a.por) from tumbo.ajustes_seller a where a.id = any (l.ajuste_ids)), '[]'::jsonb),
+               'ajuste_mio', exists (select 1 from tumbo.ajustes_seller a where a.id = any (l.ajuste_ids) and a.por_id = yo.id),
                'eventos', coalesce((select jsonb_agg(jsonb_build_object('actor', e.actor, 'accion', e.accion, 'nota', e.nota, 'fecha', e.fecha,
                                                                         'mio', e.usuario_id = yo.id) order by e.id)
                                     from tumbo.liquidacion_eventos e where e.liquidacion_id = l.id), '[]'::jsonb))
@@ -3267,19 +3770,21 @@ begin
       from (select * from tumbo.liquidaciones where ciclo is null or ciclo in ('pagada', 'anulada') order by fecha desc, id desc limit 100) l
       join tumbo.sellers s on s.id = l.seller_id), '[]'::jsonb),
     'cuentas_por_verificar', coalesce((
-      select jsonb_agg(tumbo_privado.cuenta_json(c) || jsonb_build_object('seller_id', c.seller_id, 'seller', s.nombre, 'rif_comercio', k.rif,
+      select jsonb_agg(tumbo_privado.cuenta_json_para(c, yo) || jsonb_build_object('seller_id', c.seller_id, 'seller', s.nombre, 'rif_comercio', k.rif,
                                                                           'creado_por', c.creado_por) order by c.id)
       from tumbo.cuentas_liquidacion c join tumbo.sellers s on s.id = c.seller_id left join tumbo.sellers_kyc k on k.seller_id = c.seller_id
       where c.estado = 'pendiente'), '[]'::jsonb),
     'retenciones', coalesce((select jsonb_agg(to_jsonb(r) order by r.desde) from tumbo.retenciones r), '[]'::jsonb),
     'sellers', coalesce((select jsonb_agg(jsonb_build_object('id', s.id, 'nombre', s.nombre, 'estado', s.estado,
-                                                             'retencion', tumbo_privado.retencion_seller(s.id)) order by s.id)
+                                                             'retencion', tumbo_privado.retencion_seller(s.id),
+                                                             'bloqueado', tumbo_privado.cuenta_demo(yo.email) and tumbo_privado.seller_real(s.id)) order by s.id)
                          from tumbo.sellers s), '[]'::jsonb));
 end $$;
 
 -- Lote para el banco: las corridas aprobadas con la cuenta de cada seller y
 -- el monto en Bs. a la tasa de hoy (formato genérico; cada banco tiene el
--- suyo para la carga masiva).
+-- suyo para la carga masiva). Las cuentas de prueba la reciben enmascarada
+-- salvo las ficticias de la semilla (marcadas «ficticia»).
 create function public.tm_liquidaciones_lote(p_sesion text, p_ids text[]) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -3293,7 +3798,7 @@ begin
   select * into cfg from tumbo.config;
   select coalesce(jsonb_agg(jsonb_build_object(
            'liquidacion', l.id, 'seller', l.seller_id, 'comercio', s.nombre,
-           'cuenta', tumbo_privado.cuenta_json(tumbo_privado.cuenta_vigente(l.seller_id)),
+           'cuenta', tumbo_privado.cuenta_json_para(tumbo_privado.cuenta_vigente(l.seller_id), yo),
            'monto_usd', l.neto_usd, 'tasa', cfg.tasa, 'monto_bs', round(l.neto_usd * cfg.tasa, 2),
            'concepto', 'Liquidación ' || l.id || ' Tumbo Market') order by l.id), '[]'::jsonb)
     into v
@@ -3311,7 +3816,9 @@ begin
 end $$;
 
 -- Ajuste manual al saldo de un seller (a favor o en contra), con motivo:
--- entra en su próxima corrida. Queda en el libro mayor y en la auditoría.
+-- entra en su próxima corrida, que aprueba otra persona (segunda firma del
+-- ajuste). Queda en el libro mayor y en la auditoría. A un comercio real,
+-- con sesión elevada.
 create function public.tm_ajuste_seller(p_sesion text, p_seller text, p_monto_usd numeric, p_motivo text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -3323,6 +3830,7 @@ begin
   if not exists (select 1 from tumbo.sellers where id = p_seller) then
     raise exception 'Seller % no encontrado.', p_seller;
   end if;
+  perform tumbo_privado.exigir_si_real(yo, tumbo_privado.seller_real(p_seller));
   if v_monto = 0 or abs(v_monto) > 100000 then
     raise exception 'El ajuste va de -100.000 a 100.000 USD y no puede ser cero.';
   end if;
@@ -3344,7 +3852,8 @@ begin
   return jsonb_build_object('id', v_id, 'monto_usd', v_monto);
 end $$;
 
--- Retener (o liberar) a mano los fondos de un seller.
+-- Retener (o liberar) a mano los fondos de un seller (un comercio real, con
+-- sesión elevada).
 create function public.tm_retencion_seller(p_sesion text, p_seller text, p_retener boolean, p_motivo text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -3354,6 +3863,7 @@ begin
   if not exists (select 1 from tumbo.sellers where id = p_seller) then
     raise exception 'Seller % no encontrado.', p_seller;
   end if;
+  perform tumbo_privado.exigir_si_real(yo, tumbo_privado.seller_real(p_seller));
   if p_retener is null then
     raise exception 'Indica si se retiene o se libera.';
   end if;
@@ -3409,7 +3919,9 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- Cierre de un día (por omisión, ayer en Caracas): suma el debe y el haber
 -- de sus asientos, cuenta los que no cuadran y lo guarda; si no cuadra,
--- avisa a Finanzas. Repetirlo recalcula el día.
+-- avisa a Finanzas. Repetirlo recalcula el día. De paso borra los
+-- movimientos del banco ignorados (no eran de Tumbo) de más de 400 días: la
+-- importación ya no admite fechas tan viejas, así que no se repiten.
 create function tumbo_privado.tarea_cierre_diario(p_fecha date default null) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -3420,7 +3932,10 @@ declare
   v_malos integer;
   v_detalle jsonb;
   v_cuadra boolean;
+  v_purgados integer;
 begin
+  delete from tumbo.movimientos_banco where estado = 'ignorado' and fecha < tumbo_privado.hoy_caracas() - 400;
+  get diagnostics v_purgados = row_count;
   select count(distinct a.id), coalesce(sum(l.debe), 0), coalesce(sum(l.haber), 0) into v_n, v_debe, v_haber
   from tumbo.asientos a join tumbo.asiento_lineas l on l.asiento_id = a.id
   where (a.fecha at time zone 'America/Caracas')::date = v_fecha;
@@ -3440,7 +3955,8 @@ begin
     perform tumbo_privado.notificar('rol:finanzas', 'El cierre del ' || to_char(v_fecha, 'DD/MM/YYYY') || ' no cuadra: revisa el libro mayor',
                                     'error', 'admin/finanzas.html');
   end if;
-  return jsonb_build_object('fecha', v_fecha, 'asientos', v_n, 'debe', v_debe, 'haber', v_haber, 'cuadra', v_cuadra);
+  return jsonb_build_object('fecha', v_fecha, 'asientos', v_n, 'debe', v_debe, 'haber', v_haber, 'cuadra', v_cuadra,
+                            'movimientos_purgados', v_purgados);
 end $$;
 
 -- El libro mayor: saldos por cuenta y por seller (hasta p_hasta), el
@@ -3528,14 +4044,16 @@ begin
              where l.cuenta = 'igtf_por_pagar' and (a.fecha at time zone 'America/Caracas')::date between v_desde and v_hasta),
     'tasa', public.tm_tasa_vigente(),
     'tasa_propuesta', (select jsonb_build_object('id', t.id, 'valor', t.valor, 'fecha', t.fecha, 'propuesta_por', t.propuesta_por_nombre,
-                                                 'mia', t.propuesta_por = yo.id)
+                                                 'mia', t.propuesta_por is not distinct from yo.id, 'automatica', t.automatica,
+                                                 'fuente', t.fuente, 'nota', t.nota)
                        from tumbo.tasas t where t.estado = 'propuesta' order by t.id desc limit 1),
     'ultimo_cierre', (select to_jsonb(c) from tumbo.cierres c order by c.fecha desc limit 1));
 end $$;
 
 -- Libro de ventas (para el contador): una fila por pedido con su pago
--- verificado en el período.
-create function tumbo_privado.libro_ventas(p_seller text, p_desde date, p_hasta date) returns jsonb
+-- verificado en el período. Los datos fiscales salen del pago; a una cuenta
+-- de prueba, los de una persona real llegan ocultos.
+create function tumbo_privado.libro_ventas(p_seller text, p_desde date, p_hasta date, p_yo tumbo.usuarios) returns jsonb
 language sql stable security definer set search_path = '' as $$
   select jsonb_build_object(
     'columnas', jsonb_build_array('Fecha', 'Pedido', 'Pago', 'Comercio', 'RIF comercio', 'Documento comprador', 'Comprador',
@@ -3543,7 +4061,9 @@ language sql stable security definer set search_path = '' as $$
                                   'IGTF USD', 'Total USD', 'Tasa', 'Total Bs', 'Estado'),
     'filas', coalesce(jsonb_agg(jsonb_build_array(
                to_char(g.verificado_el at time zone 'America/Caracas', 'DD/MM/YYYY'), x.id, g.id, s.nombre, k.rif,
-               coalesce(x.fiscal ->> 'documento', ''), coalesce(x.fiscal ->> 'razon_social', u.nombre),
+               case when tumbo_privado.ve_comprador(p_yo, x.comprador_id) then coalesce(g.fiscal ->> 'documento', '') else 'oculto' end,
+               case when tumbo_privado.ve_comprador(p_yo, x.comprador_id) then coalesce(g.fiscal ->> 'razon_social', u.nombre)
+                    else 'Cuenta real (oculta a las cuentas de prueba)' end,
                tumbo_privado.bruto_pedido(x.id), x.descuento_usd + x.descuento_tumbo_usd, x.exento_usd,
                tumbo_privado.bruto_pedido(x.id) - x.descuento_usd - x.descuento_tumbo_usd - x.exento_usd - x.iva_usd,
                x.iva_usd, x.costo_envio_usd, x.igtf_usd,
@@ -3577,7 +4097,7 @@ begin
     raise exception 'Tu rol no permite esta exportación.' using errcode = '42501';
   end if;
   if p_tipo = 'libro_ventas' then
-    v := tumbo_privado.libro_ventas(v_seller, v_desde, v_hasta);
+    v := tumbo_privado.libro_ventas(v_seller, v_desde, v_hasta, yo);
   elsif p_tipo = 'pagos' then
     select jsonb_build_object('columnas', jsonb_build_array('Pago', 'Creado', 'Estado', 'Método', 'Moneda', 'Referencia', 'Fecha del pago',
                                                             'Subtotal USD', 'Descuento USD', 'Envío USD', 'IVA USD', 'IGTF USD', 'Crédito USD',
@@ -3678,7 +4198,7 @@ begin
                     where l.cuenta = 'por_pagar_seller' and l.seller_id = yo.seller_id and (a.fecha at time zone 'America/Caracas')::date <= v_hasta),
     'ajustes_pendientes', coalesce((select jsonb_agg(jsonb_build_object('id', j.id, 'monto_usd', j.monto_usd, 'motivo', j.motivo, 'creado', j.creado) order by j.id)
                                     from tumbo.ajustes_seller j where j.seller_id = yo.seller_id and j.liquidacion_id is null), '[]'::jsonb),
-    'cuenta', tumbo_privado.cuenta_json(tumbo_privado.cuenta_vigente(yo.seller_id)),
+    'cuenta', tumbo_privado.cuenta_json_para(tumbo_privado.cuenta_vigente(yo.seller_id), yo),
     'retencion', tumbo_privado.retencion_seller(yo.seller_id),
     'comision_pct', (select comision_pct from tumbo.config), 'tarifa_usd', (select tarifa_fija_usd from tumbo.config),
     'envio_al_seller', coalesce((tumbo_privado.ajuste('liquidaciones') ->> 'envio_al_seller')::boolean, true));
@@ -3687,7 +4207,9 @@ end $$;
 -- Recibo / nota de entrega de un pedido con su desglose. NO es una factura:
 -- la factura con número de control necesita la imprenta digital autorizada
 -- por el SENIAT. Lo ve el comprador (el suyo), el seller principal (los de
--- su comercio ya pagados) y Finanzas.
+-- su comercio ya pagados, con los datos fiscales para su factura) y
+-- Finanzas; a una cuenta de prueba, los datos de una persona real llegan
+-- ocultos.
 create function public.tm_pedido_recibo(p_sesion text, p_id text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -3695,6 +4217,7 @@ declare
   x tumbo.pedidos;
   g tumbo.pagos;
   m jsonb;
+  v_ve boolean;
 begin
   select * into x from tumbo.pedidos where id = p_id;
   if not found
@@ -3705,6 +4228,7 @@ begin
   end if;
   select * into g from tumbo.pagos where id = x.pago_id;
   m := tumbo_privado.montos_pedido(x);
+  v_ve := yo.id = x.comprador_id or tumbo_privado.ve_comprador(yo, x.comprador_id);
   return jsonb_build_object(
     'aviso', 'Documento no fiscal: recibo y nota de entrega. La factura con número de control la emite el comercio con su imprenta digital autorizada por el SENIAT.',
     'pedido', jsonb_build_object('id', x.id, 'creado', x.creado, 'estado', x.estado, 'envio_tipo', x.envio_tipo, 'envio_dir', x.envio_dir,
@@ -3717,8 +4241,9 @@ begin
                                       'iva_pct', tumbo_privado.numero(coalesce(tumbo_privado.ajuste('impuestos'), '{}'::jsonb) -> 'iva_pct', 16)),
     'comercio', (select jsonb_build_object('id', s.id, 'nombre', s.nombre, 'rif', k.rif, 'ciudad', s.ciudad)
                  from tumbo.sellers s left join tumbo.sellers_kyc k on k.seller_id = s.id where s.id = x.seller_id),
-    'comprador', (select jsonb_build_object('nombre', coalesce(x.fiscal ->> 'razon_social', u.nombre), 'documento', x.fiscal ->> 'documento')
-                  from tumbo.usuarios u where u.id = x.comprador_id),
+    'comprador', case when v_ve then (select jsonb_build_object('nombre', coalesce(g.fiscal ->> 'razon_social', u.nombre), 'documento', g.fiscal ->> 'documento')
+                                      from tumbo.usuarios u where u.id = x.comprador_id)
+                      else jsonb_build_object('nombre', 'Cuenta real (oculta a las cuentas de prueba)', 'documento', null, 'oculto', true) end,
     'pago', case when g.id is null then jsonb_build_object('metodo', x.metodo, 'referencia', nullif(x.ref, ''))
                  else jsonb_build_object('id', g.id, 'metodo', x.metodo, 'referencia', g.referencia, 'estado', g.estado,
                                          'verificado_el', g.verificado_el, 'moneda', g.moneda) end);
@@ -3755,6 +4280,8 @@ begin
   delete from tumbo.movimientos_banco where id is not null;
   delete from tumbo.importaciones_banco where id is not null;
   delete from tumbo.reembolso_eventos where id is not null;
+  delete from tumbo.reembolso_destinos where reembolso_id is not null;
+  delete from tumbo.salida where plantilla = 'cuenta_liquidacion';
   delete from tumbo.liquidacion_eventos where id is not null;
   delete from tumbo.ajustes_seller where id is not null;
   delete from tumbo.retenciones where seller_id is not null;
@@ -3831,11 +4358,11 @@ begin
                        join tumbo.sellers s on s.id = k.seller_id
                        where k.seller_id in ('SEL-014', 'SEL-009') and tumbo_privado.documento(k.rif) is not null loop
     insert into tumbo.cuentas_liquidacion (seller_id, tipo, banco, titular, rif, numero, tipo_cuenta, estado, vigente_desde,
-                                           creado, creado_por, verificada_por, verificada_el)
+                                           ficticia, creado, creado_por, verificada_por, verificada_el)
     values (v_pago, 'cuenta', case v_pago when 'SEL-014' then '0134' else '0105' end,
             (select nombre from tumbo.sellers where id = v_pago), v_rif,
             case v_pago when 'SEL-014' then '01340000000000000014' else '01050000000000000009' end, 'corriente', 'verificada',
-            '2026-03-02 09:00-04', '2026-03-01 09:00-04', 'Semilla de la demo (cuenta ficticia)', 'Rosa Blanco (finanzas)', '2026-03-02 09:00-04');
+            '2026-03-02 09:00-04', true, '2026-03-01 09:00-04', 'Semilla de la demo (cuenta ficticia)', 'Rosa Blanco (finanzas)', '2026-03-02 09:00-04');
   end loop;
   perform set_config('tumbo.reinicio_libro', '', true);
 end $$;
@@ -3885,7 +4412,7 @@ begin
     'public.tm_tasas(text)', 'public.tm_tasa_proponer(text,numeric,date,text)', 'public.tm_tasa_decidir(text,bigint,boolean)',
     'public.tm_metodo_pago_guardar(text,text,jsonb)',
     'public.tm_cuentas_liquidacion(text)', 'public.tm_cuenta_liquidacion_guardar(text,jsonb)',
-    'public.tm_cuenta_liquidacion_verificar(text,bigint,boolean,text)',
+    'public.tm_cuenta_liquidacion_verificar(text,bigint,boolean,text)', 'public.tm_cuenta_liquidacion_anular(text,bigint,text)',
     'public.tm_liquidacion_aprobar(text,text)', 'public.tm_liquidacion_pagar(text,text,text,uuid)',
     'public.tm_liquidacion_fallar(text,text,text)', 'public.tm_liquidacion_anular(text,text,text)',
     'public.tm_liquidaciones_corridas(text)', 'public.tm_liquidaciones_lote(text,text[])',

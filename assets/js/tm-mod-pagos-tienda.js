@@ -287,7 +287,7 @@
   var chk = null;
   function estadoChk() {
     if (!chk) {
-      chk = { dir: null, metodo: null, envios: {}, cupon: '', borradorCupon: '', usarCredito: false, doc: '', razon: '',
+      chk = { dir: null, metodo: null, envios: {}, cupon: '', borradorCupon: '', usarCredito: false, doc: '', razon: '', agCiudad: '', agEstado: '',
         cot: null, clave: null, error: null, enCurso: null, turno: 0, foco: null };
     }
     return chk;
@@ -296,6 +296,7 @@
     var c = estadoChk();
     var agencia = c.dir === '__agencia__';
     return { entrega: agencia ? 'agencia' : 'domicilio', direccion_id: agencia ? null : c.dir, metodo: c.metodo || 'pago_movil',
+      agencia: agencia && (c.agCiudad || c.agEstado) ? { ciudad: c.agCiudad || null, estado: c.agEstado || null } : null,
       envios: c.envios, cupon: c.cupon || null, usar_credito: !!c.usarCredito };
   }
   function claveCot() {
@@ -342,7 +343,7 @@
     return '<p data-chk-destino class="mt-2 flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant">' + ic('person', 'text-[16px] mt-0.5') +
       '<span>' + (d.tipo === 'agencia' ? 'Retira' : 'Recibe') + ': <strong class="text-on-surface">' + esc(d.destinatario || '') + '</strong>' +
       (d.cedula ? ' · C.I. ' + esc(d.cedula) : '') + (d.telefono_destinatario ? ' · Tel. ' + esc(d.telefono_destinatario) : '') +
-      (d.tipo === 'agencia' ? ' · lleva tu documento de identidad.' : '') +
+      (d.tipo === 'agencia' ? (d.ciudad ? ' · en ' + esc(d.ciudad) + (d.estado ? ' (' + esc(d.estado) + ')' : '') : '') + ' · lleva tu documento de identidad.' : '') +
       ' <a class="text-secondary hover:underline" href="' + href('app/tienda/direcciones.html') + '">Cambiar en Direcciones</a></span></p>';
   }
 
@@ -455,6 +456,11 @@
           '<input type="radio" name="dir" value="__agencia__"' + (c.dir === '__agencia__' ? ' checked' : '') + ' class="mt-1 text-secondary focus:ring-secondary/40"/>' +
           '<span><span class="font-body-sm text-body-sm font-bold text-on-surface">Retiro en agencia del courier</span>' +
           '<span class="block font-body-sm text-body-sm text-on-surface-variant">Cada comercio despacha a la agencia que elijas abajo.</span></span></label>' +
+        (c.dir === '__agencia__' ? '<div data-chk-agencia class="grid sm:grid-cols-2 gap-3 mt-2">' +
+          campo('chk-ag-estado', 'Estado donde retiras', 'name="ag-estado" maxlength="40" value="' + esc(c.agEstado || (cot && cot.destino && cot.destino.estado) || '') + '"') +
+          campo('chk-ag-ciudad', 'Ciudad donde retiras', 'name="ag-ciudad" maxlength="80" value="' + esc(c.agCiudad || (cot && cot.destino && cot.destino.ciudad) || '') + '"',
+            cot && cot.destino && !cot.destino.ciudad ? 'Escribe la ciudad para cotizar el envío a la agencia correcta.' : 'Si no la cambias, es la de tu dirección principal.') +
+          '</div>' : '') +
         htmlDestino(cot)) +
       paso(2, 'Envío por comercio', '<div data-chk-envios>' + htmlEnvios(c, cot) + '</div>') +
       paso(3, 'Método de pago', '<div data-chk-metodos>' + htmlMetodos(c) + '</div><div data-chk-credito>' + htmlCredito(c, cot) + '</div>') +
@@ -512,6 +518,8 @@
       else if (el.name === 'metodo') c.metodo = el.value;
       else if (el.hasAttribute('data-envio-seller')) c.envios[el.getAttribute('data-envio-seller')] = el.value;
       else if (el.name === 'usar-credito') c.usarCredito = el.checked;
+      else if (el.name === 'ag-ciudad') c.agCiudad = el.value.trim();
+      else if (el.name === 'ag-estado') c.agEstado = el.value.trim();
       else return;
       fijarComoPintado(form);
       cotizar();
@@ -813,11 +821,14 @@
      Pagos, reembolsos y crédito
      ===================================================================== */
   var DESTINOS = [['pago_movil', 'Pago Móvil', 'En bolívares, a la tasa del día del envío'], ['zelle', 'Zelle', 'En dólares'],
-    ['credito', 'Crédito en Tumbo', 'Al momento, para tu próxima compra']];
+    ['credito', 'Crédito en Tumbo', 'Para tu próxima compra']];
 
   function formularioDestino(r) {
     var d = r.destino || {};
     var tipo = d.tipo || 'pago_movil';
+    /* lo guardado llega enmascarado (••••0101): solo se precarga el banco */
+    var claro = !d.resumen;
+    var val = function (k) { return claro ? (d[k] || '') : ''; };
     return '<div data-destino-form="' + r.id + '" class="mt-3 rounded-btn border border-outline-variant p-3">' +
       '<p class="font-label-md text-label-md text-on-surface mb-2">¿Dónde quieres recibirlo?</p>' +
       '<div class="flex flex-wrap gap-2 mb-3">' + DESTINOS.map(function (o) {
@@ -827,12 +838,14 @@
       }).join('') + '</div>' +
       '<div data-campos="pago_movil" class="grid sm:grid-cols-3 gap-3"' + (tipo === 'pago_movil' ? '' : ' hidden') + '>' +
         '<div><label class="' + ETIQUETA + '" for="rd-banco-' + r.id + '">Banco</label><select id="rd-banco-' + r.id + '" data-c="banco" class="' + CAMPO + '">' + P().opcionesBancos(d.banco) + '</select></div>' +
-        campo('rd-tel-' + r.id, 'Teléfono afiliado', 'data-c="telefono" inputmode="tel" maxlength="16" placeholder="0414-1234567" value="' + esc(d.telefono || '') + '"') +
-        campo('rd-ced-' + r.id, 'Cédula del titular', 'data-c="cedula" maxlength="15" placeholder="V-12345678" value="' + esc(d.cedula || '') + '"') + '</div>' +
+        campo('rd-tel-' + r.id, 'Teléfono afiliado', 'data-c="telefono" inputmode="tel" maxlength="16" placeholder="0414-1234567" value="' + esc(val('telefono')) + '"') +
+        campo('rd-ced-' + r.id, 'Cédula del titular', 'data-c="cedula" maxlength="15" placeholder="V-12345678" value="' + esc(val('cedula')) + '"') + '</div>' +
       '<div data-campos="zelle" class="grid sm:grid-cols-2 gap-3"' + (tipo === 'zelle' ? '' : ' hidden') + '>' +
-        campo('rd-correo-' + r.id, 'Correo de Zelle', 'data-c="correo" type="email" maxlength="120" value="' + esc(d.correo || '') + '"') +
-        campo('rd-tit-' + r.id, 'Titular', 'data-c="titular" maxlength="80" value="' + esc(d.titular || '') + '"') + '</div>' +
-      '<p data-campos="credito" class="font-body-sm text-body-sm text-on-surface-variant"' + (tipo === 'credito' ? '' : ' hidden') + '>Se acredita al momento en tu cuenta y lo usas al pagar tu próxima compra.</p>' +
+        campo('rd-correo-' + r.id, 'Correo de Zelle', 'data-c="correo" type="email" maxlength="120" value="' + esc(val('correo')) + '"') +
+        campo('rd-tit-' + r.id, 'Titular', 'data-c="titular" maxlength="80" value="' + esc(val('titular')) + '"') + '</div>' +
+      '<p data-campos="credito" class="font-body-sm text-body-sm text-on-surface-variant"' + (tipo === 'credito' ? '' : ' hidden') + '>' +
+        (r.requiere_doble ? 'Por su monto, lo aprueba otra persona de Finanzas y después se acredita en tu cuenta para tu próxima compra.'
+          : 'Se acredita al momento en tu cuenta y lo usas al pagar tu próxima compra.') + '</p>' +
       '<div class="mt-3">' + btn('Guardar destino', { estilo: 'primario', icono: 'check', attr: 'data-guardar-destino="' + r.id + '"' }) + '</div></div>';
   }
 
@@ -900,9 +913,11 @@
         if (grupo) grupo.querySelectorAll('[data-c]').forEach(function (c) { destino[c.getAttribute('data-c')] = c.value.trim(); });
         UI.accion(b, function () {
           return P().accion('tm_reembolso_destino', { p_id: Number(id), p_destino: destino }, ['reemb', 'credito']);
-        }, function () {
-          UI.toast(tipo === 'credito' ? 'Crédito acreditado' : 'Destino guardado',
-            tipo === 'credito' ? 'Ya puedes usarlo en tu próxima compra.' : 'Finanzas enviará el reembolso a ese destino.', 'undo');
+        }, function (res) {
+          var acreditado = tipo === 'credito' && res && res.estado === 'enviado';
+          UI.toast(acreditado ? 'Crédito acreditado' : 'Destino guardado',
+            acreditado ? 'Ya puedes usarlo en tu próxima compra.'
+              : tipo === 'credito' ? 'Por su monto, lo aprueba otra persona de Finanzas antes de acreditarse.' : 'Finanzas enviará el reembolso a ese destino.', 'undo');
         }, 'No se guardó el destino');
       });
     });

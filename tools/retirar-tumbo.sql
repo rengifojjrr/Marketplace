@@ -49,7 +49,7 @@ declare
     'public.tm_tasas(text)', 'public.tm_tasa_proponer(text,numeric,date,text)', 'public.tm_tasa_decidir(text,bigint,boolean)',
     'public.tm_metodo_pago_guardar(text,text,jsonb)',
     'public.tm_cuentas_liquidacion(text)', 'public.tm_cuenta_liquidacion_guardar(text,jsonb)',
-    'public.tm_cuenta_liquidacion_verificar(text,bigint,boolean,text)',
+    'public.tm_cuenta_liquidacion_verificar(text,bigint,boolean,text)', 'public.tm_cuenta_liquidacion_anular(text,bigint,text)',
     'public.tm_liquidacion_aprobar(text,text)', 'public.tm_liquidacion_pagar(text,text,text,uuid)',
     'public.tm_liquidacion_fallar(text,text,text)', 'public.tm_liquidacion_anular(text,text,text)',
     'public.tm_liquidaciones_corridas(text)', 'public.tm_liquidaciones_lote(text,text[])',

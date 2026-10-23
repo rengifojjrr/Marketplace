@@ -38,7 +38,11 @@
      ------------------------------------------------------------------- */
   function textoCuenta(c) {
     return (c.tipo === 'cuenta' ? 'Cuenta ' + (c.tipo_cuenta || '') + ' ' + (c.banco_nombre || c.banco) + ' ' + (c.numero || '')
-      : 'Pago Móvil ' + (c.banco_nombre || c.banco) + ' · ' + (c.telefono || '')) + ' · ' + c.titular + ' (' + c.rif + ')';
+      : 'Pago Móvil ' + (c.banco_nombre || c.banco) + ' · ' + (c.telefono || '')) + ' · ' + c.titular + ' (' + c.rif + ')' +
+      (c.ficticia ? ' · cuenta ficticia de la demo' : '') + (c.oculta ? ' · datos ocultos a las cuentas de prueba' : '');
+  }
+  function botonAnular(c) {
+    return c && c.anulable ? ' ' + btn('Anular este cambio', { estilo: 'peligro', icono: 'block', attr: 'data-anular-cuenta="' + c.id + '"' }) : '';
   }
 
   function formularioCuenta(bancos, s) {
@@ -60,8 +64,8 @@
         '<div data-cl="pago_movil" hidden><label class="' + ETIQUETA + '" for="cl-telefono">Teléfono afiliado</label><input id="cl-telefono" inputmode="tel" maxlength="16" placeholder="0414-1234567" class="' + CAMPO + '"/></div>' +
       '</div>' +
       '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant">El titular debe ser el comercio (el mismo RIF de tu expediente): Finanzas lo verifica antes de pagarte. ' +
-        'Por seguridad, el cambio exige verificación en dos pasos y, si ya tenías una cuenta, la nueva rige 48 horas después de registrarla.</p>' +
-      '<div class="mt-3">' + btn('Registrar cuenta (2FA)', { estilo: 'primario', icono: 'lock', attr: 'data-guardar-cuenta' }) + '</div></div>';
+        'Por seguridad, el cambio exige sesión elevada (verificación en dos pasos), se avisa por correo y WhatsApp a las personas dueñas del comercio y, si ya tenías una cuenta, la nueva rige 48 horas después de registrarla: mientras tanto la puedes anular.</p>' +
+      '<div class="mt-3">' + btn('Registrar cuenta', { estilo: 'primario', icono: 'lock', attr: 'data-guardar-cuenta' }) + '</div></div>';
   }
 
   function seccionCuenta(d, s) {
@@ -75,8 +79,10 @@
           '<span>' + esc(textoCuenta(vigente)) + ' · verificada por Finanzas</span></p>'
         : '<p class="flex items-start gap-1.5 font-body-sm text-body-sm text-warning font-bold">' + ic('warning', 'text-[18px] shrink-0') +
           '<span>Aún no tienes una cuenta verificada: Finanzas no puede pagarte tus liquidaciones hasta que la registres y la verifique.</span></p>') +
-      (proxima ? '<p class="mt-1 font-body-sm text-body-sm text-on-surface-variant">Cuenta nueva verificada: ' + esc(textoCuenta(proxima)) + ' · rige desde el ' + esc(P().fecha(proxima.vigente_desde)) + '.</p>' : '') +
-      (pendiente ? '<p class="mt-1 font-body-sm text-body-sm text-on-surface-variant">' + P().insignia('cuenta', 'pendiente') + ' ' + esc(textoCuenta(pendiente)) + ' · registrada el ' + esc(P().fecha(pendiente.creado)) + '.</p>' : '') +
+      (proxima ? '<p data-cuenta-proxima class="mt-1 font-body-sm text-body-sm text-on-surface-variant">Cuenta nueva verificada: ' + esc(textoCuenta(proxima)) + ' · rige desde el ' + esc(P().fecha(proxima.vigente_desde)) +
+        '. Si no la registraste tú, anúlala ahora y escríbele a soporte.' + botonAnular(proxima) + '</p>' : '') +
+      (pendiente ? '<p data-cuenta-pendiente class="mt-1 font-body-sm text-body-sm text-on-surface-variant">' + P().insignia('cuenta', 'pendiente') + ' ' + esc(textoCuenta(pendiente)) + ' · registrada el ' + esc(P().fecha(pendiente.creado)) +
+        ' por ' + esc(pendiente.creado_por || '') + '.' + botonAnular(pendiente) + '</p>' : '') +
       (rechazada && !pendiente ? '<p class="mt-1 font-body-sm text-body-sm text-error">La última cuenta que registraste no se verificó: ' + esc(rechazada.motivo || '') + '.</p>' : '') +
       (pendiente ? '' : vigente
         ? '<details class="mt-2"><summary class="cursor-pointer font-label-md text-label-md text-secondary">Cambiar la cuenta</summary>' + formularioCuenta(d.bancos, s) + '</details>'
@@ -236,13 +242,24 @@
         var datos = { tipo: tipo, banco: v('cl-banco'), titular: v('cl-titular'), rif: v('cl-rif') };
         if (tipo === 'cuenta') { datos.numero = v('cl-numero'); datos.tipo_cuenta = v('cl-tipo-cuenta'); }
         else datos.telefono = v('cl-telefono');
-        UI.pedir2fa('Registrar la cuenta de liquidación', function () {
+        P().confirmarElevada('Registrar la cuenta de liquidación', 'Finanzas la verifica antes de usarla y avisamos a las personas dueñas del comercio.', true, function () {
           UI.accion(b, function () { return P().accion('tm_cuenta_liquidacion_guardar', { p_datos: datos }, ['cuentas']); }, function () {
             UI.toast('Cuenta registrada', 'Finanzas la verifica antes de usarla para pagarte.', 'account_balance');
           }, 'No se registró la cuenta');
         });
       });
     }
+    raiz.querySelectorAll('[data-anular-cuenta]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var id = Number(b.getAttribute('data-anular-cuenta'));
+        UI.confirmar('Anular el cambio de cuenta', 'La cuenta nueva no regirá: tus liquidaciones siguen yendo a la cuenta vigente. Exige sesión elevada (verificación en dos pasos).',
+          { accion: 'Anular', peligro: true, motivo: 'Motivo (opcional)' }, function (m) {
+            UI.accion(null, function () { return P().accion('tm_cuenta_liquidacion_anular', { p_id: id, p_motivo: m || null }, ['cuentas']); }, function () {
+              UI.toast('Cambio anulado', 'Se sigue cobrando en la cuenta vigente.', 'block');
+            }, 'No se anuló el cambio');
+          });
+      });
+    });
     var fp = raiz.querySelector('[data-periodo-edc]');
     if (fp) fp.addEventListener('submit', function (ev) {
       ev.preventDefault();

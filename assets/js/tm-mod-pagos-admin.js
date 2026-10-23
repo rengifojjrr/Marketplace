@@ -107,7 +107,7 @@
     var cola = TM.estado.pedidos.filter(function (p) { return p.estado === 'pago_por_verificar'; });
     var filas = cola.map(function (p) {
       return td(mono(p.ref || '—')) + td(mono(p.id)) + td(esc(p.metodo || 'Pago Móvil')) +
-        td(mono(TM.fmtBs(TM.totalPedidoUsd(p), p.tasa))) +
+        td(mono(TM.fmtTotalPedido(p))) +
         td('<span class="inline-flex items-center gap-1 font-body-sm text-body-sm text-on-surface-variant">' + ic('account_balance', 'text-[16px]') + 'cotejar en el banco</span>') +
         td('<div class="flex gap-2 justify-end">' +
           btn('Rechazar', { estilo: 'borde', icono: 'block', attr: 'data-rechazar-pago="' + esc(p.id) + '"' }) +
@@ -166,7 +166,7 @@
         td(P().insignia('pago', g.legado ? 'reportado' : g.estado) + vence +
           (g.correcciones ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + g.correcciones + ' corrección' + (g.correcciones === 1 ? '' : 'es') + ' pedida' + (g.correcciones === 1 ? '' : 's') + '</span>' : '') +
           (g.observacion ? '<span class="block font-body-sm text-body-sm text-warning">' + esc(g.observacion) + '</span>' : '')) +
-        td('<div class="flex flex-wrap gap-2 justify-end">' +
+        td(g.bloqueado ? P().soloCuentaReal() : '<div class="flex flex-wrap gap-2 justify-end">' +
           (reportado && !g.legado && (g.correcciones || 0) < 2 ? btn('Pedir corrección', { icono: 'edit_note', attr: 'data-corregir="' + esc(g.id) + '"' }) : '') +
           (g.contra_entrega ? '' : btn('Rechazar', { estilo: 'borde', icono: 'block', attr: 'data-rechazar-pago="' + esc(g.id) + '"' })) +
           btn(g.contra_entrega ? 'Registrar cobro' : 'Conciliar', { estilo: 'primario', icono: 'fact_check', attr: 'data-conciliar="' + esc(g.id) + '"' }) + '</div>', 'text-right');
@@ -174,7 +174,8 @@
     return UI.tabla(['Pago y pedidos', 'Método y lo reportado', 'Monto esperado', 'Estado', ''], filas,
       UI.vacio('task_alt', 'Nada por verificar', 'Cada checkout aparece aquí con su pago hasta que lo verifiques con el banco.')) +
       '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Cada pago se coteja con el banco antes de conciliarlo (no hay conciliación masiva). Conciliar verifica el pago completo: sus pedidos pasan al seller. ' +
-      'Si la referencia no aparece, pide una corrección (hasta 2) antes de rechazar. Un pago sin reportar también se puede conciliar si el dinero llegó.</p>';
+      'Si la referencia no aparece, pide una corrección (hasta 2) antes de rechazar. Un pago sin reportar también se puede conciliar si el dinero llegó. ' +
+      'Los pagos de personas reales solo los gestiona una cuenta real del equipo con verificación en dos pasos; las cuentas de prueba practican con los de la demo.</p>';
   }
 
   function tablaHistorialPagos(lista, vencidos) {
@@ -186,13 +187,13 @@
           (g.verificado_el ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(P().fecha(g.verificado_el)) + (g.verificado_por ? ' · ' + esc(g.verificado_por) : '') + '</span>' : '') +
           (vencidos && g.vence ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">venció el ' + esc(P().fecha(g.vence)) + '</span>' : '') +
           (g.observacion ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(g.observacion) + '</span>' : '')) +
-        td(vencidos ? '<div class="flex flex-wrap gap-2 justify-end">' +
-          btn('Llegó: reactivar', { icono: 'history', attr: 'data-tardio="verificar" data-id="' + esc(g.id) + '"' }) +
-          btn('Llegó: reembolsar', { icono: 'undo', attr: 'data-tardio="reembolsar" data-id="' + esc(g.id) + '"' }) + '</div>' : botonArchivo(g.comprobante), 'text-right');
+        td(!vencidos ? botonArchivo(g.comprobante) : g.tardio ? '' : g.bloqueado ? P().soloCuentaReal() : '<div class="flex flex-wrap gap-2 justify-end">' +
+          (g.reactivable ? btn('Llegó: reactivar', { icono: 'history', attr: 'data-tardio="verificar" data-id="' + esc(g.id) + '"' }) : '') +
+          btn('Llegó: reembolsar', { icono: 'undo', attr: 'data-tardio="reembolsar" data-id="' + esc(g.id) + '"' }) + '</div>', 'text-right');
     });
     return UI.tabla(['Pago y pedidos', 'Método y referencia', 'Monto', 'Estado', ''], filas,
       UI.vacio(vencidos ? 'timer_off' : 'history', vencidos ? 'Sin pagos vencidos recientes' : 'Sin registros',
-        vencidos ? 'Los pagos que vencen sin verificarse quedan aquí 7 días por si el dinero llega tarde.' : 'Aún no hay pagos en este estado.'));
+        vencidos ? 'Los pagos que vencen sin verificarse quedan aquí 60 días por si el dinero llega tarde (se reactivan los de 7 días; los demás se reembolsan).' : 'Aún no hay pagos en este estado.'));
   }
 
   /* ---- Estado de cuenta del banco ---- */
@@ -327,8 +328,11 @@
       if (!bancoSel && lista.length) bancoSel = lista[0].banco;
       seccionBanco.banco = bancoSel;
       var f = lista.find(function (x) { return x.banco === bancoSel; }) || lista[0];
+      var prueba = movs.dato && movs.dato.prueba;
       return caja('<h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Importar el estado de cuenta</h2>' +
-        nota('Descarga el estado de cuenta del banco en CSV y súbelo: se lee aquí con el formato del banco, se cruza cada abono con los pagos por la referencia (también recortada a sus últimos dígitos), el monto y la fecha, y lo que no cuadra va a la cola de excepciones. Un movimiento ya importado no se repite.') +
+        nota('Descarga el estado de cuenta del banco en CSV y súbelo: se lee aquí con el formato del banco, se cruza cada abono con los pagos por la referencia (también recortada a sus últimos dígitos), el monto y la fecha, y lo que no cuadra va a la cola de excepciones. Un movimiento ya importado no se repite. Hay un tope de movimientos nuevos por persona cada 24 horas.') +
+        (prueba ? '<p data-aviso-prueba class="mt-2 flex items-start gap-1.5 rounded-btn bg-warning-container text-on-warning-container px-3 py-2 font-body-sm text-body-sm">' + ic('lock', 'text-[16px] mt-0.5') +
+          'Son movimientos del banco real: importar, cambiar los formatos y resolver excepciones exige una cuenta real del equipo con verificación en dos pasos. Con una cuenta de prueba solo puedes mirar.</p>' : '') +
         '<div class="grid sm:grid-cols-[220px_1fr] gap-3 mt-3 items-end">' +
           '<div><label class="' + ETIQUETA + '" for="imp-banco">Banco</label><select id="imp-banco" class="' + CAMPO + '">' + lista.map(function (x) {
             return '<option value="' + esc(x.banco) + '"' + (x.banco === (f && f.banco) ? ' selected' : '') + '>' + esc(x.nombre) + '</option>';
@@ -346,11 +350,13 @@
             (m.nota ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(m.nota) + '</span>' : '')) +
           td('<div class="flex flex-wrap gap-2 justify-end">' +
             btn('Ignorar', { attr: 'data-mov-ignorar="' + m.id + '"' }) +
+            btn('Reembolsar', { icono: 'undo', attr: 'data-mov-reembolsar="' + m.id + '" data-pago="' + esc(m.pago_id || '') + '" data-monto="' + esc(m.monto) + '" data-ref="' + esc(m.referencia || '') + '"' }) +
             btn('Vincular a un pago', { estilo: 'primario', icono: 'link', attr: 'data-mov-vincular="' + m.id + '" data-pago="' + esc(m.pago_id || '') + '" data-monto="' + esc(m.monto) + '" data-ref="' + esc(m.referencia || '') + '"' }) +
             '</div>', 'text-right');
       });
       var r = d.resumen || {};
-      return '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Movimientos importados: ' + (r.conciliado || 0) + ' conciliados · ' + (r.excepcion || 0) + ' excepciones · ' + (r.ignorado || 0) + ' ignorados.</p>' +
+      return '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Movimientos importados: ' + (r.conciliado || 0) + ' conciliados · ' + (r.excepcion || 0) + ' excepciones · ' +
+        (r.reembolsado || 0) + ' reembolsados · ' + (r.ignorado || 0) + ' ignorados. Vincular verifica un pago abierto; reembolsar devuelve el dinero de un pago rechazado, vencido, cancelado o repetido (con doble aprobación).</p>' +
         UI.tabla(['Fecha', 'Referencia', 'Monto', 'Motivo', ''], filas,
           UI.vacio('task_alt', 'Sin excepciones', 'Los abonos que no cuadran con un pago (monto distinto, parcial, duplicado, sin referencia, fuera de fecha o de un pago vencido) aparecen aquí.')) +
         (d.importaciones.length ? subtitulo('Últimas importaciones') + UI.tabla(['Fecha', 'Banco', 'Archivo', 'Filas', 'Nuevas', 'Repetidas', 'Conciliadas', 'Excepciones', 'Por'],
@@ -410,11 +416,11 @@
       b.addEventListener('click', function () {
         var accionT = b.getAttribute('data-tardio'), id = b.getAttribute('data-id');
         UI.confirmar(accionT === 'verificar' ? 'Recibir tarde y reactivar ' + id : 'Recibir tarde y reembolsar ' + id,
-          accionT === 'verificar' ? 'El pago se da por recibido: sus pedidos vencidos vuelven si aún hay stock (se reserva de nuevo) y pasan al seller.'
-            : 'El pago se da por recibido y se genera el reembolso de sus pedidos vencidos (el comprador elige dónde recibirlo).',
-          { accion: accionT === 'verificar' ? 'Reactivar' : 'Reembolsar', motivo: 'Nota (queda en la auditoría)' }, function (notaTxt) {
+          accionT === 'verificar' ? 'El pago se da por recibido: sus pedidos vencidos vuelven si aún hay stock (se reserva de nuevo y se vuelve a descontar el crédito en Tumbo que se le devolvió) y pasan al seller.'
+            : 'No se vende nada: se genera el reembolso del dinero que llegó (lo aprueba otra persona) y el comprador elige dónde recibirlo.',
+          { accion: accionT === 'verificar' ? 'Reactivar' : 'Reembolsar', motivo: accionT === 'verificar' ? 'Nota (queda en la auditoría)' : 'Dónde viste el dinero (obligatoria)' }, function (notaTxt) {
             UI.accion(null, function () { return P().accion('tm_pago_tardio', { p_id: id, p_accion: accionT, p_nota: notaTxt || null }, ['cola', 'movs']); }, function () {
-              UI.toast('Pago recibido tarde', accionT === 'verificar' ? 'Los pedidos se reactivaron.' : 'El reembolso quedó en la cola de Finanzas.', 'history');
+              UI.toast('Pago recibido tarde', accionT === 'verificar' ? 'Los pedidos se reactivaron.' : 'El reembolso quedó en la cola de Finanzas (lo aprueba otra persona).', 'history');
             }, 'No se registró el pago tardío');
           });
       });
@@ -479,6 +485,19 @@
             UI.accion(null, function () { return P().accion('tm_conciliacion_resolver', { p_id: id, p_accion: 'ignorar', p_pago: null, p_nota: notaTxt }, ['movs']); }, function () {
               UI.toast('Movimiento ignorado', 'Salió de la cola de excepciones.', 'do_not_disturb_on');
             }, 'No se resolvió la excepción');
+          });
+      });
+    });
+    raiz.querySelectorAll('[data-mov-reembolsar]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var id = Number(b.getAttribute('data-mov-reembolsar'));
+        formularioModal('Reembolsar el movimiento', 'Ref. ' + esc(b.getAttribute('data-ref') || '—') + ' · ' + esc(P().bs(b.getAttribute('data-monto'))) +
+          '. Para el dinero de un pago que no se va a cumplir (rechazado, vencido, cancelado o pagado dos veces): se genera un reembolso por este monto, que aprueba otra persona, y el comprador elige dónde recibirlo. Un pago abierto primero se rechaza.',
+          [{ k: 'pago', t: 'Pago (PAG-…)', v: b.getAttribute('data-pago') || '', attr: 'maxlength="20"' }, { k: 'nota', t: 'Nota (obligatoria)', area: true }],
+          'Generar el reembolso', function (v, boton, cerrar) {
+            UI.accion(boton, function () {
+              return P().accion('tm_conciliacion_resolver', { p_id: id, p_accion: 'reembolsar', p_pago: v.pago.toUpperCase(), p_nota: v.nota }, ['movs', 'cola', 'reemb']);
+            }, function (r) { cerrar(); UI.toast('Reembolso generado', 'R-' + r.reembolso + ' quedó en la cola de reembolsos.', 'undo'); }, 'No se generó el reembolso');
           });
       });
     });
@@ -577,8 +596,10 @@
   function textoCuenta(c) {
     if (!c) return null;
     var num = c.tipo === 'cuenta' ? (c.numero ? '…' + String(c.numero).slice(-4) : '') : (c.telefono || '');
-    return (c.tipo === 'cuenta' ? 'Cuenta ' + (c.tipo_cuenta || '') : 'Pago Móvil') + ' · ' + (c.banco_nombre || c.banco) + ' ' + num + ' · ' + c.titular + ' (' + c.rif + ')';
+    return (c.tipo === 'cuenta' ? 'Cuenta ' + (c.tipo_cuenta || '') : 'Pago Móvil') + ' · ' + (c.banco_nombre || c.banco) + ' ' + num + ' · ' + c.titular + ' (' + c.rif + ')' +
+      (c.ficticia ? ' · cuenta ficticia de la demo' : '') + (c.oculta ? ' · datos ocultos a las cuentas de prueba' : '');
   }
+  var COMERCIO_REAL = 'Es un comercio real: lo liquida una cuenta real del equipo con verificación en dos pasos.';
 
   function tarjetaPorPreparar(x, tasaHoy) {
     var ids = x.pedidos.map(function (p) { return p.id; });
@@ -604,27 +625,35 @@
         ' <span class="text-on-surface-variant">(≈ ' + esc(P().bs(P().n(x.neto) * tasaHoy)) + ' a la tasa de hoy)</span></p>' +
       '<div class="flex flex-wrap gap-2">' +
         (x.retencion ? '<button type="button" disabled class="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-btn border border-outline-variant font-label-md text-label-md opacity-50">' + ic('lock', 'text-[18px]') + 'Retenido</button>'
-          : btn('Preparar corrida (2FA)', { estilo: 'marca', icono: 'lock', attr: 'data-liquidar="' + esc(x.seller_id) + '" data-pedidos="' + esc(ids.join(',')) + '"' })) +
+          : x.bloqueado ? P().soloCuentaReal(COMERCIO_REAL)
+          : btn('Preparar corrida', { estilo: 'marca', icono: 'receipt_long', attr: 'data-liquidar="' + esc(x.seller_id) + '" data-pedidos="' + esc(ids.join(',')) + '"' })) +
       '</div></div>', 'mb-3');
   }
 
   function tarjetaEnCurso(l, tasaHoy) {
     var ev = l.eventos || [];
     var preparoYo = ev.some(function (e) { return e.accion === 'preparar' && e.mio; });
+    var delCalendario = ev.some(function (e) { return e.accion === 'preparar' && e.actor === 'Sistema'; });
+    var aproboYo = ev.some(function (e) { return e.accion === 'aprobar' && e.mio; });
     var quien = function (accionEv, t) {
       var e = ev.filter(function (x) { return x.accion === accionEv; }).pop();
-      return e ? '<span class="whitespace-nowrap">' + t + ': ' + esc(e.actor) + ' (' + esc(P().fecha(e.fecha)) + ')</span>' : '';
+      return e ? '<span class="whitespace-nowrap">' + t + ': ' + esc(e.actor === 'Sistema' ? 'el calendario' : e.actor) + ' (' + esc(P().fecha(e.fecha)) + ')</span>' : '';
     };
     var acciones = [];
-    if (l.ciclo === 'preparada') {
-      acciones.push(preparoYo ? '<span class="font-body-sm text-body-sm text-on-surface-variant">La aprueba otra persona del equipo.</span>'
-        : btn('Aprobar (2FA)', { estilo: 'primario', icono: 'verified', attr: 'data-aprobar-liq="' + esc(l.id) + '"' }));
+    if (l.bloqueado) acciones.push(P().soloCuentaReal(COMERCIO_REAL));
+    else {
+      if (l.ciclo === 'preparada') {
+        acciones.push(preparoYo ? '<span class="font-body-sm text-body-sm text-on-surface-variant">La aprueba otra persona del equipo.</span>'
+          : l.ajuste_mio ? '<span class="font-body-sm text-body-sm text-on-surface-variant">La aprueba otra persona: registraste un ajuste de esta corrida.</span>'
+          : btn('Aprobar', { estilo: 'primario', icono: 'verified', attr: 'data-aprobar-liq="' + esc(l.id) + '"' }));
+      }
+      if (l.ciclo === 'aprobada' || l.ciclo === 'fallida') {
+        acciones.push(delCalendario && aproboYo ? '<span class="font-body-sm text-body-sm text-on-surface-variant">La paga otra persona: la preparó el calendario y tú la aprobaste.</span>'
+          : btn('Registrar pago', { estilo: 'primario', icono: 'payments', attr: 'data-pagar-liq="' + esc(l.id) + '" data-neto="' + esc(l.neto_usd) + '"' }));
+      }
+      if (l.ciclo === 'aprobada') acciones.push(btn('La transferencia falló', { icono: 'error', attr: 'data-fallar-liq="' + esc(l.id) + '"' }));
+      acciones.push(btn('Anular', { estilo: 'peligro', icono: 'block', attr: 'data-anular-liq="' + esc(l.id) + '"' }));
     }
-    if (l.ciclo === 'aprobada' || l.ciclo === 'fallida') {
-      acciones.push(btn('Registrar pago', { estilo: 'primario', icono: 'payments', attr: 'data-pagar-liq="' + esc(l.id) + '" data-neto="' + esc(l.neto_usd) + '"' }));
-    }
-    if (l.ciclo === 'aprobada') acciones.push(btn('La transferencia falló', { icono: 'error', attr: 'data-fallar-liq="' + esc(l.id) + '"' }));
-    acciones.push(btn('Anular', { estilo: 'peligro', icono: 'block', attr: 'data-anular-liq="' + esc(l.id) + '"' }));
     return caja('<div data-liquidacion="' + esc(l.id) + '">' +
       '<div class="flex flex-wrap items-center gap-2 mb-1">' +
         (l.ciclo === 'aprobada' ? '<input type="checkbox" data-lote-liq="' + esc(l.id) + '" aria-label="Incluir en el lote" class="rounded text-secondary focus:ring-secondary/40"/>' : '') +
@@ -632,7 +661,8 @@
         '<span class="ml-auto font-body-md text-body-md font-bold tm-num">' + esc(P().usd(l.neto_usd)) + '</span></div>' +
       '<p class="font-body-sm text-body-sm text-on-surface-variant">' + (l.pedidos || []).length + ' pedidos (' + esc((l.pedidos || []).join(', ')) + ') · ' + esc(l.periodo || '') +
         ' · comprobante ' + esc(l.comprobante || '') + ' · ≈ ' + esc(P().bs(P().n(l.neto_usd) * tasaHoy)) + ' a la tasa de hoy</p>' +
-      '<p class="font-body-sm text-body-sm text-on-surface-variant">' + [quien('preparar', 'Preparó'), quien('aprobar', 'Aprobó'), quien('fallar', 'Falló')].filter(Boolean).join(' · ') + '</p>' +
+      '<p class="font-body-sm text-body-sm text-on-surface-variant">' + [quien('preparar', 'Preparó'), quien('aprobar', 'Aprobó'), quien('fallar', 'Falló')].filter(Boolean).join(' · ') +
+        ((l.ajustes_por || []).length ? ' · ajustes de ' + esc(l.ajustes_por.join(', ')) : '') + '</p>' +
       (l.motivo ? '<p class="font-body-sm text-body-sm text-error">' + esc(l.motivo) + '</p>' : '') +
       (l.retencion ? '<p class="font-body-sm text-body-sm text-error">Fondos retenidos: ' + esc(l.retencion) + '</p>' : '') +
       '<p class="font-body-sm text-body-sm ' + (l.cuenta_vigente ? 'text-on-surface-variant' : 'text-warning font-bold') + '">' +
@@ -648,7 +678,8 @@
     var opcionesSeller = d.sellers.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.nombre) + ' (' + esc(x.id) + ')</option>'; }).join('');
     var automaticas = d.sellers.filter(function (x) { return x.retencion && !manuales[x.id]; });
     return subtitulo('Corridas por preparar') +
-      nota('Cada lunes a las 8:00 (hora de Caracas) el calendario prepara las corridas solo, si el servidor tiene activas las tareas programadas. También puedes prepararlas a mano: la corrida toma exactamente los pedidos mostrados, con la comisión guardada al vender y el envío cobrado (el seller paga la guía).') +
+      nota('Cada lunes a las 8:00 (hora de Caracas) el calendario prepara las corridas solo, si el servidor tiene activas las tareas programadas. También puedes prepararlas a mano: la corrida toma exactamente los pedidos mostrados, con la comisión guardada al vender y el envío cobrado (el seller paga la guía). ' +
+        'Siempre intervienen dos personas: la aprueba otra que quien la preparó y que quien registró sus ajustes; la del calendario la paga otra que quien la aprobó.') +
       '<div class="mt-2">' + (d.por_preparar.length ? d.por_preparar.map(function (x) { return tarjetaPorPreparar(x, tasaHoy); }).join('')
         : UI.vacio('receipt_long', 'Sin corridas por preparar', 'Cuando haya pedidos con fondos elegibles, la corrida de cada seller aparecerá aquí.')) + '</div>' +
       subtitulo('Corridas en curso', aprobadas.length ? btn('Lote para el banco (CSV)', { icono: 'download', attr: 'data-exportar-lote' }) : '') +
@@ -725,21 +756,23 @@
       b.addEventListener('click', function () {
         var sid = b.getAttribute('data-liquidar');
         var pedidos = b.getAttribute('data-pedidos').split(',').filter(Boolean);
-        UI.pedir2fa((remoto ? 'Preparar la liquidación de ' : 'Ejecutar liquidación a ') + sid, function () {
+        function ejecutarLiq() {
           UI.accion(null, function () {
             return remoto ? P().accion('tm_ejecutar_liquidacion', { p_seller: sid, p_pedidos: pedidos }, ['liq']) : TM.ejecutarLiquidacion(sid, pedidos);
           }, function (liq) {
             if (remoto) UI.toast('Liquidación ' + liq.id + ' preparada', 'Neto ' + TM.fmtUsd(Number(liq.netoUsd)) + ' · la aprueba otra persona antes de pagarla.', 'receipt_long');
             else UI.toast('Liquidación ' + liq.id + ' ejecutada', 'Neto ' + TM.fmtUsd(Number(liq.netoUsd)) + ' · el seller ya ve su comprobante.', 'receipt_long');
           }, remoto ? 'No se preparó la liquidación' : 'No se ejecutó la liquidación');
-        });
+        }
+        if (remoto) P().confirmarElevada('Preparar la liquidación de ' + sid, 'La corrida toma exactamente estos pedidos y la aprueba otra persona antes de pagarse.', false, ejecutarLiq);
+        else UI.pedir2fa('Ejecutar liquidación a ' + sid, ejecutarLiq);
       });
     });
     if (!remoto) return;
     raiz.querySelectorAll('[data-aprobar-liq]').forEach(function (b) {
       b.addEventListener('click', function () {
         var id = b.getAttribute('data-aprobar-liq');
-        UI.pedir2fa('Aprobar la liquidación ' + id, function () {
+        P().confirmarElevada('Aprobar la liquidación ' + id, 'Eres la segunda firma de la corrida y de sus ajustes.', false, function () {
           UI.accion(null, function () { return P().accion('tm_liquidacion_aprobar', { p_id: id }, ['liq']); }, function () {
             UI.toast('Liquidación ' + id + ' aprobada', 'Ya se puede transferir y registrar el pago.', 'verified');
           }, 'No se aprobó la liquidación');
@@ -798,11 +831,12 @@
       if (!ids.length) ids = Array.prototype.map.call(raiz.querySelectorAll('[data-lote-liq]'), function (c) { return c.getAttribute('data-lote-liq'); });
       UI.accion(lote, function () { return TM.api('tm_liquidaciones_lote', { p_ids: ids }); }, function (filas) {
         P().descargar('tumbo-lote-liquidaciones-' + P().hoy() + '.csv', P().csv(
-          ['Liquidación', 'Comercio', 'Seller', 'Titular', 'RIF', 'Banco', 'Tipo', 'Cuenta o teléfono', 'Monto Bs', 'Monto USD', 'Tasa', 'Concepto'],
+          ['Liquidación', 'Comercio', 'Seller', 'Titular', 'RIF', 'Banco', 'Tipo', 'Cuenta o teléfono', 'Monto Bs', 'Monto USD', 'Tasa', 'Concepto', 'Nota'],
           filas.map(function (f) {
             var c = f.cuenta || {};
             return [f.liquidacion, f.comercio, f.seller, c.titular, c.rif, c.banco + ' ' + (c.banco_nombre || ''), c.tipo === 'cuenta' ? 'Cuenta ' + (c.tipo_cuenta || '') : 'Pago Móvil',
-              c.numero || c.telefono || '', Number(f.monto_bs), Number(f.monto_usd), Number(f.tasa), f.concepto];
+              c.numero || c.telefono || '', Number(f.monto_bs), Number(f.monto_usd), Number(f.tasa), f.concepto,
+              c.ficticia ? 'CUENTA FICTICIA DE LA DEMO: no transferir' : c.oculta ? 'Datos ocultos a las cuentas de prueba' : ''];
           })));
         UI.toast('Lote exportado', filas.length + ' corridas en el CSV (formato genérico: adáptalo a la carga masiva de tu banco).', 'download');
       }, 'No se exportó el lote');
@@ -879,9 +913,11 @@
         '<p class="font-headline-md text-headline-md font-bold text-primary-container tm-num">Bs. ' + esc(P().tasa(t.valor)) + '</p>' +
         '<p class="font-body-sm text-body-sm text-on-surface-variant">' + (t.fecha ? 'Del ' + esc(P().dia(t.fecha)) + ' · ' : '') + esc(t.fuente || '') +
           (t.actualizada ? ' · consultada ' + esc(P().fecha(t.actualizada)) : '') + '</p>' +
-        (t.desactualizada ? '<p class="mt-1 flex items-center gap-1 font-body-sm text-body-sm text-error">' + ic('warning', 'text-[16px]') + 'Lleva más de 24 h sin actualizarse: revisa la fuente o cárgala a mano.</p>' : '') + '</div>' +
-      (prop ? '<div class="rounded-btn border border-warning bg-warning-container/40 p-3"><p class="font-body-sm text-body-sm"><strong>Propuesta: Bs. ' + esc(P().tasa(prop.valor)) + '</strong> del ' + esc(P().dia(prop.fecha)) +
-          ' (propuso ' + esc(prop.propuesta_por) + ')</p>' +
+        (t.desactualizada ? '<p class="mt-1 flex items-center gap-1 font-body-sm text-body-sm text-error">' + ic('warning', 'text-[16px]') + 'Lleva más de ' + esc(t.horas_alerta || 24) + ' h sin actualizarse: revisa la fuente o cárgala a mano.</p>' : '') +
+        '<p class="mt-1 font-body-sm text-body-sm text-on-surface-variant">La fuente automática solo aplica una tasa de la fecha vigente o posterior y cercana a la actual; si se aleja mucho, queda propuesta para que la confirme una persona.</p></div>' +
+      (prop ? '<div data-tasa-propuesta class="rounded-btn border border-warning bg-warning-container/40 p-3"><p class="font-body-sm text-body-sm"><strong>Propuesta: Bs. ' + esc(P().tasa(prop.valor)) + '</strong> del ' + esc(P().dia(prop.fecha)) +
+          (prop.automatica ? ' (de la fuente automática: ' + esc(prop.fuente || '') + ')' : ' (propuso ' + esc(prop.propuesta_por) + ')') + '</p>' +
+          (prop.nota ? '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(prop.nota) + '</p>' : '') +
           (prop.mia ? '<p class="font-body-sm text-body-sm text-on-surface-variant">La confirma otra persona del equipo.</p>' +
             '<div class="mt-2">' + btn('Descartar', { attr: 'data-tasa-decidir="0" data-id="' + prop.id + '"' }) + '</div>'
             : '<div class="flex gap-2 mt-2">' + btn('Descartar', { attr: 'data-tasa-decidir="0" data-id="' + prop.id + '"' }) +
@@ -1008,7 +1044,7 @@
     var prop = raiz.querySelector('[data-proponer-tasa]');
     if (prop) prop.addEventListener('click', function () {
       var valor = parseFloat(raiz.querySelector('#ts-valor').value), fecha = raiz.querySelector('#ts-fecha').value, notaTxt = raiz.querySelector('#ts-nota').value.trim();
-      UI.pedir2fa('Proponer la tasa', function () {
+      P().confirmarElevada('Proponer la tasa', 'La tasa cambia los precios en bolívares de toda la tienda; la confirma otra persona.', true, function () {
         UI.accion(prop, function () {
           return P().accion('tm_tasa_proponer', { p_valor: isNaN(valor) ? null : valor, p_fecha: fecha || null, p_nota: notaTxt || null }, ['fin', 'tasa']);
         }, function () { UI.toast('Tasa propuesta', 'Otra persona del equipo debe confirmarla.', 'currency_exchange'); }, 'No se propuso la tasa');
@@ -1017,7 +1053,7 @@
     raiz.querySelectorAll('[data-tasa-decidir]').forEach(function (b) {
       b.addEventListener('click', function () {
         var aprobar = b.getAttribute('data-tasa-decidir') === '1', id = Number(b.getAttribute('data-id'));
-        UI.pedir2fa(aprobar ? 'Confirmar la tasa' : 'Descartar la tasa', function () {
+        P().confirmarElevada(aprobar ? 'Confirmar la tasa' : 'Descartar la tasa', aprobar ? 'Los precios en bolívares pasan a usar esta tasa (los pedidos conservan la suya).' : '', true, function () {
           UI.accion(b, function () { return P().accion('tm_tasa_decidir', { p_id: id, p_aprobar: aprobar }, ['fin', 'tasa']); }, function () {
             UI.toast(aprobar ? 'Tasa aplicada' : 'Tasa descartada', aprobar ? 'Los precios en bolívares ya usan la tasa nueva (los pedidos conservan la suya).' : 'Se puede proponer otra.', 'currency_exchange');
           }, 'No se decidió la tasa');
@@ -1027,7 +1063,7 @@
     raiz.querySelectorAll('[data-metodo-activo]').forEach(function (b) {
       b.addEventListener('click', function () {
         var id = b.getAttribute('data-metodo-activo'), activo = b.getAttribute('data-valor') === '1';
-        UI.pedir2fa((activo ? 'Activar ' : 'Desactivar ') + id, function () {
+        P().confirmarElevada((activo ? 'Activar ' : 'Desactivar ') + id, activo ? 'El checkout lo ofrecerá a todos los compradores.' : 'El checkout dejará de ofrecerlo.', true, function () {
           UI.accion(b, function () { return P().accion('tm_metodo_pago_guardar', { p_id: id, p_datos: { activo: activo } }, ['metodos']); }, function () {
             UI.toast('Método actualizado', activo ? 'Ya aparece en el checkout.' : 'Ya no se ofrece en el checkout.', 'payments');
           }, 'No se cambió el método');
@@ -1056,23 +1092,33 @@
     var tomoYo = ultTomar >= 0 && ev[ultTomar].mio;
     var aprobado = ev.some(function (e, i) { return i > ultTomar && e.accion === 'aprobar'; });
     var acciones = [];
-    if (r.estado === 'pendiente') {
-      acciones.push(r.destino ? btn('Tomar', { estilo: 'primario', icono: 'pan_tool', attr: 'data-reemb="tomar" data-id="' + r.id + '"' })
-        : '<span class="font-body-sm text-body-sm text-on-surface-variant">Esperando que el comprador elija dónde recibirlo.</span>');
-    }
-    if (r.estado === 'en_proceso') {
-      if (r.requiere_doble && !aprobado) {
-        acciones.push(tomoYo ? '<span class="font-body-sm text-body-sm text-on-surface-variant">Necesita la aprobación de otra persona.</span>'
-          : btn('Aprobar (segunda firma)', { estilo: 'primario', icono: 'verified', attr: 'data-reemb="aprobar" data-id="' + r.id + '"' }));
+    var aCredito = r.destino && r.destino.tipo === 'credito';
+    if (r.bloqueado && r.estado !== 'enviado') acciones.push(P().soloCuentaReal());
+    else {
+      if (r.estado === 'pendiente') {
+        acciones.push(r.destino ? btn('Tomar', { estilo: 'primario', icono: 'pan_tool', attr: 'data-reemb="tomar" data-id="' + r.id + '"' })
+          : '<span class="font-body-sm text-body-sm text-on-surface-variant">Esperando que el comprador elija dónde recibirlo.</span>');
       }
-      if (!r.requiere_doble || aprobado) acciones.push(btn('Registrar envío', { estilo: 'primario', icono: 'send', attr: 'data-reemb="enviar" data-id="' + r.id + '"' }));
-      acciones.push(btn('Falló', { icono: 'error', attr: 'data-reemb="fallar" data-id="' + r.id + '"' }));
+      if (r.estado === 'en_proceso') {
+        if (r.requiere_doble && !aprobado) {
+          acciones.push(tomoYo ? '<span class="font-body-sm text-body-sm text-on-surface-variant">Necesita la aprobación de otra persona.</span>'
+            : btn('Aprobar (segunda firma)', { estilo: 'primario', icono: 'verified', attr: 'data-reemb="aprobar" data-id="' + r.id + '"' }));
+        }
+        if (!r.requiere_doble || aprobado) {
+          acciones.push(btn(aCredito ? 'Acreditar en Tumbo' : 'Registrar envío', { estilo: 'primario', icono: aCredito ? 'savings' : 'send',
+            attr: 'data-reemb="enviar" data-id="' + r.id + '"' + (aCredito ? ' data-credito' : '') }));
+        }
+        acciones.push(btn('Falló', { icono: 'error', attr: 'data-reemb="fallar" data-id="' + r.id + '"' }));
+      }
+      if (r.estado === 'fallido') acciones.push(btn('Reintentar', { icono: 'refresh', attr: 'data-reemb="reintentar" data-id="' + r.id + '"' }));
     }
-    if (r.estado === 'fallido') acciones.push(btn('Reintentar', { icono: 'refresh', attr: 'data-reemb="reintentar" data-id="' + r.id + '"' }));
     var enBs = r.destino && r.destino.tipo === 'pago_movil';
     return caja('<div data-reembolso="' + r.id + '">' +
       '<div class="flex flex-wrap items-center gap-2 mb-1">' + mono('R-' + r.id) + P().insignia('reembolso', r.estado) +
-        (r.requiere_doble ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm">' + ic('group', 'text-[14px]') + 'Doble aprobación (≥ ' + esc(P().usd(umbral)) + ')</span>' : '') +
+        (r.tipo && r.tipo !== 'pedido' ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning-container text-on-warning-container font-label-sm text-label-sm">' + ic('account_balance', 'text-[14px]') +
+          (r.tipo === 'excedente' ? 'Excedente de un pago' : 'Dinero sin venta') + '</span>' : '') +
+        (r.requiere_doble ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm">' + ic('group', 'text-[14px]') +
+          (r.tipo && r.tipo !== 'pedido' ? 'Doble aprobación' : 'Doble aprobación (≥ ' + esc(P().usd(umbral)) + ')') + '</span>' : '') +
         '<span class="font-body-sm text-body-sm text-on-surface-variant">pedido ' + esc(r.pedido_id) + (r.pago_id ? ' · ' + esc(r.pago_id) : '') + ' · ' + esc(r.comprador) + '</span>' +
         '<span class="ml-auto font-body-md text-body-md font-bold tm-num">' + esc(P().usd(r.monto_usd)) +
           (enBs && r.estado !== 'enviado' ? ' <span class="font-body-sm text-body-sm font-normal text-on-surface-variant">≈ ' + esc(P().bs(P().n(r.monto_usd) * tasaHoy)) + ' hoy</span>' : '') + '</span></div>' +
@@ -1095,7 +1141,8 @@
     return titulo('Reembolsos') + pestanas('admin/reembolsos', TABS_REEMB, tab) +
       P().seccion(r, 'reemb:' + tab, function (d) {
         return nota('Pendiente → en proceso → enviado (con la referencia) o fallido. Por Pago Móvil se envía en bolívares a la tasa del día (Bs. ' + esc(P().tasa(d.tasa_hoy)) + ') y por Zelle en dólares. ' +
-          'Desde ' + esc(P().usd(d.umbral_doble_usd)) + ' lo aprueba una segunda persona con verificación en dos pasos.') +
+          'Desde ' + esc(P().usd(d.umbral_doble_usd)) + ' (y siempre los de dinero que llegó de más o sin venta) lo aprueba una segunda persona con verificación en dos pasos, también si va al crédito en Tumbo. ' +
+          (d.prueba ? 'Con una cuenta de prueba solo gestionas los reembolsos de las cuentas de prueba.' : 'Los de personas reales exigen sesión elevada.')) +
           '<div class="mt-3">' + (d.reembolsos.length ? d.reembolsos.map(function (x) { return tarjetaReembolso(x, d.umbral_doble_usd, P().n(d.tasa_hoy)); }).join('')
             : UI.vacio('task_alt', 'Nada por aquí', 'Los reembolsos de cancelaciones, reclamos y excedentes aparecen en esta cola.')) + '</div>';
       }, 'Cargando los reembolsos…');
@@ -1113,7 +1160,9 @@
               'R-' + id, 'undo');
           }, 'No se pudo completar la acción');
         }
-        if (accionR === 'enviar') {
+        if (accionR === 'enviar' && b.hasAttribute('data-credito')) {
+          UI.confirmar('Acreditar R-' + id + ' en Tumbo', 'El monto pasa al crédito en Tumbo del comprador (no sale dinero del banco).', { accion: 'Acreditar' }, function () { ejecutar({}); });
+        } else if (accionR === 'enviar') {
           formularioModal('Registrar el envío de R-' + id, 'Escribe la referencia de la transferencia o del Pago Móvil (o el código de Zelle).',
             [{ k: 'referencia', t: 'Referencia', attr: 'maxlength="40" autocomplete="off"' }], 'Registrar envío', function (v, boton, cerrar) {
               ejecutar({ referencia: v.referencia }, boton, cerrar);
@@ -1123,7 +1172,7 @@
             ejecutar({ motivo: m });
           });
         } else if (accionR === 'aprobar') {
-          UI.pedir2fa('Aprobar el reembolso R-' + id, function () { ejecutar({}); });
+          P().confirmarElevada('Aprobar el reembolso R-' + id, 'Eres la segunda firma: después se puede enviar.', true, function () { ejecutar({}); });
         } else {
           ejecutar({});
         }

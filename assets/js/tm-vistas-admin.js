@@ -173,7 +173,7 @@
         td(UI.badge(p.estado)) +
         td(p.liquidacion ? UI.badge(p.liquidacion) : '<span class="text-on-surface-variant">—</span>') +
         td('<span class="font-data-mono text-data-mono">' + esc(p.envio.courier) + (p.guia ? ' · ' + esc(p.guia) : '') + '</span>') +
-        td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtBs(TM.totalPedidoUsd(p), p.tasa)) + '</span>', 'text-right') +
+        td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtTotalPedido(p)) + '</span>', 'text-right') +
         td(p.estado === 'despachado' && (s.rol === 'ops' || s.rol === 'superadmin')
           ? btn('Confirmar entrega', { icono: 'check_circle', attr: 'data-entregado="' + esc(p.id) + '" title="Con la prueba de entrega del courier"' })
           : p.estado === 'devolucion' && (s.rol === 'ops' || s.rol === 'superadmin') ? botonesDevolucion(p.id) : '', 'text-right');

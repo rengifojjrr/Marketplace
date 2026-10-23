@@ -252,7 +252,7 @@
         pagoId: r.pago_id || null, montoBs: num(r.monto_bs), comisionPct: num(r.comision_pct), tarifaUsd: num(r.tarifa_usd),
         descuentoUsd: num(r.descuento_usd) || 0, descuentoTumboUsd: num(r.descuento_tumbo_usd) || 0, ivaUsd: num(r.iva_usd) || 0,
         igtfUsd: num(r.igtf_usd) || 0, exentoUsd: num(r.exento_usd) || 0, creditoUsd: num(r.credito_usd) || 0, envioDias: r.envio_dias || null,
-        destino: r.destino || null, fiscal: r.fiscal || null, pagoVence: r.pago_vence || null, vencido: !!r.vencido_el
+        destino: r.destino || null, pagoVence: r.pago_vence || null, vencido: !!r.vencido_el
       };
     });
 

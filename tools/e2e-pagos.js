@@ -12,7 +12,19 @@
  * nuevo avisa que necesita el servidor.
  */
 const fs = require('fs');
+const { spawnSync } = require('child_process');
 const { iniciar } = require('./e2e-comun');
+
+/* Con TM_PGDATABASE (solo en local) se crea una cuenta real de Finanzas: las
+   cuentas de prueba no importan estados de cuenta del banco real. */
+const BD = process.env.TM_PGDATABASE || '';
+const REAL_FIN = { email: 'finanzas-e2e-pruebas@tumbo-local.ve', clave: 'clave-real-e2e-1' };
+function psql(consulta) {
+  const r = spawnSync('psql', ['-h', process.env.PGHOST || '/tmp', '-p', process.env.PGPORT || '54322', '-U', 'postgres',
+    '-d', BD, '-X', '-At', '-v', 'ON_ERROR_STOP=1'], { input: consulta, encoding: 'utf8' });
+  if (r.status !== 0) throw new Error((r.stderr || '').trim());
+  return r.stdout.trim();
+}
 
 (async () => {
   const t = await iniciar();
@@ -62,6 +74,22 @@ const { iniciar } = require('./e2e-comun');
     await p.fill('#pg-ref', ref);
     await p.locator('[data-reportar]').click();
     await aviso('Pago reportado');
+  }
+  /* Entra con una cuenta real (correo y contraseña en el formulario). */
+  async function loginReal(email, clave) {
+    await p.goto(`${t.BASE}/index.html`, { waitUntil: 'domcontentloaded' });
+    await p.fill('#ac-correo', email);
+    await p.fill('#ac-clave', clave);
+    await p.locator('form[data-paso=credenciales] button[type=submit]').click();
+    await Promise.race([
+      p.waitForURL(/\/app\//, { timeout: 15000 }),
+      p.locator('#ac-codigo').waitFor({ state: 'visible', timeout: 15000 })
+    ]);
+    if (await p.locator('#ac-codigo').isVisible().catch(() => false)) {
+      await p.fill('#ac-codigo', '123456');
+      await p.locator('form[data-paso=mfa] button[type=submit]').click();
+    }
+    await p.waitForSelector('#raiz > *', { timeout: 15000 });
   }
   async function conciliar(id) {
     await como('finanzas');
@@ -191,6 +219,12 @@ const { iniciar } = require('./e2e-comun');
     if (!/A pagar: \$[\d.,]+ por Zelle/.test(r)) throw new Error('falta el monto en dólares: ' + r);
     await p.locator('[name=dir][value=__agencia__]').check();
     await p.waitForFunction(() => /Retira/.test((document.querySelector('[data-chk-destino]') || {}).innerText || ''), null, { timeout: 15000 });
+    /* la ciudad de la agencia: la elige el comprador (no se inventa) y va a la cotización */
+    await esperar('[data-chk-agencia] #chk-ag-ciudad');
+    await p.fill('#chk-ag-ciudad', 'Valencia');
+    await p.fill('#chk-ag-estado', 'Carabobo');
+    await p.locator('#chk-ag-estado').press('Tab');
+    await p.waitForFunction(() => /en Valencia/.test((document.querySelector('[data-chk-destino]') || {}).innerText || ''), null, { timeout: 15000 });
     await p.locator('[name=metodo][value=pago_movil]').check();
     await p.waitForFunction(() => !/IGTF/.test(document.querySelector('[data-chk-resumen]').innerText), null, { timeout: 15000 });
     await esperar('[data-confirmar]:not([disabled])');
@@ -311,7 +345,16 @@ const { iniciar } = require('./e2e-comun');
     await reportar('PM-0123456789');
     await como('finanzas');
     await abrir('admin/conciliacion?tab=banco');
+    await esperar('[data-aviso-prueba]');
+    if (!/cuenta real del equipo/.test(await texto('[data-aviso-prueba]'))) throw new Error('la cuenta de prueba no ve el aviso');
+    if (!BD) return;   /* sin una cuenta real no se puede importar (lo de arriba basta) */
+    psql(`insert into tumbo.usuarios (email, clave_hash, nombre, rol)
+          values ('${REAL_FIN.email}', extensions.crypt('${REAL_FIN.clave}', extensions.gen_salt('bf', 4)), 'Finanzas E2E', 'finanzas')
+          on conflict (email) do update set rol = 'finanzas', seller_id = null, activo = true, clave_hash = excluded.clave_hash`);
+    await loginReal(REAL_FIN.email, REAL_FIN.clave);
+    await abrir('admin/conciliacion?tab=banco');
     await esperar('#imp-banco');
+    if (await p.locator('[data-aviso-prueba]').count()) throw new Error('la cuenta real ve el aviso de las cuentas de prueba');
     await p.selectOption('#imp-banco', 'banesco');
     await p.waitForTimeout(300);
     await esperar('#imp-archivo');
@@ -354,7 +397,8 @@ const { iniciar } = require('./e2e-comun');
     await card.waitFor({ timeout: 15000 });
     if (!/10 %/.test(await card.innerText())) throw new Error('falta la comisión guardada');
     await card.locator('[data-liquidar]').click();
-    await p.fill('.tm-modal [data-codigo]', '123456');
+    if (await p.locator('.tm-modal [data-codigo]').count()) throw new Error('con el servidor se pide el código de la demo, que el servidor no comprueba');
+    if (!/sesión elevada/.test(await texto('.tm-modal'))) throw new Error('la confirmación no dice lo que comprueba el servidor');
     await p.locator('.tm-modal [data-ok]').click();
     await aviso('preparada');
     const curso = p.locator('[data-liquidacion]').first();
@@ -364,14 +408,13 @@ const { iniciar } = require('./e2e-comun');
     await abrir('admin/liquidaciones');
     await esperar('[data-aprobar-liq]');
     await p.locator('[data-aprobar-liq]').first().click();
-    await p.fill('.tm-modal [data-codigo]', '123456');
     await p.locator('.tm-modal [data-ok]').click();
     await aviso('aprobada');
     /* el lote para el banco */
     await esperar('[data-exportar-lote]');
     const [lote] = await Promise.all([p.waitForEvent('download'), p.locator('[data-exportar-lote]').click()]);
     const contenido = fs.readFileSync(await lote.path(), 'utf8');
-    if (!/^\ufeffLiquidación;Comercio/.test(contenido) || !/0134/.test(contenido)) throw new Error('lote inesperado: ' + contenido.slice(0, 120));
+    if (!/^\ufeffLiquidación;Comercio/.test(contenido) || !/0134/.test(contenido) || !/CUENTA FICTICIA DE LA DEMO/.test(contenido)) throw new Error('lote inesperado: ' + contenido.slice(0, 160));
     await p.locator('[data-pagar-liq]').first().click();
     await p.fill('.tm-modal [data-referencia]', 'TRF-777123');
     await p.locator('.tm-modal [data-ok]').click();
@@ -394,7 +437,6 @@ const { iniciar } = require('./e2e-comun');
     await p.selectOption('#cl-banco', '0105');
     await p.fill('#cl-numero', '01050000000000000123');
     await p.locator('[data-guardar-cuenta]').click();
-    await p.fill('.tm-modal [data-codigo]', '123456');
     await p.locator('.tm-modal [data-ok]').click();
     await aviso('No se registró la cuenta');
     if (!/cuentas de prueba/.test(await texto('.tm-toast'))) throw new Error('mensaje inesperado: ' + await texto('.tm-toast'));
@@ -403,10 +445,24 @@ const { iniciar } = require('./e2e-comun');
     await p.locator('summary', { hasText: 'Cargar la tasa a mano' }).click();
     await p.fill('#ts-valor', '40.5');
     await p.locator('[data-proponer-tasa]').click();
-    await p.fill('.tm-modal [data-codigo]', '123456');
     await p.locator('.tm-modal [data-ok]').click();
     await aviso('No se propuso la tasa');
   }, /status of 4\d\d/);
+
+  await pruebaSolo('remoto', 'el total del pedido es lo cobrado (con IGTF) en el detalle, en «Mis pedidos» y en la sección de pago', async () => {
+    await como('comprador');
+    const z = await comprar(['SKU-MOT-0832'], 'zelle');
+    await abrir('tienda/pedido?id=' + z.pedidos[0]);
+    await esperar('[data-pago-pedido]');
+    const aside = await texto('#raiz aside');
+    const totalPago = (await texto('[data-pago-pedido]')).match(/Total del pedido\s*(Bs\. [\d.,]+)/);
+    const totalAside = aside.match(/Total\s*(Bs\. [\d.,]+)/);
+    if (!totalPago || !totalAside || totalPago[1] !== totalAside[1]) throw new Error('totales distintos: ' + (totalAside && totalAside[1]) + ' / ' + (totalPago && totalPago[1]));
+    if (!/IGTF/.test(aside)) throw new Error('el detalle no muestra el IGTF');
+    await abrir('tienda/pedidos');
+    const lista = await texto('#raiz');
+    if (!lista.includes(totalPago[1])) throw new Error('«Mis pedidos» no muestra lo cobrado: ' + totalPago[1]);
+  });
 
   await pruebaSolo('remoto', 'panel financiero: indicadores, libro mayor cuadrado y exportación CSV para Excel', async () => {
     await como('finanzas');

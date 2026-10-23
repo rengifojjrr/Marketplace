@@ -100,6 +100,16 @@
   function totalPedidoUsd(p) {
     return p.items.reduce(function (t, i) { return t + i.precioUsd * i.cant; }, 0) + (p.envio.costoUsd || 0);
   }
+  /* Lo que se cobró por el pedido: con sus descuentos y el IGTF (pagos, ola
+     1); en Bs., el monto guardado al venderse con su tasa congelada. Sin
+     esos datos (modo local), productos + envío. */
+  function cobradoPedidoUsd(p) {
+    return Math.round((totalPedidoUsd(p) - (p.descuentoUsd || 0) - (p.descuentoTumboUsd || 0) + (p.igtfUsd || 0)) * 100) / 100;
+  }
+  function fmtTotalPedido(p) {
+    if (p.montoBs != null) return 'Bs. ' + Number(p.montoBs).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return fmtBs(cobradoPedidoUsd(p), p.tasa);
+  }
 
   function siguienteId(prefijo, lista, campo) {
     var mayor = 0;
@@ -817,7 +827,7 @@
 
     fmtBs: fmtBs, fmtUsd: fmtUsd, ahora: ahora, fechaCorta: fechaCorta,
     producto: producto, pedido: pedido, seller: seller, disputa: disputa,
-    totalPedidoUsd: totalPedidoUsd, catalogoPublico: catalogoPublico,
+    totalPedidoUsd: totalPedidoUsd, cobradoPedidoUsd: cobradoPedidoUsd, fmtTotalPedido: fmtTotalPedido, catalogoPublico: catalogoPublico,
     errorReferencia: errorReferencia,
 
     misNotificaciones: misNotificaciones, marcarNotificacionesLeidas: marcarNotificacionesLeidas,

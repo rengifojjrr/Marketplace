@@ -200,8 +200,11 @@ const PAGINAS = {
     await boton.waitFor({ timeout: 15000 }).catch(() => {});
     if (!await boton.count()) throw new Error('no hay corrida pendiente');
     await boton.click();
-    await p.waitForSelector('.tm-modal [data-codigo]');
-    await p.fill('.tm-modal [data-codigo]', '123456');
+    /* (con backend no se pide el código de la demo: lo comprueba el servidor) */
+    if (!esRemoto()) {
+      await p.waitForSelector('.tm-modal [data-codigo]');
+      await p.fill('.tm-modal [data-codigo]', '123456');
+    }
     await p.locator('.tm-modal [data-ok]').click();
     if (esRemoto()) {
       /* con backend la corrida se prepara, la aprueba otra persona y se
@@ -210,8 +213,6 @@ const PAGINAS = {
       await login('Superadministrador');
       await abrir('admin/liquidaciones');
       await p.locator('[data-aprobar-liq]').first().click();
-      await p.waitForSelector('.tm-modal [data-codigo]');
-      await p.fill('.tm-modal [data-codigo]', '123456');
       await p.locator('.tm-modal [data-ok]').click();
       await aviso('aprobada');
       await p.locator('[data-pagar-liq]').first().click();

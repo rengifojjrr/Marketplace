@@ -106,6 +106,23 @@
     if (r.error) return fallo(r.error, clave);
     return cargando(textoCargando);
   }
+  /* Confirmación de una acción de dinero o de control con el servidor. El
+     código de la demo (UI.pedir2fa) solo lo comprueba el navegador: aquí se
+     dice lo que de verdad comprueba el servidor (la sesión elevada del
+     contrato de Cuentas). `siempre`: la exige con cualquier dato; si no,
+     solo con una persona o un comercio real. */
+  function confirmarElevada(titulo, detalle, siempre, alOk) {
+    UI.confirmar(titulo, (detalle ? detalle + ' ' : '') + (siempre
+      ? 'El servidor exige sesión elevada: una cuenta real del equipo con verificación en dos pasos (las cuentas de prueba no pueden).'
+      : 'Con una persona o un comercio real, el servidor exige sesión elevada (una cuenta real del equipo con verificación en dos pasos); las cuentas de prueba solo pueden con los datos de la demo.'),
+      { accion: 'Continuar' }, function () { alOk(); });
+  }
+  /* Lo que ve una cuenta de prueba en lugar de los botones de un caso real. */
+  function soloCuentaReal(texto) {
+    return '<span data-solo-cuenta-real class="inline-flex items-center gap-1 font-body-sm text-body-sm text-on-surface-variant">' + ic('lock', 'text-[16px]') +
+      esc(texto || 'Es de una persona real: lo gestiona una cuenta real del equipo con verificación en dos pasos.') + '</span>';
+  }
+
   function avisoServidor(texto) {
     return '<div data-requiere-servidor class="flex items-start gap-2 rounded-card border border-outline-variant bg-surface-container-low p-4 mb-4">' +
       ic('cloud_off', 'text-[20px] text-on-surface-variant shrink-0') +
@@ -196,11 +213,12 @@
     },
     cuenta: {
       pendiente: ['Por verificar', 'ambar', 'schedule'], verificada: ['Verificada', 'verde', 'verified'],
-      rechazada: ['Rechazada', 'rojo', 'block'], reemplazada: ['Reemplazada', 'gris', 'history']
+      rechazada: ['Rechazada', 'rojo', 'block'], reemplazada: ['Reemplazada', 'gris', 'history'], anulada: ['Anulada', 'gris', 'block']
     },
     movimiento: {
       nuevo: ['Nuevo', 'gris', 'fiber_new'], conciliado: ['Conciliado', 'verde', 'check_circle'],
-      excepcion: ['Excepción', 'ambar', 'warning'], ignorado: ['Ignorado', 'gris', 'do_not_disturb_on']
+      excepcion: ['Excepción', 'ambar', 'warning'], ignorado: ['Ignorado', 'gris', 'do_not_disturb_on'],
+      reembolsado: ['Reembolsado', 'azul', 'undo']
     },
     excepcion: {
       monto_distinto: ['Monto mayor', 'ambar', 'warning'], pago_parcial: ['Pago parcial', 'ambar', 'warning'],
@@ -355,7 +373,7 @@
       var d = t.dato;
       return 'Bs. ' + tasa(d.valor) + ' por USD · ' +
         (d.fecha ? 'tasa del ' + dia(d.fecha) + ' · ' + d.fuente : d.fuente) +
-        (d.desactualizada && d.fecha ? ' (sin actualizar en más de 24 h)' : '');
+        (d.desactualizada && d.fecha ? ' (sin actualizar en más de ' + (d.horas_alerta || 24) + ' h)' : '');
     }
     return 'Bs. ' + tasa(TM.estado.config.tasa) + ' por USD · ' +
       (remoto() ? 'consultando la fecha y la fuente…' : 'tasa de referencia de la demo, sin fuente oficial');
@@ -466,6 +484,8 @@
   P.fallo = fallo;
   P.seccion = seccion;
   P.avisoServidor = avisoServidor;
+  P.confirmarElevada = confirmarElevada;
+  P.soloCuentaReal = soloCuentaReal;
   P.bs = bs; P.usd = usd; P.monto = monto; P.tasa = tasa; P.pct = pct; P.n = n;
   P.fecha = fecha; P.dia = dia; P.hoy = hoy; P.sumarDias = sumarDias; P.inicioMes = inicioMes; P.restante = restante;
   P.insignia = insignia; P.nombreInsignia = nombreInsignia;
