@@ -1,0 +1,18 @@
+# Tumbo Market: lo genera tools/generar_paginas.py.
+# Los buscadores solo leen el robots.txt de la raíz del dominio: con el sitio en una
+# subcarpeta (GitHub Pages de un proyecto) manda la etiqueta robots de cada página.
+User-agent: *
+Disallow: /Marketplace/app/seller/
+Disallow: /Marketplace/app/admin/
+Disallow: /Marketplace/app/acceso/
+Disallow: /Marketplace/prototipo/
+Disallow: /Marketplace/dist/
+Disallow: /Marketplace/design-source/
+Disallow: /Marketplace/supabase/
+Disallow: /Marketplace/tools/
+Disallow: /Marketplace/docs/
+Disallow: /Marketplace/paginas/
+Disallow: /Marketplace/tokens/
+Allow: /Marketplace/
+
+Sitemap: https://rengifojjrr.github.io/Marketplace/sitemap.xml

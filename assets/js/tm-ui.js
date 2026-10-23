@@ -135,12 +135,16 @@
       (accionHtml || '') + '</div>';
   }
 
+  /* La tabla se desplaza a lo ancho en el móvil: tm-app hace enfocable la
+     región cuando de verdad se desplaza (accesibilidad con teclado). Una
+     cabecera vacía (la columna de botones) se nombra para los lectores. */
   function tabla(cabeceras, filasHtml, vacioHtml) {
     if (!filasHtml.length) return vacioHtml || vacio('search_off', 'Sin registros', 'No hay datos que mostrar todavía.');
-    return '<div class="overflow-x-auto rounded-card border border-outline-variant bg-surface-container-lowest">' +
+    return '<div class="overflow-x-auto rounded-card border border-outline-variant bg-surface-container-lowest" data-tabla>' +
       '<table class="w-full text-body-sm font-body-sm"><thead><tr class="border-b border-outline-variant bg-surface-container-low">' +
       cabeceras.map(function (c) {
-        return '<th class="text-left px-4 py-3 font-label-caps text-label-caps uppercase tracking-[0.05em] text-on-surface-variant whitespace-nowrap">' + esc(c) + '</th>';
+        return '<th class="text-left px-4 py-3 font-label-caps text-label-caps uppercase tracking-[0.05em] text-on-surface-variant whitespace-nowrap">' +
+          (c ? esc(c) : '<span class="sr-only">Acciones</span>') + '</th>';
       }).join('') +
       '</tr></thead><tbody>' +
       filasHtml.map(function (f) { return '<tr class="border-b border-outline-variant last:border-0 hover:bg-surface-container-low align-middle">' + f + '</tr>'; }).join('') +
@@ -188,16 +192,68 @@
     setTimeout(function () { t.remove(); }, 4800);
   }
 
+  /* Lo que se puede enfocar con el teclado dentro de un elemento (visible). */
+  var ENFOCABLES = 'a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), ' +
+    'textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
+  function enfocables(caja) {
+    return Array.prototype.filter.call(caja.querySelectorAll(ENFOCABLES), function (el) {
+      return !el.closest('[hidden], [inert]') && (el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+    });
+  }
+
+  /* Diálogo modal accesible: nombre (su primer título), foco dentro al abrir
+     (el primer campo o botón; alAbrir puede elegir otro), Tab y Mayús+Tab
+     no salen del diálogo, el resto de la página queda inerte mientras está
+     abierto y al cerrar el foco vuelve a donde estaba. Escape lo cierra. */
+  var nModales = 0;
   function modal(html, alAbrir) {
+    var previo = document.activeElement;
     var velo = document.createElement('div');
     velo.className = 'tm-velo';
-    velo.innerHTML = '<div class="tm-modal" role="dialog" aria-modal="true">' + html + '</div>';
-    function cerrar() { velo.remove(); document.removeEventListener('keydown', escKey); }
-    function escKey(ev) { if (ev.key === 'Escape') cerrar(); }
+    velo.innerHTML = '<div class="tm-modal" role="dialog" aria-modal="true" tabindex="-1">' + html + '</div>';
+    var caja = velo.firstChild;
+    var titulo = caja.querySelector('h1, h2, h3, h4');
+    if (titulo) {
+      titulo.id = titulo.id || 'tm-modal-titulo-' + (++nModales);
+      caja.setAttribute('aria-labelledby', titulo.id);
+    } else {
+      caja.setAttribute('aria-label', 'Diálogo');
+    }
+    var fondo = document.getElementById('raiz');
+    var cerrado = false;
+    function cerrar() {
+      if (cerrado) return;
+      cerrado = true;
+      velo.remove();
+      document.removeEventListener('keydown', teclas, true);
+      if (fondo && !document.querySelector('.tm-velo')) fondo.inert = false;
+      if (previo && previo.isConnected && typeof previo.focus === 'function' && !document.querySelector('.tm-velo')) {
+        try { previo.focus(); } catch (e) { }
+      }
+    }
+    function teclas(ev) {
+      /* solo el diálogo de encima atiende el teclado */
+      var abiertos = document.querySelectorAll('.tm-velo');
+      if (abiertos[abiertos.length - 1] !== velo) return;
+      if (ev.key === 'Escape') { ev.stopPropagation(); cerrar(); return; }
+      if (ev.key !== 'Tab') return;
+      var lista = enfocables(caja);
+      if (!lista.length) { ev.preventDefault(); caja.focus(); return; }
+      var primero = lista[0], ultimo = lista[lista.length - 1];
+      if (!caja.contains(document.activeElement)) { ev.preventDefault(); primero.focus(); }
+      else if (ev.shiftKey && (document.activeElement === primero || document.activeElement === caja)) { ev.preventDefault(); ultimo.focus(); }
+      else if (!ev.shiftKey && document.activeElement === ultimo) { ev.preventDefault(); primero.focus(); }
+    }
     velo.addEventListener('click', function (ev) { if (ev.target === velo) cerrar(); });
-    document.addEventListener('keydown', escKey);
+    document.addEventListener('keydown', teclas, true);
     document.body.appendChild(velo);
+    if (fondo) fondo.inert = true;
     velo.querySelectorAll('[data-cerrar]').forEach(function (b) { b.addEventListener('click', cerrar); });
+    /* el primer campo; si no hay, la salida segura (Cancelar), nunca la acción */
+    var lista = enfocables(caja);
+    var inicial = lista.filter(function (el) { return /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName); })[0] ||
+      lista.filter(function (el) { return el.hasAttribute('data-cerrar'); })[0] || lista[0];
+    try { (inicial || caja).focus({ preventScroll: true }); } catch (e) { }
     if (alAbrir) alAbrir(velo, cerrar);
     return { cerrar: cerrar, raiz: velo };
   }
@@ -310,6 +366,6 @@
     imgProducto: imgProducto, tarjetaProducto: tarjetaProducto,
     kpi: kpi, vacio: vacio, tabla: tabla, td: td, btn: btn,
     toast: toast, modal: modal, confirmar: confirmar, pedir2fa: pedir2fa,
-    accion: accion, mensajeError: mensajeError
+    accion: accion, mensajeError: mensajeError, enfocables: enfocables
   };
 })();

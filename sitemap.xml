@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Tumbo Market: lo genera tools/generar_paginas.py (las páginas estáticas que se pueden indexar). -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://rengifojjrr.github.io/Marketplace/app/tienda/inicio.html</loc></url>
+  <url><loc>https://rengifojjrr.github.io/Marketplace/app/tienda/resultados.html</loc></url>
+</urlset>

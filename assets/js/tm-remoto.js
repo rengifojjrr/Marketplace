@@ -120,9 +120,14 @@
                 : r.status >= 500 ? 'El servidor no está disponible (' + r.status + '). Inténtalo en unos segundos.'
                 : 'No se pudo completar la acción (' + r.status + '). Inténtalo de nuevo.' };
           if (err.code === '28000') olvidarSesion();
+          /* observabilidad (plataforma): tm-plataforma.js decide si la falla se registra */
+          if (window.TM_OBS) TM_OBS.rpc(nombre, r.status, dato && dato.code, dato && dato.message);
           throw { error: traducir(err), codigo: err.code || null };
         }
-        if (!legible) throw { error: 'El servidor respondió algo inesperado. Inténtalo en unos segundos.' };
+        if (!legible) {
+          if (window.TM_OBS) TM_OBS.rpc(nombre, r.status, 'ILEGIBLE', 'respuesta que no es JSON');
+          throw { error: 'El servidor respondió algo inesperado. Inténtalo en unos segundos.' };
+        }
         return dato;
       });
     }, function (err) { throw { error: traducir(err) }; });

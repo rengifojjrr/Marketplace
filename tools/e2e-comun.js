@@ -44,7 +44,9 @@ async function iniciar(opciones) {
     process.exit(2);
   }
   const navegador = await chromium.launch(externo && process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY } } : {});
-  const ctx = await navegador.newContext({ viewport: { width: 1440, height: 950 } });
+  /* sin service worker (plataforma): las suites cambian tm-config.js con ctx.route, y lo que sirve un
+     service worker no pasa por ahí; tools/e2e-plataforma.js prueba el suyo aparte */
+  const ctx = await navegador.newContext({ viewport: { width: 1440, height: 950 }, serviceWorkers: opciones.serviceWorkers || 'block' });
   const api = process.env.TM_SUPABASE_URL || '';
   if (!externo && process.env.HTTPS_PROXY && /^https:/.test(api)) {
     await ctx.route(api + '/**', async (r) => {

@@ -6,6 +6,10 @@
 <meta name="robots" content="noindex, nofollow"/>
 <title>Tumbo Market · Acceso</title>
 <meta name="description" content="Acceso a la beta de Tumbo Market: marketplace curado de Venezuela."/>
+<meta name="theme-color" content="#0b2545"/>
+<link rel="manifest" href="manifest.webmanifest"/>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/app/icono-32.png"/>
+<link rel="apple-touch-icon" href="assets/img/app/icono-180.png"/>
 <link rel="stylesheet" href="assets/css/tumbo-tailwind.css"/>
 <link rel="stylesheet" href="assets/fuentes/fuentes.css"/>
 <link rel="stylesheet" href="assets/css/tm.css"/>
@@ -52,14 +56,14 @@
                  id="ac-clave" type="password" autocomplete="current-password" aria-describedby="ac-clave-err"/>
           <p class="hidden items-center gap-1 mt-1 font-body-sm text-body-sm text-error" id="ac-clave-err" role="alert">
             <span class="material-symbols-outlined text-[16px]" aria-hidden="true">error</span><span data-texto></span></p>
-          <button class="mt-1.5 font-label-md text-label-md text-secondary hover:underline" data-ir="recuperar" type="button">¿Olvidaste tu contraseña?</button>
+          <button class="mt-1.5 min-h-[24px] font-label-md text-label-md text-secondary hover:underline" data-ir="recuperar" type="button">¿Olvidaste tu contraseña?</button>
         </div>
         <button class="w-full h-12 rounded-btn bg-primary-container text-on-primary font-label-md text-label-md
                        flex items-center justify-center gap-2 hover:opacity-90 transition-opacity" type="submit">
           Ingresar<span class="material-symbols-outlined text-[18px]" aria-hidden="true">login</span></button>
         <div class="flex flex-col items-center gap-1.5 mt-4">
-          <button class="font-label-md text-label-md text-secondary hover:underline" data-ir="registro" type="button">¿No tienes cuenta? Regístrate</button>
-          <button class="font-label-md text-label-md text-secondary hover:underline" data-invitado type="button">Entrar como invitado</button>
+          <button class="min-h-[24px] font-label-md text-label-md text-secondary hover:underline" data-ir="registro" type="button">¿No tienes cuenta? Regístrate</button>
+          <button class="min-h-[24px] font-label-md text-label-md text-secondary hover:underline" data-invitado type="button">Entrar como invitado</button>
         </div>
       </form>
 
@@ -137,11 +141,12 @@
 
     <p class="text-center mt-5 font-body-sm text-body-sm text-on-surface-variant">
       Versión beta · datos de prueba · sin cobros reales ·
-      <a class="text-secondary hover:underline" href="prototipo/index.html">prototipo de referencia</a></p>
+      <a class="text-secondary underline" href="prototipo/index.html">prototipo de referencia</a></p>
   </div>
 </main>
 
 <script src="assets/js/tm-config.js"></script>
+<script src="assets/js/tm-plataforma.js"></script>
 <script src="assets/js/tm-datos.js"></script>
 <script src="assets/js/tm-store.js"></script>
 <script src="assets/js/tm-remoto.js"></script>

@@ -95,7 +95,7 @@
         href('app/admin/operaciones.html') + '">' + ic('monitor_heart', 'text-[18px]') + 'Panel de Operaciones</a>' : '') +
       '<form data-filtro class="mb-4 flex flex-wrap gap-2 max-w-2xl" role="search">' +
         '<input name="q" value="' + esc(q.get('q') || '') + '" placeholder="Buscar por ID, seller, referencia o guía…" class="flex-1 min-w-[200px] h-10 px-3 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm focus:border-secondary outline-none"/>' +
-        '<select name="estado" class="h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm">' + estados.map(function (x) {
+        '<select name="estado" aria-label="Estado" class="h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm">' + estados.map(function (x) {
           return '<option value="' + x + '"' + (x === estado ? ' selected' : '') + '>' + (x ? esc(UI.nombreEstado(x)) : 'Todos los estados') + '</option>';
         }).join('') + '</select>' +
         '<button class="h-10 px-3 rounded-btn bg-secondary text-on-secondary" aria-label="Buscar">' + ic('search') + '</button></form>' +
@@ -403,9 +403,9 @@
       }).join('') + '</section>' +
       '<form data-filtros-ops class="flex flex-wrap gap-2 mb-4" role="search">' +
         '<input name="q" value="' + esc(f.q || '') + '" placeholder="Pedido o guía…" class="h-10 px-3 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm min-w-[160px]"/>' +
-        '<select name="seller" class="h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm"><option value="">Todos los comercios</option>' +
+        '<select name="seller" aria-label="Comercio" class="h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm"><option value="">Todos los comercios</option>' +
           d.sellers.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === f.seller ? ' selected' : '') + '>' + esc(x.nombre) + '</option>'; }).join('') + '</select>' +
-        '<select name="responsable" class="h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm">' +
+        '<select name="responsable" aria-label="Responsable" class="h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm">' +
           [['', 'Cualquier responsable'], ['yo', 'Asignados a mí'], ['sin', 'Sin asignar']].concat(d.responsables.map(function (r) { return [r.id, r.nombre]; })).map(function (o) {
             return '<option value="' + esc(o[0]) + '"' + (o[0] === (f.responsable || '') ? ' selected' : '') + '>' + esc(o[1]) + '</option>';
           }).join('') + '</select>' +
@@ -474,9 +474,9 @@
       var cf = q.get('courier') || 'mrw', af = q.get('alcance') || 'local';
       var lista = d.tarifas.filter(function (t) { return t.courier === cf && t.alcance === af; });
       html = '<form data-filtro-tarifas class="flex flex-wrap gap-2 mb-3">' +
-        '<select name="courier" class="h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm">' +
+        '<select name="courier" aria-label="Courier" class="h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm">' +
           d.couriers.filter(function (c) { return c.tipo === 'courier'; }).map(function (c) { return '<option value="' + esc(c.codigo) + '"' + (c.codigo === cf ? ' selected' : '') + '>' + esc(c.nombre) + '</option>'; }).join('') + '</select>' +
-        '<select name="alcance" class="h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm">' +
+        '<select name="alcance" aria-label="Alcance" class="h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm">' +
           Object.keys(L.ALCANCES).map(function (a) { return '<option value="' + a + '"' + (a === af ? ' selected' : '') + '>' + esc(L.ALCANCES[a]) + '</option>'; }).join('') + '</select>' +
         '<button class="h-10 px-4 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md">Ver</button></form>' +
         '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Las tarifas marcadas como <strong>referencia</strong> son valores de partida, no la tarifa oficial del courier: edítalas con la vigente.</p>' +

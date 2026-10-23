@@ -88,3 +88,27 @@ button[aria-busy="true"] { opacity: .65; cursor: progress; }
 
 /* --- Códigos QR (tm-mod-qr.js) ------------------------------------------- */
 .tm-qr { display: block; max-width: 100%; height: auto; }
+
+/* --- Accesibilidad (plataforma) ------------------------------------------- */
+/* «Saltar al contenido»: fuera de la vista hasta que el teclado lo enfoca */
+.tm-saltar {
+  position: absolute; left: 12px; top: -60px; z-index: 9600;
+  padding: 10px 16px; border-radius: 8px;
+  background: #fff; color: #0b2545; font: 600 14px/1.2 Inter, system-ui, sans-serif;
+  box-shadow: 0 4px 20px rgba(11, 37, 69, .25); text-decoration: underline;
+}
+.tm-saltar:focus { top: 12px; }
+/* el botón de cerrar un aviso tiene un blanco de 24 px como mínimo */
+.tm-toast__x { min-width: 24px; min-height: 24px; display: inline-flex; align-items: center; justify-content: center; }
+/* en pantallas táctiles, los botones de la interfaz miden 44 px de alto */
+@media (pointer: coarse) {
+  .min-h-\[40px\] { min-height: 44px; }
+  .min-h-\[36px\], .min-h-\[32px\] { min-height: 40px; }
+}
+/* el diálogo modal recibe el foco sin un recuadro de más */
+.tm-modal:focus { outline: none; }
+/* las tablas que se desplazan a lo ancho muestran el foco del teclado */
+[role="region"][tabindex="0"]:focus-visible { outline: 2px solid var(--tm-accion); outline-offset: 2px; }
+
+/* --- Sin conexión (plataforma) -------------------------------------------- */
+.tm-sin-conexion { border: 1px dashed #c4c6cf; border-radius: 12px; background: #fff; padding: 16px; margin-bottom: 16px; }

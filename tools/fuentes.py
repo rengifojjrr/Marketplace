@@ -2,15 +2,19 @@
 # -*- coding: utf-8 -*-
 """Descarga y empaqueta las fuentes de la beta dentro del repositorio.
 
-Requiere red y se ejecuta a mano cuando cambia el inventario de iconos:
-
-    python3 tools/fuentes.py
+    python3 tools/fuentes.py              # con red: baja las fuentes y recorta los iconos
+    python3 tools/fuentes.py --recortar   # sin red: vuelve a recortar los iconos (cambió el inventario)
+    python3 tools/fuentes.py --comprobar  # sale con 1 si algún icono usado no está en el recorte
 
 Por qué existe: la beta debe poder mostrarse sin conexión y sin depender de
-Google Fonts. Material Symbols completa pesa ~1 MB y trae 4.018 iconos; aquí se
-recorta a los que el prototipo usa de verdad.
+Google Fonts. Material Symbols completa pesa ~350 KB (con el peso fijado) y
+trae unos 4.000 iconos; aquí se recorta a los que la beta usa de verdad
+(~30 KB). La fuente completa queda en tools/fuentes/ para recortar sin red
+cuando un módulo nuevo usa otro icono (la prueba tools/e2e-plataforma.js lo
+avisa). Inter es variable: un solo archivo para todos los pesos.
 """
 
+import glob
 import json
 import os
 import re
@@ -19,6 +23,8 @@ import sys
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DESTINO = os.path.join(RAIZ, 'assets', 'fuentes')
+COMPLETA = os.path.join(RAIZ, 'tools', 'fuentes', 'material-symbols-completa.woff2')
+RECORTE = os.path.join(DESTINO, 'material-symbols-subset.woff2')
 AGENTE = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.36'
 
 FAMILIAS = {
@@ -56,9 +62,16 @@ def iconos_usados():
                 usados |= set(re.findall(r"\b(?:icono|i)\s*:\s*'([a-z0-9_]+)'", txt))
                 if os.path.basename(f).startswith('tm-'):
                     usados |= set(re.findall(r"'([a-z][a-z0-9_]{2,28})'", txt))
-    with open(os.path.join(RAIZ, 'index.html'), encoding='utf-8') as fh:
-        txt = fh.read()
-    usados |= set(re.findall(r'material-symbols-outlined[^>]*>\s*([a-z0-9_]+)\s*<', txt))
+    for pagina in ('index.html', 'sin-conexion.html'):
+        if os.path.exists(os.path.join(RAIZ, pagina)):
+            with open(os.path.join(RAIZ, pagina), encoding='utf-8') as fh:
+                txt = fh.read()
+            usados |= set(re.findall(r'material-symbols-outlined[^>]*>\s*([a-z0-9_]+)\s*<', txt))
+    # Los iconos que llegan del servidor (notificaciones, categorías, líneas
+    # de tiempo): los tokens entrecomillados de las migraciones.
+    for ruta in glob.glob(os.path.join(RAIZ, 'supabase', 'migrations', '*.sql')):
+        with open(ruta, encoding='utf-8') as fh:
+            usados |= set(re.findall(r"'([a-z][a-z0-9_]{2,40})'", fh.read()))
     # Iconos que el runtime inyecta por JavaScript y no aparecen en el marcado.
     usados |= {
         'info', 'science', 'close', 'shopping_bag', 'payments', 'fact_check',
@@ -89,6 +102,60 @@ def _bloques(hoja):
     return salida
 
 
+def mapa_ligaduras(fuente):
+    """{nombre del icono: glifo} según las ligaduras de la fuente (los nombres
+    de los glifos no son los de los iconos)."""
+    cmap = fuente.getBestCmap()
+    letra = {g: chr(c) for c, g in cmap.items()}
+    mapa = {}
+    for lookup in fuente['GSUB'].table.LookupList.Lookup:
+        for sub in lookup.SubTable:
+            if sub.LookupType == 7:
+                sub = sub.ExtSubTable
+            for primero, ligaduras in getattr(sub, 'ligatures', {}).items():
+                for lig in ligaduras:
+                    nombre = letra.get(primero, '?') + ''.join(letra.get(c, '?') for c in lig.Component)
+                    mapa.setdefault(nombre, lig.LigGlyph)
+    return mapa
+
+
+def recortar(iconos, completa=COMPLETA):
+    """Recorta la fuente completa a los iconos usados. Sin el cierre de
+    las tablas de ligaduras: con él, las letras arrastrarían de vuelta todos
+    los iconos (así quedaba antes, con los ~4.000)."""
+    from fontTools.ttLib import TTFont
+    if not os.path.exists(completa):
+        sys.exit('Falta %s: córrelo una vez con red (python3 tools/fuentes.py).' % os.path.relpath(completa, RAIZ))
+    fuente = TTFont(completa)
+    mapa = mapa_ligaduras(fuente)
+    presentes = sorted(i for i in iconos if i in mapa)
+    faltan = sorted(i for i in iconos if i not in mapa and re.match(r'^[a-z][a-z0-9_]+$', i) and '_' in i)
+    # Las letras, los dígitos y el guion bajo deben sobrevivir: la ligadura
+    # del nombre ("h"+"o"+"m"+"e" -> icono) es la que dibuja cada símbolo, y
+    # sin dígitos los iconos como `inventory_2` quedan rotos en «__2».
+    cmap = fuente.getBestCmap()
+    letras = [cmap[ord(c)] for c in 'abcdefghijklmnopqrstuvwxyz0123456789_' if ord(c) in cmap]
+    glifos = sorted({mapa[i] for i in presentes}) + letras
+    subprocess.run([
+        sys.executable, '-m', 'fontTools.subset', completa,
+        '--glyphs=' + ','.join(glifos),
+        '--layout-features=liga,calt,rlig',
+        '--no-layout-closure',
+        '--flavor=woff2',
+        '--output-file=' + RECORTE,
+    ], check=True)
+    return presentes, faltan, os.path.getsize(RECORTE)
+
+
+def faltan_en_recorte(iconos):
+    """Los iconos usados que el recorte publicado no dibuja."""
+    from fontTools.ttLib import TTFont
+    completa = mapa_ligaduras(TTFont(COMPLETA)) if os.path.exists(COMPLETA) else None
+    recorte = mapa_ligaduras(TTFont(RECORTE))
+    # solo cuentan los nombres que de verdad son iconos de Material Symbols
+    return sorted(i for i in iconos if i not in recorte and (completa is None or i in completa))
+
+
 def subset_material(iconos):
     from fontTools.ttLib import TTFont
 
@@ -112,39 +179,20 @@ def subset_material(iconos):
     # La fuente llega con dos ejes (wght y FILL). El diseño solo usa el peso
     # normal, pero sí alterna iconos rellenos, así que se fija wght=400 y se
     # conserva FILL variable: menos datos de variación, mismo resultado visual.
-    if 'fvar' in TTFont(completa):
-        from fontTools import ttLib
+    vf = TTFont(completa)
+    if 'fvar' in vf and 'wght' in {a.axisTag for a in vf['fvar'].axes}:
         from fontTools.varLib import instancer
-        vf = ttLib.TTFont(completa)
-        ejes = {a.axisTag for a in vf['fvar'].axes}
-        if 'wght' in ejes:
-            vf = instancer.instantiateVariableFont(vf, {'wght': 400}, inplace=False)
-            vf.save(completa)
-            peso = '400'
+        vf = instancer.instantiateVariableFont(vf, {'wght': 400}, inplace=False)
+        peso = '400'
+    # la completa (con el peso fijado) queda para recortar sin red
+    os.makedirs(os.path.dirname(COMPLETA), exist_ok=True)
+    vf.flavor = 'woff2'
+    vf.save(COMPLETA)
 
-    fuente = TTFont(completa)
-    disponibles = set(fuente.getGlyphOrder())
-    faltan = sorted(iconos - disponibles)
-    presentes = sorted(iconos & disponibles)
-
-    # Las letras, los dígitos y el guion bajo deben sobrevivir: la ligadura
-    # del nombre ("h"+"o"+"m"+"e" -> icono) es la que dibuja cada símbolo, y
-    # sin dígitos los iconos como `inventory_2` quedan rotos en «__2».
-    cmap = fuente.getBestCmap()
-    letras = [cmap[ord(c)] for c in 'abcdefghijklmnopqrstuvwxyz0123456789_' if ord(c) in cmap]
-
-    salida = os.path.join(DESTINO, 'material-symbols-subset.woff2')
-    subprocess.run([
-        sys.executable, '-m', 'fontTools.subset', completa,
-        '--glyphs=' + ','.join(presentes + letras),
-        '--layout-features=liga,calt,rlig',
-        '--flavor=woff2',
-        '--output-file=' + salida,
-    ], check=True)
-
+    presentes, faltan, tam = recortar(iconos)
     for tmp in (css, completa):
         os.remove(tmp)
-    return presentes, faltan, os.path.getsize(salida), peso
+    return presentes, faltan, tam, peso
 
 
 def bajar_texto(nombre, consulta):
@@ -155,15 +203,19 @@ def bajar_texto(nombre, consulta):
         hoja = f.read()
 
     familia = re.search(r"font-family:\s*'([^']+)'", hoja).group(1)
-    reglas = []
-    vistos = set()
+    # Una fuente variable llega con el mismo archivo para cada peso: se baja
+    # una vez y se declara con el rango de pesos (antes se bajaba cuatro).
+    por_url = {}
     for url, peso, rango in _bloques(hoja):
         if rango and 'U+0000' not in rango:
             continue
-        if peso in vistos:
-            continue
-        vistos.add(peso)
-        archivo = '%s-%s.woff2' % (nombre, peso.replace(' ', '-'))
+        por_url.setdefault(url, []).append(peso)
+    reglas = []
+    for url, pesos in por_url.items():
+        numeros = sorted({int(x) for p in pesos for x in p.split()})
+        unico = len(por_url) == 1 and len(pesos) > 1
+        peso = '%d %d' % (numeros[0], numeros[-1]) if len(numeros) > 1 else str(numeros[0])
+        archivo = '%s.woff2' % nombre if unico else '%s-%s.woff2' % (nombre, peso.replace(' ', '-'))
         bajar(url, os.path.join(DESTINO, archivo))
         reglas.append(
             "@font-face{font-family:'%s';font-style:normal;font-weight:%s;"
@@ -177,6 +229,17 @@ def main():
     os.makedirs(DESTINO, exist_ok=True)
 
     iconos = iconos_usados()
+    if '--comprobar' in sys.argv[1:]:
+        faltan = faltan_en_recorte(iconos)
+        if faltan:
+            print('Iconos usados que el recorte no tiene (corre python3 tools/fuentes.py --recortar): ' + ', '.join(faltan))
+            sys.exit(1)
+        print('El recorte de Material Symbols tiene todos los iconos usados.')
+        return
+    if '--recortar' in sys.argv[1:]:
+        presentes, faltan, peso = recortar(iconos)
+        print('Iconos recortados: %d · material-symbols-subset.woff2: %.0f KB' % (len(presentes), peso / 1024))
+        return
     print('Iconos usados por la beta: %d' % len(iconos))
     presentes, faltan, peso, eje = subset_material(iconos)
     print('  incluidos en el subconjunto: %d' % len(presentes))
