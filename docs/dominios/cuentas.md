@@ -420,3 +420,21 @@ permisos y 2FA se conservan en el reinicio, como las cuentas.
 - Restaurar el expediente KYC de los comercios reales al reiniciar la demo
   (el reinicio de la ola 0 borra los documentos de todos los comercios; es
   del dominio de Catálogo/KYC).
+
+## Integración con los demás dominios (hecha)
+
+Lo pedido arriba quedó resuelto en la integración de la ola 1
+(`20261023190000_tumbo_integracion_ola1.sql`, ver
+[BACKEND.md](../BACKEND.md#integración-de-la-ola-1)):
+`tm_auditoria` y las ventanas de auditoría de `tm_cargar` solo le entregan a
+una cuenta de prueba los asientos de las cuentas de prueba y del sistema, y
+`tumbo_privado.auditar` nombra a compradores y comercios por su cuenta (el
+equipo interno firma con su nombre); `baja_impedida` suma el saldo a favor
+(crédito en Tumbo) y los reembolsos sin pedido; las acciones de dinero de
+Pagos ya pasaban por `exigir_elevada` con las personas y los comercios
+reales; `tools/api-pagos.js` registra con `p_telefono` y `p_terminos`; el
+checkout de Pagos propone la predeterminada también en modo local, y
+`docs/PLAN-PRODUCCION.md` documenta `TM_SUPERADMIN=correo:contraseña:CLAVE_MANUAL`.
+En el navegador, `TM.api` pide el código ante un `TMELV` de cualquier
+dominio y `conElevacion` le da el nombre de la acción.
+Sigue pendiente que los demás dominios consulten `tiene_permiso`.

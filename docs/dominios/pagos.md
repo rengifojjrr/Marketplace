@@ -358,3 +358,19 @@ sigue igual: la ventana cerrada deja el pedido elegible para la corrida.
   cotización real.
 - Opinión contable y legal: modelo de custodia, tratamiento del IGTF y del
   diferencial cambiario, plan de cuentas definitivo.
+
+## Integración con los demás dominios (hecha)
+
+En la integración de la ola 1 (`20261023190000_tumbo_integracion_ola1.sql`):
+el checkout conserva el orden de `cotizar_envio` (la opción por omisión ya
+no es la más barata a secas, que podía ser el cobro en destino o el retiro
+en la tienda); `tm_cuentas_liquidacion`, `tm_liquidaciones_corridas`, el
+libro de ventas y el recibo no entregan el RIF de un comercio real a una
+cuenta de prueba, y el recibo no lleva el destino de una persona real a una
+cuenta de prueba ni el de un pedido cerrado al comercio; `baja_impedida`
+(Cuentas) cuenta el saldo a favor. En el navegador, `TM.api` pide el código
+cuando el servidor responde `TMELV` (las cuentas reales de finanzas tienen
+la 2FA obligatoria) y las vistas de pedidos de Logística usan
+`TM.fmtTotalPedido` y `TM.fmtBs(monto, tasa)`. `tools/api-pagos.js` activa
+la 2FA de sus cuentas reales y comprueba el contrato de envío (no los 2,5 y
+4 USD de la versión mínima).

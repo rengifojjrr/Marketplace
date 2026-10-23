@@ -6,8 +6,10 @@ Supabase, con cuentas y sesiones propias). Lo que el comprador compra llega a la
 que Finanzas concilia habilita la preparación, lo que Moderación aprueba
 aparece en la tienda — para todos los usuarios a la vez.
 
-> **Beta.** Pagos y envíos simulados (no se mueve dinero ni se crean guías
-> reales). Con backend, los datos son compartidos y solo el superadministrador
+> **Beta.** No se mueve dinero ni se crean guías por la API de un courier:
+> los pagos se reportan y se concilian a mano y las guías se escriben al
+> despachar; los datos de cobro y las tarifas de envío dicen cuándo siguen
+> pendientes de configurar. Con backend, los datos son compartidos y solo el superadministrador
 > puede reiniciarlos. Sin backend configurado, la app cae al modo local: cada
 > navegador guarda su propia copia.
 
@@ -24,9 +26,11 @@ al instante o en el siguiente sondeo de 20 segundos.
 ## Cuentas de prueba
 
 Contraseña `demo1234`. Los perfiles **MFA** piden después el código `123456`.
-Como su contraseña es pública, las cuentas de prueba no pueden cambiar los
-ajustes de la plataforma (datos de cobro, soporte, avisos ni cuotas) ni leer
-los mensajes de las personas reales: eso exige una cuenta real del equipo.
+Como su contraseña y su código son públicos, las cuentas de prueba nunca
+tienen sesión elevada: no cambian los ajustes de la plataforma, no deciden
+un KYC ni tocan el dinero, el expediente, los mensajes, el destino ni la
+auditoría de las personas y los comercios reales. Eso lo hace una cuenta
+real del equipo con su verificación en dos pasos (TOTP).
 
 | Superficie | Rol | Correo | MFA |
 | --- | --- | --- | --- |
@@ -48,12 +52,13 @@ aplicación.
 1. **Comprador**: agrega un producto al carrito → checkout → registra la
    referencia de pago. El pedido nace «pago por verificar».
 2. **Finanzas**: concílialo en la cola de conciliación.
-3. **Seller principal u Operador**: acéptalo, marca el picking, genera la guía
-   y despáchalo.
-4. **Comprador**: ve el tracking y confirma la recepción → los fondos quedan
-   retenidos por la ventana de reclamo.
-5. **Finanzas**: cierra la ventana y ejecuta la liquidación (2FA) → el seller
-   ve su comprobante en Finanzas.
+3. **Seller principal u Operador**: acéptalo, marca el picking, genera la
+   etiqueta y despáchalo con el número de guía del courier.
+4. **Comprador**: ve el seguimiento y confirma la recepción → los fondos
+   quedan retenidos por la ventana de reclamo.
+5. **Finanzas**: cierra la ventana y prepara la liquidación; otra persona la
+   aprueba y se paga con la referencia → el seller ve su liquidación en
+   Finanzas.
 6. ¿Problema? El comprador abre un **reclamo** (asistente de 3 pasos): congela
    los fondos, el seller responde y **Operaciones** decide; el reembolso se
    refleja en las tres superficies.
@@ -82,9 +87,10 @@ campanita de cada rol.
 ```
 index.html            Acceso (única puerta de entrada)
 app/
-  tienda/             11 vistas — visitante y comprador
-  seller/              7 vistas — Seller Center
-  admin/               8 vistas — Backoffice
+  tienda/             16 vistas — visitante y comprador
+  seller/             15 vistas — Seller Center
+  admin/              16 vistas — Backoffice
+  acceso/              2 vistas — contraseña nueva e invitación
 assets/js/
   tm-config.js        Conexión con Supabase (vacía = modo local)
   tm-datos.js         Datos semilla del modo local
@@ -93,11 +99,11 @@ assets/js/
   tm-ui.js            Componentes compartidos
   tm-app.js           Armazones, navegación por rol y RBAC
   tm-vistas-*.js      Las vistas de cada superficie
-  tm-mod-*.js         Módulos por dominio (archivos, códigos QR…)
+  tm-mod-*.js         Módulos por dominio (archivos, QR, cuentas, catálogo, pagos, logística)
 supabase/migrations/  Esquema, RLS, funciones de negocio y semilla
 supabase/functions/   Función de archivos (firma subidas y descargas de Storage, publica lo confirmado y borra lo descartado)
 prototipo/            El prototipo original de Google Stitch (referencia)
-docs/                 Investigación, especificación y arquitectura
+docs/                 Investigación, especificación, arquitectura y cada dominio (docs/dominios/)
 tools/                Generadores, fuentes, verificación E2E y Supabase local
 ```
 
@@ -112,6 +118,10 @@ npm run test:api      # permisos rol por rol contra la API (requiere backend)
 npm run test:todo     # todas las suites (API, navegador con backend y en local)
 ```
 
+Contra la nube, las suites que necesitan una cuenta real del equipo la
+reciben en `TM_SUPERADMIN=correo:contraseña:CLAVE_MANUAL` (la clave manual
+de su verificación en dos pasos); en local (`TM_PGDATABASE`) crean las suyas.
+
 Las páginas de `app/` son cascarones generados: **no se editan a mano**. El
 contenido vive en `assets/js/tm-vistas-*.js` y en los módulos
 `assets/js/tm-mod-*.js`; las páginas nuevas se declaran en `tools/paginas/`.
@@ -123,7 +133,9 @@ Docker; `tools/supabase-local/levantar.sh`): ver
 
 ## Documentación
 
-- [Backend: datos, seguridad y API](docs/BACKEND.md)
+- [Backend: datos, seguridad y API](docs/BACKEND.md) · [plan por olas](docs/PLAN-PRODUCCION.md)
+- Dominios de la ola 1: [cuentas](docs/dominios/cuentas.md) · [catálogo](docs/dominios/catalogo.md) ·
+  [pagos](docs/dominios/pagos.md) · [logística](docs/dominios/logistica.md)
 - [Arquitectura de la beta funcional](docs/BETA-FUNCIONAL.md)
 - [Estudio de Amazon y adaptaciones](docs/INVESTIGACION-AMAZON.md)
 - [Especificación funcional](docs/ESPECIFICACION-FUNCIONAL.md)

@@ -384,3 +384,18 @@ toca.
   contrato (opciones de agencia y domicilio con costo y días) en vez de los
   montos de la versión mínima, y la devolución se inspecciona antes de
   cerrarla.
+
+## Integración con los demás dominios (hecha)
+
+En la integración de la ola 1 (`20261023190000_tumbo_integracion_ola1.sql`):
+`tm_cargar` envuelve cada pedido del comercio con `pedido_comercio_json`; el
+checkout de Pagos respeta el orden de `cotizar_envio`; las cuentas de
+prueba de Operaciones y de la superadministración ven el destinatario de
+una persona real enmascarado (`destinatario_visible`, detalle 360,
+etiquetas). La ficha de Catálogo ya no escribe la fecha fija; las vistas
+de pedidos de este módulo muestran lo cobrado (`TM.fmtTotalPedido`, con
+descuentos e IGTF); en Disputas, la devolución enlaza al detalle 360 para
+la inspección; las vistas retiradas de `tm-vistas-*.js` ya no se registran
+ahí. `tools/api-catalogo.js` despacha con guía e inspecciona antes de
+cerrar; `tools/api-logistica.js` crea con el checkout de Pagos el pedido que
+necesita un courier y deja SEL-009 sin su seller real al terminar.

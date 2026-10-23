@@ -311,3 +311,19 @@ real (Cuentas) lo podrá hacer un superadmin real.
   búsquedas sin resultado ayudan a decidir), sinónimos editables desde el
   backoffice, fotos por variante en la tarjeta del listado y exportación del
   kardex.
+
+## Integración con los demás dominios (hecha)
+
+En la integración de la ola 1 (`20261023190000_tumbo_integracion_ola1.sql`):
+`archivo_permitido` consulta `kyc_archivo_visible` en la rama `kyc` (la URL
+firmada pide lo mismo que `tm_kyc_archivo`); las RPC de Pagos que leen
+`sellers_kyc` pasan por `expediente_visible`; `tm_cargar` entrega cada
+pedido por `pedido_lectura_json` (al comercio, sin destino con el pedido
+cerrado; a las cuentas de prueba del equipo, los de personas reales sin su
+destino) y su auditoría solo lleva a una cuenta de prueba lo de las cuentas
+de prueba y del sistema. La ficha ya no escribe «Recíbelo el …» (la promesa
+es el gancho de Logística) y las tarjetas dicen «Envía desde <ciudad>». La
+revisión KYC de una cuenta real pide el código desde `TM.api`.
+`tools/api-catalogo.js` despacha con `tm_despachar_guia`, inspecciona la
+devolución antes de cerrarla, activa la 2FA de su superadministrador y deja
+inactivas al terminar sus cuentas reales de SEL-014.

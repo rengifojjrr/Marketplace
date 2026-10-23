@@ -140,7 +140,7 @@ contrato, un pago o una firma:
 ## Avance
 
 - [x] Ola 0 — Fundaciones (ver el resumen abajo)
-- [ ] Ola 1 — Cuentas · Catálogo · Pagos · Logística
+- [x] Ola 1 — Cuentas · Catálogo · Pagos · Logística (ver el resumen abajo)
 - [ ] Ola 2 — Comunicación · Crecimiento · Plataforma
 
 ### Ola 0: lo construido
@@ -232,6 +232,145 @@ proyecto tiene Storage activo (la migración crea los buckets solo si existe);
 crear su cuenta real de superadministrador (SQL en
 [BACKEND.md](BACKEND.md#ajustes)) para cargar los datos de cobro y de
 soporte; después, `tools/api-fundaciones.js` contra la nube con `TM_NUBE=1`
-y `TM_SUPERADMIN=correo:clave`. Hasta
+y `TM_SUPERADMIN` (desde la ola 1, `correo:contraseña:CLAVE_MANUAL`: ver abajo). Hasta
 entonces el sitio publicado sigue funcionando igual: nada de lo existente
 llama a lo nuevo.
+
+### Ola 1: lo construido
+
+Los cuatro equipos trabajaron en paralelo desde la ola 0 (ramas
+`ola1-cuentas`, `ola1-catalogo`, `ola1-pagos` y `ola1-logistica`), cada uno
+con su revisión adversarial; después se integraron en ese orden. El detalle
+de cada dominio (qué puede hacer cada quien, API, contratos, decisiones y
+pendientes) está en [docs/dominios/](dominios/) y el resumen técnico en
+[BACKEND.md](BACKEND.md#lo-nuevo-de-la-ola-1-resumen).
+
+- **Cuentas y seguridad** ([cuentas.md](dominios/cuentas.md)): perfil,
+  cambio y recuperación de contraseña, verificación de correo y teléfono
+  (los códigos quedan en la bandeja hasta la ola 2), sesiones por
+  dispositivo con aviso de acceso nuevo, **2FA TOTP verificada en Postgres**
+  con códigos de respaldo y sesión elevada de 10 minutos, invitaciones
+  (equipo del seller, personal interno, comercio nuevo, y la de puesta en
+  marcha `invitacion_inicial`), administración de usuarios con permisos
+  finos, baja de la cuenta y baja administrativa, libreta de direcciones
+  completa.
+- **Catálogo y comercio** ([catalogo.md](dominios/catalogo.md)): búsqueda en
+  el servidor (tildes, errores de tipeo, sinónimos venezolanos, facetas),
+  ficha completa con galería y variantes, categorías con atributos, gestor
+  de precios con deshacer y precio mínimo, kardex, carga CSV, favoritos y
+  avisos, tienda pública del comercio, KYC con documentos y expediente
+  (insignia «Verificado por Tumbo» honesta), moderación en lote, sin
+  valoraciones inventadas.
+- **Pagos y finanzas** ([pagos.md](dominios/pagos.md)): la entidad pago con
+  checkout para varios sellers, pago guiado por método, IVA e IGTF, crédito
+  en Tumbo, tasa BCV automática con controles y manual con doble
+  aprobación, conciliación con el estado de cuenta y cola de excepciones,
+  vencimiento y pago tardío, reembolsos con destino y doble aprobación,
+  cuentas de liquidación con espera de 48 h, liquidaciones con doble
+  control, libro mayor de partida doble, panel, exportaciones, estado de
+  cuenta del seller y recibo no fiscal.
+- **Logística y operación** ([logistica.md](dominios/logistica.md)):
+  couriers, zonas, tarifas de referencia y cotización real (contrato
+  `cotizar_envio`), configuración de envíos del comercio (delivery propio,
+  retiro en tienda, cobro en destino, vacaciones), promesa honesta en la
+  ficha, guías obligatorias con foto, etiquetas y picking por lotes,
+  incidencias, cancelaciones tipificadas y solicitud del comprador,
+  reclamo «no llegó», SLA con vencimientos automáticos y autoconfirmación,
+  devoluciones con inspección, panel de Operaciones y detalle 360 con notas
+  internas.
+
+**Contratos implementados**: `exigir_elevada` y `tiene_permiso` (Cuentas),
+`cotizar_envio` (Logística) y `crear_reembolso` (Pagos). Nuevos entre
+dominios: `actor_cuenta` y `baja_impedida` (Cuentas), `expediente_visible`,
+`kyc_archivo_visible`, `contexto_stock` y `reputacion_*` (Catálogo; las de
+reputación, vacías hasta las reseñas reales de la ola 2),
+`pedido_comercio_json` y `destinatario_visible` (Logística), `ve_comprador`
+y `exigir_si_real` (Pagos). Siguen en su versión mínima `aplicar_promociones`
+y `riesgo_pedido` (Crecimiento) y el envío real de `encolar` (Comunicación).
+
+**Integración** (migración `20261023190000_tumbo_integracion_ola1.sql`,
+pruebas en `tools/api-integracion.js`): ninguna función quedó definida por
+dos migraciones de la ola 1 ni ninguna migración llama a algo que defina
+otra posterior; lo que se unió fue lo que cada equipo le pidió a otro:
+
+- `tm_cargar` (Catálogo) entrega cada pedido por `pedido_lectura_json`: al
+  comercio, con el contrato de Logística (sin destino con el pedido
+  cerrado); a las cuentas de prueba del equipo, los de una persona real sin
+  su destino. El detalle 360, las etiquetas y el recibo siguen la misma
+  regla.
+- Auditoría: las personas de fuera del equipo con cuenta propia figuran por
+  su cuenta (`tumbo_privado.auditar`, como `actor_cuenta`) y las cuentas de
+  prueba solo leen los asientos de las cuentas de prueba y del sistema
+  (`tm_auditoria` y `tm_cargar`).
+- `archivo_permitido` (ola 0) consulta `kyc_archivo_visible` en la rama
+  `kyc`; las RPC de Pagos que leen `sellers_kyc` pasan por
+  `expediente_visible`; `baja_impedida` suma el saldo a favor y los
+  reembolsos sin pedido; el checkout respeta el orden de `cotizar_envio`.
+- Cliente: `TM.api` pide el código de la sesión elevada cuando el servidor
+  responde `TMELV` y repite la acción (todas las acciones de dinero, KYC,
+  envíos y ajustes de las cuentas reales; `TM.cuentas.conElevacion` le da el
+  nombre de la acción); el checkout local también propone la dirección
+  predeterminada; las vistas de pedidos de Logística muestran lo cobrado
+  (`TM.fmtTotalPedido`, con descuentos e IGTF) y los Bs. a la tasa del
+  pedido; la ficha y las tarjetas ya no prometen una fecha fija; en
+  Disputas, la devolución lleva al detalle 360 para la inspección.
+- Pruebas: `api-catalogo.js` despacha con `tm_despachar_guia` e inspecciona
+  la devolución antes de cerrarla; `api-pagos.js` registra con teléfono y
+  términos y comprueba el contrato de envío en vez de los montos de la
+  versión mínima; las suites que usan cuentas reales les activan la 2FA
+  (finanzas, superadmin y seller principal la tienen obligatoria) y leen la
+  auditoría de las cuentas reales con una cuenta real; cada suite deja sin
+  cuentas reales activas a los comercios de la semilla (con una, Pagos los
+  trata como reales y la demo no los liquida).
+
+**Pruebas del árbol integrado** (base nueva `tumbo_integ`, `verificar-todo.js`:
+las 19 suites en verde): por la API, `verificar-rls` 140 comprobaciones,
+`api-catalogo` 178, `api-cuentas` 152, `api-fundaciones` 124,
+`api-integracion` 17, `api-logistica` 123 y `api-pagos` 146; en el
+navegador con el backend, `verificar-beta` 24, `e2e-catalogo` 18,
+`e2e-cuentas` 20, `e2e-fundaciones` 15, `e2e-logistica` 19 y `e2e-pagos` 15;
+en modo local, `verificar-beta` 24, `e2e-catalogo` 7, `e2e-cuentas` 3,
+`e2e-fundaciones` 12, `e2e-logistica` 4 y `e2e-pagos` 6.
+
+**Desviaciones y decisiones de la integración**:
+
+- El equipo interno (superadmin, ops, finanzas) firma la auditoría con su
+  nombre; compradores y comercios, por su cuenta. Las cuentas de prueba
+  conservan su nombre.
+- Las cuentas de prueba del equipo ven los pedidos de las personas reales
+  (para que la demo funcione en un proyecto con actividad real) pero sin su
+  destino ni su contacto; el comercio de la demo sí ve el destino de los
+  pedidos activos que recibe.
+- Las vistas retiradas de `tm-vistas-*.js` ya no se registran ahí (el
+  registro de cada archivo nombra el módulo que las registra) en vez de
+  quedar como declaraciones vacías.
+
+**`TM_SUPERADMIN`**: desde la ola 1 es `correo:contraseña:CLAVE_MANUAL` (la
+clave manual en base32 que muestra Mi cuenta → Seguridad al activar la 2FA).
+Las pruebas nunca le activan la 2FA a una cuenta que no crearon: con el
+formato anterior (`correo:clave`) se detienen con un mensaje claro.
+
+**Pendiente** (además de lo de terceros de cada dominio):
+
+- Los permisos finos (`conciliar`, `reembolsar`, `moderar`, `kyc`,
+  `disputas`, `ajustes`, `precios_operador`) se asignan y se guardan, pero
+  hoy solo Cuentas consulta `tiene_permiso` (`usuarios`): asignarle
+  `conciliar` a Operaciones todavía no le abre la conciliación. Cada dominio
+  debe consultarlo en sus funciones y en sus menús.
+- «Comercio de prueba» no se define igual en todos lados: para Catálogo
+  (`comercio_de_prueba`) lo es si tiene alguna cuenta de prueba o ninguna
+  real; para Pagos (`seller_real`), deja de serlo en cuanto tiene una cuenta
+  real activa. Conviene unificarlo en un contrato.
+- El reinicio de la demo (que una cuenta de prueba puede pedir) vacía
+  pedidos, productos y expedientes de **todos** los comercios, también los
+  reales: antes de operar con comercios reales en el mismo proyecto hay que
+  acotarlo a los datos de la demo.
+
+Pendiente para la persona dueña del proyecto: aplicar en la nube las
+migraciones `20261023110000` a `20261023140000` y la de integración
+`20261023190000`, en ese orden, y reiniciar la demo; habilitar pg_cron y
+pg_net; crear la primera cuenta real con `invitacion_inicial` y activarle la
+2FA; fijar `sitio_url` si el sitio no vive en GitHub Pages; cargar los datos
+reales de cobro (`pagos_beneficiario`), los patrones de rastreo y las
+tarifas de los couriers; y correr las suites contra la nube con `TM_NUBE=1`
+y `TM_SUPERADMIN=correo:contraseña:CLAVE_MANUAL`.
