@@ -16,9 +16,11 @@
  * ella esas pruebas se informan como omitidas.
  *
  * Los ajustes solo los cambia un superadministrador real (las cuentas de
- * prueba no tienen sesión elevada): con TM_PGDATABASE la prueba crea uno;
- * contra la nube, TM_SUPERADMIN=correo:clave de una cuenta real. Sin
- * ninguno, lo que necesita cambiar ajustes se informa como omitido.
+ * prueba no tienen sesión elevada): con TM_PGDATABASE la prueba crea uno
+ * (y le activa la verificación en dos pasos, que exige la sesión elevada
+ * desde la ola 1); contra la nube, TM_SUPERADMIN=correo:clave[:secreto TOTP]
+ * de una cuenta real. Sin ninguno, lo que necesita cambiar ajustes se
+ * informa como omitido.
  *
  * Desde un entorno con proxy: NODE_USE_ENV_PROXY=1 node tools/api-fundaciones.js
  */
@@ -28,6 +30,7 @@ const http = require('http');
 const net = require('net');
 const os = require('os');
 const path = require('path');
+const C2 = require('./cuentas-comun');
 
 const URL_BASE = (process.env.TM_SUPABASE_URL || '').replace(/\/+$/, '');
 const CLAVE = process.env.TM_SUPABASE_KEY;
@@ -134,13 +137,15 @@ const pdfDe = (bytes) => Buffer.concat([PDF, Buffer.alloc(Math.max(0, bytes - PD
 
   /* Un superadministrador real (fuera de las cuentas de prueba). */
   if (process.env.TM_SUPERADMIN) {
-    const i = process.env.TM_SUPERADMIN.indexOf(':');
-    s.real = await sesion(process.env.TM_SUPERADMIN.slice(0, i), process.env.TM_SUPERADMIN.slice(i + 1));
+    const [correo, clave, secreto] = process.env.TM_SUPERADMIN.split(':');
+    s.real = (await C2.cuentaElevada(rpc, correo, clave, secreto)).sesion;
   } else if (BD) {
     psql(`insert into tumbo.usuarios (email, clave_hash, nombre, rol)
           values ('${REAL.email}', extensions.crypt('${REAL.clave}', extensions.gen_salt('bf', 4)), 'Dueña de Pruebas', 'superadmin')
-          on conflict (email) do update set rol = 'superadmin', seller_id = null, activo = true, clave_hash = excluded.clave_hash`);
-    s.real = await sesion(REAL.email, REAL.clave);
+          on conflict (email) do update set rol = 'superadmin', seller_id = null, activo = true, clave_hash = excluded.clave_hash;
+          delete from tumbo.usuarios_2fa where usuario_id = (select id from tumbo.usuarios where email = '${REAL.email}')`);
+    /* la sesión elevada (2FA real, ola 1) que piden los ajustes */
+    s.real = (await C2.cuentaElevada(rpc, REAL.email, REAL.clave)).sesion;
   }
   const SIN_REAL = 'sin un superadministrador real: TM_PGDATABASE o TM_SUPERADMIN';
   const cuotas = (v) => rpc('tm_ajuste_guardar', { p_sesion: s.real, p_clave: 'cuotas_archivos', p_valor: Object.assign({}, CUOTAS_SEMILLA, v) });
@@ -569,10 +574,11 @@ const pdfDe = (bytes) => Buffer.concat([PDF, Buffer.alloc(Math.max(0, bytes - PD
              where email in ('superadmin@tumbomarket.demo', 'finanzas@tumbomarket.demo')`) === 'finanzas=false,superadmin=true',
        'tiene_permiso: por ahora solo el superadmin');
     let elevada = '';
+    let sinSesion = '';
     try { psql(`select tumbo_privado.exigir_elevada(u) from tumbo.usuarios u where email = 'superadmin@tumbomarket.demo'`); } catch (e) { elevada = e.message; }
-    ok(/cuentas de prueba no pueden/.test(elevada) &&
-       /ok$/.test(psql(`select tumbo_privado.exigir_elevada(u) from tumbo.usuarios u where email = '${REAL.email}'; select 'ok'`)),
-      'exigir_elevada rechaza las cuentas de prueba (el segundo factor real llega en la ola 1)', elevada);
+    try { psql(`select tumbo_privado.exigir_elevada(u) from tumbo.usuarios u where email = '${REAL.email}'`); } catch (e) { sinSesion = e.message; }
+    ok(/cuentas de prueba no pueden/.test(elevada) && /Confirma tu código/.test(sinSesion),
+      'exigir_elevada rechaza las cuentas de prueba y, sin una sesión elevada (2FA de la ola 1), también a las reales', elevada + ' | ' + sinSesion);
   } else {
     omitida('cotizar_envio, aplicar_promociones, riesgo_pedido, tiene_permiso y exigir_elevada responden su versión mínima');
   }

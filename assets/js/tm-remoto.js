@@ -90,7 +90,8 @@
 
   function perfil(u) {
     return u ? { uid: u.id, email: u.email, nombre: u.nombre, rol: u.rol, sellerId: u.sellerId, mfa: !!u.mfa,
-      telefono: u.telefono || null, correoVerificado: !!u.correoVerificado, telefonoVerificado: !!u.telefonoVerificado } : null;
+      telefono: u.telefono || null, correoVerificado: !!u.correoVerificado, telefonoVerificado: !!u.telefonoVerificado,
+      demo: !!u.demo, totp: !!u.totp, obliga2fa: !!u.obliga2fa } : null;
   }
 
   /* Llamada cruda a una función. Si la sesión venció, se olvida aquí mismo
@@ -115,7 +116,7 @@
                 : r.status >= 500 ? 'El servidor no está disponible (' + r.status + '). Inténtalo en unos segundos.'
                 : 'No se pudo completar la acción (' + r.status + '). Inténtalo de nuevo.' };
           if (err.code === '28000') olvidarSesion();
-          throw { error: traducir(err) };
+          throw { error: traducir(err), codigo: err.code || null };
         }
         if (!legible) throw { error: 'El servidor respondió algo inesperado. Inténtalo en unos segundos.' };
         return dato;
@@ -143,9 +144,17 @@
 
   function invitado() { return leer(INVITADO) || []; }
 
-  /* Tras abrir sesión: el carrito de invitado se fusiona con el del comprador. */
+  /* Tras abrir sesión: el carrito de invitado se fusiona con el del comprador.
+     Con la verificación en dos pasos activa, el servidor no entrega la
+     sesión: devuelve un desafío que se completa con acceder2fa(código). */
+  var desafio2fa = null;
   function entrar(respuesta) {
+    if (respuesta && respuesta.requiere2fa && respuesta.desafio) {
+      desafio2fa = respuesta.desafio;
+      return { requiere2fa: true };
+    }
     if (!respuesta || respuesta.error) throw { error: (respuesta && respuesta.error) || 'No se pudo iniciar sesión.', campo: 'clave' };
+    desafio2fa = null;
     escribir(SESION, { token: respuesta.sesion });
     escribir(MFA, null);
     sesionActual = perfil(respuesta.usuario);
@@ -161,8 +170,17 @@
     return llamar('tm_acceder', { p_email: String(email || '').trim().toLowerCase(), p_clave: clave || '' }).then(entrar);
   }
 
-  function registrar(nombre, email, clave) {
-    return llamar('tm_registrar', { p_email: email, p_clave: clave, p_nombre: nombre }).then(entrar);
+  function acceder2fa(codigo) {
+    if (!desafio2fa) return Promise.reject({ error: 'La verificación venció: vuelve a iniciar sesión.' });
+    return llamar('tm_acceder_2fa', { p_desafio: desafio2fa, p_codigo: String(codigo || '').trim() }).then(entrar);
+  }
+
+  /* extra = { telefono, terminos }: el registro de la web (teléfono opcional
+     y la versión de los términos aceptados). */
+  function registrar(nombre, email, clave, extra) {
+    var p = { p_email: email, p_clave: clave, p_nombre: nombre };
+    if (extra) { p.p_telefono = extra.telefono || null; p.p_terminos = extra.terminos || null; }
+    return llamar('tm_registrar', p).then(entrar);
   }
 
   function cerrarSesion() {
@@ -173,13 +191,21 @@
     return llamar('tm_salir', { p_sesion: t }).then(function () { }, function () { });
   }
 
+  /* El paso de la demo (cuentas de prueba con MFA) lo verifica el servidor
+     (tm_elevar acepta su código público). Las cuentas con TOTP real lo
+     completan antes de tener sesión (acceder2fa), así que nunca quedan
+     pendientes. Promesa: true, o { error } si el código no vale. */
   function confirmarMfa(codigo) {
-    if (String(codigo || '').trim() !== '123456' || !sesionActual) return false;
-    escribir(MFA, sesionActual.uid);
-    return true;
+    if (!sesionActual) return Promise.resolve(false);
+    var uid = sesionActual.uid;
+    return llamar('tm_elevar', { p_sesion: token(), p_codigo: String(codigo || '').trim() }).then(function (r) {
+      if (!r || !r.ok) throw { error: (r && r.error) || 'Código incorrecto.' };
+      escribir(MFA, uid);
+      return true;
+    });
   }
   function mfaPendiente() {
-    return !!(sesionActual && sesionActual.mfa && leer(MFA) !== sesionActual.uid);
+    return !!(sesionActual && sesionActual.mfa && !sesionActual.totp && leer(MFA) !== sesionActual.uid);
   }
 
   /* ---------------------------------------------------------------------
@@ -280,7 +306,10 @@
     if (s && s.rol === 'comprador') {
       e.direcciones[s.email] = (d.direcciones || []).map(function (r) {
         return { id: r.id, nombre: r.nombre, linea: r.linea, municipio: r.municipio, ciudad: r.ciudad,
-          codigo: r.codigo, telefono: r.telefono, predeterminada: r.predeterminada };
+          codigo: r.codigo, telefono: r.telefono, predeterminada: r.predeterminada,
+          estado: r.estado || null, parroquia: r.parroquia || null, referencia: r.referencia || null,
+          destinatario: r.destinatario || null, cedulaDestinatario: r.cedula_destinatario || null,
+          telefonoDestinatario: r.telefono_destinatario || null };
       });
       e.carritos[s.email] = (d.carrito || []).map(function (r) { return { sku: r.sku, cant: r.cant }; });
     } else {
@@ -500,6 +529,7 @@
   T.refrescar = function () { return refrescar('propio'); };
   T.sesion = function () { return sesionActual; };
   T.acceder = acceder;
+  T.acceder2fa = acceder2fa;
   T.registrar = registrar;
   T.cerrarSesion = cerrarSesion;
   T.confirmarMfa = confirmarMfa;
