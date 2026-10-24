@@ -410,3 +410,26 @@ misma migración):
   el checkout y el reporte escriben los eventos como «Comprador» (no con su
   nombre), `reembolso_evento` también, y `tm_reembolsos_gestion` muestra a
   una cuenta de prueba solo el papel de quien actuó en un reembolso real.
+
+### Revisión de la integración de la ola 2
+
+En la sección 7 de `20261024190000_tumbo_integracion_ola2.sql` (ver
+[BACKEND.md](../BACKEND.md#revisión-de-la-integración-1)):
+
+- **Pago recibido tarde**: antes de reactivar un pago vencido,
+  `tm_pago_tardio` («verificar») bloquea las ofertas y los cupones de sus
+  promociones y comprueba que sus unidades relámpago, el presupuesto, los
+  usos y los usos por persona del cupón todavía caben (otra compra pudo
+  tomarlos mientras estaba vencido); si no, se rechaza con «genera el
+  reembolso», como sin stock.
+- **Cancelar un pedido de un pago con el cupón de Tumbo**: la parte del
+  cupón del pedido cancelado vuelve a su presupuesto
+  (`pago_cupon_cancelado`, desde `pedido_sincroniza_pago`). Si el comprador
+  deja el resto bajo la compra mínima del cupón, se rechaza con el código
+  `TMPAG` y la tienda ofrece «Cancelar el pago completo»
+  (`tm_cancelar_pedido` con el código del pago).
+- El recibo de Finanzas vuelve a la conciliación (no a `admin/pedidos`, que
+  no abre).
+- `tools/api-pagos.js` fija por SQL los ajustes de control (`reembolsos`,
+  `conciliacion`, `tasa_bcv`), que desde la revisión piden la segunda
+  aprobación.

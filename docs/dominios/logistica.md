@@ -424,3 +424,14 @@ misma migración):
   y los responsables posibles son las cuentas de prueba. `archivo_permitido`
   tampoco le deja ver ni subir la guía, la entrega o la evidencia de ese
   pedido.
+
+### Revisión de la integración de la ola 2
+
+- `tm_cancelar_pedido` acepta el código de un pago (`PAG-…`) y cancela
+  juntos sus pedidos por pagar: lo usa la tienda cuando el cupón de Tumbo
+  del pago no deja cancelar un solo pedido (`TMPAG`, Pagos).
+- La apelación de un reclamo que pasa a devolución fija quién paga con
+  `devolucion_pagador`, así «paga» y la frase de las instrucciones coinciden.
+- `TM.log.fecha` y `TM.log.fechaHora` formatean en hora de Caracas, como la
+  línea de tiempo y los plazos de Comunicación y Pagos (un comprador con el
+  navegador en otra zona ve las mismas horas en toda la página).

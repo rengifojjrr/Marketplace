@@ -125,7 +125,7 @@ async function rpc(fn, args) {
     if (enl) throw new Error(enl + ' enlaces a vistas que Finanzas no abre en Comercio 360');
     if (!(await p.locator('#raiz [data-pedidos-360] li').count())) throw new Error('sin pedidos recientes en la ficha');
     await abrir('admin/riesgo');
-    await p.waitForFunction(() => /Compradores marcados/.test(document.querySelector('#raiz').innerText), null, { timeout: 15000 });
+    await p.waitForFunction(() => /compradores marcados/i.test(document.querySelector('#raiz').innerText), null, { timeout: 15000 });
     if (await p.locator('#raiz a[href*="admin/pedido.html"], #raiz a[href*="admin/comprador.html"]').count()) throw new Error('enlaces en Riesgo');
     await abrir('tienda/recibo?id=TM-2026-00433');
     const atras = p.locator('#raiz a', { hasText: 'Volver a la conciliación' }).first();
@@ -150,7 +150,8 @@ async function rpc(fn, args) {
       await ctx2.route('**/assets/js/tm-config.js', (r) => r.fulfill({ contentType: 'application/javascript',
         body: "window.TM_CONFIG = { supabaseUrl: '', supabaseKey: '' };" }));
       const q = await ctx2.newPage();
-      await q.goto(t.BASE + '/app/tienda/pedidos.html', { waitUntil: 'domcontentloaded' });
+      /* (una página pública que carga la base de Logística: sin sesión, pedidos llevaría al acceso) */
+      await q.goto(t.BASE + '/app/tienda/carrito.html', { waitUntil: 'domcontentloaded' });
       await q.waitForFunction(() => window.TM && TM.log && TM.log.fechaHora, null, { timeout: 15000 });
       const r = await q.evaluate(() => [TM.log.fechaHora('2026-11-05T04:00:00Z'), TM.log.fecha('2026-11-05'), new Date('2026-11-05T04:00:00Z').getHours()]);
       if (r[0] !== 'jue 05/11 12:00 am' || r[1] !== 'jue 05/11' || r[2] !== 5) throw new Error(JSON.stringify(r));

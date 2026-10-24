@@ -717,7 +717,7 @@ const hoy = () => new Date(Date.now() - 4 * 3600000).toISOString().slice(0, 10);
         values ('cedula', tumbo_privado.valor_lista('cedula', 'V-27111919'), 'Fraude confirmado: cédula de una persona real', 'Finanzas (real)', false),
                ('cuenta', '01340000000000000014', 'Cuenta usada en un fraude real', 'Finanzas (real)', false);
         insert into tumbo.usuarios (email, clave_hash, nombre, rol, cedula) values ('integ2-cedula@tumbo-local.ve', 'x', 'Persona Real', 'comprador', 'V-30555919');
-        create function pg_temp.probar(so text, sa text) returns jsonb language plpgsql as $f$
+        create function pg_temp.probar(so text, sa text, sf text) returns jsonb language plpgsql as $f$
         declare v_demo uuid := 'a0000000-0000-4000-8000-000000000001';
                 v_real uuid := (select id from tumbo.usuarios where email = ${lit(REALES.compra.email)});
                 res jsonb;
@@ -727,23 +727,26 @@ const hoy = () => new Date(Date.now() - 4 * 3600000).toISOString().slice(0, 10);
             'demo_dato', tumbo_privado.riesgo_pedido(v_demo, '{"pagador": {"cedula": "V-30555919"}}') -> 'motivos',
             'real_lista', tumbo_privado.riesgo_pedido(v_real, '{"pagador": {"cedula": "V-27111919"}}') -> 'motivos',
             'real_dato', tumbo_privado.riesgo_pedido(v_real, '{"pagador": {"cedula": "V-30555919"}}') -> 'motivos',
-            'comercio', tumbo_privado.seller_lista_negra('SEL-014'));
+            'comercio_visto', tumbo_privado.seller_lista_negra('SEL-014', true),
+            'comercio_control', tumbo_privado.seller_lista_negra('SEL-014'),
+            'panel_demo', (select jsonb_agg(x ->> 'id') from jsonb_array_elements(public.tm_riesgo_panel(sf) -> 'comercios') x));
           update tumbo.listas_negras set demo = true where valor = '01340000000000000014';
           update tumbo.usuarios set cedula = 'V-27111919' where id = v_demo;
-          return res || jsonb_build_object('comercio_demo', tumbo_privado.seller_lista_negra('SEL-014'),
+          return res || jsonb_build_object('comercio_demo', tumbo_privado.seller_lista_negra('SEL-014', true),
             'ops_sin_riesgo', public.tm_comprador_360(so, v_demo) -> 'riesgo' -> 'listas_negras',
             'super_demo', public.tm_comprador_360(sa, v_demo) -> 'riesgo' -> 'listas_negras');
         end $f$;
-        select pg_temp.probar(${lit(s.r_ops)}, ${lit(s.superadmin)});
+        select pg_temp.probar(${lit(s.r_ops)}, ${lit(s.superadmin)}, ${lit(s.finanzas)});
         rollback;`);
       const reglas = (m) => (m || []).map((x) => x.regla);
       ok(!reglas(rg.demo_lista).includes('lista_negra') && !reglas(rg.demo_dato).includes('dato_compartido') &&
          reglas(rg.real_lista).includes('lista_negra') && reglas(rg.real_dato).includes('dato_compartido'),
         'una cuenta de prueba ya no consulta la lista negra real ni si una cédula es de una persona registrada (riesgo_pedido solo mira lo de la demo); una real, sí',
         JSON.stringify(rg).slice(0, 300));
-      ok(rg.comercio === null && /cuenta/.test(rg.comercio_demo || '') && rg.ops_sin_riesgo === null &&
+      ok(rg.comercio_visto === null && /cuenta/.test(rg.comercio_control || '') && !(rg.panel_demo || []).includes('SEL-014') &&
+         /cuenta/.test(rg.comercio_demo || '') && rg.ops_sin_riesgo === null &&
          Array.isArray(rg.super_demo) && !/persona real/.test(JSON.stringify(rg.super_demo)),
-        'los datos de cobro de un comercio de prueba solo se cotejan con la lista de la demo, y la ficha 360 da las listas solo con el permiso «riesgo» (a una cuenta de prueba, las de la demo)',
+        'a una cuenta de prueba, los datos de cobro de un comercio solo se le cotejan con la lista de la demo (la retención sigue con la lista completa), y la ficha 360 da las listas solo con el permiso «riesgo»',
         JSON.stringify(rg).slice(0, 300));
     }
 

@@ -415,6 +415,48 @@ a otro (no agrega funciones `public.tm_*`; ver
   Backoffice lleva a «Mensajes salientes» (la bandeja sencilla de Cuentas
   sigue en `admin/bandeja` y remite a la nueva).
 
+#### Revisión de la integración
+
+Lo que corrigió la revisión, en la sección 7 de la misma migración (cada
+función parte de su última definición; no hay funciones `public.tm_*`
+nuevas):
+
+- **Promociones**: `oferta_vendidas` y `cupon_uso` no cuentan el pago que
+  `registrar_promociones` está registrando (`tumbo.promo_pago`, solo
+  mientras recalcula), así un checkout de varios comercios no se cuenta a
+  sí mismo; `tm_pago_tardio` comprueba las reglas de las promociones del
+  pago antes de reactivarlo; `pago_cupon_cancelado` (desde
+  `pedido_sincroniza_pago`) devuelve al presupuesto la parte del cupón de
+  Tumbo del pedido cancelado o, si el comprador deja el resto bajo la
+  compra mínima, rechaza con `TMPAG`; `tm_cancelar_pedido` acepta el código
+  del pago (`PAG-…`) para cancelar todos sus pedidos por pagar.
+- **Reclamos**: `tm_disputa_apelacion_resolver` devuelve con un ajuste a
+  favor el descuento del parcial que ya entró en una corrida y usa
+  `devolucion_pagador`; `metricas_nivel` y `tm_metricas_negocio` cuentan los
+  perdidos como `reputacion_comercio`.
+- **Cuentas de prueba del comercio y compradores reales**: `chat_acceso`
+  (y `tm_chat`, `tm_chat_pendientes`), `tm_disputa`, `tm_cargar` y
+  `archivo_permitido` (evidencia y chat) bloquean; `tm_responder_disputa`,
+  `tm_disputa_mensaje`, `tm_disputa_apelar`, `tm_pregunta_responder` y
+  `tm_resena_responder` exigen una cuenta real (`exigir_cuenta_real`).
+- **Ajustes**: `ajuste_seguridad`, `ajuste_doble`, `host_https` y
+  `host_permitido` (dominio actual o `tumbo_privado.secretos`
+  `hosts_<clave>`); `validar_ajuste` (direcciones y topes),
+  `tm_ajuste_guardar`, `tm_cambio_decidir` y `tm_ajustes_admin` (`doble`,
+  `seguridad`).
+- **Riesgo**: `riesgo_pedido` y `reembolso_destino_lista_negra` comparan a
+  un comprador de prueba solo con lo de la demo; `seller_lista_negra(seller,
+  solo_demo)` para lo que ve una cuenta de prueba (`tm_riesgo_panel`,
+  `tm_seller_360`); `tm_comprador_360` da las listas solo con «riesgo».
+- **Analítica**: `tm_analitica_registrar` con techo diario (100.000) y de
+  filas (un millón); `tm_metricas_negocio` con `reservado` para la demo.
+- **Antiestafa**: `ocultar_contacto` con NFKC y la I, la l o la barra como 1.
+- **Cliente**: `index.html` (vuelta al centro de ayuda, enlaces legales),
+  `APP.puedeAbrir`, cabecera de la tienda para usuarios de panel, frase sin
+  señal según la copia, fechas de Logística en hora de Caracas, menú del
+  Backoffice con Soporte y Contenido por permiso, reclamos y chat bloqueados
+  en el Seller Center y «Cancelar el pago completo» en el pedido.
+
 Pruebas: `tools/api-integracion2.js` (con `TM_PGDATABASE`) y
 `tools/e2e-integracion2.js`.
 
@@ -442,7 +484,10 @@ crece en sus propias piezas, sin tocar las de los demás:
     `producto.secciones`, `pedido.comprador`, `pedido.seller`,
     `inicio.secciones`, `panel.seller` y `panel.admin` (fn recibe los datos
     que la vista ya tiene: producto, pedido, sesión…; si falla, se omite);
-  - enlaza eventos tras cada pintado con `APP.trasPintar(fn)`.
+  - enlaza eventos tras cada pintado con `APP.trasPintar(fn)`;
+  - antes de pintar un enlace a otra vista, pregunta `APP.puedeAbrir(vista,
+    sesión, roles)` (con los roles de la vista si la página no cargó su
+    módulo), así nadie recibe enlaces a «No tienes acceso».
   Utilidades comunes: `TM.qr(texto, tamaño)` → SVG (qrcode-generator, MIT,
   en `assets/js/vendor/`) y `TM.archivos` (abajo).
 - **Servidor.** Una migración por equipo y ola, que solo agrega, termina con

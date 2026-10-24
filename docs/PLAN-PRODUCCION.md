@@ -549,6 +549,77 @@ esquema y las mismas funciones que aplicadas enteras.
   antes de mirar la sesión.
 - `admin/bandeja` se conserva fuera del menú.
 
+**Revisión de la integración** (sección 7 de la misma migración, que aún no
+estaba desplegada; pruebas en `api-integracion2.js`, `e2e-integracion2.js`,
+`api-pagos.js` y `e2e-plataforma.js`): los 20 hallazgos de los revisores se
+reprodujeron y se corrigieron (del 7, la parte que pedía impedirles la
+compra a las personas reales quedó como decisión, abajo). Lo que se
+corrigió:
+
+- **Promociones**: el registro del checkout recalcula sin contar el propio
+  pago (`oferta_vendidas` y `cupon_uso` excluyen `tumbo.promo_pago`): un
+  cupón de un uso por persona, el último presupuesto o una relámpago del
+  primer comercio ya no rechazan un checkout de varios comercios. El pago
+  recibido tarde no se reactiva si sus unidades relámpago o su cupón los
+  tomó otra compra mientras estaba vencido («genera el reembolso»).
+  Cancelar un pedido de un pago pendiente devuelve al presupuesto su parte
+  del cupón de Tumbo; si quien cancela es el comprador y el resto ya no
+  llega a la compra mínima, se rechaza con el código `TMPAG` y la tienda
+  ofrece cancelar el pago completo (`tm_cancelar_pedido` con el código
+  `PAG-…`).
+- **Reclamos**: la apelación que pasa a reembolso total ya no se detiene si
+  el descuento del parcial entró en una corrida: se le devuelve al comercio
+  con un ajuste a favor en la próxima. La que pasa a devolución fija quién
+  paga con `devolucion_pagador` (la frase que lee el comprador cambia con
+  «paga»). Niveles y métricas cuentan un reclamo perdido como la
+  reputación (el que el comercio ganó en la apelación no pesa).
+- **Cuentas de prueba del comercio frente a compradores reales**: no leen
+  su chat (`bloqueado`, sin mensajes ni avisos), su reclamo (`tm_disputa` y
+  `tm_cargar` bloqueados), su evidencia ni los adjuntos del chat, y no
+  responden, escriben ni apelan su reclamo ni responden sus preguntas y
+  reseñas: el fallo automático a favor de la persona sigue su curso.
+- **Ajustes**: `sitio_url`, `envios` y `funciones_url` solo los propone y
+  los aprueba un superadministrador, con doble aprobación y a un dominio
+  autorizado (el que ya tienen, que fija la persona dueña por SQL, o uno de
+  la lista `hosts_<clave>` en `tumbo_privado.secretos`); `reembolsos`,
+  `tasa_bcv` (con su fuente autorizada), `conciliacion`, `riesgo` y
+  `analitica` piden la segunda aprobación, con topes (doble aprobación de
+  reembolsos desde 5.000 USD como mucho, variación automática de la tasa
+  hasta 50 %, tolerancia de la conciliación hasta 1.000 Bs.). La doble
+  aprobación la decide `ajuste_doble` (los metadatos no se actualizan).
+- **Listas negras y riesgo**: un comprador de prueba solo se coteja con las
+  cuentas, los pagos y la lista de la demo (`riesgo_pedido`), igual que el
+  destino de reembolso que escribe; a una cuenta de prueba, los datos de
+  cobro de un comercio solo se le muestran cotejados con la lista de la
+  demo (`seller_lista_negra(seller, solo_demo)`); la ficha 360 del
+  comprador da las listas solo con el permiso «riesgo».
+- **Analítica y métricas**: techo diario de 100.000 eventos y de un millón
+  de filas; a una cuenta de prueba, las métricas sin las búsquedas ni el
+  checkout de los visitantes reales (`reservado`).
+- **Antiestafa**: `ocultar_contacto` normaliza el texto (NFKC: cifras de
+  ancho completo) y toma la I, la l o la barra pegadas a una cifra como un 1.
+- **Cliente**: el inicio de sesión vuelve al centro de ayuda (Contacto con
+  su categoría); el registro y la invitación enlazan los textos legales (y,
+  a un comercio, su contrato); Finanzas no recibe enlaces a vistas que no
+  abre (`APP.puedeAbrir`; el recibo vuelve a la conciliación) ni ve Soporte
+  y Contenido sin su permiso; un usuario de panel en la tienda o la ayuda
+  ve su nombre y la vuelta a su Seller Center o Backoffice; sin señal, la
+  frase de la copia guardada solo cuando hay copia; Logística formatea las
+  fechas en hora de Caracas.
+
+Decisiones de la revisión:
+
+- Una persona real sigue pudiendo comprarle a un comercio de la demo (es
+  la decisión de la integración de la ola 1 y la usan las suites): la
+  cuenta de prueba de ese comercio opera el pedido (lo acepta, lo despacha
+  y ve su destino mientras está activo), pero ya no ve ni toca su chat, su
+  reclamo ni su evidencia. Si el comercio de la demo no despacha, el SLA lo
+  cancela con su reembolso; si hay reclamo, el fallo automático lo decide.
+- La retención de las liquidaciones y el aviso a Finanzas por la lista
+  negra siguen cotejando los datos de cobro de todos los comercios con la
+  lista completa (control de dinero); lo que se le muestra a una cuenta de
+  prueba, solo con la de la demo.
+
 **Lo que depende de terceros** (además de lo de la ola 1): Resend con el
 dominio verificado (`RESEND_API_KEY`, `RESEND_DE`); WhatsApp Business de
 Meta (`WHATSAPP_TOKEN`, `WHATSAPP_NUMERO_ID` y la aprobación de las 19

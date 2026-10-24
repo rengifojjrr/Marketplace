@@ -290,8 +290,9 @@ como el reclamo de la demo, siguen funcionando igual.
   editan macros ni plantillas ni publican documentos legales.
 - **Datos de contacto ocultos** (`ocultar_contacto`): las cifras se buscan
   aunque vengan con espacios, puntos, barras, paréntesis, guion bajo o
-  guiones de cualquier tipo (hasta 3 seguidos) y con la letra O en lugar del
-  cero; una tira de 16 cifras o más se oculta siempre, y una de 10 o más que
+  guiones de cualquier tipo (hasta 3 seguidos), con la letra O en lugar del
+  cero y la I, la l o la barra en lugar del 1, y sobre el texto normalizado
+  (NFKC: las cifras de ancho completo cuentan); una tira de 16 cifras o más se oculta siempre, y una de 10 o más que
   contiene un celular venezolano, también. Lo usan el chat, las preguntas,
   las reseñas, el expediente, la descripción del reclamo y la respuesta del
   comercio.
@@ -425,6 +426,24 @@ En `20261024190000_tumbo_integracion_ola2.sql` y el cliente (ver
   este dominio cargan por superficie: `-admin` en el Backoffice, `-seller`
   en el Seller Center, `-confianza` en la tienda, `-ayuda` en la tienda y el
   Seller Center; el núcleo, el chat, la cuenta y los reclamos, en todas.
+
+**Revisión de la integración** (sección 7 de la misma migración):
+
+- La cuenta de prueba del comercio (contraseña pública) frente a un
+  comprador real: su chat y su reclamo le llegan `bloqueado` (sin mensajes,
+  descripción, evidencia ni apelaciones; tampoco los no leídos), no abre su
+  evidencia ni los adjuntos del chat (`archivo_permitido`) y no responde,
+  escribe ni apela su reclamo ni responde sus preguntas y reseñas
+  (`exigir_cuenta_real`): el fallo automático a favor de la persona sigue
+  su curso. El Seller Center lo explica en el reclamo y en el chat.
+- La apelación que pasa a reembolso total ya no se detiene si el descuento
+  del parcial entró en una corrida (la del lunes toma los ajustes
+  pendientes): se le devuelve al comercio con un ajuste a favor en la
+  próxima. La que pasa a devolución fija quién paga con `devolucion_pagador`.
+- `ocultar_contacto`: texto normalizado (NFKC) y la I, la l o la barra como 1.
+- Contacto: «inicia sesión» vuelve al formulario con su categoría y su
+  pedido; el aviso al equipo dice que Soporte es de Operaciones o de quien
+  tenga el permiso «soporte» (el menú lo oculta sin él).
 
 Siguen pendientes: que quitar la 2FA o desbloquear una cuenta (Cuentas)
 encole `segundo_factor_quitado` y `cuenta_desbloqueada`; el gancho

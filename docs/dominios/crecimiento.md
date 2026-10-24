@@ -445,6 +445,32 @@ En `20261024190000_tumbo_integracion_ola2.sql` y el cliente (ver
 - **Suite completa**: `verificar-todo.js`, con la base local, vacía entre
   suite y suite los topes de las cuentas de prueba.
 
+**Revisión de la integración** (sección 7 de la misma migración):
+
+- **Promociones**: el registro del checkout recalcula sin contar el propio
+  pago (un cupón de un uso por persona, el último presupuesto o los últimos
+  usos y una relámpago del primer comercio ya sirven en un checkout de
+  varios comercios); el pago recibido tarde (Pagos) comprueba sus reglas;
+  cancelar un pedido devuelve al presupuesto su parte del cupón de Tumbo
+  (y la compra mínima la cuida `TMPAG`).
+- **Ajustes**: `sitio_url`, `envios` y `funciones_url` son de seguridad
+  (solo el superadministrador los propone y otro los aprueba, a un dominio
+  autorizado: el que ya tienen o `hosts_<clave>` en
+  `tumbo_privado.secretos`); `reembolsos`, `tasa_bcv`, `conciliacion`,
+  `riesgo` y `analitica` piden la segunda aprobación (`ajuste_doble`), con
+  topes. El editor lo marca («doble aprobación», «solo superadministrador»).
+- **Riesgo**: un comprador de prueba solo se coteja con lo de la demo; a una
+  cuenta de prueba, los datos de cobro de los comercios solo con la lista de
+  la demo (la retención sigue con la lista completa); la ficha 360 del
+  comprador da las listas solo con el permiso «riesgo».
+- **Niveles y métricas**: los reclamos perdidos con el criterio de la
+  reputación (el ganado en la apelación no cuenta); a una cuenta de prueba,
+  las métricas sin las búsquedas ni el checkout de los visitantes reales.
+- **Analítica**: techo diario de 100.000 eventos y de un millón de filas.
+- **Menú**: Soporte y Contenido (Comunicación) pasan por `POR_PERMISO`;
+  Finanzas ya no recibe enlaces a Pedido 360 ni Comprador 360 desde Riesgo
+  o Comercio 360 (`APP.puedeAbrir`).
+
 Se dejó como está (decisión de la integración): los disparadores del
 checkout (no se llevaron a `checkout_crear`: funcionan igual en cualquier
 orden). Siguen pendientes los pedidos a Cuentas (permisos efectivos en la

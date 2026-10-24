@@ -85,6 +85,22 @@ cada dominio en [docs/dominios/](dominios/).
    update tumbo.ajustes set valor = '"https://<ref>.supabase.co/functions/v1"' where clave = 'funciones_url';
    ```
 
+   `sitio_url`, `envios` y `funciones_url` son ajustes de seguridad (de ahí
+   salen los enlaces con token de los correos y adónde llama Tumbo a sus
+   funciones): desde el Backoffice solo los propone un superadministrador,
+   los aprueba otro y solo pueden apuntar al dominio que ya tienen (el que
+   cargaste por SQL) o a uno que autorices tú por SQL, p. ej. para mudar el
+   sitio a un dominio propio:
+
+   ```sql
+   insert into tumbo_privado.secretos (nombre, valor) values ('hosts_sitio_url', 'tumbo.com.ve www.tumbo.com.ve')
+   on conflict (nombre) do update set valor = excluded.valor;
+   ```
+
+   (`hosts_envios` y `hosts_funciones_url` para las funciones, `hosts_tasa_bcv`
+   para otra fuente de la tasa.) `reembolsos`, `tasa_bcv`, `conciliacion`,
+   `riesgo` y `analitica` también piden la segunda aprobación.
+
 6. **Tareas programadas**: en `admin/sistema`, «Programar tareas» (cuenta
    real con 2FA). Comprueba que todas quedan «Al día» en su primera corrida
    (la tasa cada 3 horas, la liquidación los lunes). Si una falla, la campana

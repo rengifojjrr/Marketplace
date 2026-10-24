@@ -849,9 +849,9 @@ end $$;
 --      autorizado; los que fijan controles de cuatro ojos o de riesgo
 --      (reembolsos, tasa_bcv, conciliacion, riesgo, analitica) también piden
 --      la segunda aprobación, con topes razonables.
---   f. Listas negras y riesgo: una cuenta de prueba solo se coteja con lo de
---      la demo; la ficha 360 del comprador da las listas solo con el permiso
---      «riesgo».
+--   f. Listas negras y riesgo: lo que ve o provoca una cuenta de prueba solo
+--      se coteja con lo de la demo; la ficha 360 del comprador da las listas
+--      solo con el permiso «riesgo».
 --   g. Analítica con techo diario y de filas; métricas de la demo sin las
 --      búsquedas ni el checkout de los visitantes reales.
 --   h. ocultar_contacto reconoce las cifras de ancho completo (NFKC) y la I,
@@ -2818,25 +2818,165 @@ begin
     'yo', yo.id);
 end $$;
 
--- f.1 Desde la de Crecimiento: los datos de cobro de un comercio de prueba
--- (los carga cualquiera con la contraseña pública) solo se cotejan con la
--- lista negra de la demo; si no, el panel de riesgo, la ficha 360, el aviso
--- a Finanzas y el puntaje de los pagos decían si una cuenta, un teléfono o
--- un RIF están en la lista real. Lo demás, igual.
-create or replace function tumbo_privado.seller_lista_negra(p_seller text) returns text
+-- f.1 Los datos de cobro de un comercio cotejados con la lista negra, como
+-- los puede ver quien mira: con p_solo_demo, solo con la lista de la demo.
+-- Los datos de cobro de un comercio de prueba los carga cualquiera con la
+-- contraseña pública: lo que se le muestra a una cuenta de prueba (panel de
+-- riesgo, ficha 360, puntaje del pago de un comprador de prueba) ya no dice
+-- si una cuenta, un teléfono o un RIF están en la lista real. La retención
+-- de sus liquidaciones y el aviso a Finanzas siguen con la lista completa
+-- (seller_lista_negra de un argumento, sin cambios).
+create or replace function tumbo_privado.seller_lista_negra(p_seller text, p_solo_demo boolean) returns text
 language sql stable security definer set search_path = '' as $$
-  select string_agg(distinct case l.tipo when 'cuenta' then 'cuenta bancaria' when 'telefono' then 'teléfono de cobro' else 'RIF' end, ', ')
-  from tumbo.listas_negras l
-  where l.activo and (l.demo or not tumbo_privado.comercio_de_prueba(p_seller)) and (
-    (l.tipo = 'cuenta' and l.valor in (select c.numero from tumbo.cuentas_liquidacion c
-                                       where c.seller_id = p_seller and c.estado in ('pendiente', 'verificada') and c.numero is not null))
-    or (l.tipo = 'telefono' and l.valor in (select tumbo_privado.riesgo_tel(c.telefono) from tumbo.cuentas_liquidacion c
-                                            where c.seller_id = p_seller and c.estado in ('pendiente', 'verificada') and c.telefono is not null))
-    or (l.tipo = 'rif' and l.valor in (select tumbo_privado.documento(c.rif) from tumbo.cuentas_liquidacion c
-                                       where c.seller_id = p_seller and c.estado in ('pendiente', 'verificada')
-                                       union all
-                                       select tumbo_privado.documento(k.rif) from tumbo.sellers_kyc k where k.seller_id = p_seller)))
+  select case when coalesce(p_solo_demo, false)
+              then (select string_agg(distinct case l.tipo when 'cuenta' then 'cuenta bancaria' when 'telefono' then 'teléfono de cobro' else 'RIF' end, ', ')
+                    from tumbo.listas_negras l
+                    where l.activo and l.demo and (
+                      (l.tipo = 'cuenta' and l.valor in (select c.numero from tumbo.cuentas_liquidacion c
+                                                         where c.seller_id = p_seller and c.estado in ('pendiente', 'verificada') and c.numero is not null))
+                      or (l.tipo = 'telefono' and l.valor in (select tumbo_privado.riesgo_tel(c.telefono) from tumbo.cuentas_liquidacion c
+                                                              where c.seller_id = p_seller and c.estado in ('pendiente', 'verificada') and c.telefono is not null))
+                      or (l.tipo = 'rif' and l.valor in (select tumbo_privado.documento(c.rif) from tumbo.cuentas_liquidacion c
+                                                         where c.seller_id = p_seller and c.estado in ('pendiente', 'verificada')
+                                                         union all
+                                                         select tumbo_privado.documento(k.rif) from tumbo.sellers_kyc k where k.seller_id = p_seller))))
+              else tumbo_privado.seller_lista_negra(p_seller) end
 $$;
+
+-- f.1 b Desde la de Crecimiento: a una cuenta de prueba, los comercios cuyos
+-- datos de cobro coinciden solo con la lista de la demo (f.1). Lo demás,
+-- igual.
+create or replace function public.tm_riesgo_panel(p_sesion text) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  yo tumbo.usuarios := tumbo_privado.exigir_rol(p_sesion, array['superadmin', 'finanzas', 'ops']);
+  v_demo boolean := tumbo_privado.cuenta_demo(yo.email);
+begin
+  perform tumbo_privado.exigir_permiso(yo, 'riesgo');
+  return jsonb_build_object(
+    'umbrales', case when v_demo then null else coalesce(tumbo_privado.ajuste('riesgo'), '{}'::jsonb) end,
+    'cotejo', jsonb_build_object(
+      'cedula', 'El puntaje de cada pago (comprador, pagador y destinatario) y los destinos de reembolso.',
+      'telefono', 'El puntaje de cada pago (comprador, pagador y destinatario), los destinos de reembolso y el Pago Móvil de cobro de los comercios (retiene sus liquidaciones).',
+      'correo', 'El puntaje de cada pago (cuenta del comprador y correo del pagador) y los destinos de reembolso (Zelle).',
+      'rif', 'El puntaje de cada pago (datos de la factura) y el RIF de cobro y del expediente de los comercios (retiene sus liquidaciones).',
+      'cuenta', 'Las cuentas de liquidación de los comercios: retiene sus liquidaciones y suma 30 puntos a los pagos de sus pedidos.'),
+    'comercios', coalesce((select jsonb_agg(jsonb_build_object('id', s.id, 'nombre', s.nombre, 'coincide', tumbo_privado.seller_lista_negra(s.id, v_demo))
+                                            order by s.id)
+                           from tumbo.sellers s
+                           where tumbo_privado.seller_lista_negra(s.id, v_demo) is not null
+                             and (not v_demo or tumbo_privado.comercio_de_prueba(s.id))), '[]'::jsonb),
+    'pagos', coalesce((select jsonb_agg(tumbo_privado.riesgo_json(yo, r) || jsonb_build_object(
+        'estado_pago', g.estado, 'total_usd', g.total_usd, 'creado', g.creado,
+        'pedidos', (select coalesce(jsonb_agg(p.id order by p.id), '[]'::jsonb) from tumbo.pedidos p where p.pago_id = g.id))
+        order by (r.retenido and r.liberado_el is null) desc, r.calculado desc)
+      from (select * from tumbo.riesgo_pagos x
+            where (x.nivel <> 'bajo' or (x.retenido and x.liberado_el is null))
+              and (not v_demo or not tumbo_privado.comprador_real(x.comprador_id))
+            order by (x.retenido and x.liberado_el is null) desc, x.calculado desc limit 200) r
+      join tumbo.pagos g on g.id = r.pago_id), '[]'::jsonb),
+    'listas', coalesce((select jsonb_agg(jsonb_build_object('id', l.id, 'tipo', l.tipo, 'valor', l.valor, 'motivo', l.motivo, 'demo', l.demo,
+                                                            'por', tumbo_privado.firma_visible(yo, l.por_id, l.por), 'creado', l.creado)
+                                         order by l.id desc)
+                        from tumbo.listas_negras l where l.activo and (not v_demo or l.demo)), '[]'::jsonb),
+    'marcados', coalesce((select jsonb_agg(jsonb_build_object('usuario', c.usuario_id, 'nombre', u.nombre, 'motivo', c.motivo, 'desde', c.desde,
+                                                              'por', tumbo_privado.firma_visible(yo, c.por_id, c.por)) order by c.desde desc)
+                          from tumbo.compradores_riesgo c join tumbo.usuarios u on u.id = c.usuario_id
+                          where c.activo and (not v_demo or tumbo_privado.cuenta_demo(u.email))), '[]'::jsonb),
+    'editable', not v_demo);
+end $$;
+
+-- f.1 c Desde la de Crecimiento: a una cuenta de prueba, la coincidencia de
+-- los datos de cobro solo con la lista de la demo (f.1). Lo demás, igual.
+create or replace function public.tm_seller_360(p_sesion text, p_seller text) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  yo tumbo.usuarios := tumbo_privado.exigir_rol(p_sesion, array['superadmin', 'ops', 'finanzas']);
+  s tumbo.sellers;
+  k tumbo.sellers_kyc;
+  m jsonb;
+  v_piso bigint := (select coalesce(max(id), 0) - 50000 from tumbo.auditoria);
+  v_reservado boolean;
+begin
+  select * into s from tumbo.sellers where id = p_seller;
+  if not found then
+    raise exception 'Comercio % no encontrado.', left(coalesce(p_seller, ''), 30);
+  end if;
+  v_reservado := tumbo_privado.cuenta_demo(yo.email) and not tumbo_privado.comercio_de_prueba(s.id);
+  if v_reservado then
+    return jsonb_build_object('seller', jsonb_build_object('id', s.id, 'nombre', s.nombre, 'ciudad', s.ciudad, 'estado', s.estado),
+                              'bloqueado', true);
+  end if;
+  select * into k from tumbo.sellers_kyc where seller_id = s.id;
+  m := tumbo_privado.metricas_nivel(s.id, 90);
+  return jsonb_build_object(
+    'seller', jsonb_build_object('id', s.id, 'nombre', s.nombre, 'ciudad', s.ciudad, 'estado', s.estado, 'desde', s.desde,
+                                 'descripcion', s.descripcion, 'kyc_verificado', s.kyc_verificado, 'real', tumbo_privado.seller_real(s.id)),
+    'bloqueado', false,
+    'catalogo', jsonb_build_object(
+      'por_estado', coalesce((select jsonb_object_agg(x.estado, x.n) from (select p.estado, count(*) as n from tumbo.productos p
+                                                                           where p.seller_id = s.id group by p.estado) x), '{}'::jsonb),
+      'productos', coalesce((select jsonb_agg(jsonb_build_object('sku', p.sku, 'nombre', p.nombre, 'estado', p.estado, 'precio_usd', p.precio_usd,
+                                                                 'disponible', p.stock_fis - p.stock_res, 'categoria', p.categoria,
+                                                                 'marcas', (select count(*) from tumbo.moderacion_marcas mm where mm.sku = p.sku and mm.estado = 'abierta'))
+                                              order by p.actualizado desc)
+                             from (select * from tumbo.productos x where x.seller_id = s.id order by x.actualizado desc limit 40) p), '[]'::jsonb)),
+    'pedidos', jsonb_build_object(
+      'por_estado', coalesce((select jsonb_object_agg(x.estado, x.n) from (select p.estado, count(*) as n from tumbo.pedidos p
+                                                                           where p.seller_id = s.id group by p.estado) x), '{}'::jsonb),
+      'recientes', coalesce((select jsonb_agg(jsonb_build_object('id', p.id, 'estado', p.estado, 'creado', p.creado, 'liquidacion', p.liquidacion,
+                                                                 'total_usd', (tumbo_privado.montos_pedido(p) ->> 'pagado')::numeric,
+                                                                 'pago_id', p.pago_id, 'real', tumbo_privado.pedido_real(p))
+                                              order by p.creado desc)
+                             from tumbo.pedidos p where p.id in (select x.id from tumbo.pedidos x where x.seller_id = s.id order by x.creado desc limit 30)), '[]'::jsonb)),
+    'metricas', m || jsonb_build_object(
+      'despacho_horas', (select round(avg(extract(epoch from e.despachado_en - e.conciliado_en) / 3600)::numeric, 1)
+                         from tumbo.envios e where e.seller_id = s.id and e.despachado_en is not null and e.conciliado_en is not null
+                           and e.conciliado_en > now() - interval '90 days'),
+      'disputas_abiertas', (select count(*) from tumbo.disputas d where d.seller_id = s.id and d.estado in ('abierta', 'respondida')),
+      'disputas_total', (select count(*) from tumbo.disputas d where d.seller_id = s.id and d.creado > now() - interval '90 days'),
+      'ventas_24h', (select count(*) from tumbo.pedidos p where p.seller_id = s.id and p.creado > now() - interval '1 day' and p.estado <> 'cancelado')),
+    'liquidaciones', coalesce((select jsonb_agg(jsonb_build_object('id', l.id, 'ciclo', l.ciclo, 'estado', l.estado, 'neto_usd', l.neto_usd,
+                                                                   'fecha', l.fecha, 'pedidos', cardinality(l.pedidos)) order by l.fecha desc, l.id desc)
+                               from (select * from tumbo.liquidaciones x where x.seller_id = s.id order by x.fecha desc, x.id desc limit 20) l), '[]'::jsonb),
+    'retencion', tumbo_privado.retencion_seller(s.id),
+    'lista_negra', tumbo_privado.seller_lista_negra(s.id, tumbo_privado.cuenta_demo(yo.email)),
+    'equipo', coalesce((select jsonb_agg(jsonb_build_object('id', u.id, 'nombre', u.nombre, 'rol', u.rol, 'activo', u.activo, 'bloqueado', u.bloqueado,
+                                                            'demo', tumbo_privado.cuenta_demo(u.email), 'ultimo_acceso', u.ultimo_acceso,
+                                                            'totp', exists (select 1 from tumbo.usuarios_2fa z where z.usuario_id = u.id and z.activo))
+                                         order by u.rol, u.nombre)
+                        from tumbo.usuarios u where u.seller_id = s.id), '[]'::jsonb),
+    'kyc', case when tumbo_privado.expediente_visible(yo, s.id) then jsonb_build_object(
+        'expediente', k.expediente, 'enviado', k.enviado, 'revisado', k.revisado, 'rif', k.rif, 'razon_social', k.razon_social,
+        'documentos', coalesce((select jsonb_agg(jsonb_build_object('orden', d.orden, 'nombre', d.nombre, 'estado', d.estado,
+                                                                    'observacion', d.observacion, 'revisado_por', d.revisado_por,
+                                                                    'actualizado', d.actualizado) order by d.orden)
+                                from tumbo.seller_documentos d where d.seller_id = s.id), '[]'::jsonb),
+        'historial', coalesce((select jsonb_agg(jsonb_build_object('fecha', a.fecha, 'actor', a.actor, 'accion', a.accion, 'detalle', a.detalle)
+                                                order by a.id desc)
+                               from (select * from tumbo.auditoria a2
+                                     where a2.id > v_piso
+                                       and a2.accion in ('Decisión KYC', 'Documento KYC cargado', 'Documento KYC revisado', 'Expediente KYC enviado')
+                                       and a2.detalle like '%' || s.id || '%'
+                                       and tumbo_privado.auditoria_visible(yo, a2.actor_id)
+                                     order by a2.id desc limit 30) a), '[]'::jsonb)) end,
+    'notas', tumbo_privado.notas_json(yo, 'seller', s.id),
+    'sanciones', coalesce((select jsonb_agg(jsonb_build_object('id', x.id, 'tipo', x.tipo, 'motivo', x.motivo, 'limite', x.limite, 'desde', x.desde,
+                                                               'hasta', x.hasta, 'vigente', tumbo_privado.sancion_vigente(x),
+                                                               'por', tumbo_privado.firma_visible(yo, x.por_id, x.por),
+                                                               'levantada_por', case when tumbo_privado.cuenta_demo(yo.email) then null else x.levantada_por end,
+                                                               'levantada_el', x.levantada_el, 'nota', x.nota) order by x.desde desc)
+                           from tumbo.sanciones x where x.seller_id = s.id), '[]'::jsonb),
+    'nivel', (select jsonb_build_object('nivel', n.nivel, 'desde', n.desde, 'calculado', n.calculado, 'evaluacion', n.metricas -> 'evaluacion')
+              from tumbo.niveles_seller n where n.seller_id = s.id),
+    'nivel_ahora', tumbo_privado.nivel_evaluar(s.id, m),
+    'comision', jsonb_build_object('vigente', tumbo_privado.comision_vigente(s.id, null),
+      'propias', coalesce((select jsonb_agg(jsonb_build_object('id', c.id, 'categoria', c.categoria, 'pct', c.pct, 'descuento_pts', c.descuento_pts,
+                                                               'desde', c.desde, 'hasta', c.hasta, 'origen', c.origen, 'estado', c.estado) order by c.id desc)
+                           from tumbo.comisiones c where c.seller_id = s.id and c.estado in ('pendiente', 'vigente')
+                             and (c.hasta is null or c.hasta > now())), '[]'::jsonb)),
+    'puede_sancionar', yo.rol = 'superadmin' and not tumbo_privado.cuenta_demo(yo.email));
+end $$;
 
 -- f.2 Desde la de Crecimiento: el destino de reembolso que escribe una
 -- cuenta de prueba solo se coteja con la lista de la demo (el aviso le
@@ -2867,9 +3007,10 @@ begin
 end $$;
 
 -- f.3 Desde la de Crecimiento (contrato riesgo_pedido): con un comprador de
--- prueba, la cédula o el teléfono compartidos, la referencia repetida y la
--- lista negra solo miran lo de la demo (las cuentas de prueba, sus pagos y
--- la lista marcada «demo»). Lo demás, igual.
+-- prueba, la cédula o el teléfono compartidos, la referencia repetida, la
+-- lista negra y los datos de cobro de sus comercios solo miran lo de la
+-- demo (las cuentas de prueba, sus pagos y la lista marcada «demo»). Lo
+-- demás, igual.
 create or replace function tumbo_privado.riesgo_pedido(p_usuario uuid, p_datos jsonb) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 declare
@@ -3013,7 +3154,7 @@ begin
   end if;
   -- 7 b. un comercio del pago cobra en una cuenta, un teléfono o un RIF de la lista negra
   foreach s in array coalesce(v_sellers, '{}') loop
-    v_marca := tumbo_privado.seller_lista_negra(s);
+    v_marca := tumbo_privado.seller_lista_negra(s, v_demo);
     if v_marca is not null then
       v_motivos := v_motivos || jsonb_build_object('regla', 'lista_negra_comercio', 'puntos', 30,
         'texto', s || ' cobra con datos de la lista negra (' || v_marca || ')');

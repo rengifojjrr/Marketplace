@@ -462,3 +462,14 @@ correo o WhatsApp (`wa.me`) y marcar enviado; los códigos y enlaces de
 seguridad solo los ve y los envía el superadministrador real. Los textos
 de verificación y recuperación dicen que el código o el enlace queda en la
 bandeja y lo envía el equipo a mano.
+
+### Revisión de la integración de la ola 2
+
+- El inicio de sesión y el registro (`destino()` de `index.html`) vuelven
+  también al centro de ayuda (`app/ayuda/<página>.html`, para cualquier
+  rol); Contacto conserva su categoría y su pedido en `volver`.
+- La casilla del registro y la de la invitación enlazan los términos y la
+  privacidad (en otra pestaña); a un comercio, la invitación nombra y
+  enlaza también el contrato de comercio que le pedirá su panel.
+- Un usuario de panel (seller, equipo) en la tienda o en el centro de ayuda
+  ve su nombre y «Volver al Seller Center / Backoffice» en la cabecera.

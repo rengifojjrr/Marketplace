@@ -477,6 +477,13 @@ En `20261024190000_tumbo_integracion_ola2.sql` y el cliente:
   también las de la ola 2 y las de la integración) y el simulacro de
   respaldo.
 
+**Revisión de la integración** (cliente): sin señal, la página dice «Lo que
+ves abajo es lo último que guardamos» solo si el gancho `sin.conexion`
+devolvió una copia; si no, que la página no está guardada en este
+dispositivo y se carga al volver la señal (`e2e-plataforma.js` lo
+comprueba). `APP.puedeAbrir(vista, sesión, roles)` evita pintar enlaces a
+vistas que la persona no abre.
+
 ## Pendiente y dependencias de terceros
 
 - Habilitar **pg_cron y pg_net** en el proyecto y pulsar «Programar tareas»;
