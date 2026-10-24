@@ -69,9 +69,10 @@ se revisa de forma adversarial, se prueba y se publica antes de la siguiente.
 | 1 | Catálogo y comercio (`catalogo`) | `20261023120000_tumbo_catalogo.sql` | 54362 / 54363 / 8102 |
 | 1 | Pagos y finanzas (`pagos`) | `20261023130000_tumbo_pagos.sql` | 54364 / 54365 / 8103 |
 | 1 | Logística y operación (`logistica`) | `20261023140000_tumbo_logistica.sql` | 54366 / 54367 / 8104 |
-| 2 | Comunicación y confianza (`comunicacion`) | `20261023150000_tumbo_comunicacion.sql` | 54368 / 54369 / 8105 |
-| 2 | Backoffice y crecimiento (`crecimiento`) | `20261023160000_tumbo_crecimiento.sql` | 54370 / 54371 / 8106 |
-| 2 | Plataforma (`plataforma`) | `20261023170000_tumbo_plataforma.sql` | 54372 / 54373 / 8107 |
+| 2 | Comunicación y confianza (`comunicacion`) | `20261024150000_tumbo_comunicacion.sql` (nació como `20261023150000`) | 54368 / 54369 / 8105 |
+| 2 | Backoffice y crecimiento (`crecimiento`) | `20261024160000_tumbo_crecimiento.sql` (nació como `20261023160000`) | 54370 / 54371 / 8106 |
+| 2 | Plataforma (`plataforma`) | `20261024170000_tumbo_plataforma.sql` (nació como `20261023170000`) | 54372 / 54373 / 8107 |
+| 2 | Integración de la ola 2 | `20261024190000_tumbo_integracion_ola2.sql` | 54350 / 54351 / 8099 (base `tumbo_integ2`) |
 
 Cada equipo levanta su propio entorno local con
 `tools/supabase-local/levantar.sh <base> <puerto-postgrest> <puerto-pasarela>`
@@ -141,7 +142,7 @@ contrato, un pago o una firma:
 
 - [x] Ola 0 — Fundaciones (ver el resumen abajo)
 - [x] Ola 1 — Cuentas · Catálogo · Pagos · Logística (ver el resumen abajo)
-- [ ] Ola 2 — Comunicación · Crecimiento · Plataforma
+- [x] Ola 2 — Comunicación · Crecimiento · Plataforma (ver el resumen abajo)
 
 ### Ola 0: lo construido
 
@@ -408,3 +409,176 @@ pg_net; crear la primera cuenta real con `invitacion_inicial` y activarle la
 reales de cobro (`pagos_beneficiario`), los patrones de rastreo y las
 tarifas de los couriers; y correr las suites contra la nube con `TM_NUBE=1`
 y `TM_SUPERADMIN=correo:contraseña:CLAVE_MANUAL`.
+
+### Ola 2: lo construido
+
+Los tres equipos trabajaron en paralelo desde la integración de la ola 1
+(ramas `ola2-comunicacion`, `ola2-crecimiento` y `ola2-plataforma`), cada
+uno con su revisión adversarial (17, 17 y 6 hallazgos, todos corregidos con
+su prueba); después se integraron en ese orden. El detalle de cada dominio
+está en [docs/dominios/](dominios/) y el resumen técnico en
+[BACKEND.md](BACKEND.md#lo-nuevo-de-la-ola-2-resumen).
+
+- **Comunicación y confianza** ([comunicacion.md](dominios/comunicacion.md)):
+  envío real de la bandeja por la función `tumbo-envios` (Resend y la API de
+  WhatsApp Cloud, con reintentos, idempotencia y sin enviar nunca los
+  mensajes de las cuentas de prueba; sin secretos no envía y lo dice) y
+  `admin/mensajes` para el envío a mano (`wa.me`, correo, copiar);
+  preferencias de aviso con el consentimiento de WhatsApp; chat por pedido
+  con los datos de contacto ocultos; preguntas públicas con su moderación;
+  reseñas verificadas y reputación calculada solo de ellas; centro de ayuda
+  con los textos legales en borrador y aceptación versionada; reclamos v2
+  (expediente de tres partes, evidencia con plazo, fallo automático a las
+  72 h, reembolso parcial, envío de vuelta, apelación por parte con los
+  fondos retenidos mientras corre su plazo); denuncias; soporte con SLA y
+  macros.
+- **Backoffice y crecimiento** ([crecimiento.md](dominios/crecimiento.md)):
+  ajustes editables con validación, historial y doble aprobación;
+  comisiones con vigencia; interruptores y aviso de incidencia aplicados en
+  el servidor; moderación con reglas, marcas y revisión por partes de lo
+  publicado; fichas 360 de comercio y de comprador; sanciones (retener
+  fondos, limitar publicaciones) y niveles tipo MercadoLíder; riesgo por
+  reglas con retención preventiva y listas negras; marketing (campañas,
+  banners, colecciones, cupones y ofertas de Tumbo y de cada comercio, con
+  presupuesto y sin tachar precios que no se cobraron); métricas de negocio
+  y analítica sin datos personales; estadísticas del comercio.
+- **Plataforma** ([plataforma.md](dominios/plataforma.md)): catálogo de
+  tareas programadas con envoltorio que registra cada corrida y programación
+  con pg_cron sin duplicar; `admin/sistema`; errores del navegador sin datos
+  personales; `tm_salud`; PWA (manifest, íconos, service worker con versión
+  y copia sin conexión por sesión); SEO y «Compartir por WhatsApp»;
+  accesibilidad con axe-core en 42 páginas; módulos por superficie con un
+  presupuesto de peso que la prueba vigila; CI en cada push; respaldo diario
+  cifrado con simulacro de restauración; interruptor de la demo
+  (`demo_activa` y `TM_CONFIG.demo`).
+
+**Fusión.** Los únicos conflictos fueron los archivos generados
+(`app/**/*.html`, `tumbo-tailwind.css`, `sw.js`, regenerados con
+`generar_paginas.py` y tailwindcss) y `tools/retirar-tumbo.sql` (se suman
+las firmas `tm_*` de los tres dominios, los propósitos `resena`, `soporte`
+y `marketing` en la limpieza de Storage y los trabajos de pg_cron de
+todos).
+
+**Orden de las migraciones.** Las de la ola 2 nacieron como
+`20261023150000`..`170000`, antes de la integración de la ola 1
+(`20261023190000`) en el orden de los archivos, aunque se escribieron sobre
+ella. Ninguna redefine una función que `190000` también define ni necesita
+nada de ella al aplicarse: aplicadas antes o después de `190000` dan el
+mismo esquema, las mismas funciones (cuerpo y permisos) y los mismos datos
+(comprobado con dos bases). Como `150000`..`170000` aún no estaban en la
+nube, se renombraron a **`20261024150000`, `20261024160000` y
+`20261024170000`**: corren después de `190000` también en local, que es el
+orden real si la ola 1 ya está desplegada, y `supabase db push` no las ve
+como «anteriores a la última». Orden final:
+`20261022170000`..`20261022170800` → `20261023100000` → `20261023105000` →
+`20261023110000`..`20261023140000` → `20261023190000` → `20261024150000` →
+`20261024160000` → `20261024170000` → `20261024190000` (integración de la
+ola 2).
+
+**Integración** (migración `20261024190000_tumbo_integracion_ola2.sql`,
+pruebas en `tools/api-integracion2.js` y `tools/e2e-integracion2.js`):
+
+- **Pagos**: contratos `completar_reembolso_total` (lo que falta de lo
+  pagado, con el asiento de un reembolso completo: IGTF y descuento de
+  Tumbo) y `crear_reembolso_extra` (por encima de lo pagado, a cargo del
+  comercio con su descuento en la liquidación o de Tumbo en
+  `devoluciones_envio`). Comunicación los usa para el reembolso total de un
+  reclamo y el reintegro del envío de vuelta y ya no escribe en
+  `tumbo.reembolsos`. El panel financiero nombra `devoluciones_envio` y
+  separa y explica lo congelado por el plazo de apelación
+  (`congelado_apelacion`, `dias_apelacion`).
+- **Logística**: `devolucion_paga_texto` y el contrato `devolucion_pagador`
+  (quién paga el envío de vuelta y su frase en las instrucciones, también la
+  redacción anterior o un texto reescrito por Operaciones) en lugar del
+  reemplazo con una expresión regular que dependía de la redacción;
+  `tienda/pedido` muestra el reembolso parcial como parcial, con su monto.
+- **Archivos**: el propósito `marketing` en `archivo_permitido` (Marketing
+  ya ofrece subir imágenes) y la limpieza de huérfanos con todos los
+  propósitos de la tabla.
+- **Cuentas**: la baja borra el consentimiento de WhatsApp y las lecturas
+  del chat y deja los casos de soporte sin texto ni adjuntos (las
+  aceptaciones legales quedan como constancia); la casilla del registro no
+  cambió, así que `usuarios_acepto_registro` sigue al día. `admin/bandeja`
+  salió del menú (remite a `admin/mensajes`; sigue para los enlaces de
+  antes).
+- **Plataforma**: el catálogo de tareas suma `envios`, `comunicacion`,
+  `niveles` y `analitica` con su dominio, descripción y frecuencia (también
+  si pg_cron ya las había adoptado); ninguna `tarea_*` queda sin catálogo y
+  todas se corren sin argumentos. `tm_reiniciar_demo` mira `demo_activa`
+  antes que nada (también sin sesión). Los módulos de la ola 2 cargan por
+  superficie y el recorte de iconos suma los nuevos.
+- **Crecimiento**: con las dos migraciones en su orden, `tumbo.denuncias`
+  queda con una sola definición (la de Comunicación, columna por columna)
+  más su índice y los disparadores de la marca.
+- **CI**: `pruebas.yml` corre `tools/verificar-todo.js`, que descubre todas
+  las `api-*.js` y `e2e-*.js` (también las de la ola 2 y las dos de la
+  integración), y el simulacro de respaldo; con la base local,
+  `verificar-todo.js` vacía entre suite y suite los topes de las cuentas de
+  prueba.
+
+**Pruebas del árbol integrado** (base nueva `tumbo_integ2`,
+`verificar-todo.js`: las 33 suites en verde): por la API,
+`verificar-rls` 140 comprobaciones, `api-catalogo` 178, `api-comunicacion`
+118, `api-crecimiento` 249, `api-cuentas` 152, `api-fundaciones` 124,
+`api-integracion` 40, `api-integracion2` 15, `api-logistica` 123,
+`api-pagos` 146 y `api-plataforma` 39; en el navegador con el backend,
+`verificar-beta` 24, `e2e-catalogo` 18, `e2e-comunicacion` 17,
+`e2e-crecimiento` 13, `e2e-cuentas` 20, `e2e-fundaciones` 15,
+`e2e-integracion` 7, `e2e-integracion2` 3, `e2e-logistica` 19, `e2e-pagos`
+15 y `e2e-plataforma` 21; en modo local, `verificar-beta` 24,
+`e2e-catalogo` 7, `e2e-comunicacion` 4, `e2e-crecimiento` 4, `e2e-cuentas`
+3, `e2e-fundaciones` 12, `e2e-integracion` 3, `e2e-integracion2` 1,
+`e2e-logistica` 4, `e2e-pagos` 6 y `e2e-plataforma` 19. El simulacro de
+respaldo (`tools/respaldo.sh simulacro tumbo_integ2`) restaura las 133
+tablas con el mismo contenido y las 267 funciones `tm_*`. Las cuatro
+migraciones nuevas se parten con `partir-migracion.js` en trozos de 35 KB
+como mucho (con `--max 30000`, ninguna sentencia pasa de 30.000 bytes) que
+reproducen el archivo byte a byte, y aplicadas trozo a trozo dan el mismo
+esquema y las mismas funciones que aplicadas enteras.
+
+**Desviaciones y decisiones de la integración**:
+
+- Las migraciones de la ola 2 se renombraron (arriba); su contenido solo
+  cambió en los comentarios que hablaban del orden.
+- Los dos contratos de Pagos y el de Logística los define la migración de
+  integración (las de Pagos y Logística ya están cerradas); viven en
+  `tumbo_privado` con el nombre de su dominio.
+- Los disparadores del checkout de Crecimiento no se llevaron a
+  `checkout_crear`: funcionan igual en cualquier orden.
+- `tm_reiniciar_demo` con la demo apagada responde «La demo está apagada…»
+  antes de mirar la sesión.
+- `admin/bandeja` se conserva fuera del menú.
+
+**Lo que depende de terceros** (además de lo de la ola 1): Resend con el
+dominio verificado (`RESEND_API_KEY`, `RESEND_DE`); WhatsApp Business de
+Meta (`WHATSAPP_TOKEN`, `WHATSAPP_NUMERO_ID` y la aprobación de las 19
+plantillas); pg_cron y pg_net; la revisión legal de los textos del centro de
+ayuda; un canal de contacto público; proyecto de pago con respaldos
+(PITR) y los secretos `SUPABASE_DB_URL` y `RESPALDO_CLAVE`; dominio propio
+(robots, sitemap y enlaces); un monitor externo contra `tm_salud`; listas
+negras compartidas y verificación de identidad o por SMS (sin proveedor).
+
+**Pendiente** (técnico):
+
+- Quitar la 2FA o desbloquear una cuenta podría encolar
+  `segundo_factor_quitado` y `cuenta_desbloqueada` (Cuentas).
+- Un solo ajuste para la URL de las funciones (hoy `funciones_url` de la
+  plataforma y `envios.funcion_url` de Comunicación).
+- La sesión con los permisos efectivos y `APP.nav` con `{permiso}`
+  (Crecimiento pide hoy `tm_perfil` para el menú); el gancho
+  `seller.secciones` en la tienda del comercio (Catálogo).
+- Las recomendaciones de rendimiento de `tm_cargar` (Catálogo) y el `h1`
+  del checkout (Pagos), de la plataforma.
+- Vistas previas por producto en WhatsApp (una función que sirva el HTML
+  con su Open Graph).
+
+Pendiente para la persona dueña del proyecto: aplicar en la nube, después
+de las de la ola 1, `20261024150000`, `20261024160000`, `20261024170000` y
+`20261024190000`, en ese orden (en trozos de sentencias completas con
+`tools/supabase-local/partir-migracion.js --max 30000`), y reiniciar la
+demo; desplegar `tumbo-envios` con sus secretos y cargar los ajustes
+`funciones_url` y `envios.funcion_url`; con pg_cron y pg_net, «Programar
+tareas» en `admin/sistema`; dar los permisos `marketing` y `riesgo` a quien
+corresponda; los secretos del respaldo en GitHub; y correr las suites contra
+la nube con `TM_NUBE=1` y `TM_SUPERADMIN`. Paso a paso en
+[PRODUCCION.md](PRODUCCION.md).

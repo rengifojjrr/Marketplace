@@ -79,11 +79,21 @@ supabase/migrations/
   20261023130000_tumbo_pagos.sql       ola 1: pagos y finanzas (pago, checkout, conciliación, reembolsos, tasa, liquidaciones, libro mayor)
   20261023140000_tumbo_logistica.sql   ola 1: logística y operación (cotización, envíos, guías, SLA, devoluciones, 360)
   20261023190000_tumbo_integracion_ola1.sql  integración de la ola 1: lo que cada dominio le pidió a otro
+  20261024150000_tumbo_comunicacion.sql  ola 2: comunicación y confianza (envíos, chat, preguntas, reseñas, legales, reclamos v2, denuncias, soporte)
+  20261024160000_tumbo_crecimiento.sql   ola 2: backoffice y crecimiento (ajustes, comisiones, moderación, riesgo, marketing, métricas)
+  20261024170000_tumbo_plataforma.sql    ola 2: plataforma (tareas programadas, observabilidad, admin/sistema, demo_activa)
+  20261024190000_tumbo_integracion_ola2.sql  integración de la ola 2: lo que cada dominio le pidió a otro
 supabase/functions/tumbo-archivos/     función (Deno) que firma subidas y descargas de Storage, publica lo confirmado y borra lo descartado
+supabase/functions/tumbo-envios/       función (Deno) que envía la bandeja de salida por Resend y la API de WhatsApp (si tiene los secretos)
 assets/js/tm-config.js                 URL y clave publicable del proyecto
+assets/js/tm-plataforma.js             errores del navegador y service worker (antes que todo lo demás)
 assets/js/tm-remoto.js                 motor remoto: llama a /rest/v1/rpc/tm_* con fetch (sin librerías)
-assets/js/tm-mod-*.js                  módulos por dominio (archivos, QR, cuentas, catálogo, pagos, logística)
-docs/dominios/*.md                     cada dominio de la ola 1 por dentro (índice abajo)
+assets/js/tm-mod-*.js                  módulos por dominio (archivos, QR, cuentas, catálogo, pagos, logística, comunicación, crecimiento, plataforma)
+sw.js · manifest.webmanifest           PWA: el service worker y el manifiesto (los genera tools/generar_paginas.py)
+docs/dominios/*.md                     cada dominio de las olas 1 y 2 por dentro (índice abajo)
+docs/PRODUCCION.md                     puesta en producción: lo que falta y depende de la persona dueña del proyecto
+.github/workflows/                     CI en cada push (pruebas.yml) y respaldo diario cifrado (respaldo.yml)
+tools/respaldo.sh                      volcado, restauración y simulacro del respaldo
 tools/retirar-tumbo.sql                quita Tumbo del proyecto sin tocar nada más
 tools/supabase-local/                  Postgres + PostgREST + Storage y función simulados, en local
 tools/verificar-rls.js                 permisos rol por rol contra la API
@@ -249,14 +259,14 @@ tools/verificar-todo.js                todas las suites, con las mismas variable
 | `tm_ajustar_producto` | precio: seller, precios · stock: seller, operador | edición en línea |
 | `tm_moderar_producto` · `tm_decidir_kyc` | superadmin (el KYC, con sesión elevada) | publicación y homologación |
 | `tm_marcar_notificaciones_leidas` | con sesión | lectura individual de avisos |
-| `tm_reiniciar_demo` | superadmin (si hay datos de personas o comercios reales, solo una cuenta real con sesión elevada) | vuelve los datos de negocio a la semilla (cuentas, ajustes, auditoría y las direcciones de las personas reales se conservan; los reembolsos y los mensajes de pedidos se van con ellos y todos los archivos se descartan); la auditoría dice qué datos reales borró |
+| `tm_reiniciar_demo` | superadmin (si hay datos de personas o comercios reales, solo una cuenta real con sesión elevada); con el ajuste `demo_activa = false`, nadie | vuelve los datos de negocio a la semilla (cuentas, ajustes, auditoría y las direcciones de las personas reales se conservan; los reembolsos y los mensajes de pedidos se van con ellos y todos los archivos se descartan); la auditoría dice qué datos reales borró |
 | `tm_ajustes_publicos()` | cualquiera | los ajustes públicos `{clave: valor}` (interruptores, aviso de incidencia, soporte, datos de cobro) |
 | `tm_ajuste_guardar(sesión, clave, valor)` | superadmin con sesión elevada (nunca una cuenta de prueba) | cambia un ajuste existente con su tipo (null solo en los vaciables); auditado con el valor anterior y el nuevo |
 | `tm_archivo_preparar(sesión, propósito, entidad, tipo, bytes, nombre)` | según el propósito | valida permisos, tipo, tamaño y cuotas, y registra la subida: `{id, bucket, ruta}` |
 | `tm_archivo_confirmar(sesión, id)` | quien preparó (por la función) | comprueba en Storage tamaño, tipo y cuota: `{estado: 'listo', id, url_publica}`, `{estado: 'mover', …}` (foto pública por pasar al bucket público) o `{estado: 'descartado', error, borrar}` |
 | `tm_archivo_acceso(sesión, id)` | según el propósito (los públicos, cualquiera) | `{bucket, ruta, …}` para firmar la descarga; un archivo ajeno responde «no encontrado» |
 | `tm_archivos_limpiar()` | solo la clave de servicio (la función) | descarta lo no confirmado a tiempo y devuelve los objetos por borrar en Storage |
-| `tm_salida_listar(sesión, estado, antes)` | superadmin, ops (las cuentas de prueba, solo los mensajes de cuentas de prueba) | bandeja de mensajes salientes, 50 por página: `{mensajes, siguiente}` |
+| `tm_salida_listar(sesión, estado, antes)` | superadmin, ops (las cuentas de prueba, solo los mensajes de cuentas de prueba) | bandeja de mensajes salientes, 50 por página: `{mensajes, siguiente}` (la vista sencilla `admin/bandeja`; la completa, con filtros y el envío automático, es `tm_mensajes` de Comunicación en `admin/mensajes`) |
 | `tm_salida_marcar(sesión, id, estado, nota)` | superadmin, ops | `manual`, `enviado` o `descartado`; al cerrar un mensaje de seguridad se borra su código o enlace; auditado |
 | `tm_reembolsos(sesión)` | comprador (los suyos), finanzas, superadmin | reembolsos creados por cancelaciones, reclamos y devoluciones |
 
@@ -270,6 +280,22 @@ Cada dominio documenta su API completa, sus reglas y sus decisiones:
 | Catálogo y comercio | [dominios/catalogo.md](dominios/catalogo.md) | `tm_buscar`, `tm_busquedas_sin_resultado`, `tm_favorito`, `tm_alerta`, `tm_ajustar_precio`, `tm_precios_masivo` / `_deshacer`, `tm_precio_minimo`, `tm_precio_historial`, `tm_stock_movimiento` / `_umbral`, `tm_kardex`, `tm_importar_productos`, `tm_moderar_lote`, `tm_kyc_guardar` / `_documento` / `_enviar` / `_revisar` / `_archivo`, `tm_tienda_guardar` |
 | Pagos y finanzas | [dominios/pagos.md](dominios/pagos.md) | `tm_tasa_vigente`, `tm_metodos_pago`, `tm_checkout_cotizar` / `_crear`, `tm_pago_ver` / `_reportar` / `_corregir` / `_tardio`, `tm_pagos_mios`, `tm_pagos_cola`, `tm_conciliacion_formatos` / `_formato_guardar` / `_importar` / `_movimientos` / `_resolver`, `tm_reembolso_destino`, `tm_credito`, `tm_reembolsos_gestion`, `tm_reembolso_procesar`, `tm_tasas` / `tm_tasa_proponer` / `_decidir`, `tm_metodo_pago_guardar`, `tm_cuentas_liquidacion` / `tm_cuenta_liquidacion_guardar` / `_verificar` / `_anular`, `tm_liquidacion_aprobar` / `_pagar` / `_fallar` / `_anular`, `tm_liquidaciones_corridas` / `_lote`, `tm_ajuste_seller`, `tm_retencion_seller`, `tm_libro_mayor`, `tm_finanzas_resumen` / `_exportar`, `tm_seller_estado_cuenta`, `tm_pedido_recibo` |
 | Logística y operación | [dominios/logistica.md](dominios/logistica.md) | `tm_envio_referencias`, `tm_envio_promesa`, `tm_envio_config` / `_guardar`, `tm_envios_cola`, `tm_pedido_envio`, `tm_envio_etiquetas`, `tm_envio_metricas`, `tm_despachar_guia` / `tm_despachar_lote`, `tm_envio_en_agencia`, `tm_incidencia_reportar` / `_registrar` / `_resolver`, `tm_cancelar_seller`, `tm_cancelacion_responder`, `tm_cancelar_ops`, `tm_entrega_confirmar`, `tm_devolucion_instrucciones` / `_guia` / `_inspeccionar`, `tm_operaciones_panel`, `tm_pedido_360`, `tm_operaciones_asignar`, `tm_nota_interna`, `tm_logistica_admin`, `tm_courier_guardar`, `tm_tarifa_guardar`, `tm_oficina_guardar`, `tm_zona_estado`, `tm_feriado_guardar`, `tm_logistica_plazos_guardar`, `tm_sla_revisar` |
+
+### Lo nuevo de la ola 2 (resumen)
+
+| Dominio | Documento | Funciones nuevas (resumen) |
+| --- | --- | --- |
+| Comunicación y confianza | [dominios/comunicacion.md](dominios/comunicacion.md) | `tm_mensajes`, `tm_envios_estado`, `tm_mensaje_reintentar`, `tm_whatsapp_plantilla_guardar`, `tm_envios_autorizar` / `_tomar` / `_resultado` / `_reporte` (solo la función `tumbo-envios`), `tm_avisos` / `_guardar`, `tm_whatsapp_consentimiento`, `tm_chat` / `_enviar` / `_pendientes`, `tm_preguntas` / `tm_pregunta_hacer` / `_responder` / `tm_preguntas_seller`, `tm_respuesta_rapida_guardar`, `tm_reputacion`, `tm_resenas` / `_pendientes` / `_seller` / `tm_resena_crear` / `_responder`, `tm_legales` / `tm_legal_aceptar` / `_publicar` / `_texto_publicado`, `tm_denunciar`, `tm_contenido_cola` / `_moderar`, `tm_denuncia_cerrar`, `tm_ticket_crear` / `tm_tickets` / `tm_ticket` / `_responder` / `_gestionar`, `tm_soporte_macro_guardar`, `tm_disputa` / `tm_disputas_resumen` / `tm_disputa_mensaje` / `_solicitar` / `_resolver` / `_apelar` / `_apelacion_resolver` / `_envio_vuelta` / `_envio_vuelta_resolver`, `tm_comunicacion_revisar` |
+| Backoffice y crecimiento | [dominios/crecimiento.md](dominios/crecimiento.md) | `tm_ajustes_admin`, `tm_config_guardar`, `tm_cambio_decidir`, `tm_comision_proponer` / `_terminar`, `tm_moderacion_panel` / `_regla` / `_marca` / `_retirar` / `_revisar_publicados`, `tm_denuncias` / `tm_denuncia_resolver`, `tm_seller_360`, `tm_comprador_360`, `tm_ficha_nota`, `tm_sancion_aplicar` / `_levantar`, `tm_niveles_recalcular` / `_publicos`, `tm_riesgo_pagos` / `_panel` / `_liberar`, `tm_lista_negra_guardar` / `_quitar`, `tm_comprador_marcar`, `tm_marketing_admin` / `tm_campana_guardar` / `tm_banner_guardar` / `tm_coleccion_guardar`, `tm_oferta_guardar`, `tm_cupon_guardar`, `tm_promocion_estado`, `tm_seller_promociones`, `tm_promos_producto` / `_skus`, `tm_marketing_portada`, `tm_coleccion`, `tm_promociones_cotizar`, `tm_analitica_registrar`, `tm_metricas_negocio`, `tm_seller_estadisticas` (y `tm_ajuste_guardar` redefinida) |
+| Plataforma | [dominios/plataforma.md](dominios/plataforma.md) | `tm_salud`, `tm_error_cliente`, `tm_sistema`, `tm_tarea_correr`, `tm_tareas_programar` |
+
+Contratos que estrenó la ola 2: `aplicar_promociones` y `riesgo_pedido`
+(Crecimiento, que dejó la ola 0), `comision_vigente`, `seller_retenido`,
+`seller_lista_negra` y `marketing_puede_subir` (Crecimiento), el envío real
+de `encolar` y `archivo_permitido_comunicacion` (Comunicación) y
+`correr_tarea` / `programar_tareas` (Plataforma: cualquier
+`tumbo_privado.tarea_*()` sin argumentos corre con su registro). Puesta en
+producción paso a paso: [PRODUCCION.md](PRODUCCION.md).
 
 ### Integración de la ola 1
 
@@ -348,6 +374,50 @@ Pruebas: `tools/api-integracion.js` (con `TM_PGDATABASE`) y
 reales, reinician la demo con `tools/reinicio-comun.js` (una cuenta real de
 pruebas con la 2FA, que se desactiva al terminar).
 
+### Integración de la ola 2
+
+Las migraciones de la ola 2 se escribieron sobre la integración de la ola 1
+y van después de ella (`20261024150000`..`170000`; nacieron como
+`20261023150000`..`170000`, antes de `190000` en el orden de los archivos,
+pero ninguna redefine algo que defina `190000` ni la necesita al aplicarse:
+aplicadas en los dos órdenes dan el mismo esquema, las mismas funciones con
+sus permisos y los mismos datos). La migración
+`20261024190000_tumbo_integracion_ola2.sql` une lo que cada equipo le pidió
+a otro (no agrega funciones `public.tm_*`; ver
+[PLAN-PRODUCCION.md](PLAN-PRODUCCION.md#ola-2-lo-construido)):
+
+- **Pagos**: los contratos `completar_reembolso_total(pedido, motivo, por)`
+  (lo que falta de lo pagado, con el asiento de un reembolso completo: IGTF
+  y descuento de Tumbo) y `crear_reembolso_extra(pedido, monto, motivo,
+  cargo, por)` (por encima de lo pagado, a cargo del comercio —su descuento
+  en la liquidación— o de Tumbo —`devoluciones_envio`—). Comunicación los usa
+  para el reembolso total de un reclamo y el reintegro del envío de vuelta;
+  ya no escribe en `tumbo.reembolsos`. `tm_finanzas_resumen` suma
+  `congelado_apelacion` y `dias_apelacion`.
+- **Logística**: `devolucion_paga_texto(paga)` y el contrato
+  `devolucion_pagador(pedido, paga)` (quién paga el envío de vuelta y su
+  frase en las instrucciones), que usa la resolución de los reclamos v2.
+- **Archivos**: `archivo_permitido` admite el propósito `marketing` de
+  Crecimiento (`marketing_puede_subir`) y `tarea_archivos` reconoce los
+  huérfanos de todos los propósitos de `tumbo.archivo_propositos`.
+- **Cuentas**: la baja borra también el consentimiento de WhatsApp y las
+  lecturas del chat y deja sin texto ni adjuntos los casos de soporte
+  (conserva las aceptaciones legales).
+- **Plataforma**: el catálogo de tareas suma `envios` y `comunicacion`
+  (Comunicación) y `niveles` y `analitica` (Crecimiento) —también si pg_cron
+  ya los había adoptado como «Sin asignar»— y `tm_reiniciar_demo` mira
+  `demo_activa` antes que nada.
+- **En el navegador**: cada módulo de la ola 2 carga solo en su superficie
+  (`MODULOS_SUPERFICIE` de `generar_paginas.py`), el recorte de iconos suma
+  los nuevos, el panel financiero nombra `devoluciones_envio` y explica lo
+  congelado por el plazo de apelación, el pedido del comprador muestra un
+  reembolso parcial como parcial (`TM.disputaResumen`, de Comunicación) y el
+  Backoffice lleva a «Mensajes salientes» (la bandeja sencilla de Cuentas
+  sigue en `admin/bandeja` y remite a la nueva).
+
+Pruebas: `tools/api-integracion2.js` (con `TM_PGDATABASE`) y
+`tools/e2e-integracion2.js`.
+
 ## Arquitectura modular y contratos
 
 Desde la ola 0 (ver [PLAN-PRODUCCION.md](PLAN-PRODUCCION.md)) cada dominio
@@ -378,18 +448,18 @@ crece en sus propias piezas, sin tocar las de los demás:
 - **Servidor.** Una migración por equipo y ola, que solo agrega, termina con
   los permisos por firma exacta de sus `tm_*` nuevas. Los equipos se hablan
   por contratos en `tumbo_privado` (no invocables desde la API), que la ola 0
-  dejó en su versión mínima y la ola 1 completó en parte:
+  dejó en su versión mínima y las olas 1 y 2 completaron:
 
   | Contrato | Hoy | Lo completa |
   | --- | --- | --- |
   | `exigir_elevada(yo)` | **ola 1 (Cuentas)**: rechaza las cuentas de prueba; con la 2FA activa exige el código confirmado hace menos de 10 minutos (`TMELV`); superadmin, finanzas y el seller principal la necesitan activa | — |
   | `tiene_permiso(yo, permiso)` | **ola 1 (Cuentas)**: superadmin, implícito del rol o asignado (catálogo en `tumbo.permisos`) | Cada dominio al consultarlo (hoy solo lo usa Cuentas: `usuarios`) |
   | `cotizar_envio(seller, destino, items)` | **ola 1 (Logística)**: couriers, zonas, tarifas de referencia, delivery propio, retiro en tienda, cobro en destino, envío gratis y promesa en días hábiles; ordenadas para que la primera sea la de omisión | — |
-  | `aplicar_promociones(usuario, items, cupón)` | las líneas con su precio vigente, sin descuento | Crecimiento |
-  | `riesgo_pedido(usuario, datos)` | `{"puntaje": 0, "motivos": []}` | Crecimiento |
-  | `crear_reembolso(pedido, monto_usd, motivo)` | **ola 1 (Pagos)**: tope de lo pagado contando todos los reembolsos del pedido, IGTF, libro mayor y aviso al comprador | — |
-  | `encolar(usuario, plantilla, datos)` | deja los mensajes en la bandeja | Comunicación (envío real; al cerrar un mensaje de seguridad, borrar su código o enlace) |
-  | `ajuste(clave)` | lee `tumbo.ajustes` | Crecimiento (edición desde el backoffice) |
+  | `aplicar_promociones(usuario, items, cupón)` | **ola 2 (Crecimiento)**: la mejor oferta vigente de cada línea y el cupón del comercio o de Tumbo, con vigencia, mínimo, usos, presupuesto y tope de códigos probados | — |
+  | `riesgo_pedido(usuario, datos)` | **ola 2 (Crecimiento)**: puntos por regla (hasta 100), nivel y motivos; listas negras | — |
+  | `crear_reembolso(pedido, monto_usd, motivo)` | **ola 1 (Pagos)**: tope de lo pagado contando todos los reembolsos del pedido, IGTF, libro mayor y aviso al comprador; desde la integración de la ola 2, con `completar_reembolso_total` y `crear_reembolso_extra` | — |
+  | `encolar(usuario, plantilla, datos)` | **ola 2 (Comunicación)**: preferencias, consentimiento de WhatsApp, enlaces absolutos y variables de la plantilla aprobada; lo envía la función `tumbo-envios` | — |
+  | `ajuste(clave)` | lee `tumbo.ajustes`; **ola 2 (Crecimiento)**: edición con validación, historial y doble aprobación (`admin/ajustes`) | — |
 
   Contratos nuevos de la ola 1 entre dominios: `actor_cuenta(u)` y
   `baja_impedida(usuario)` (Cuentas), `expediente_visible(yo, seller)`,
@@ -398,7 +468,8 @@ crece en sus propias piezas, sin tocar las de los demás:
   la ola 2), `pedido_comercio_json(rol, pedido, json)` y
   `destinatario_visible(yo, pedido)` (Logística), `ve_comprador(yo,
   comprador)` y `exigir_si_real(yo, real)` (Pagos), y
-  `pedido_lectura_json(yo, pedido, json)` (integración).
+  `pedido_lectura_json(yo, pedido, json)` (integración). Los de la ola 2,
+  en [Lo nuevo de la ola 2](#lo-nuevo-de-la-ola-2-resumen).
 - **Pruebas por dominio**: `tools/api-<dominio>.js` y `tools/e2e-<dominio>.js`
   (con el arnés `tools/e2e-comun.js`); `tools/verificar-todo.js` corre todo.
 
@@ -536,8 +607,10 @@ solo recorrido (en el correo, los datos escapados para HTML; en los demás,
 sin caracteres de control), manda el correo a la cuenta y WhatsApp/SMS solo
 si tiene teléfono, respeta `tumbo.preferencias_aviso` (salvo códigos,
 recuperación e invitaciones) y deja el mensaje `pendiente` en
-`tumbo.salida`. **Todavía no sale nada**: el envío por proveedor llega en la
-ola 2. Operaciones y el superadministrador ven la bandeja
+`tumbo.salida`. Desde la ola 2 lo envía la función `tumbo-envios` (Resend
+y WhatsApp, con sus secretos; ver
+[dominios/comunicacion.md](dominios/comunicacion.md)) y lo demás queda para
+el envío a mano en `admin/mensajes`. Operaciones y el superadministrador ven la bandeja
 (`tm_salida_listar`) y la marcan a mano (`tm_salida_marcar`: `manual`,
 `enviado` o `descartado`, con nota y auditoría); los mensajes con códigos o
 enlaces de seguridad solo los lee y los da por enviados el superadministrador
@@ -581,18 +654,27 @@ Realtime: en un proyecto compartido delataría la actividad de Tumbo.
 ## Desplegar o actualizar
 
 1. Aplicar las migraciones en orden (SQL Editor, `supabase db push` o el
-   conector MCP). La cuarta siembra las cuentas demo y los datos; la de
-   fundaciones crea los buckets de Storage; las de la ola 1 y la de
-   integración van después, en ese orden. Tras aplicar la de Pagos,
+   conector MCP; las grandes, en trozos de sentencias completas con
+   `tools/supabase-local/partir-migracion.js … --max 30000`). La cuarta
+   siembra las cuentas demo y los datos; la de fundaciones crea los buckets
+   de Storage; las de la ola 1 y su integración van después, y las de la
+   ola 2 (`20261024150000`..`170000`) y su integración (`20261024190000`)
+   al final, en ese orden. Tras aplicar la de Pagos y otra vez al terminar,
    **reiniciar la demo** (superadmin → «Reiniciar datos de la demo») para
-   sembrar pagos, libro mayor, cuentas de liquidación y envíos.
+   sembrar pagos, libro mayor, cuentas de liquidación, envíos, marketing y
+   niveles.
 2. Habilitar **pg_cron** y **pg_net** si el proyecto los ofrece: las
-   migraciones programan solas las tareas (`tumbo-pagos-*`: vencimientos,
-   tasa BCV, calendario de liquidaciones y cierre; `tumbo-sla`: plazos de
-   logística). Sin ellas todo funciona, pero la tasa se carga a mano y los
-   plazos se revisan con «Revisar SLA ahora».
-3. Desplegar la función de archivos sin verificación de JWT:
-   `supabase functions deploy tumbo-archivos --no-verify-jwt`.
+   migraciones programan solas las tareas (`tumbo-pagos-*`, `tumbo-sla`,
+   `tumbo-envios`, `tumbo-comunicacion`, `tumbo-crecimiento-*`,
+   `tumbo-almacenamiento`, `tumbo-mantenimiento`), siempre por el envoltorio
+   de la plataforma (`admin/sistema` → «Programar tareas» las vuelve a
+   revisar). Sin ellas todo funciona, pero la tasa se carga a mano y los
+   plazos se revisan con «Revisar SLA ahora» o desde `admin/sistema`.
+3. Desplegar las funciones sin verificación de JWT:
+   `supabase functions deploy tumbo-archivos --no-verify-jwt` y
+   `supabase functions deploy tumbo-envios --no-verify-jwt` (con sus
+   secretos, ver [dominios/comunicacion.md](dominios/comunicacion.md#dependencias-de-terceros)),
+   y cargar los ajustes `funciones_url` y `envios.funcion_url`.
 4. Poner la **Project URL** y la **publishable key** en
    `assets/js/tm-config.js` y publicar.
 5. Crear la primera cuenta real (`invitacion_inicial`, ver
@@ -635,10 +717,11 @@ Cada equipo levanta su propio entorno, con su base y sus puertos (tabla de
 ola 0:
 
 ```bash
-tools/supabase-local/levantar.sh tumbo_integ 54350 54351   # Postgres + base + migraciones + PostgREST + pasarela
+npm ci                                                     # playwright y axe-core (las pruebas en navegador)
+tools/supabase-local/levantar.sh tumbo_integ2 54350 54351  # Postgres + base + migraciones + PostgREST + pasarela
 python3 -m http.server 8099 --bind 127.0.0.1               # el sitio
 K=$(node tools/supabase-local/pasarela.js --clave)
-NODE_PATH=$(npm root -g) TM_PGDATABASE=tumbo_integ TM_SUPABASE_URL=http://127.0.0.1:54351 \
+TM_PGDATABASE=tumbo_integ2 TM_SUPABASE_URL=http://127.0.0.1:54351 \
   TM_SUPABASE_KEY=$K node tools/verificar-todo.js http://localhost:8099   # todo: API, navegador con backend y en local
 tools/supabase-local/levantar.sh parar 54350 54351    # detiene lo que levantó
 PGDATABASE=… tools/supabase-local/reaplicar.sh        # vuelve a aplicar las migraciones desde cero
@@ -667,7 +750,11 @@ verificación en dos pasos activa cuando su rol la exige; contra la nube,
 la misma red local y reutilizan sus cuentas: corridas una tras otra (como
 en `verificar-todo.js`, cada una reinicia la demo) no se pisan; repetir una
 sola enseguida puede chocar con los topes de escrituras o de accesos de la
-corrida anterior (10 y 15 minutos).
+corrida anterior (10 y 15 minutos); `verificar-todo.js`, con la base
+local, vacía esos topes de las cuentas de prueba entre suite y suite. La CI
+(`.github/workflows/pruebas.yml`) hace lo mismo en cada push: levanta este
+stack, corre `verificar-todo.js` y el simulacro de respaldo
+(`tools/respaldo.sh simulacro`).
 `tools/supabase-local/iniciar.sh` sigue levantando el stack completo
 original (con Auth, que Tumbo no usa).
 

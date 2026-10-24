@@ -1,6 +1,6 @@
 # Plataforma (ola 2)
 
-Migración: [`supabase/migrations/20261023170000_tumbo_plataforma.sql`](../../supabase/migrations/20261023170000_tumbo_plataforma.sql)
+Migración: [`supabase/migrations/20261024170000_tumbo_plataforma.sql`](../../supabase/migrations/20261024170000_tumbo_plataforma.sql) (nació como `20261023170000`)
 · Cliente: `assets/js/tm-plataforma.js` (observabilidad y PWA, en todas las
 páginas, antes que el resto), `assets/js/tm-mod-plataforma.js` (SEO,
 compartir y copia sin conexión), `assets/js/tm-mod-plataforma-admin.js`
@@ -457,6 +457,25 @@ null) y `demo_activa` (sí o no, `true`; ver «Interruptor de la demo»).
   cada tabla (88) y las secuencias, comprueba que la huella detecta una fila
   cambiada (un espacio de más), cuenta las 177 funciones `tm_*`, entra con
   una cuenta y comprueba que la auditoría sigue siendo inmutable.
+
+## Integración de la ola 2 (hecho)
+
+En `20261024190000_tumbo_integracion_ola2.sql` y el cliente:
+
+- `tm_reiniciar_demo` mira `demo_activa` antes que nada (también sin
+  sesión): ya no depende de que `sembrar_ext_plataforma` lo frene al final.
+- El catálogo de tareas (`catalogo_tareas_base`) suma `envios` y
+  `comunicacion` (Comunicación) y `niveles` y `analitica` (Crecimiento), con
+  su dominio, su descripción y su frecuencia; si pg_cron ya las había
+  adoptado como «Sin asignar», se completan. Ninguna `tarea_*` queda sin
+  catálogo y todas se corren sin argumentos.
+- `MODULOS_SUPERFICIE` reparte los módulos de Comunicación y Crecimiento
+  (la tienda no carga ningún `-admin` ni `-seller`); el recorte de iconos
+  suma los suyos; `sw.js`, las páginas y el sitemap se regeneraron.
+- `admin/sistema` enlaza la bandeja a `admin/mensajes` (Comunicación).
+- La CI corre `verificar-todo.js` (todas las `api-*.js` y `e2e-*.js`,
+  también las de la ola 2 y las de la integración) y el simulacro de
+  respaldo.
 
 ## Pendiente y dependencias de terceros
 

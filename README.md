@@ -87,21 +87,26 @@ campanita de cada rol.
 ```
 index.html            Acceso (única puerta de entrada)
 app/
-  tienda/             16 vistas — visitante y comprador
-  seller/             15 vistas — Seller Center
-  admin/              16 vistas — Backoffice
+  tienda/             20 vistas — visitante y comprador
+  seller/             21 vistas — Seller Center
+  admin/              28 vistas — Backoffice
   acceso/              2 vistas — contraseña nueva e invitación
+  ayuda/              11 vistas — centro de ayuda y textos legales (borrador)
+sw.js · manifest.webmanifest · sin-conexion.html · sitemap.xml · robots.txt   PWA y buscadores (generados)
 assets/js/
   tm-config.js        Conexión con Supabase (vacía = modo local)
+  tm-plataforma.js    Errores del navegador y service worker (antes que todo)
   tm-datos.js         Datos semilla del modo local
   tm-store.js         Almacén de estado: API común y motor local
   tm-remoto.js        Motor remoto: caché + funciones tm_* de Supabase (fetch, sin librerías)
   tm-ui.js            Componentes compartidos
   tm-app.js           Armazones, navegación por rol y RBAC
   tm-vistas-*.js      Las vistas de cada superficie
-  tm-mod-*.js         Módulos por dominio (archivos, QR, cuentas, catálogo, pagos, logística)
+  tm-mod-*.js         Módulos por dominio (archivos, QR, cuentas, catálogo, pagos, logística,
+                      comunicación, crecimiento, plataforma); cada página carga los de su superficie
 supabase/migrations/  Esquema, RLS, funciones de negocio y semilla
-supabase/functions/   Función de archivos (firma subidas y descargas de Storage, publica lo confirmado y borra lo descartado)
+supabase/functions/   tumbo-archivos (firma subidas y descargas de Storage) y tumbo-envios (correo y WhatsApp)
+.github/workflows/    CI en cada push (todas las suites) y respaldo diario cifrado
 prototipo/            El prototipo original de Google Stitch (referencia)
 docs/                 Investigación, especificación, arquitectura y cada dominio (docs/dominios/)
 tools/                Generadores, fuentes, verificación E2E y Supabase local
@@ -110,13 +115,20 @@ tools/                Generadores, fuentes, verificación E2E y Supabase local
 ## Desarrollo
 
 ```bash
+npm ci                # dependencias de desarrollo: tailwindcss, playwright y axe-core
 python3 serve.py      # http://localhost:8000
-npm run build         # recompila estilos y regenera las páginas
+npm run build         # recompila estilos y regenera las páginas, el service worker y el sitemap
 npm test              # 24 pruebas E2E en Chromium sobre localhost:8000, en modo local (no toca la nube)
 npm run test:nube     # las mismas contra el sitio publicado (reinicia la demo compartida)
 npm run test:api      # permisos rol por rol contra la API (requiere backend)
 npm run test:todo     # todas las suites (API, navegador con backend y en local)
 ```
+
+Cada push corre en GitHub Actions lo mismo que `verificar-todo.js` contra un
+backend local (`.github/workflows/pruebas.yml`) y comprueba que lo generado
+(páginas, service worker, recorte de iconos) está al día: después de cambiar
+un archivo del sitio, `npm run build` (o `python3 tools/generar_paginas.py`)
+y, si usaste un icono nuevo, `python3 tools/fuentes.py --recortar`.
 
 Contra la nube, las suites que necesitan una cuenta real del equipo la
 reciben en `TM_SUPERADMIN=correo:contraseña:CLAVE_MANUAL` (la clave manual
@@ -133,9 +145,12 @@ Docker; `tools/supabase-local/levantar.sh`): ver
 
 ## Documentación
 
-- [Backend: datos, seguridad y API](docs/BACKEND.md) · [plan por olas](docs/PLAN-PRODUCCION.md)
+- [Backend: datos, seguridad y API](docs/BACKEND.md) · [plan por olas](docs/PLAN-PRODUCCION.md) ·
+  [puesta en producción](docs/PRODUCCION.md)
 - Dominios de la ola 1: [cuentas](docs/dominios/cuentas.md) · [catálogo](docs/dominios/catalogo.md) ·
   [pagos](docs/dominios/pagos.md) · [logística](docs/dominios/logistica.md)
+- Dominios de la ola 2: [comunicación](docs/dominios/comunicacion.md) · [crecimiento](docs/dominios/crecimiento.md) ·
+  [plataforma](docs/dominios/plataforma.md)
 - [Arquitectura de la beta funcional](docs/BETA-FUNCIONAL.md)
 - [Estudio de Amazon y adaptaciones](docs/INVESTIGACION-AMAZON.md)
 - [Especificación funcional](docs/ESPECIFICACION-FUNCIONAL.md)

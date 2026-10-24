@@ -11,7 +11,7 @@ equipos:
 
 | Pieza | Archivo |
 | --- | --- |
-| Migración (solo agrega) | `supabase/migrations/20261023150000_tumbo_comunicacion.sql` |
+| Migración (solo agrega) | `supabase/migrations/20261024150000_tumbo_comunicacion.sql` (nació como `20261023150000`) |
 | Función de envíos (Deno, sin dependencias) | `supabase/functions/tumbo-envios/index.ts` y `nucleo.mjs` |
 | Simulación local de la función (Resend y WhatsApp) | `tools/supabase-local/pasarela.js` (`/functions/v1/tumbo-envios`, `/__sim/envios`) |
 | Núcleo del módulo (`TM.com`: caché, formatos, adjuntos, menús, aviso legal) | `assets/js/tm-mod-comunicacion.js` |
@@ -302,8 +302,8 @@ como el reclamo de la demo, siguen funcionando igual.
 - **Archivos**: propósitos nuevos `resena` (público, imágenes, del pedido
   que se puede calificar) y `soporte` (privado, imágenes y PDF, de la cuenta o
   del caso). El equipo adjunta en el chat solo de pedidos con reclamo. Como
-  `archivo_permitido` la redefine también la integración de la ola 1 (que se
-  aplica después), los permisos de este dominio los decide
+  `archivo_permitido` la redefine también la integración de la ola 1, los
+  permisos de este dominio los decide
   `archivo_permitido_comunicacion`, consultada por `tm_archivo_preparar` y
   `tm_archivo_acceso` (redefinidas desde las de fundaciones, una línea más).
 - **Reinicio de la demo** (`sembrar_ext_comunicacion`): borra lo que cuelga
@@ -362,8 +362,8 @@ otros dominios: `pedidos_invitar_resena` y `pedidos_retener_apelacion`
 `usuarios_acepto_registro` (`tumbo.usuarios`: al crear la cuenta queda
 constancia de los términos y la privacidad aceptados). **No** se redefinen `tm_resolver_disputa`,
 `archivo_permitido`, `tm_cargar` ni `tm_reiniciar_demo`: la migración de la
-integración de la ola 1 (`20261023190000`) los vuelve a definir y se aplica
-después; este dominio los extiende con el trigger `disputas_al_resolver`,
+integración de la ola 1 (`20261023190000`) los define (se aplica antes);
+este dominio los extiende con el trigger `disputas_al_resolver`,
 con `archivo_permitido_comunicacion` y con `sembrar_ext_comunicacion`.
 `tumbo_privado.notificar` se usa tal cual.
 
@@ -390,7 +390,49 @@ con `archivo_permitido_comunicacion` y con `sembrar_ext_comunicacion`.
   del comercio y el checkout reciben su bloque por `APP.trasPintar` (no hay
   gancho en esas vistas).
 
-## Pendiente e integración con otros equipos
+## Integración de la ola 2 (hecho)
+
+En `20261024190000_tumbo_integracion_ola2.sql` y el cliente (ver
+[BACKEND.md](../BACKEND.md#integración-de-la-ola-2)):
+
+- **Orden**: esta migración pasó a `20261024150000` y corre después de la
+  integración de la ola 1 (se escribió sobre ella). No redefine
+  `tm_resolver_disputa`, `archivo_permitido`, `tm_cargar` ni
+  `tm_reiniciar_demo`; aplicada antes o después de `190000` da el mismo
+  resultado.
+- **Pagos**: el reembolso total de un reclamo usa el contrato
+  `completar_reembolso_total` y el reintegro del envío de vuelta,
+  `crear_reembolso_extra` (`disputa_reembolso_total` y
+  `tm_disputa_envio_vuelta_resolver` redefinidas: ya no escriben en
+  `tumbo.reembolsos` ni asientan por su cuenta); `devoluciones_envio` tiene
+  su nombre en el panel financiero, que además explica lo congelado por el
+  plazo de apelación (`congelado_apelacion`).
+- **Logística**: quién paga el envío de vuelta lo fija su contrato
+  `devolucion_pagador` (`disputa_resolver_interno` redefinida); la frase
+  sale de `devolucion_paga_texto`, que también usa `devolucion_crear`.
+  `tienda/pedido` muestra el reembolso parcial como parcial, con su monto
+  (`TM.disputaResumen`, expuesto por `tm-mod-comunicacion-disputas.js`).
+- **Cuentas**: la casilla del registro sigue diciendo «Acepto los términos
+  y las políticas de privacidad» (el disparador `usuarios_acepto_registro`
+  sigue al día) y `anonimizar_cuenta` borra el consentimiento de WhatsApp y
+  las lecturas del chat y deja los casos de soporte sin texto ni adjuntos
+  (las aceptaciones legales quedan). `admin/bandeja` salió del menú: remite
+  a `admin/mensajes`.
+- **Fundaciones**: `tarea_archivos` reconoce los huérfanos de `resena` y
+  `soporte` (todos los propósitos de la tabla).
+- **Plataforma**: `tarea_envios` y `tarea_comunicacion` están en el catálogo
+  de tareas (`envios` cada minuto, `comunicacion` cada 15). Los módulos de
+  este dominio cargan por superficie: `-admin` en el Backoffice, `-seller`
+  en el Seller Center, `-confianza` en la tienda, `-ayuda` en la tienda y el
+  Seller Center; el núcleo, el chat, la cuenta y los reclamos, en todas.
+
+Siguen pendientes: que quitar la 2FA o desbloquear una cuenta (Cuentas)
+encole `segundo_factor_quitado` y `cuenta_desbloqueada`; el gancho
+`seller.secciones` en la tienda del comercio (Catálogo); un solo ajuste
+para la URL de las funciones (hoy `envios.funcion_url` y `funciones_url` de
+la plataforma).
+
+## Pendiente e integración con otros equipos (informe original)
 
 - **Orden de las migraciones**: esta (`150000`) va antes de la integración
   de la ola 1 (`190000`). Si al integrar se renumera, mantener que no

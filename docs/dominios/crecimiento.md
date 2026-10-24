@@ -8,7 +8,7 @@ sin tocar las de otros equipos:
 
 | Pieza | Archivo |
 | --- | --- |
-| Migración (solo agrega) | `supabase/migrations/20261023160000_tumbo_crecimiento.sql` |
+| Migración (solo agrega) | `supabase/migrations/20261024160000_tumbo_crecimiento.sql` (nació como `20261023160000`) |
 | Núcleo del módulo (`TM.crec`: caché, formatos, CSV, avisos, menús; aviso de incidencia) | `assets/js/tm-mod-crecimiento.js` |
 | Panel ejecutivo y Ajustes | `assets/js/tm-mod-crecimiento-admin.js` |
 | Marketing (calendario, campañas, banners, colecciones, cupones y ofertas de Tumbo) | `assets/js/tm-mod-crecimiento-marketing.js` |
@@ -297,9 +297,10 @@ integración, abajo).
 ## Decisiones
 
 - **Disparadores en vez de redefinir el checkout y la moderación.** La
-  migración de la integración de la ola 1 (`20261023190000`) se aplica
-  después de esta en el orden de los archivos y redefine
-  `tumbo_privado.checkout_crear`, `moderar_producto` y `archivo_permitido`.
+  migración de la integración de la ola 1 (`20261023190000`) redefine
+  `tumbo_privado.checkout_crear`, `moderar_producto` y `archivo_permitido`
+  (esta migración nació antes en el orden de los archivos; desde la
+  integración de la ola 2 va después).
   Para no pisarlas (ni ser pisado), el cambio mínimo autorizado en el
   checkout (comisión vigente e interruptores) va en un disparador antes de
   insertar cada pedido, y el registro de promociones y el riesgo en uno
@@ -337,7 +338,7 @@ integración, abajo).
   hasta que se cancela; el take rate es la comisión y la tarifa guardadas en
   cada pedido sobre el GMV.
 - **Tabla de denuncias**: Comunicación es dueña de `tumbo.denuncias`
-  (migración `20261023150000`, que se aplica antes). Si no existe (esta rama
+  (migración `20261024150000`, que se aplica antes). Si no existe (esta rama
   sola) se crea con **su mismo contrato**, columna por columna y
   restricción por restricción: `tipo ('producto' | 'seller' | 'pregunta' |
   'resena'), objeto, seller_id, motivo (código), detalle, autor_id, estado
@@ -421,7 +422,35 @@ Cada uno con su prueba en `tools/api-crecimiento.js` (o en
 - Las reglas sembradas son un punto de partida razonable: conviene que las
   revise un asesor legal (medicamentos controlados, armas, divisas).
 
-## Integración con los demás dominios (por hacer)
+## Integración de la ola 2 (hecho)
+
+En `20261024190000_tumbo_integracion_ola2.sql` y el cliente (ver
+[BACKEND.md](../BACKEND.md#integración-de-la-ola-2)):
+
+- **Orden**: esta migración pasó a `20261024160000` (corre después de la
+  integración de la ola 1 y de Comunicación, `20261024150000`). Con las dos
+  aplicadas en su orden, `tumbo.denuncias` tiene una sola definición, la de
+  Comunicación, más el índice `denuncias_objeto_crec_idx` y los
+  disparadores de la marca de este dominio.
+- **Imágenes de marketing**: `archivo_permitido` tiene la rama `marketing`
+  (`marketing_puede_subir`); `marketing_imagenes_listas()` ya da `true` y
+  Marketing ofrece la subida.
+- **Tareas**: `tarea_niveles` y `tarea_analitica` están en el catálogo de la
+  plataforma (`niveles` y `analitica`, diarias, con sus trabajos
+  `tumbo-crecimiento-*`) y corren por su envoltorio.
+- **Módulos por superficie**: el núcleo (`tm-mod-crecimiento.js`) carga en
+  todas; `-tienda` y `-analitica`, en la tienda; `-seller`, en el Seller
+  Center y el Backoffice (Marketing usa `TM.crecSeller`); los demás, en el
+  Backoffice.
+- **Suite completa**: `verificar-todo.js`, con la base local, vacía entre
+  suite y suite los topes de las cuentas de prueba.
+
+Se dejó como está (decisión de la integración): los disparadores del
+checkout (no se llevaron a `checkout_crear`: funcionan igual en cualquier
+orden). Siguen pendientes los pedidos a Cuentas (permisos efectivos en la
+sesión y `APP.nav` con `{permiso}`), Pagos y Catálogo de abajo.
+
+## Integración con los demás dominios (informe original)
 
 - **Integración de la ola 2 (archivos)**: Comunicación redefine
   `tm_archivo_preparar` (con `archivo_permitido_comunicacion`); esta

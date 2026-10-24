@@ -32,12 +32,19 @@ cada dominio en [docs/dominios/](dominios/).
 1. **Proyecto**: crear el proyecto propio (región más cercana: `us-east-1`),
    habilitar **pg_cron** y **pg_net** (Database → Extensions) y aplicar
    todas las migraciones de `supabase/migrations/` en orden (`supabase db
-   push` o el SQL Editor), incluida la de integración de cada ola. Después,
+   push` o el SQL Editor), incluida la de integración de cada ola (la de la
+   ola 2, `20261024190000`, al final). Las grandes pasan del límite de una
+   llamada del SQL Editor o de la API: se aplican en trozos de sentencias
+   completas con `node tools/supabase-local/partir-migracion.js <archivo>
+   <carpeta> --max 30000`, cada trozo en orden. Después,
    superadmin → «Reiniciar datos de la demo» (solo mientras la demo esté
    encendida: ver abajo).
 2. **Funciones**: `supabase functions deploy tumbo-archivos --no-verify-jwt`
-   (y las de Comunicación, con sus secretos: `supabase secrets set
-   RESEND_API_KEY=… WHATSAPP_TOKEN=… WHATSAPP_NUMERO_ID=…`).
+   y `supabase functions deploy tumbo-envios --no-verify-jwt` (la de
+   Comunicación, con sus secretos: `supabase secrets set RESEND_API_KEY=…
+   RESEND_DE=… WHATSAPP_TOKEN=… WHATSAPP_NUMERO_ID=…`). Las plantillas de
+   WhatsApp aprobadas por Meta se marcan en `admin/mensajes`; hasta entonces
+   esos mensajes quedan para enviarlos a mano.
 3. **Sitio**: la *Project URL* y la *publishable key* en
    `assets/js/tm-config.js`. Ese archivo no necesita regenerar: el service
    worker lo pide primero a la red, así que quien ya visitó el sitio recibe
@@ -67,7 +74,9 @@ cada dominio en [docs/dominios/](dominios/).
    `sitio_url` (la dirección pública), `pagos_beneficiario` (con
    `configurado: true`), `soporte`, `funciones_url`
    (`https://<referencia>.supabase.co/functions/v1`, para que la limpieza
-   programada de archivos borre en Storage), `tasa_bcv` (confirmar la fuente),
+   programada de archivos borre en Storage), `envios` (su `funcion_url`:
+   `https://<referencia>.supabase.co/functions/v1/tumbo-envios`, para que la
+   tarea `envios` llame a la función), `tasa_bcv` (confirmar la fuente),
    `impuestos`, `liquidaciones` y `logistica`. Antes de que exista el editor
    del Backoffice, por SQL:
 
