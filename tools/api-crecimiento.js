@@ -1070,8 +1070,17 @@ const idDe = (email) => psql(`select id from tumbo.usuarios where email = ${lit(
       /* su ficha 360 y lo de su cuenta de cobro */
       const s360d = await rpc('tm_seller_360', { p_sesion: s.superadmin, p_seller: 'SEL-009' });
       ok(s360d.ok && s360d.dato.bloqueado === true, 'la ficha 360 de un comercio real le llega reservada', s360d.texto.slice(0, 120));
+      /* las marcas de moderación abiertas sobre su catálogo */
+      psql(`insert into tumbo.moderacion_marcas (sku, seller_id, tipo, detalle)
+            values ('SKU-HOG-0234', 'SEL-009', 'precio_anomalo', 'Prueba de crecimiento: marca de un comercio real')`);
+      const pmD = await rpc('tm_moderacion_panel', { p_sesion: s.superadmin });
+      const pmR = await rpc('tm_moderacion_panel', { p_sesion: s.a });
+      ok(pmD.ok && pmR.ok && !pmD.dato.marcas.some((m) => m.seller_id === 'SEL-009') && !pmD.texto.includes('marca de un comercio real') &&
+         pmR.dato.marcas.some((m) => m.sku === 'SKU-HOG-0234' && m.tipo === 'precio_anomalo'),
+        'ni las marcas de moderación de un comercio real (la cuenta real sí)', JSON.stringify((pmD.dato && pmD.dato.marcas || []).map((m) => m.seller_id)));
       /* fin: SEL-009 vuelve a ser un comercio de prueba */
-      psql(`delete from tumbo.comisiones where seller_id = 'SEL-009' and origen = 'manual';
+      psql(`delete from tumbo.moderacion_marcas where detalle = 'Prueba de crecimiento: marca de un comercio real';
+            delete from tumbo.comisiones where seller_id = 'SEL-009' and origen = 'manual';
             delete from tumbo.eventos_analitica where visitante like 'pruebasel9%';
             update tumbo.usuarios set seller_id = null, rol = 'comprador', activo = false where email = ${lit(SEL9[0])};`);
       ok(psql(`select tumbo_privado.comercio_de_prueba('SEL-009')`) === 't', 'SEL-009 vuelve a ser un comercio de prueba');
@@ -1089,6 +1098,7 @@ const idDe = (email) => psql(`select id from tumbo.usuarios where email = ${lit(
             delete from tumbo.listas_negras where not demo;
             delete from tumbo.compradores_riesgo where usuario_id in (select id from tumbo.usuarios where email like 'crec-%@tumbo-local.ve');
             delete from tumbo.denuncias where detalle like 'Prueba de crecimiento%';
+            delete from tumbo.moderacion_marcas where detalle = 'Prueba de crecimiento: marca de un comercio real';
             delete from tumbo.moderacion_reglas where patron = 'zz prueba crecimiento';
             delete from tumbo.permisos_usuario where usuario_id in (select id from tumbo.usuarios where email like 'crec-%@tumbo-local.ve');
             delete from tumbo.sesiones where usuario_id in (select id from tumbo.usuarios where email like 'crec-%@tumbo-local.ve');

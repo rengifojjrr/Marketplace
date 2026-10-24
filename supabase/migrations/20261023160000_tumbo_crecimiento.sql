@@ -1282,7 +1282,10 @@ begin
         'seller_id', p.seller_id, 'seller', s.nombre,
         'bloqueado', v_demo and tumbo_privado.seller_real(p.seller_id)) order by m.tipo = 'prohibido' desc, m.id)
       from tumbo.moderacion_marcas m join tumbo.productos p on p.sku = m.sku left join tumbo.sellers s on s.id = p.seller_id
-      where m.estado = 'abierta' and p.estado in ('en_revision', 'publicado', 'pausado')), '[]'::jsonb),
+      where m.estado = 'abierta' and p.estado in ('en_revision', 'publicado', 'pausado')
+        -- (una cuenta de prueba no ve las marcas de un comercio real: nombran
+        -- lo que tiene en revisión y lo que la moderación anota de él)
+        and (not v_demo or not tumbo_privado.seller_real(p.seller_id))), '[]'::jsonb),
     'denuncias_abiertas', (select count(*) from tumbo.denuncias d
                            where d.estado = 'abierta' and d.tipo in ('producto', 'seller') and tumbo_privado.denuncia_visible(yo, d)),
     'publicados', (select count(*) from tumbo.productos where estado = 'publicado'),

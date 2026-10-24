@@ -330,7 +330,8 @@ integración, abajo).
   control (riesgo, moderación, conciliación, reembolsos, cuotas, analítica,
   tasa: `ajuste_visible`) ni los umbrales de riesgo; la analítica de un
   comercio real (y no filtran las métricas por uno); las denuncias que hizo
-  una persona real o que son sobre un comercio real (`denuncia_de_prueba`).
+  una persona real o que son sobre un comercio real (`denuncia_de_prueba`);
+  las marcas de moderación abiertas sobre el catálogo de un comercio real.
   Tampoco lanzan la revisión de todo lo publicado.
 - **Métricas**: un pedido cuenta como venta desde que su pago se verificó y
   hasta que se cancela; el take rate es la comisión y la tarifa guardadas en
@@ -459,6 +460,18 @@ Cada uno con su prueba en `tools/api-crecimiento.js` (o en
   precio de referencia) y un índice: si Catálogo vacía la tabla con
   `truncate`, conviene limpiar también `productos_nombres` y
   `precio_referencia` (el reinicio de la demo ya lo hace).
+- **Suite completa (Plataforma)**: las cuentas demo comparten el tope de 150
+  escrituras por cuenta y red cada 10 minutos, y la pasarela local da la
+  misma red a todo. Si la parte remota de `verificar-todo.js` cae entera en
+  una ventana, `propietario@sel-014.demo` o `comprador@demo.ve` llegan al
+  tope y `e2e-pagos.js` (remoto) falla por tiempo (visto una vez; sola pasa
+  15 de 15). Conviene que `verificar-todo.js`, con `TM_PGDATABASE`, vacíe
+  `tumbo.cuotas_red` de las cuentas demo entre una suite y otra. Además, la
+  suite completa se corre sobre una base recién levantada: una segunda
+  corrida sobre la misma base falla en `api-catalogo.js` («la cuenta de
+  prueba de finanzas no lee los asientos de las cuentas reales»), porque
+  encuentra el lote de precios que `e2e-catalogo.js` hizo con la cuenta demo
+  en la corrida anterior (es de Catálogo; no depende de este dominio).
 - **Cuentas**: el bloqueo de un comprador se hace en Usuarios; la ficha 360
   enlaza allí. El permiso `riesgo` es implícito de Finanzas y asignable a
   Operaciones; `marketing`, asignable a Operaciones.
