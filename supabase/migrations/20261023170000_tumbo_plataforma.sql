@@ -56,7 +56,8 @@ create table tumbo.tareas_ejecuciones (
   resultado jsonb,
   error     text,
   origen    text not null check (origen in ('programada', 'manual', 'prueba')),
-  por       text
+  por       text,
+  por_id    uuid           -- la cuenta que la corrió a mano (null: pg_cron o una prueba)
 );
 create index tareas_ejecuciones_tarea_idx on tumbo.tareas_ejecuciones (tarea, inicio desc);
 create index tareas_ejecuciones_inicio_idx on tumbo.tareas_ejecuciones (inicio);
@@ -111,17 +112,24 @@ revoke all on tumbo.topes_plataforma from public, anon, authenticated;
 -- La dirección de las funciones del proyecto: con pg_net, tumbo-almacenamiento
 -- le pide ahí la limpieza a tumbo-archivos. Pendiente hasta que la persona
 -- dueña del proyecto la cargue (no se inventa).
+-- El interruptor de la demo en el servidor: con false (al lanzar, ver
+-- docs/PRODUCCION.md) el reinicio de la demo se rechaza para todos, también
+-- para una cuenta real con sesión elevada (borraría los datos reales). En el
+-- sitio, su par es TM_CONFIG.demo = false.
 insert into tumbo.ajustes (clave, valor, tipo, vaciable, publico, descripcion) values
   ('funciones_url', 'null', 'string', true, false,
-   'URL de las funciones del proyecto (https://<referencia>.supabase.co/functions/v1). Con pg_net, la tarea tumbo-almacenamiento llama ahí a la limpieza de archivos. null: sin configurar.')
+   'URL de las funciones del proyecto (https://<referencia>.supabase.co/functions/v1). Con pg_net, la tarea tumbo-almacenamiento llama ahí a la limpieza de archivos. null: sin configurar.'),
+  ('demo_activa', 'true', 'boolean', false, false,
+   'La demo está encendida (cuentas de prueba y «Reiniciar datos de la demo»). false al lanzar: el reinicio de la demo se rechaza para todos, porque borraría los pedidos y productos reales.')
 on conflict (clave) do nothing;
 
 -- ---------------------------------------------------------------------------
 -- Ayudantes
 -- ---------------------------------------------------------------------------
 -- ¿Existe tumbo_privado.<funcion> y se puede llamar sin argumentos (todos
--- con valor por omisión)?
-create function tumbo_privado.tarea_invocable(p_funcion text) returns boolean
+-- con valor por omisión)? (Su nombre no empieza por «tarea_»: no es una
+-- tarea, y admin/sistema avisa de cada tarea_* sin catálogo.)
+create function tumbo_privado.es_tarea_invocable(p_funcion text) returns boolean
 language sql stable security definer set search_path = '' as $$
   select coalesce(p_funcion ~ '^tarea_[a-z0-9_]{1,50}$', false) and exists (
     select 1 from pg_catalog.pg_proc p
@@ -187,8 +195,11 @@ end $$;
 -- queda el error (con el texto saneado). Dos corridas de la misma tarea no
 -- se pisan: si la anterior sigue en curso, esta se registra como omitida.
 -- Una tarea programada que falla avisa a la superadministración (una vez
--- cada 6 horas por tarea).
-create function tumbo_privado.correr_tarea(p_tarea text, p_origen text default 'programada', p_por text default null) returns jsonb
+-- cada 6 horas por tarea). p_por y p_por_id: el nombre y la cuenta de quien
+-- la corre a mano (admin/sistema no le muestra a una cuenta de prueba el
+-- nombre de una cuenta real).
+create function tumbo_privado.correr_tarea(p_tarea text, p_origen text default 'programada', p_por text default null,
+                                           p_por_id uuid default null) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   t tumbo.tareas_programadas;
@@ -208,7 +219,7 @@ begin
   if not found then
     raise exception 'La tarea «%» no está en el catálogo de tareas.', left(coalesce(p_tarea, ''), 60);
   end if;
-  if not tumbo_privado.tarea_invocable(t.funcion) then
+  if not tumbo_privado.es_tarea_invocable(t.funcion) then
     v_ok := false;
     v_error := 'La función tumbo_privado.' || t.funcion || '() no existe en esta base.';
   elsif not pg_try_advisory_xact_lock(hashtextextended('tumbo:correr_tarea:' || t.tarea, 0)) then
@@ -236,8 +247,8 @@ begin
   if v_res is not null and octet_length(v_res::text) > 8000 then
     v_res := jsonb_build_object('recortado', left(v_res::text, 2000));
   end if;
-  insert into tumbo.tareas_ejecuciones (tarea, inicio, fin, ok, resultado, error, origen, por)
-  values (t.tarea, v_inicio, clock_timestamp(), v_ok, v_res, v_error, p_origen, left(p_por, 120))
+  insert into tumbo.tareas_ejecuciones (tarea, inicio, fin, ok, resultado, error, origen, por, por_id)
+  values (t.tarea, v_inicio, clock_timestamp(), v_ok, v_res, v_error, p_origen, left(p_por, 120), p_por_id)
   returning id into v_id;
   if not v_ok and p_origen = 'programada'
      and not exists (select 1 from tumbo.tareas_ejecuciones e
@@ -352,11 +363,15 @@ do $$ begin perform tumbo_privado.catalogo_tareas_base(); end $$;
 -- Solo si existe pg_cron (se mira el esquema cron: así las pruebas lo
 -- simulan dentro de una transacción que deshacen). Para cada tarea del
 -- catálogo con trabajo y horario:
---   · si ya hay un trabajo con ese nombre, o uno cuya orden llama a su
---     función (lo programó su dominio), se reutiliza con su nombre y su
---     horario y solo cambia la orden por el envoltorio;
+--   · si ya hay un trabajo con su nombre, o un «tumbo-…» cuya orden llama a
+--     su función (lo programó su dominio), se reutiliza con su nombre y su
+--     horario y solo cambia la orden por el envoltorio (si el nombre no es
+--     el del catálogo, el catálogo toma el del trabajo);
 --   · si no, se programa con el nombre y el horario del catálogo.
--- Los demás trabajos que llaman a la misma función se quitan (sin duplicar).
+-- Los demás trabajos de Tumbo que llaman a la misma función (otro «tumbo-…»
+-- o uno sin nombre, programado a mano) se quitan: nunca se duplica. Un
+-- trabajo sin nombre nunca es el que queda (no se vería en admin/sistema);
+-- los de otra aplicación (otro nombre) no se tocan.
 -- Antes adopta los trabajos «tumbo-*» que llaman a una tarea_* sin catálogo.
 create function tumbo_privado.programar_tareas() returns jsonb
 language plpgsql security definer set search_path = '' as $$
@@ -368,7 +383,6 @@ declare
   v_alterar boolean := to_regprocedure('cron.alter_job(bigint,text,text,text,text,boolean)') is not null;
   v_hechas jsonb := '[]'::jsonb;
   v_primero bigint;
-  v_horario text;
 begin
   if to_regclass('cron.job') is null or to_regprocedure('cron.schedule(text,text,text)') is null then
     return jsonb_build_object('pg_cron', false, 'tareas', '[]'::jsonb,
@@ -391,36 +405,44 @@ begin
   end loop;
 
   for t in select * from tumbo.tareas_programadas where trabajo is not null and horario is not null order by tarea loop
-    if not tumbo_privado.tarea_invocable(t.funcion) then
+    if not tumbo_privado.es_tarea_invocable(t.funcion) then
       v_hechas := v_hechas || jsonb_build_object('tarea', t.tarea, 'accion', 'omitida', 'motivo', 'la función no existe en esta base');
       continue;
     end if;
     v_cmd := format('select tumbo_privado.correr_tarea(%L)', t.tarea);
     v_patron := 'tumbo_privado\.' || t.funcion || '\s*\(';
     v_primero := null;
-    v_horario := t.horario;
+    -- primero el del nombre del catálogo, después los «tumbo-…» (los sin
+    -- nombre al final: «jobname = $1» daría null y en orden descendente los
+    -- null van primero)
     for j in execute $q$select jobid, jobname, schedule, command from cron.job
                         where jobname = $1 or command ~ $2 or command = $3
-                        order by (jobname = $1) desc, jobid$q$ using t.trabajo, v_patron, v_cmd loop
-      if v_primero is null then
+                        order by (jobname is not distinct from $1) desc,
+                                 (coalesce(jobname, '') like 'tumbo-%') desc, jobid$q$
+             using t.trabajo, v_patron, v_cmd loop
+      if v_primero is null and j.jobname like 'tumbo-%' then
         v_primero := j.jobid;
-        v_horario := j.schedule;
         if j.command is distinct from v_cmd then
           if v_alterar then
             execute 'select cron.alter_job(job_id := $1, command := $2)' using j.jobid, v_cmd;
           else
             execute 'select cron.unschedule($1)' using j.jobid;
-            execute 'select cron.schedule($1, $2, $3)' using coalesce(j.jobname, t.trabajo), j.schedule, v_cmd;
+            execute 'select cron.schedule($1, $2, $3)' using j.jobname, j.schedule, v_cmd;
           end if;
-          v_hechas := v_hechas || jsonb_build_object('tarea', t.tarea, 'trabajo', coalesce(j.jobname, t.trabajo),
-                                                     'horario', j.schedule, 'accion', 'envuelta');
+          v_hechas := v_hechas || jsonb_build_object('tarea', t.tarea, 'trabajo', j.jobname, 'horario', j.schedule, 'accion', 'envuelta');
         else
           v_hechas := v_hechas || jsonb_build_object('tarea', t.tarea, 'trabajo', j.jobname, 'horario', j.schedule, 'accion', 'al día');
         end if;
+        if j.jobname <> t.trabajo then
+          -- admin/sistema busca el trabajo por el nombre del catálogo
+          update tumbo.tareas_programadas set trabajo = j.jobname
+          where tarea = t.tarea and not exists (select 1 from tumbo.tareas_programadas x where x.trabajo = j.jobname);
+        end if;
       elsif j.jobname is null or j.jobname like 'tumbo-%' then
-        -- otro trabajo de Tumbo que corre lo mismo: sobra
+        -- otro trabajo de Tumbo (o uno sin nombre) que corre lo mismo: sobra
         execute 'select cron.unschedule($1)' using j.jobid;
-        v_hechas := v_hechas || jsonb_build_object('tarea', t.tarea, 'trabajo', j.jobname, 'accion', 'duplicada quitada');
+        v_hechas := v_hechas || jsonb_build_object('tarea', t.tarea, 'trabajo', j.jobname, 'horario', j.schedule,
+                                                   'accion', case when j.jobname is null then 'sin nombre quitada' else 'duplicada quitada' end);
       end if;
     end loop;
     if v_primero is null then
@@ -508,12 +530,18 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
--- El estado del sistema para admin/sistema (superadministración; las
--- cuentas de prueba también lo leen: no hay datos de personas).
+-- El estado del sistema para admin/sistema (superadministración). Las
+-- cuentas de prueba (contraseña pública) también lo leen, pero solo el
+-- estado, los horarios y los conteos (detalle = false): ni el resultado ni
+-- el error de las corridas (pueden nombrar comercios reales o el libro), ni
+-- el mensaje de pg_cron, ni los errores de los navegadores de las personas,
+-- ni el nombre de quien del equipo real corrió una tarea («Equipo de
+-- Tumbo»), como la auditoría (auditoria_visible) y los pedidos.
 create function public.tm_sistema(p_sesion text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   yo tumbo.usuarios := tumbo_privado.exigir_rol(p_sesion, array['superadmin']);
+  v_detalle boolean := not coalesce(tumbo_privado.cuenta_demo(yo.email), false);
   v_cron boolean := to_regclass('cron.job') is not null;
   v_trabajos jsonb := '{}'::jsonb;
   v_cron_error text;
@@ -535,8 +563,9 @@ begin
                  'horario', j.schedule, 'orden', left(j.command, 200), 'activa', j.active,
                  'envuelta', j.command ~ '^select tumbo_privado\.correr_tarea\(',
                  'ultima', case when d.jobid is not null then jsonb_build_object('estado', d.status, 'inicio', d.start_time,
-                                 'fin', d.end_time, 'mensaje', left(d.return_message, 300)) end)), '{}'::jsonb)
-        from j left join d on d.jobid = j.jobid$q$ into v_trabajos;
+                                 'fin', d.end_time,
+                                 'mensaje', case when $1 then tumbo_privado.texto_error(d.return_message, 300) end) end)), '{}'::jsonb)
+        from j left join d on d.jobid = j.jobid$q$ into v_trabajos using v_detalle;
     exception when others then
       v_cron_error := tumbo_privado.texto_error(sqlerrm, 200);
       v_trabajos := '{}'::jsonb;
@@ -551,16 +580,21 @@ begin
       'horario', coalesce(v_trabajos -> t.trabajo ->> 'horario', t.horario),
       'programada', t.trabajo is not null and v_trabajos ? t.trabajo,
       'cron', v_trabajos -> t.trabajo,
-      'existe', tumbo_privado.tarea_invocable(t.funcion),
-      'ultima', (select jsonb_build_object('inicio', e.inicio, 'fin', e.fin, 'ok', e.ok, 'origen', e.origen, 'por', e.por,
-                                           'resultado', e.resultado, 'error', e.error,
+      'existe', tumbo_privado.es_tarea_invocable(t.funcion),
+      'ultima', (select jsonb_build_object('inicio', e.inicio, 'fin', e.fin, 'ok', e.ok, 'origen', e.origen,
+                                           'por', case when v_detalle or e.por is null
+                                                            or exists (select 1 from tumbo.usuarios x
+                                                                       where x.id = e.por_id and tumbo_privado.cuenta_demo(x.email))
+                                                       then e.por else 'Equipo de Tumbo' end,
+                                           'resultado', case when v_detalle then e.resultado end,
+                                           'error', case when v_detalle then e.error end,
                                            'ms', round(extract(epoch from e.fin - e.inicio) * 1000))
                  from tumbo.tareas_ejecuciones e where e.tarea = t.tarea order by e.inicio desc, e.id desc limit 1),
       'ultima_buena', (select max(e.fin) from tumbo.tareas_ejecuciones e where e.tarea = t.tarea and e.ok),
       'corridas_24h', (select count(*) from tumbo.tareas_ejecuciones e where e.tarea = t.tarea and e.inicio > now() - interval '24 hours'),
       'errores_24h', (select count(*) from tumbo.tareas_ejecuciones e where e.tarea = t.tarea and not e.ok and e.inicio > now() - interval '24 hours'),
       'estado', case
-        when not tumbo_privado.tarea_invocable(t.funcion) then 'falta_funcion'
+        when not tumbo_privado.es_tarea_invocable(t.funcion) then 'falta_funcion'
         when (select not e.ok from tumbo.tareas_ejecuciones e where e.tarea = t.tarea order by e.inicio desc, e.id desc limit 1) then 'error'
         when t.trabajo is null then 'externa'
         when not v_cron then 'sin_pg_cron'
@@ -574,10 +608,12 @@ begin
     from tumbo.tareas_programadas t
   ) x;
 
-  -- funciones tarea_* que nadie catalogó (de un dominio nuevo)
+  -- funciones tarea_* que nadie catalogó (de un dominio nuevo): las que se
+  -- pueden correr sin argumentos, como las corre el envoltorio
   select coalesce(jsonb_agg(p.proname order by p.proname), '[]'::jsonb) into v_sin_catalogo
   from (select distinct p.proname::text as proname from pg_catalog.pg_proc p
         where p.pronamespace = 'tumbo_privado'::regnamespace and p.proname like 'tarea\_%'
+          and p.prokind = 'f' and p.pronargs = p.pronargdefaults
           and p.proname not in (select funcion from tumbo.tareas_programadas)) p;
   -- trabajos «tumbo-*» que no son de ninguna tarea del catálogo
   select coalesce(jsonb_agg(jsonb_build_object('trabajo', k, 'horario', v_trabajos -> k ->> 'horario', 'orden', v_trabajos -> k ->> 'orden')
@@ -604,6 +640,7 @@ begin
 
   return jsonb_build_object(
     'hora', now(),
+    'detalle', v_detalle,
     'extensiones', jsonb_build_object('pg_cron', exists (select 1 from pg_extension where extname = 'pg_cron') or v_cron,
                                       'pg_net', exists (select 1 from pg_extension where extname = 'pg_net'),
                                       'cron_error', v_cron_error,
@@ -621,9 +658,15 @@ begin
     'errores', jsonb_build_object(
       'distintos_24h', (select count(*) from tumbo.errores_cliente where ultimo > now() - interval '24 hours'),
       'veces', (select coalesce(sum(veces), 0) from tumbo.errores_cliente where ultimo > now() - interval '24 hours'),
-      'recientes', (select coalesce(jsonb_agg(to_jsonb(e) - 'huella' order by e.ultimo desc), '[]'::jsonb)
-                    from (select * from tumbo.errores_cliente order by ultimo desc limit 40) e),
-      'tareas', (select coalesce(jsonb_agg(jsonb_build_object('tarea', e.tarea, 'inicio', e.inicio, 'error', e.error, 'origen', e.origen)
+      'por_tipo', (select coalesce(jsonb_object_agg(x.tipo, x.veces), '{}'::jsonb)
+                   from (select tipo, sum(veces) as veces from tumbo.errores_cliente
+                         where ultimo > now() - interval '24 hours' group by tipo) x),
+      'recientes', case when v_detalle then
+                     (select coalesce(jsonb_agg(to_jsonb(e) - 'huella' order by e.ultimo desc), '[]'::jsonb)
+                      from (select * from tumbo.errores_cliente order by ultimo desc limit 40) e)
+                   else '[]'::jsonb end,
+      'tareas', (select coalesce(jsonb_agg(jsonb_build_object('tarea', e.tarea, 'inicio', e.inicio, 'origen', e.origen,
+                                                              'error', case when v_detalle then e.error end)
                                            order by e.inicio desc), '[]'::jsonb)
                  from (select * from tumbo.tareas_ejecuciones where not ok order by inicio desc limit 10) e)),
     'almacenamiento', jsonb_build_object(
@@ -664,7 +707,7 @@ begin
              where e.tarea = t.tarea and e.origen = 'manual' and e.inicio > now() - interval '1 minute') then
     raise exception 'Esa tarea se corrió hace menos de un minuto: espera un momento.';
   end if;
-  r := tumbo_privado.correr_tarea(t.tarea, 'manual', yo.nombre);
+  r := tumbo_privado.correr_tarea(t.tarea, 'manual', yo.nombre, yo.id);
   perform tumbo_privado.auditar(yo, 'Tarea ejecutada a mano',
     t.tarea || ' · ' || case when (r ->> 'ok')::boolean then 'terminó bien' else 'falló: ' || coalesce(r ->> 'error', '') end);
   return r;
@@ -691,9 +734,17 @@ end $$;
 -- El historial operativo (corridas y errores del navegador) no es de la
 -- demo: se conserva, como la auditoría. El reinicio repone el catálogo de
 -- tareas que falte y vacía los contadores de topes y las corridas de prueba.
+-- Con la demo apagada (ajuste demo_activa = false) el reinicio
+-- (tm_reiniciar_demo → sembrar_extensiones(false)) se rechaza: el error
+-- deshace la transacción entera, también lo que el reinicio ya vació.
 create function tumbo_privado.sembrar_ext_plataforma(p_auditoria boolean) returns void
 language plpgsql security definer set search_path = '' as $$
 begin
+  if not coalesce(p_auditoria, false)
+     and coalesce(tumbo_privado.ajuste('demo_activa'), 'true'::jsonb) = 'false'::jsonb then
+    raise exception 'La demo está apagada (ajuste demo_activa): el reinicio borraría los pedidos, productos y expedientes reales y ya no está disponible.'
+      using errcode = '42501';
+  end if;
   delete from tumbo.topes_plataforma where ventana is not null;
   delete from tumbo.tareas_ejecuciones where origen = 'prueba';
   perform tumbo_privado.catalogo_tareas_base();

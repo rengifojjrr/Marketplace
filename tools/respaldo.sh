@@ -9,19 +9,23 @@
 #
 # volcar     pg_dump (formato custom) de tumbo y tumbo_privado con sus datos y
 #            privilegios, el SQL de las funciones public.tm_* con sus permisos,
-#            los buckets de Storage de Tumbo y un manifiesto (fecha, versión y
-#            filas por tabla), en un .tar. No guarda los archivos de Storage
-#            (solo sus filas): ver docs/PRODUCCION.md.
+#            los buckets de Storage de Tumbo y un manifiesto (fecha, versión y,
+#            por tabla, sus filas y la huella de su contenido, tomadas de la
+#            misma foto de la base que el volcado), en un .tar. No guarda los
+#            archivos de Storage (solo sus filas): ver docs/PRODUCCION.md.
 # restaurar  en una base SIN Tumbo (un proyecto nuevo, o uno donde se corrió
 #            tools/retirar-tumbo.sql): crea las extensiones que usa, restaura
 #            los esquemas (los disparadores de la auditoría se crean después
-#            de los datos), las funciones tm_* y los buckets, comprueba las
-#            filas contra el manifiesto y, si hay pg_cron, vuelve a programar
-#            las tareas. Se detiene si la base ya tiene Tumbo.
+#            de los datos), las funciones tm_* y los buckets, comprueba contra
+#            el manifiesto que cada tabla tiene las mismas filas con el mismo
+#            contenido y que ninguna secuencia quedó por detrás de su columna
+#            y, si hay pg_cron, vuelve a programar las tareas. Se detiene si la
+#            base ya tiene Tumbo.
 # simulacro  el ensayo completo en local: vuelca la base de origen, crea una
 #            base nueva como la de un proyecto Supabase (base.sql), restaura,
-#            comprueba que coincide fila por fila, que se puede entrar y que
-#            la auditoría sigue siendo inmutable, y borra la base del ensayo.
+#            comprueba el contenido tabla por tabla (y que la comprobación
+#            detecta una fila cambiada), que se puede entrar y que la
+#            auditoría sigue siendo inmutable, y borra la base del ensayo.
 #
 # Las URL son de libpq (postgresql://usuario:clave@host:puerto/base). En
 # Supabase, la de «Connection string → Session pooler» o la directa, con el
@@ -55,13 +59,66 @@ uso() {
 }
 falla() { echo "respaldo: $*" >&2; exit 1; }
 
-# Filas por tabla de tumbo y tumbo_privado (conteo exacto), una por línea.
+# El SQL (para psql) que imprime una línea por tabla de tumbo y tumbo_privado:
+# «esquema.tabla=filas:huella». La huella suma el md5 del texto completo de
+# cada fila: cambia si cambia cualquier valor de cualquier fila (una columna
+# vacía, un texto recodificado, un valor por omisión en lugar del dato) y no
+# depende del orden ni de la intercalación de la base. La sesión fija la
+# zona, el formato de fechas e intervalos, los decimales y bytea, para que
+# una fila se escriba igual en las dos bases.
+huellas_sql() {
+  cat <<'SQL'
+set timezone = 'UTC';
+set datestyle = 'ISO, YMD';
+set intervalstyle = 'postgres';
+set extra_float_digits = 1;
+set bytea_output = 'hex';
+select format('select %L || ''='' || count(*) || '':'' || coalesce(sum((''x'' || left(md5(t::text), 16))::bit(64)::bigint), 0) from %I.%I t;',
+              n.nspname || '.' || c.relname, n.nspname, c.relname)
+from pg_class c join pg_namespace n on n.oid = c.relnamespace
+where n.nspname in ('tumbo', 'tumbo_privado') and c.relkind in ('r', 'p')
+order by 1
+\gexec
+SQL
+}
+
+# Filas y huella por tabla de una base (la de destino), una por línea.
 filas() {
-  "${BIN}psql" "${PSQL_OPC[@]}" -At -d "$1" -c "
-    select format('select %L || ''='' || count(*) from %I.%I;', n.nspname || '.' || c.relname, n.nspname, c.relname)
-    from pg_class c join pg_namespace n on n.oid = c.relnamespace
-    where n.nspname in ('tumbo', 'tumbo_privado') and c.relkind in ('r', 'p')
-    order by 1" | "${BIN}psql" "${PSQL_OPC[@]}" -At -d "$1"
+  huellas_sql | "${BIN}psql" "${PSQL_OPC[@]}" -At -d "$1"
+}
+
+# Ninguna secuencia de una columna de tumbo o tumbo_privado (identity o
+# serial) por detrás del máximo de su columna: si lo estuviera, la próxima
+# fila chocaría con una que ya existe.
+secuencias_sql() {
+  cat <<'SQL'
+do $$
+declare
+  r record;
+  v_max numeric;
+  v_ult numeric;
+  v_llamada boolean;
+  v_malas text[] := '{}';
+begin
+  for r in select d.objid::regclass as secuencia, d.refobjid::regclass as tabla, a.attname
+           from pg_depend d
+           join pg_class s on s.oid = d.objid and s.relkind = 'S'
+           join pg_class c on c.oid = d.refobjid and c.relkind in ('r', 'p')
+           join pg_namespace n on n.oid = c.relnamespace and n.nspname in ('tumbo', 'tumbo_privado')
+           join pg_attribute a on a.attrelid = d.refobjid and a.attnum = d.refobjsubid
+           where d.classid = 'pg_class'::regclass and d.refclassid = 'pg_class'::regclass and d.deptype in ('a', 'i')
+  loop
+    execute format('select max(%I)::numeric from %s', r.attname, r.tabla) into v_max;
+    execute format('select last_value::numeric, is_called from %s', r.secuencia) into v_ult, v_llamada;
+    if v_max is not null and (v_ult < v_max or (v_ult = v_max and not v_llamada)) then
+      v_malas := v_malas || format('%s (va en %s; %s.%s llega a %s)', r.secuencia, v_ult, r.tabla, r.attname, v_max);
+    end if;
+  end loop;
+  if cardinality(v_malas) > 0 then
+    raise exception 'Secuencias por detrás de sus columnas: %', array_to_string(v_malas, '; ');
+  end if;
+end $$;
+SQL
 }
 
 volcar() {
@@ -71,9 +128,22 @@ volcar() {
   if [ -z "$("${BIN}psql" "${PSQL_OPC[@]}" -At -d "$url" -c "select 1 where to_regnamespace('tumbo') is not null")" ]; then
     falla "esa base no tiene el esquema tumbo"
   fi
-  echo "→ volcando tumbo y tumbo_privado"
-  "${BIN}pg_dump" --dbname="$url" --schema=tumbo --schema=tumbo_privado --format=custom --no-owner \
-    --compress=9 --file="$tmp/esquemas.dump"
+  echo "→ volcando tumbo y tumbo_privado (y la huella de cada tabla, de la misma foto de la base)"
+  # Una transacción de solo lectura exporta su foto (snapshot); pg_dump la
+  # usa (\! lo corre mientras la transacción sigue abierta) y después, en
+  # esa misma foto, se calcula la huella de cada tabla: aunque la base siga
+  # recibiendo pedidos, el manifiesto describe exactamente lo volcado.
+  {
+    echo "begin isolation level repeatable read, read only;"
+    echo "\\o '$tmp/foto.txt'"
+    echo "select pg_export_snapshot();"
+    echo "\\o"
+    # shellcheck disable=SC2016  # (lo expande el shell que abre psql)
+    echo '\! "$TM_PGDUMP" --dbname="$TM_URL" --snapshot="$(cat "$TM_TMP/foto.txt")" --schema=tumbo --schema=tumbo_privado --format=custom --no-owner --compress=9 --file="$TM_TMP/esquemas.dump" && touch "$TM_TMP/volcado.ok"'
+    huellas_sql
+    echo "commit;"
+  } | TM_PGDUMP="${BIN}pg_dump" TM_URL="$url" TM_TMP="$tmp" "${BIN}psql" "${PSQL_OPC[@]}" -At -d "$url" > "$tmp/huellas.txt"
+  [ -f "$tmp/volcado.ok" ] || falla "pg_dump no terminó bien"
   echo "→ funciones public.tm_* y buckets"
   "${BIN}psql" "${PSQL_OPC[@]}" -At -d "$url" > "$tmp/funciones.sql" <<'SQL'
 select '-- Funciones public.tm_* de Tumbo Market (respaldo)';
@@ -97,7 +167,7 @@ SQL
     echo "pg_dump=$("${BIN}pg_dump" --version)"
     echo "servidor=$("${BIN}psql" "${PSQL_OPC[@]}" -At -d "$url" -c 'show server_version')"
     echo "funciones_tm=$(grep -c '^CREATE OR REPLACE FUNCTION public.tm_' "$tmp/funciones.sql" || true)"
-    filas "$url"
+    cat "$tmp/huellas.txt"
   } > "$tmp/manifiesto.txt"
   tar -C "$tmp" -cf "$salida" esquemas.dump funciones.sql buckets.sql manifiesto.txt
   echo "✓ respaldo en $salida ($(du -h "$salida" | cut -f1)) · $(grep -c '=' "$tmp/manifiesto.txt") líneas de manifiesto"
@@ -128,13 +198,19 @@ restaurar() {
       echo "· la base de destino no tiene Storage: los buckets no se crearon" >&2
     fi
   fi
-  echo "→ comprobando las filas"
+  echo "→ comprobando el contenido de cada tabla y las secuencias"
   grep -E '^tumbo(_privado)?\.' "$tmp/manifiesto.txt" | sort > "$tmp/origen.txt"
   filas "$url" | sort > "$tmp/destino.txt"
+  if ! grep -qE '^[^=]+=[0-9]+:' "$tmp/origen.txt"; then
+    # (un respaldo anterior a las huellas: su manifiesto solo trae las filas)
+    echo "· este respaldo solo trae las filas por tabla: se comparan los conteos, no el contenido" >&2
+    sed -i 's/:.*$//' "$tmp/destino.txt"
+  fi
   if ! diff -u "$tmp/origen.txt" "$tmp/destino.txt" > "$tmp/diferencias.txt"; then
     cat "$tmp/diferencias.txt" >&2
-    falla "las filas restauradas no coinciden con el respaldo"
+    falla "lo restaurado no coincide con el respaldo (tabla=filas:huella del contenido)"
   fi
+  secuencias_sql | "${BIN}psql" "${PSQL_OPC[@]}" -d "$url" > /dev/null || falla "hay secuencias por detrás de sus columnas"
   local esperadas reales
   esperadas="$(sed -n 's/^funciones_tm=//p' "$tmp/manifiesto.txt")"
   reales="$("${BIN}psql" "${PSQL_OPC[@]}" -At -d "$url" -c "select count(*) from pg_proc where pronamespace = 'public'::regnamespace and proname like 'tm\_%'")"
@@ -144,7 +220,7 @@ restaurar() {
     echo "→ pg_cron: programando las tareas"
     "${BIN}psql" "${PSQL_OPC[@]}" -At -d "$url" -c "select tumbo_privado.programar_tareas()" > /dev/null
   fi
-  echo "✓ restaurado: $(wc -l < "$tmp/origen.txt") tablas con las mismas filas y $reales funciones tm_*"
+  echo "✓ restaurado: $(wc -l < "$tmp/origen.txt") tablas con las mismas filas y el mismo contenido, las secuencias al día y $reales funciones tm_*"
 }
 
 simulacro() {
@@ -161,6 +237,14 @@ simulacro() {
   ENSAYO="$ensayo"
   PGOPTIONS="-c client_min_messages=warning" "${BIN}psql" "${PSQL_OPC[@]}" -d "$u_ensayo" -f "$RAIZ/tools/supabase-local/base.sql" > /dev/null
   restaurar "$archivo" "$u_ensayo"
+  echo "→ la comprobación detecta una fila cambiada (un espacio de más en un texto)"
+  local manifiesto antes despues
+  manifiesto="$(tar -xOf "$archivo" manifiesto.txt | grep '^tumbo\.ajustes=')"
+  antes="$(filas "$u_ensayo" | grep '^tumbo\.ajustes=')"
+  "${BIN}psql" "${PSQL_OPC[@]}" -d "$u_ensayo" -c "update tumbo.ajustes set descripcion = coalesce(descripcion, '') || ' ' where clave = (select min(clave) from tumbo.ajustes)" > /dev/null
+  despues="$(filas "$u_ensayo" | grep '^tumbo\.ajustes=')"
+  [ -n "$manifiesto" ] && [ "$antes" = "$manifiesto" ] || falla "tumbo.ajustes restaurada no coincide con el manifiesto: $antes / $manifiesto"
+  [ "${antes%%:*}" = "${despues%%:*}" ] && [ "$antes" != "$despues" ] || falla "la huella no cambió con una fila distinta: $antes / $despues"
   echo "→ la base restaurada funciona"
   local acceso inmutable
   acceso="$("${BIN}psql" "${PSQL_OPC[@]}" -At -d "$u_ensayo" -c "select (public.tm_acceder('comprador@demo.ve', 'demo1234') ->> 'sesion') is not null")"

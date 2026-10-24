@@ -234,6 +234,11 @@ def pagina(area, n, mods, version):
 # módulos), el acceso, la página sin conexión, el manifest y los íconos. Lo
 # demás (Seller Center, Backoffice) se guarda la primera vez que se abre.
 CACHEABLE = r'^(app/[a-z0-9-]+/[a-z0-9-]+\.html|assets/.+\.(js|css|woff2|png|svg|webp|jpg|ico)|index\.html|sin-conexion\.html|manifest\.webmanifest)$'
+# Lo que se pide primero a la red (la caché, solo sin señal): la
+# configuración del backend, que se edita a mano al poner el sitio en marcha
+# o al restaurar en un proyecto nuevo. No entra en la versión: cambiarla no
+# obliga a regenerar.
+RED_PRIMERO = ['assets/js/tm-config.js']
 
 SW = """/* =========================================================================
    Tumbo Market — service worker
@@ -244,17 +249,24 @@ SW = """/* =====================================================================
      (otro origen, POST), así que nunca sirve datos de una sesión a otra.
    · Al instalarse guarda el armazón de la tienda (PRECACHE); lo demás, la
      primera vez que se pide. Todo vive en la caché de VERSION, la huella
-     de lo que puede guardar: si un archivo cambia, cambia la versión, el
-     navegador instala este service worker de nuevo y borra las cachés
-     viejas.
-   · Las páginas se sirven desde la caché (una página es un cascarón que
-     monta su vista, así que coincide siempre con sus scripts); una página
-     que no está y no se puede bajar lleva a sin-conexion.html.
+     de lo que puede guardar: si un archivo cambia (y se regenera), cambia
+     la versión, el navegador instala este service worker de nuevo y borra
+     las cachés viejas.
+   · La configuración del backend (RED_PRIMERO: tm-config.js) se pide
+     primero a la red; la copia guardada solo se usa sin señal (o si la red
+     tarda más de ESPERA_RED). Cambiarla no obliga a regenerar y ningún
+     navegador se queda con la dirección vieja.
+   · Lo demás se sirve desde la caché (rápido y sin señal) y se revalida en
+     segundo plano: si se publicó un archivo sin regenerar, la visita
+     siguiente ya trae el nuevo. Una página que no está y no se puede bajar
+     lleva a sin-conexion.html.
    ========================================================================= */
 'use strict';
 var VERSION = 'tumbo-%(version)s';
 var PRECACHE = %(precache)s;
 var CACHEABLE = new RegExp(%(cacheable)s);
+var RED_PRIMERO = %(red_primero)s;
+var ESPERA_RED = 4000;
 
 function ruta(url) {
   var base = self.registration.scope;
@@ -267,6 +279,23 @@ function guardar(cache, clave, respuesta) {
     return cache.put(clave, respuesta.clone()).catch(function () { }).then(function () { return respuesta; });
   }
   return respuesta;
+}
+/* La respuesta de la red si llega bien; si falla, no llega a tiempo o no
+   está bien, la copia guardada (y sin copia, lo que diga la red). */
+function redPrimero(cache, clave, red) {
+  return new Promise(function (resolver, rechazar) {
+    var listo = false;
+    function dar(r) { if (!listo) { listo = true; resolver(r); } }
+    function guardada(siNo) {
+      return cache.match(clave).then(function (g) { if (g) dar(g); else if (siNo) siNo(); }, function () { if (siNo) siNo(); });
+    }
+    red.then(function (r) {
+      if (r.ok) dar(r); else guardada(function () { dar(r); });
+    }, function (err) {
+      guardada(function () { if (!listo) { listo = true; rechazar(err); } });
+    });
+    setTimeout(function () { guardada(null); }, ESPERA_RED);
+  });
 }
 
 self.addEventListener('install', function (ev) {
@@ -302,15 +331,28 @@ self.addEventListener('fetch', function (ev) {
   var p = ruta(url.href);
   if (p === null || !CACHEABLE.test(p)) return;
   var clave = new URL(p, self.registration.scope).href;  /* sin la consulta: ?sku=… es la misma página */
-  ev.respondWith(caches.open(VERSION).then(function (cache) {
-    return cache.match(clave).then(function (guardada) {
-      if (guardada) return guardada;
-      return fetch(req).then(function (r) { return guardar(cache, clave, r); }, function (err) {
-        if (req.mode !== 'navigate') throw err;
-        return Response.redirect(new URL('sin-conexion.html?desde=' + encodeURIComponent(p + url.search), self.registration.scope).href, 302);
-      });
+  var abierta = caches.open(VERSION);
+  if (RED_PRIMERO.indexOf(p) >= 0) {
+    var red = fetch(new Request(clave, { cache: 'no-cache', credentials: 'same-origin' }));
+    var guardadaRed = Promise.all([abierta, red]).then(function (x) { return guardar(x[0], clave, x[1]); });
+    ev.waitUntil(guardadaRed.catch(function () { }));
+    ev.respondWith(abierta.then(function (cache) { return redPrimero(cache, clave, guardadaRed); }));
+    return;
+  }
+  var enCache = abierta.then(function (cache) { return cache.match(clave); });
+  ev.respondWith(Promise.all([abierta, enCache]).then(function (x) {
+    if (x[1]) return x[1];
+    return fetch(req).then(function (r) { return guardar(x[0], clave, r); }, function (err) {
+      if (req.mode !== 'navigate') throw err;
+      return Response.redirect(new URL('sin-conexion.html?desde=' + encodeURIComponent(p + url.search), self.registration.scope).href, 302);
     });
   }));
+  /* lo servido desde la caché se revalida en segundo plano (con el caché
+     HTTP del navegador: sin pedirlo de nuevo mientras siga fresco) */
+  ev.waitUntil(Promise.all([abierta, enCache]).then(function (x) {
+    if (!x[1]) return null;
+    return fetch(new Request(clave, { credentials: 'same-origin' })).then(function (r) { return guardar(x[0], clave, r); });
+  }).catch(function () { }));
 });
 """
 
@@ -331,7 +373,8 @@ def precache(paginas, mods):
 
 
 def huella(archivos_html):
-    """La versión: huella de todo lo que el service worker puede guardar."""
+    """La versión: huella de todo lo que el service worker puede guardar (menos
+    RED_PRIMERO, que siempre se pide a la red)."""
     h = hashlib.sha256()
     patron = re.compile(CACHEABLE)
     rutas = set()
@@ -344,7 +387,7 @@ def huella(archivos_html):
     for r in ('index.html', 'sin-conexion.html', 'manifest.webmanifest'):
         if os.path.exists(os.path.join(RAIZ, r)):
             rutas.add(r)
-    for r in sorted(rutas):
+    for r in sorted(rutas - set(RED_PRIMERO)):
         h.update(r.encode('utf-8') + b'\0')
         with open(os.path.join(RAIZ, r), 'rb') as f:
             h.update(hashlib.sha256(f.read()).digest())
@@ -392,7 +435,7 @@ def generar():
     version = huella(salida)
     for r in list(salida):
         salida[r] = salida[r].replace('__VERSION__', version)
-    salida['sw.js'] = SW % {'version': version, 'cacheable': json.dumps(CACHEABLE),
+    salida['sw.js'] = SW % {'version': version, 'cacheable': json.dumps(CACHEABLE), 'red_primero': json.dumps(RED_PRIMERO),
                             'precache': json.dumps(precache(paginas, mods), indent=2, ensure_ascii=False)}
     salida['sitemap.xml'] = sitemap(paginas)
     salida['robots.txt'] = robots()

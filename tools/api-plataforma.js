@@ -7,9 +7,11 @@
  *
  * Por la API: tm_salud es pública y mínima; tm_error_cliente acepta un
  * error sin sesión, rechaza lo que no es un error y nunca responde con un
- * error HTTP; tm_sistema es de la superadministración (las cuentas de
- * prueba la leen; un comprador o un visitante no); correr y programar
- * tareas lo rechazan las cuentas de prueba (sesión elevada).
+ * error HTTP; tm_sistema es de la superadministración (una cuenta de
+ * prueba la lee sin el detalle: ni resultados ni errores de las corridas,
+ * ni los errores de los navegadores, ni el nombre de la cuenta real que
+ * corrió una tarea; un comprador o un visitante no la leen); correr y
+ * programar tareas lo rechazan las cuentas de prueba (sesión elevada).
  * Con TM_PGDATABASE (solo en local), además:
  *   · el texto de un error llega sin datos personales (correos, números,
  *     fichas, consulta de la URL) y un error repetido suma «veces»;
@@ -21,10 +23,17 @@
  *   · la programación con pg_cron (simulado dentro de una transacción que
  *     se deshace): envuelve los trabajos de cada dominio sin cambiarles el
  *     nombre ni el horario, programa los que faltan, adopta los de un
- *     dominio nuevo, quita los duplicados de Tumbo, no toca los ajenos y
- *     repetirla no cambia nada;
+ *     dominio nuevo, quita los duplicados de Tumbo (también los sin nombre,
+ *     que nunca quedan en lugar del suyo), no toca los ajenos y repetirla
+ *     no cambia nada;
  *   · una cuenta real con sesión elevada corre una tarea (corrida y
- *     auditoría; una vez por minuto) y no corre las que no son manuales;
+ *     auditoría; una vez por minuto) y no corre las que no son manuales; la
+ *     cuenta de prueba no ve su nombre, el resultado, los errores de los
+ *     navegadores ni el mensaje de pg_cron; la cuenta real sí;
+ *   · con la demo apagada (ajuste demo_activa = false) el reinicio de la
+ *     demo se rechaza también para una cuenta real con sesión elevada;
+ *   · las funciones tarea_* sin catálogo: solo las que el envoltorio puede
+ *     correr (ningún ayudante);
  *   · las tareas propias (mantenimiento y almacenamiento), el reinicio de la
  *     demo y los permisos (tm_* nuevas y tumbo_privado) y que
  *     retirar-tumbo.sql conoce todas las tm_* de la base.
@@ -106,6 +115,8 @@ const CRON_SIMULADO = `
   create function cron.schedule(job_name text, schedule text, command text) returns bigint language sql as $f$
     insert into cron.job (jobname, schedule, command) values (job_name, schedule, command)
     on conflict (jobname) do update set schedule = excluded.schedule, command = excluded.command returning jobid $f$;
+  create function cron.schedule(schedule text, command text) returns bigint language sql as $f$
+    insert into cron.job (schedule, command) values (schedule, command) returning jobid $f$;
   create function cron.unschedule(job_id bigint) returns boolean language sql as $f$ delete from cron.job where jobid = job_id returning true $f$;
   create function cron.alter_job(job_id bigint, schedule text default null, command text default null, database text default null,
                                  username text default null, active boolean default null) returns void language sql as $f$
@@ -155,15 +166,20 @@ const CRON_SIMULADO = `
     .every((t) => tareas.includes(t)) && d.extensiones && 'pg_cron' in d.extensiones && d.bandeja && d.errores && d.almacenamiento && d.tasa,
   'la superadministración (también la cuenta de prueba) lee las tareas de todos los dominios, la tasa, la bandeja, los errores y el almacenamiento',
   sis.texto.slice(0, 300));
+  ok(Array.isArray(d.sin_catalogo) && !d.sin_catalogo.some((f) => /invocable/.test(f)),
+    'el ayudante del envoltorio no aparece como una tarea sin catálogo', JSON.stringify(d.sin_catalogo));
   const archivos = (d.tareas || []).find((t) => t.tarea === 'archivos') || {};
   const sla = (d.tareas || []).find((t) => t.tarea === 'sla') || {};
   ok(archivos.estado === 'externa' && archivos.manual === false && sla.trabajo === 'tumbo-sla' && sla.horario === '*/15 * * * *' &&
      (LOCAL ? sla.estado === 'sin_pg_cron' || sla.estado === 'error' : true),
   'cada tarea dice su trabajo, su horario y su estado (en local, sin pg_cron)', JSON.stringify([archivos.estado, sla.estado, sla.horario]));
-  const recientes = (d.errores && d.errores.recientes) || [];
-  const mio = recientes.find((x) => x.mensaje && x.mensaje.includes(marca));
-  ok(mio && !('huella' in mio) && mio.vista === 'tienda/inicio' && mio.version === 'abc123' && mio.rol === 'visitante',
-    'el error llega a admin/sistema con su vista, su rol y su versión', JSON.stringify(mio || recientes[0]));
+  const errDemo = d.errores || {};
+  ok(d.detalle === false && Array.isArray(errDemo.recientes) && errDemo.recientes.length === 0 && Number(errDemo.distintos_24h) >= 1 &&
+     errDemo.por_tipo && Number(errDemo.por_tipo.error) >= 1 && (errDemo.tareas || []).every((x) => x.error == null) &&
+     (d.tareas || []).every((t) => !t.ultima || (t.ultima.resultado == null && t.ultima.error == null)) &&
+     !/correo|TypeError|tm-x\.js/.test(JSON.stringify(d.errores)),
+  'una cuenta de prueba ve cuántos errores hubo y el estado de las tareas, sin el mensaje de los navegadores ni el resultado o el error de las corridas',
+  JSON.stringify(d.errores).slice(0, 300));
 
   /* ================= Acciones: solo cuentas reales ================= */
   const correrDemo = await rpc('tm_tarea_correr', { p_sesion: s.superadmin, p_tarea: 'sla' });
@@ -276,16 +292,24 @@ const CRON_SIMULADO = `
     create function tumbo_privado.tarea_prueba_dominio() returns jsonb language sql as $f$ select '{"listo": true}'::jsonb $f$;
     select cron.schedule('tumbo-comunicacion-envios', '*/2 * * * *', 'SELECT tumbo_privado.tarea_prueba_dominio();');
     select cron.schedule('otra-app', '* * * * *', 'select tumbo_privado.tarea_sla()');
-    select tumbo_privado.programar_tareas() ->> 'pg_cron';
+    -- programados a mano y sin nombre (cron.schedule de dos argumentos): uno junto al del dominio, otro solo
+    select cron.schedule('*/30 * * * *', 'select tumbo_privado.tarea_pagos()');
+    select cron.schedule('*/20 * * * *', 'select tumbo_privado.tarea_mantenimiento()');
+    select '#sinnombre=' || (select string_agg(x ->> 'tarea' || ':' || (x ->> 'horario'), ',' order by x ->> 'tarea')
+                             from jsonb_array_elements(tumbo_privado.programar_tareas() -> 'tareas') x where x ->> 'accion' = 'sin nombre quitada');
     select string_agg(jobname || '=' || schedule || '=' || command, E'\\n' order by jobname) from cron.job;
-    select '#' || (select count(*) from tumbo.tareas_programadas where funcion = 'tarea_prueba_dominio' and trabajo = 'tumbo-comunicacion-envios');
-    select '#' || coalesce((select string_agg(x ->> 'accion', ',') from jsonb_array_elements(tumbo_privado.programar_tareas() -> 'tareas') x
-                            where x ->> 'accion' <> 'al día'), '');
-    select '#' || (select count(*) from cron.job);
+    select '#adoptada=' || (select count(*) from tumbo.tareas_programadas where funcion = 'tarea_prueba_dominio' and trabajo = 'tumbo-comunicacion-envios');
+    select '#otra=' || coalesce((select string_agg(x ->> 'accion', ',') from jsonb_array_elements(tumbo_privado.programar_tareas() -> 'tareas') x
+                                 where x ->> 'accion' <> 'al día'), '');
+    select '#total=' || (select count(*) from cron.job) || ' sin nombre ' || (select count(*) from cron.job where jobname is null);
+    select '#sistema=' || (select string_agg((t ->> 'tarea') || ':' || (t ->> 'estado') || ':' || (t ->> 'programada'), ',' order by t ->> 'tarea')
+                           from jsonb_array_elements(public.tm_sistema(${lit(s.superadmin)}) -> 'tareas') t
+                           where t ->> 'tarea' in ('pagos', 'mantenimiento'));
     rollback;`);
   const trabajos = {};
   cron.split('\n').filter((l) => /^[a-z-]+=/.test(l)).forEach((l) => { const [n, h, c] = l.split('='); trabajos[n] = { h, c }; });
-  const extras = cron.split('\n').filter((l) => l.startsWith('#'));
+  const extras = {};
+  cron.split('\n').filter((l) => l.startsWith('#')).forEach((l) => { const i = l.indexOf('='); extras[l.slice(1, i)] = l.slice(i + 1); });
   ok(trabajos['tumbo-pagos-vencimientos'] && trabajos['tumbo-pagos-vencimientos'].c === "select tumbo_privado.correr_tarea('pagos')" &&
      trabajos['tumbo-pagos-tasa'] && trabajos['tumbo-pagos-tasa'].h === '5 */2 * * *' && trabajos['tumbo-pagos-tasa'].c === "select tumbo_privado.correr_tarea('tasa')" &&
      trabajos['tumbo-sla'] && trabajos['tumbo-sla'].c === "select tumbo_privado.correr_tarea('sla')",
@@ -297,9 +321,16 @@ const CRON_SIMULADO = `
   ok(trabajos['otra-app'] && trabajos['otra-app'].c === 'select tumbo_privado.tarea_sla()',
     'pg_cron: el trabajo de otra aplicación (sin «tumbo-») no se toca', JSON.stringify(trabajos['otra-app']));
   ok(trabajos['tumbo-comunicacion-envios'] && trabajos['tumbo-comunicacion-envios'].c === "select tumbo_privado.correr_tarea('prueba_dominio')" &&
-     extras[0] === '#1', 'pg_cron: el trabajo «tumbo-…» de un dominio nuevo se adopta en el catálogo y pasa por el envoltorio', extras.join(' ') + ' ' + JSON.stringify(trabajos['tumbo-comunicacion-envios']));
-  ok(extras[1] === '#' && extras[2] === '#' + Object.keys(trabajos).length,
-    'pg_cron: programar otra vez no cambia nada (ni duplica)', extras.join(' '));
+     extras.adoptada === '1', 'pg_cron: el trabajo «tumbo-…» de un dominio nuevo se adopta en el catálogo y pasa por el envoltorio', JSON.stringify(extras) + ' ' + JSON.stringify(trabajos['tumbo-comunicacion-envios']));
+  ok(extras.sinnombre === 'mantenimiento:*/20 * * * *,pagos:*/30 * * * *' &&
+     trabajos['tumbo-pagos-vencimientos'] && trabajos['tumbo-pagos-vencimientos'].h === '*/10 * * * *' &&
+     trabajos['tumbo-mantenimiento'] && trabajos['tumbo-mantenimiento'].h === '41 7 * * *' &&
+     trabajos['tumbo-mantenimiento'].c === "select tumbo_privado.correr_tarea('mantenimiento')" &&
+     /^mantenimiento:(al_dia|atrasada):true,pagos:(al_dia|atrasada):true$/.test(extras.sistema),
+  'pg_cron: un trabajo sin nombre que corre lo mismo se quita (nunca reemplaza al del dominio): queda el «tumbo-…» con su horario y admin/sistema lo ve programado',
+  JSON.stringify(extras) + ' ' + JSON.stringify([trabajos['tumbo-pagos-vencimientos'], trabajos['tumbo-mantenimiento']]));
+  ok(extras.otra === '' && extras.total === Object.keys(trabajos).length + ' sin nombre 0',
+    'pg_cron: programar otra vez no cambia nada (ni duplica)', JSON.stringify(extras));
   const sinCron = psql(`select tumbo_privado.programar_tareas() ->> 'pg_cron'`);
   ok(sinCron === 'false', 'sin pg_cron, programar lo dice y no falla', sinCron);
 
@@ -328,8 +359,46 @@ const CRON_SIMULADO = `
     const prog = await rpc('tm_tareas_programar', { p_sesion: real });
     ok(prog.ok && prog.dato && prog.dato.pg_cron === false && /pg_cron/.test(prog.dato.mensaje),
       'programar las tareas sin pg_cron lo dice (y queda en la auditoría)', prog.texto);
+
+    /* lo que ve cada una en admin/sistema (la cuenta de prueba tiene la contraseña pública) */
+    psql(`update tumbo.errores_cliente set ultimo = now() where mensaje like ${lit('TypeError: ' + marca + '%')}`);
+    const sisDemo = await rpc('tm_sistema', { p_sesion: s.superadmin });
+    const sisReal = await rpc('tm_sistema', { p_sesion: real });
+    const slaDemo = ((sisDemo.dato || {}).tareas || []).find((t) => t.tarea === 'sla') || {};
+    const slaReal = ((sisReal.dato || {}).tareas || []).find((t) => t.tarea === 'sla') || {};
+    ok(sisDemo.ok && slaDemo.ultima && slaDemo.ultima.origen === 'manual' && slaDemo.ultima.por === 'Equipo de Tumbo' &&
+       slaDemo.ultima.resultado == null && !sisDemo.texto.includes('Dueña Plataforma'),
+    'la cuenta de prueba no recibe el nombre de la cuenta real que corrió la tarea («Equipo de Tumbo») ni su resultado', JSON.stringify(slaDemo.ultima));
+    const mio = (((sisReal.dato || {}).errores || {}).recientes || []).find((x) => x.mensaje && x.mensaje.startsWith('TypeError: ' + marca));
+    ok(sisReal.ok && sisReal.dato.detalle === true && slaReal.ultima && slaReal.ultima.por === 'Dueña Plataforma' && slaReal.ultima.resultado != null &&
+       mio && !('huella' in mio) && mio.vista === 'tienda/inicio' && mio.version === 'abc123' && mio.rol === 'visitante',
+    'la cuenta real ve quién corrió la tarea, su resultado y los errores del navegador con su vista, su rol y su versión',
+    JSON.stringify([slaReal.ultima, mio]).slice(0, 300));
+    const cronMsg = psql(`begin;
+      ${CRON_SIMULADO}
+      select cron.schedule('tumbo-sla', '*/15 * * * *', 'select tumbo_privado.correr_tarea(''sla'')');
+      insert into cron.job_run_details (jobid, status, return_message, start_time, end_time)
+        select jobid, 'failed', 'ERROR: falló para ana@correo.com con la cuenta 01020304050607', now(), now() from cron.job where jobname = 'tumbo-sla';
+      select coalesce(t -> 'cron' -> 'ultima' ->> 'estado', '') || '|' || coalesce(t -> 'cron' -> 'ultima' ->> 'mensaje', '<nulo>')
+      from jsonb_array_elements(public.tm_sistema(${lit(s.superadmin)}) -> 'tareas') t where t ->> 'tarea' = 'sla';
+      select coalesce(t -> 'cron' -> 'ultima' ->> 'estado', '') || '|' || coalesce(t -> 'cron' -> 'ultima' ->> 'mensaje', '<nulo>')
+      from jsonb_array_elements(public.tm_sistema(${lit(real)}) -> 'tareas') t where t ->> 'tarea' = 'sla';
+      rollback;`).split('\n').slice(-2);
+    ok(cronMsg[0] === 'failed|<nulo>' && /^failed\|ERROR: falló para \[correo\] con la cuenta \[número\]$/.test(cronMsg[1]),
+      'el mensaje de pg_cron: la cuenta de prueba ve solo el estado; la real, el mensaje sin datos personales', cronMsg.join(' / '));
+
+    /* la demo apagada en el servidor: el reinicio se rechaza para todos */
+    const pedidosAntes = psql(`select count(*) from tumbo.pedidos`);
+    const apagar = await rpc('tm_ajuste_guardar', { p_sesion: real, p_clave: 'demo_activa', p_valor: false });
+    const reinReal = await rpc('tm_reiniciar_demo', { p_sesion: real });
+    const reinDemo = await rpc('tm_reiniciar_demo', { p_sesion: s.superadmin });
+    const pedidosDespues = psql(`select count(*) from tumbo.pedidos`);
+    ok(apagar.ok && !reinReal.ok && /demo está apagada/.test(reinReal.texto) && !reinDemo.ok && Number(pedidosAntes) > 0 && pedidosAntes === pedidosDespues,
+      'con la demo apagada (demo_activa = false) nadie reinicia la demo, ni una cuenta real con sesión elevada, y no se borra nada',
+      [apagar.texto, reinReal.texto, reinDemo.texto, pedidosAntes + '→' + pedidosDespues].join(' | ').slice(0, 400));
   } finally {
-    psql(`delete from tumbo.sesiones where usuario_id = (select id from tumbo.usuarios where email = ${lit(REAL)});
+    psql(`update tumbo.ajustes set valor = 'true' where clave = 'demo_activa';
+          delete from tumbo.sesiones where usuario_id = (select id from tumbo.usuarios where email = ${lit(REAL)});
           update tumbo.usuarios set activo = false where email = ${lit(REAL)};`);
   }
 
@@ -353,11 +422,18 @@ const CRON_SIMULADO = `
     'tumbo-almacenamiento dice qué le falta para borrar en Storage (la URL de las funciones o pg_net) y hace lo que puede por SQL', alm.join(' / '));
 
   /* ================= Funciones sin catálogo ================= */
-  psql(`create or replace function tumbo_privado.tarea_prueba_huerfana() returns integer language sql as $f$ select 1 $f$`);
+  psql(`create or replace function tumbo_privado.tarea_prueba_huerfana() returns integer language sql as $f$ select 1 $f$;
+        create or replace function tumbo_privado.tarea_prueba_ayudante(p_n integer) returns integer language sql as $f$ select p_n $f$;`);
   const huerfana = await rpc('tm_sistema', { p_sesion: s.superadmin });
-  psql(`drop function tumbo_privado.tarea_prueba_huerfana()`);
-  ok(huerfana.ok && (huerfana.dato.sin_catalogo || []).includes('tarea_prueba_huerfana'),
-    'admin/sistema muestra las funciones tarea_* que nadie catalogó (de un dominio nuevo)', JSON.stringify(huerfana.dato && huerfana.dato.sin_catalogo));
+  const esperadas = psql(`select coalesce(string_agg(distinct p.proname, ',' order by p.proname), '') from pg_proc p
+                          where p.pronamespace = 'tumbo_privado'::regnamespace and p.proname like 'tarea\\_%' and p.pronargs = p.pronargdefaults
+                            and p.proname not in (select funcion from tumbo.tareas_programadas)`);
+  psql(`drop function tumbo_privado.tarea_prueba_huerfana(); drop function tumbo_privado.tarea_prueba_ayudante(integer);`);
+  const sinCat = (huerfana.dato && huerfana.dato.sin_catalogo) || [];
+  ok(huerfana.ok && sinCat.includes('tarea_prueba_huerfana') && !sinCat.includes('tarea_prueba_ayudante') && sinCat.join(',') === esperadas,
+    'admin/sistema muestra las funciones tarea_* que nadie catalogó (de un dominio nuevo), no los ayudantes con argumentos', JSON.stringify(sinCat) + ' / ' + esperadas);
+  ok(psql(`select count(*) from pg_proc where pronamespace = 'tumbo_privado'::regnamespace and proname like 'tarea\\_%' and pronargs > pronargdefaults`) === '0',
+    'ninguna función tarea_* de la base pide argumentos (todas las corre el envoltorio)');
 
   /* ================= Reinicio, permisos y retiro ================= */
   psql(`insert into tumbo.tareas_ejecuciones (tarea, inicio, fin, ok, origen) values ('sla', now(), now(), true, 'prueba');

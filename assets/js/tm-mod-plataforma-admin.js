@@ -2,8 +2,10 @@
    Tumbo Market — Plataforma (ola 2): admin/sistema
    -------------------------------------------------------------------------
    Solo en el Backoffice (lo dice tools/generar_paginas.py). Para la
-   superadministración (las cuentas de prueba también lo leen; no hay datos
-   de personas):
+   superadministración (una cuenta de prueba, cuya contraseña es pública,
+   lo lee sin el detalle: el servidor no le manda el resultado ni el error
+   de las corridas, los errores de los navegadores ni quién del equipo
+   corrió una tarea; d.detalle === false):
    · las tareas programadas: cada tumbo_privado.tarea_* con su horario, si
      pg_cron la tiene programada (y con el registro de corridas), su última
      corrida, sus errores y «Correr ahora»; «Programar tareas» las programa
@@ -138,11 +140,14 @@
 
   function bloqueTareas(d, s) {
     var puede = s && !s.demo;
+    var detalle = d.detalle !== false;
     var filas = (d.tareas || []).map(function (t) {
       var u = t.ultima;
-      var ultima = u ? '<span class="block">' + esc(fecha(u.inicio)) + ' · ' + esc(u.ms) + ' ms' + (u.origen === 'manual' ? ' · a mano' : '') + '</span>' +
-        (u.ok ? '<span class="block font-data-mono text-data-mono text-on-surface-variant break-all">' + esc(resumenJson(u.resultado)) + '</span>'
-              : '<span class="block text-error">' + esc(u.error || 'Falló') + '</span>')
+      var ultima = u ? '<span class="block">' + esc(fecha(u.inicio)) + ' · ' + esc(u.ms) + ' ms' +
+          (u.origen === 'manual' ? ' · a mano' + (u.por ? ' (' + esc(u.por) + ')' : '') : '') + '</span>' +
+        (u.ok ? (detalle ? '<span class="block font-data-mono text-data-mono text-on-surface-variant break-all">' + esc(resumenJson(u.resultado)) + '</span>'
+                         : '<span class="block text-on-surface-variant">Terminó bien</span>')
+              : '<span class="block text-error">' + esc(u.error || (detalle ? 'Falló' : 'Falló (el detalle lo ve el equipo)')) + '</span>')
         : '<span class="text-on-surface-variant">Nunca corrió</span>';
       var cron = t.cron && t.cron.ultima ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">pg_cron: ' + esc(t.cron.ultima.estado) + ' ' + esc(hace(t.cron.ultima.inicio)) + '</span>' : '';
       return td('<span class="block font-semibold">' + esc(t.tarea) + '</span><span class="block font-body-sm text-body-sm text-on-surface-variant max-w-[340px]">' + esc(t.descripcion) + '</span>' +
@@ -190,9 +195,21 @@
 
   function bloqueErrores(d) {
     var e = d.errores || {};
+    var tipos = { error: 'JavaScript', promesa: 'Promesa', rpc: 'RPC', recurso: 'Archivo' };
+    if (d.detalle === false) {
+      var conteos = Object.keys(e.por_tipo || {});
+      return '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3" data-errores-sin-detalle>Con una cuenta de prueba ves cuántos errores hubo, ' +
+        'no cuáles: los mensajes vienen de los navegadores de las personas y los lee solo una cuenta real del equipo.</p>' +
+        '<div class="flex flex-wrap gap-2">' + (conteos.length ? conteos.map(function (k) {
+          return '<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-surface-container-high font-body-sm text-body-sm">' +
+            esc(tipos[k] || k) + ': <strong>' + n(e.por_tipo[k]) + '</strong></span>';
+        }).join('') : '<span class="font-body-sm text-body-sm text-on-surface-variant">Ningún navegador informó errores en las últimas 24 horas.</span>') + '</div>' +
+        ((e.tareas || []).length ? '<p class="font-body-sm text-body-sm text-on-surface-variant mt-3">Tareas que fallaron hace poco: ' +
+          e.tareas.map(function (x) { return '<strong>' + esc(x.tarea) + '</strong> (' + esc(fecha(x.inicio)) + ')'; }).join(', ') + '.</p>' : '');
+    }
     var filas = (e.recientes || []).map(function (x) {
       return td('<span class="block whitespace-nowrap">' + esc(fecha(x.ultimo)) + '</span><span class="block text-on-surface-variant">' + n(x.veces) + ' ' + (x.veces === 1 ? 'vez' : 'veces') + '</span>') +
-        td(esc({ error: 'JavaScript', promesa: 'Promesa', rpc: 'RPC', recurso: 'Archivo' }[x.tipo] || x.tipo)) +
+        td(esc(tipos[x.tipo] || x.tipo)) +
         td('<span class="block break-words max-w-[380px]">' + esc(x.mensaje) + '</span>' +
           (x.fuente ? '<span class="block font-data-mono text-data-mono text-on-surface-variant">' + esc(x.fuente) + (x.linea ? ':' + esc(x.linea) : '') + '</span>' : '') +
           (x.rpc ? '<span class="block font-data-mono text-data-mono text-on-surface-variant">' + esc(x.rpc) + (x.codigo ? ' · ' + esc(x.codigo) : '') + '</span>' : '')) +
@@ -238,7 +255,8 @@
     if (!d) return '<p class="font-body-sm text-body-sm text-on-surface-variant" role="status">Leyendo el estado del sistema…</p>';
     var puede = s && !s.demo;
     return bloqueResumen(d) +
-      (puede ? '' : aviso('azul', 'lock', 'Con una cuenta de prueba ves el estado del sistema, pero correr o programar tareas pide una cuenta real del equipo con la verificación en dos pasos.')) +
+      (puede ? '' : aviso('azul', 'lock', 'Con una cuenta de prueba ves el estado del sistema, sin el detalle de las corridas ni de los errores; ' +
+        'correr o programar tareas pide una cuenta real del equipo con la verificación en dos pasos.')) +
       seccion('Tareas programadas', 'event_repeat', bloqueExtensiones(d) + bloqueTareas(d, s),
         btn('Programar tareas', { icono: 'schedule_send', attr: 'data-programar' + (puede ? '' : ' disabled') })) +
       '<div class="grid lg:grid-cols-2 gap-5">' +

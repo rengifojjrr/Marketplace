@@ -121,9 +121,13 @@
   }
 
   /* «Reiniciar demo»: en modo local cada navegador tiene su copia; con
-     backend los datos son compartidos y solo el superadministrador reinicia. */
+     backend los datos son compartidos y solo el superadministrador reinicia.
+     Con la demo apagada (TM_CONFIG.demo = false) no se ofrece con backend:
+     borraría los datos reales (el servidor también lo rechaza con el ajuste
+     demo_activa = false). */
   function botonReiniciar(s) {
     if (!TM.puedeReiniciar(s)) return '';
+    if (!DEMO && TM.modo === 'remoto') return '';
     return '<button data-reiniciar class="block w-full text-left px-4 py-2 font-body-sm text-body-sm text-on-surface-variant hover:bg-surface-container-low">' +
       (TM.modo === 'remoto' ? 'Reiniciar datos de la demo' : 'Reiniciar demo') + '</button>';
   }
@@ -372,7 +376,7 @@
       TM.cerrarSesion().then(function () { location.href = href('index.html'); });
     });
     var reiniciar = raiz.querySelector('[data-reiniciar]');
-    if (reiniciar) reiniciar.addEventListener('click', function () {
+    if (reiniciar && (DEMO || TM.modo !== 'remoto')) reiniciar.addEventListener('click', function () {
       var texto = TM.modo === 'remoto'
         ? 'Todos los pedidos, productos y movimientos vuelven a la semilla para TODOS los usuarios de la beta. Las cuentas se conservan.'
         : 'Se pierden los datos creados en este navegador y todo vuelve al estado inicial.';
