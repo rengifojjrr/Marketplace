@@ -115,8 +115,11 @@
             }).join('') + '</ul>', 'data-catalogo-360') +
           C().caja('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-2">Pedidos</h3><p class="font-body-sm text-body-sm mb-2">' + porEstado(d.pedidos.por_estado) + '</p>' +
             '<ul class="divide-y divide-outline-variant max-h-72 overflow-y-auto">' + (d.pedidos.recientes || []).map(function (p) {
-              return '<li class="flex flex-wrap items-center gap-2 py-1.5 font-body-sm text-body-sm"><a class="font-data-mono text-data-mono text-secondary hover:underline" href="' +
-                href('app/admin/pedido.html?id=' + encodeURIComponent(p.id)) + '">' + esc(p.id) + '</a>' + UI.badge(p.estado) +
+              /* (el detalle 360 del pedido es de superadmin y Operaciones: a Finanzas, el número sin enlace) */
+              return '<li class="flex flex-wrap items-center gap-2 py-1.5 font-body-sm text-body-sm">' +
+                (APP.puedeAbrir('admin/pedido', s, ['superadmin', 'ops'])
+                  ? '<a class="font-data-mono text-data-mono text-secondary hover:underline" href="' + href('app/admin/pedido.html?id=' + encodeURIComponent(p.id)) + '">' + esc(p.id) + '</a>'
+                  : '<span class="font-data-mono text-data-mono">' + esc(p.id) + '</span>') + UI.badge(p.estado) +
                 (p.liquidacion ? UI.badge(p.liquidacion) : '') + '<span class="flex-1 text-right tm-crec-num">' + esc(C().usd(p.total_usd)) + '</span>' +
                 '<span class="w-full text-on-surface-variant">' + esc(C().fecha(p.creado)) + '</span></li>';
             }).join('') + '</ul>', 'data-pedidos-360') +

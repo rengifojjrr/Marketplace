@@ -329,7 +329,10 @@
      pestaña. Sin servidor no hay permisos asignados: valen los implícitos
      del rol. El menú queda marcado con data-crec-permisos cuando ya se
      aplicaron. */
-  var POR_PERMISO = { 'admin/ajustes': 'ajustes', 'admin/reglas': 'moderar', 'admin/marketing': 'marketing', 'admin/riesgo': 'riesgo' };
+  /* (también las de Comunicación: Soporte y Contenido son implícitos de
+     Operaciones y asignables a Finanzas) */
+  var POR_PERMISO = { 'admin/ajustes': 'ajustes', 'admin/reglas': 'moderar', 'admin/marketing': 'marketing', 'admin/riesgo': 'riesgo',
+                      'admin/soporte': 'soporte', 'admin/contenido': 'contenido' };
   var CLAVE_PERMISOS = 'tm.crec.permisos.v1';
   var permisos = { uid: null, lista: null, t: 0, vuelo: false };
   function leerPermisos(uid) {
@@ -358,7 +361,7 @@
     return permisos.lista;
   }
   /* Sin servidor, los implícitos del rol (como en tumbo.permisos). */
-  var IMPLICITOS = { finanzas: ['riesgo'], ops: [] };
+  var IMPLICITOS = { finanzas: ['riesgo'], ops: ['soporte', 'contenido'] };
   function aplicarPermisos(raiz, s) {
     var nav = raiz && raiz.querySelector('aside[data-nav] nav');
     if (!nav) return;

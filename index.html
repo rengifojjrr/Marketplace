@@ -121,7 +121,8 @@
         <p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Para avisarte de tus pedidos. Un número de Venezuela (móvil o fijo).</p>
         <label class="flex items-start gap-2 mb-4 cursor-pointer">
           <input id="rg-terminos" type="checkbox" class="mt-1 w-4 h-4 rounded border-outline text-secondary focus:ring-secondary/40"/>
-          <span class="font-body-sm text-body-sm text-on-surface-variant">Acepto los términos y las políticas de privacidad de la beta<span data-terminos-version></span>.</span></label>
+          <span class="font-body-sm text-body-sm text-on-surface-variant">Acepto los <a class="text-secondary underline" href="app/ayuda/terminos.html" target="_blank" rel="noopener">términos</a>
+            y las <a class="text-secondary underline" href="app/ayuda/privacidad.html" target="_blank" rel="noopener">políticas de privacidad</a> de la beta<span data-terminos-version></span>.</span></label>
         <p class="hidden items-center gap-1 mb-3 font-body-sm text-body-sm text-error" id="rg-err" role="alert">
           <span class="material-symbols-outlined text-[16px]" aria-hidden="true">error</span><span data-texto></span></p>
         <button class="w-full h-12 rounded-btn bg-primary-container text-on-primary font-label-md text-label-md
@@ -193,8 +194,9 @@
     var volver = new URLSearchParams(location.search).get('volver') || '';
     var area = { comprador: 'tienda', seller: 'seller', precios: 'seller', operador: 'seller',
       superadmin: 'admin', ops: 'admin', finanzas: 'admin' }[rol];
-    if (/^app\/(tienda|seller|admin)\/[a-z]+\.html(\?[\w=&%.,-]*)?$/.test(volver) &&
-        (volver.indexOf('app/' + area + '/') === 0 || volver.indexOf('app/tienda/') === 0)) return volver;
+    /* (el centro de ayuda, p. ej. el formulario de Contacto, es de todos los roles) */
+    if (/^app\/(tienda|seller|admin|ayuda)\/[a-z][a-z-]*\.html(\?[\w=&%.,-]*)?$/.test(volver) &&
+        (volver.indexOf('app/' + area + '/') === 0 || volver.indexOf('app/tienda/') === 0 || volver.indexOf('app/ayuda/') === 0)) return volver;
     return INICIOS[rol];
   }
   function entrar(s) { location.href = destino(s.rol); }

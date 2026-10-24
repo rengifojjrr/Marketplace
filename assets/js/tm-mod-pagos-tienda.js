@@ -977,10 +977,13 @@
   }
 
   function vRecibo(q, s) {
-    var volver = s && s.rol === 'comprador' ? 'app/tienda/pedido.html?id=' : s && s.rol === 'seller' ? 'app/seller/pedido.html?id=' : 'app/admin/pedidos.html?q=';
     var id = q.get('id');
+    /* (Finanzas no abre los pedidos del Backoffice: vuelve a la conciliación) */
+    var fin = s && s.rol === 'finanzas';
+    var volver = s && s.rol === 'comprador' ? 'app/tienda/pedido.html?id=' : s && s.rol === 'seller' ? 'app/seller/pedido.html?id=' : 'app/admin/pedidos.html?q=';
     var atras = '<a class="tm-no-imprimir inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline mb-3" href="' +
-      href(volver + encodeURIComponent(id || '')) + '">' + ic('arrow_back', 'text-[16px]') + 'Volver al pedido</a>';
+      href(fin ? 'app/admin/conciliacion.html' : volver + encodeURIComponent(id || '')) + '">' + ic('arrow_back', 'text-[16px]') +
+      (fin ? 'Volver a la conciliación' : 'Volver al pedido') + '</a>';
     if (!P().remoto()) return atras + tituloSeccion('Recibo') + P().avisoServidor('El recibo con su desglose (IVA incluido, IGTF y tasa) se genera en el servidor.');
     if (!/^TM-\d{4}-\d{5,}$/.test(id || '')) return UI.vacio('search_off', 'Pedido no encontrado', 'El enlace no es válido.');
     var r = P().datos('recibo:' + id, function () { return TM.api('tm_pedido_recibo', { p_id: id }); });

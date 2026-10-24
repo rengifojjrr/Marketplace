@@ -354,7 +354,10 @@
       '<div class="min-w-0">' +
         '<div class="flex flex-wrap items-center gap-2 mb-1"><h1 class="font-headline-md text-headline-md text-primary-container">' + esc(t.asunto) + '</h1>' + S().chipEstado(t) + chipSla(t) + '</div>' +
         '<p class="font-body-sm text-body-sm text-on-surface-variant mb-4"><span class="font-data-mono text-data-mono">' + esc(t.id) + '</span> · ' + esc(S().nombreCategoria(t.categoria)) +
-          (t.pedido ? ' · pedido <a class="text-secondary hover:underline" href="' + href('app/admin/pedido.html?id=' + encodeURIComponent(t.pedido)) + '">' + esc(t.pedido) + '</a>' : '') +
+          /* (Finanzas con el permiso «soporte» no abre el detalle 360 del pedido) */
+          (t.pedido ? ' · pedido ' + (APP.puedeAbrir('admin/pedido', s, ['superadmin', 'ops'])
+            ? '<a class="text-secondary hover:underline" href="' + href('app/admin/pedido.html?id=' + encodeURIComponent(t.pedido)) + '">' + esc(t.pedido) + '</a>'
+            : '<span class="font-data-mono text-data-mono">' + esc(t.pedido) + '</span>') : '') +
           ' · ' + esc(t.quien || '') + ' (' + esc(t.rol) + ') · abierto el ' + esc(C().fecha(t.creado)) + '</p>' +
         S().mensajes(t, true) +
         '<form data-ticket-responder="' + esc(t.id) + '" class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +

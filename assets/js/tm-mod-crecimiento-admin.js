@@ -121,7 +121,8 @@
     var e = m.embudo || {};
     var conv = C().n(e.vieron) ? 100 * C().n(e.reportaron_pago) / C().n(e.vieron) : null;
     return (m.solo_demo ? '<p class="flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant mb-3">' + ic('info', 'text-[16px] mt-0.5') +
-        'Con una cuenta de prueba ves solo los datos de la demo (sin pedidos de personas o comercios reales).</p>' : '') +
+        'Con una cuenta de prueba ves solo los datos de la demo (sin pedidos de personas o comercios reales). Las búsquedas, el checkout y el pago reportado, que no son de ningún comercio, ' +
+        'también los hacen los visitantes reales: no se muestran.</p>' : '') +
       '<section data-metricas class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">' +
       UI.kpi('GMV del período', esc(C().usd(k.gmv_usd)), C().entero(k.unidades) + ' unidades vendidas', 'trending_up') +
       UI.kpi('Pedidos pagados', esc(C().entero(k.pedidos)), 'ticket promedio ' + esc(C().usd(k.ticket_usd)), 'package_2') +
@@ -150,7 +151,7 @@
       '<div class="grid md:grid-cols-2 gap-4 mt-2">' +
         '<div>' + C().subtitulo('Lo más buscado') + tabla(['Búsqueda', 'Veces'], (m.top_busquedas || []).map(function (x) {
           return [esc(x.texto), C().entero(x.veces)];
-        }), 'Aún no hay búsquedas registradas.') + '</div>' +
+        }), m.solo_demo ? 'Reservado: las búsquedas también son de visitantes reales.' : 'Aún no hay búsquedas registradas.') + '</div>' +
         '<div>' + C().subtitulo('Lo más visto') + tabla(['Producto', 'Vistas'], (m.top_vistos || []).map(function (x) {
           return [esc(x.nombre || x.sku), C().entero(x.vistas)];
         }), 'Aún no hay vistas registradas.') + '</div>' +
@@ -292,8 +293,11 @@
       '<div class="flex flex-wrap items-center gap-2 mb-1"><span class="font-body-md text-body-md font-bold text-on-surface">' + esc(a.etiqueta) + '</span>' +
         '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(a.clave) + ' · ' + esc(a.tipo) + '</span>' +
         (a.publico ? C().chip('público', 'azul', 'public') : C().chip('privado', 'gris', 'lock')) +
-        (a.doble ? C().chip('doble aprobación', 'ambar', 'rule') : '') + '</div>' +
+        (a.doble ? C().chip('doble aprobación', 'ambar', 'rule') : '') +
+        (a.seguridad ? C().chip('solo superadministrador', 'rojo', 'shield') : '') + '</div>' +
       '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">' + esc(a.ayuda || a.descripcion || '') + '</p>' +
+      (a.seguridad ? '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">De aquí salen los enlaces con token de los correos o adónde llama Tumbo a sus funciones: ' +
+        'lo propone y lo aprueba un superadministrador, y el dominio solo puede ser el que ya tiene o uno que autorizó la persona dueña del proyecto.</p>' : '') +
       control +
       (editable ? '<div class="flex justify-end gap-2 mt-2">' + (a.vaciable ? btn('Vaciar', { attr: 'data-aj-vaciar="' + esc(a.clave) + '"' }) : '') +
         btn(a.doble ? 'Proponer cambio' : 'Guardar', { estilo: 'primario', icono: 'save', attr: 'data-aj-guardar="' + esc(a.clave) + '"' }) + '</div>' : '') +

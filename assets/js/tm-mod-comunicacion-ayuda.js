@@ -325,6 +325,17 @@
     ]), s);
   }
 
+  /* La consulta que conserva Contacto al volver de iniciar sesión (solo la
+     categoría y el pedido, con el formato que acepta el inicio de sesión). */
+  function vueltaContacto(q) {
+    var x = [];
+    ['categoria', 'pedido'].forEach(function (k) {
+      var v = q.get(k);
+      if (v && /^[\w.-]{1,40}$/.test(v)) x.push(k + '=' + encodeURIComponent(v));
+    });
+    return x.length ? '?' + x.join('&') : '';
+  }
+
   function vContacto(q, s) {
     var P = plazos(s);
     var cliente = s && ['comprador', 'seller', 'precios', 'operador'].indexOf(s.rol) >= 0;
@@ -333,9 +344,11 @@
     if (!C().remoto()) {
       cuerpo = C().avisoServidor('Los casos de soporte viven en el servidor: en la demo sin conexión no se pueden abrir.');
     } else if (equipo) {
-      cuerpo = C().aviso('azul', 'support_agent', 'Eres parte del equipo: los casos de los clientes están en ' + a('app/admin/soporte.html', 'Backoffice → Soporte') + '.');
+      cuerpo = C().aviso('azul', 'support_agent', 'Eres parte del equipo: los casos de los clientes están en ' + a('app/admin/soporte.html', 'Backoffice → Soporte') +
+        ' (Operaciones, o quien tenga el permiso «soporte»).');
     } else if (!cliente) {
-      cuerpo = C().aviso('azul', 'login', 'Para abrir un caso, ' + a('index.html?volver=' + encodeURIComponent('app/ayuda/contacto.html'), 'inicia sesión') +
+      /* (al volver, el formulario conserva la categoría y el pedido: p. ej. «Quiero vender») */
+      cuerpo = C().aviso('azul', 'login', 'Para abrir un caso, ' + a('index.html?volver=' + encodeURIComponent('app/ayuda/contacto.html' + vueltaContacto(q)), 'inicia sesión') +
         '. Así te respondemos con tu historial de pedidos a la vista.');
     } else {
       cuerpo = TM.soporteCom ? TM.soporteCom.formulario({ pedido: q.get('pedido') || '', categoria: q.get('categoria') || '' }, s) : '';

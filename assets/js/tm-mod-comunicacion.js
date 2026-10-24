@@ -388,8 +388,10 @@
   APP.nav('seller', { vista: 'seller/notificaciones', texto: 'Avisos', icono: 'notifications', roles: ['seller', 'precios', 'operador'], orden: 890 });
 
   APP.nav('admin', { vista: 'admin/mensajes', texto: 'Mensajes salientes', icono: 'forward_to_inbox', roles: ['superadmin', 'ops'], orden: 87 });
-  APP.nav('admin', { vista: 'admin/soporte', texto: 'Soporte', icono: 'support_agent', roles: ['superadmin', 'ops', 'finanzas'], orden: 52 });
-  APP.nav('admin', { vista: 'admin/contenido', texto: 'Contenido y denuncias', icono: 'flag', roles: ['superadmin', 'ops', 'finanzas'], orden: 25 });
+  /* (con su permiso fino: el menú del Backoffice oculta lo que la sesión no
+     tiene, ver POR_PERMISO en tm-mod-crecimiento.js) */
+  APP.nav('admin', { vista: 'admin/soporte', texto: 'Soporte', icono: 'support_agent', roles: ['superadmin', 'ops', 'finanzas'], permiso: 'soporte', orden: 52 });
+  APP.nav('admin', { vista: 'admin/contenido', texto: 'Contenido y denuncias', icono: 'flag', roles: ['superadmin', 'ops', 'finanzas'], permiso: 'contenido', orden: 25 });
   APP.nav('admin', { vista: 'admin/notificaciones', texto: 'Avisos', icono: 'notifications', roles: ['superadmin', 'ops', 'finanzas'], orden: 890 });
 
   /* ---------------------------------------------------------------------

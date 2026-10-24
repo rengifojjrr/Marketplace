@@ -204,11 +204,17 @@
       (d.lado === 'tumbo' ? '. La inspección y el cierre, en el <a class="underline" href="' + href('app/admin/pedido.html?id=' + encodeURIComponent(d.pedido)) + '">detalle del pedido</a>.' : ''), ' data-devolucion-expediente');
   }
 
+  /* el reclamo de una persona real ante la cuenta de prueba del comercio
+     (contraseña pública): ni el detalle ni la respuesta */
+  var BLOQUEADO_COMERCIO = 'Es el reclamo de una persona real: lo lee y lo responde una cuenta real de tu comercio ' +
+    '(las cuentas de prueba solo actúan sobre los datos de la demo). Si nadie responde a tiempo, Tumbo lo resuelve a favor del comprador.';
+
   function expediente(d, s) {
     if (d.bloqueado) {
       return '<p class="flex items-start gap-2 p-3 rounded-btn bg-warning-container text-on-warning-container font-body-sm text-body-sm" data-disputa-bloqueada>' +
-        ic('lock', 'text-[18px] shrink-0') + 'Es el reclamo de una persona o un comercio real: lo decide una cuenta real del equipo con verificación en dos pasos ' +
-        '(las cuentas de prueba solo actúan sobre los datos de la demo).</p>';
+        ic('lock', 'text-[18px] shrink-0') + (d.lado === 'comercio' ? BLOQUEADO_COMERCIO
+          : 'Es el reclamo de una persona o un comercio real: lo decide una cuenta real del equipo con verificación en dos pasos ' +
+            '(las cuentas de prueba solo actúan sobre los datos de la demo).') + '</p>';
     }
     return '<div data-expediente="' + esc(d.id) + '" class="grid lg:grid-cols-[1fr_360px] gap-4 items-start">' +
       '<div class="min-w-0">' +
@@ -624,6 +630,9 @@
             (TM.archivos ? TM.archivos.lista(d.evidencia) : d.evidencia.map(esc).join(', ')) + '</p>' : '') +
           (d.respuestaSeller
             ? '<div class="rounded-btn bg-surface-container-low p-3 font-body-sm text-body-sm"><strong>Tu respuesta (' + esc(d.respuestaSeller.fecha) + '):</strong> ' + esc(d.respuestaSeller.texto) + '</div>'
+            : d.bloqueado
+            ? '<p class="flex items-start gap-2 mt-2 p-3 rounded-btn bg-warning-container text-on-warning-container font-body-sm text-body-sm" data-disputa-bloqueada>' +
+              ic('lock', 'text-[18px] shrink-0') + BLOQUEADO_COMERCIO + '</p>'
             : (d.estado === 'abierta'
               ? '<div class="mt-2"><textarea data-resp="' + esc(d.id) + '" rows="2" placeholder="Explica tu versión y describe tu evidencia de empaque…" class="w-full px-3 py-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm focus:border-secondary outline-none"></textarea>' +
                 C().adjuntos('resp:' + d.id, { proposito: 'evidencia', entidad: d.id, max: 10, texto: 'Adjuntar evidencia (fotos del empaque, guía…)' }) +

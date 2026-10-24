@@ -52,6 +52,14 @@
      y desde los módulos (tm-mod-*.js). */
   var VISTAS = {};
   function registrar(mapa) { Object.keys(mapa).forEach(function (k) { VISTAS[k] = mapa[k]; }); }
+  /* ¿Puede abrir esta persona la vista? Para no pintar enlaces que le
+     responderían «No tienes acceso». Si la página no cargó el módulo que la
+     registra, decide con los roles que da quien enlaza (o la da por
+     abrible). */
+  function puedeAbrir(vista, s, roles) {
+    var r = (VISTAS[vista] && VISTAS[vista].roles) || roles;
+    return !r || !!(s && r.indexOf(s.rol) >= 0);
+  }
 
   /* ---------------------------------------------------------------------
      Extensión por módulos (tm-mod-*.js)
@@ -141,8 +149,14 @@
   /* ---------------------------------------------------------------------
      Cabecera de la tienda (patrón Amazon: buscador dominante)
      ------------------------------------------------------------------- */
-  function cabeceraTienda(s) {
+  /* s: la sesión de un comprador; panel: la de un usuario de panel (seller,
+     equipo) que entra a la tienda o al centro de ayuda, p. ej. a leer y
+     aceptar el contrato que le pide su panel: lo saluda y le deja el camino
+     de vuelta a su Seller Center o Backoffice. */
+  function cabeceraTienda(s, panel) {
     var carrito = TM.carrito();
+    var vuelta = panel && ROLES[panel.rol]
+      ? { href: href(ROLES[panel.rol].inicio), texto: ROLES[panel.rol].superficie === 'seller' ? 'Seller Center' : 'Backoffice' } : null;
     var nCarrito = carrito.reduce(function (t, i) { return t + i.cant; }, 0);
     var cats = TM.estado.categorias;
     return '' +
@@ -160,7 +174,7 @@
           '<button class="h-10 px-3 rounded-r-btn bg-warning text-on-warning" aria-label="Buscar">' + ic('search') + '</button></form>' +
         '<div class="relative shrink-0" data-menu-cuenta>' +
           '<button class="flex flex-col items-start leading-tight px-2 py-1 rounded hover:bg-white/10" data-cuenta-btn aria-expanded="false" aria-controls="tm-panel-cuenta">' +
-            '<span class="text-[11px] text-white/80">' + (s ? 'Hola, ' + esc(s.nombre.split(' ')[0]) : 'Hola, identifícate') + '</span>' +
+            '<span class="text-[11px] text-white/80">' + (s || vuelta ? 'Hola, ' + esc((s || panel).nombre.split(' ')[0]) : 'Hola, identifícate') + '</span>' +
             '<span class="text-[13px] font-bold flex items-center">Cuenta ' + ic('expand_more', 'text-[16px]') + '</span></button>' +
           '<div data-cuenta-panel id="tm-panel-cuenta" hidden class="absolute right-0 top-full mt-1 w-56 rounded-card border border-outline-variant bg-surface-container-lowest text-on-surface shadow-nivel-3 py-2 z-50">' +
           (s
@@ -173,9 +187,15 @@
               '<hr class="my-2 border-outline-variant"/>' +
               botonReiniciar(s) +
               '<button data-salir class="block w-full text-left px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low">Cerrar sesión</button>'
+            : vuelta
+            ? '<a data-volver-panel class="block px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low" href="' + vuelta.href + '">Volver al ' + esc(vuelta.texto) + '</a>' +
+              '<hr class="my-2 border-outline-variant"/>' +
+              '<button data-salir class="block w-full text-left px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low">Cerrar sesión</button>'
             : '<a class="block mx-4 my-2 text-center rounded-btn bg-secondary text-on-secondary font-label-md text-label-md py-2" href="' + href('index.html') + '">Iniciar sesión</a>' +
               '<p class="px-4 pb-2 font-body-sm text-body-sm text-on-surface-variant">¿Nuevo aquí? El registro está en la misma pantalla.</p>') +
           '</div></div>' +
+        (vuelta ? '<a data-volver-panel class="hidden sm:flex flex-col items-start leading-tight px-2 py-1 rounded hover:bg-white/10 shrink-0" href="' + vuelta.href + '">' +
+          '<span class="text-[11px] text-white/70">Volver al</span><span class="text-[13px] font-bold">' + esc(vuelta.texto) + '</span></a>' : '') +
         (s ? '<a class="hidden sm:flex flex-col items-start leading-tight px-2 py-1 rounded hover:bg-white/10 shrink-0" href="' + href('app/tienda/pedidos.html') + '">' +
           '<span class="text-[11px] text-white/70">Devoluciones</span><span class="text-[13px] font-bold">y pedidos</span></a>' : '') +
         (s ? '<div class="shrink-0">' + campanita(s) + '</div>' : '') +
@@ -419,13 +439,18 @@
   function errorConexion(raiz, e, reintentar) {
     var vista = document.body.getAttribute('data-vista') || '';
     var sinSenal = navigator.onLine === false;
+    /* la copia sin conexión (gancho de la plataforma) solo existe en algunas
+       vistas: la frase promete «lo de abajo» solo si de verdad hay algo */
+    var copia = ganchos('sin.conexion', { vista: vista, error: e, sinSenal: sinSenal });
     raiz.innerHTML = '<main id="contenido" tabindex="-1" class="min-h-[70vh] flex flex-col items-center justify-center p-4 focus:outline-none"><div class="max-w-md text-center">' +
       '<span class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-error-container text-on-error-container mb-4">' + ic(sinSenal ? 'wifi_off' : 'cloud_off', 'text-[30px]') + '</span>' +
       '<h1 class="font-headline-md text-headline-md text-primary-container mb-2">' + (sinSenal ? 'Estás sin conexión' : 'No pudimos cargar Tumbo') + '</h1>' +
       '<p class="font-body-md text-body-md text-on-surface-variant mb-6">' +
-        esc(sinSenal ? 'Tu teléfono o tu computadora no tiene señal en este momento. Lo que ves abajo es lo último que guardamos en este dispositivo.' : UI.mensajeError(e)) + '</p>' +
+        esc(!sinSenal ? UI.mensajeError(e)
+          : copia.trim() ? 'Tu teléfono o tu computadora no tiene señal en este momento. Lo que ves abajo es lo último que guardamos en este dispositivo.'
+          : 'Tu teléfono o tu computadora no tiene señal en este momento y esta página no está guardada en este dispositivo: la cargamos en cuanto vuelva la señal.') + '</p>' +
       UI.btn('Reintentar', { estilo: 'primario', icono: 'refresh', attr: 'data-reintentar' }) + '</div>' +
-      '<div class="w-full max-w-2xl mt-8 text-left">' + ganchos('sin.conexion', { vista: vista, error: e, sinSenal: sinSenal }) + '</div></main>';
+      (copia.trim() ? '<div class="w-full max-w-2xl mt-8 text-left">' + copia + '</div>' : '') + '</main>';
     raiz.querySelector('[data-reintentar]').addEventListener('click', reintentar);
     window.addEventListener('online', reintentar, { once: true });
   }
@@ -565,7 +590,7 @@
       });
       var contenido = def.render(params(), s);
       if (armazonDe(def, vista) === 'tienda') {
-        raiz.innerHTML = saltar() + cabeceraTienda(s && s.rol === 'comprador' ? s : null) +
+        raiz.innerHTML = saltar() + cabeceraTienda(s && s.rol === 'comprador' ? s : null, s && s.rol !== 'comprador' ? s : null) +
           '<main id="contenido" tabindex="-1" class="max-w-[1280px] mx-auto px-3 sm:px-4 py-5 min-h-[60vh] focus:outline-none">' + contenido + '</main>' +
           pieTienda(s && s.rol === 'comprador' ? s : null);
       } else {
@@ -616,7 +641,7 @@
 
   window.APP = {
     ROLES: ROLES, registrar: registrar, params: params, montar: montar, html403: html403,
-    nav: nav, navDe: navDe, enlace: enlace, gancho: gancho, ganchos: ganchos, trasPintar: trasPintar,
+    nav: nav, navDe: navDe, enlace: enlace, gancho: gancho, ganchos: ganchos, trasPintar: trasPintar, puedeAbrir: puedeAbrir,
     meta: meta, accesibilidad: accesibilidad
   };
   /* montar() lo invoca cada página después de cargar sus vistas. */

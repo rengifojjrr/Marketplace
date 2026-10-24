@@ -95,18 +95,38 @@
     return isNaN(d) ? null : d;
   }
   function n2(x) { return String(x).padStart(2, '0'); }
+  /* Día, mes, año, hora y minuto en hora de Caracas, como la línea de
+     tiempo y los plazos de Comunicación y Pagos (un comprador con el
+     navegador en otra zona ve las mismas horas en toda la página). Una fecha
+     sin hora es un día del calendario y se lee tal cual. */
+  var FMT_CCS = (function () {
+    try {
+      return new Intl.DateTimeFormat('en-US', { timeZone: 'America/Caracas', year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short' });
+    } catch (e) { return null; }
+  })();
+  var DIA_EN = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  function partes(v) {
+    var d = aFecha(v);
+    if (!d) return null;
+    if (FMT_CCS && !/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+      var x = {};
+      FMT_CCS.formatToParts(d).forEach(function (p) { x[p.type] = p.value; });
+      return { dia: DIA_EN[x.weekday], d: +x.day, m: +x.month, a: +x.year, h: (+x.hour) % 24, min: +x.minute };
+    }
+    return { dia: d.getDay(), d: d.getDate(), m: d.getMonth() + 1, a: d.getFullYear(), h: d.getHours(), min: d.getMinutes() };
+  }
   /* «jue 29/10» (con el año si no es el actual). */
   function fecha(v, conAnio) {
-    var d = aFecha(v);
-    if (!d) return '—';
-    var anio = conAnio || d.getFullYear() !== new Date().getFullYear();
-    return DIAS[d.getDay()] + ' ' + n2(d.getDate()) + '/' + n2(d.getMonth() + 1) + (anio ? '/' + d.getFullYear() : '');
+    var x = partes(v);
+    if (!x) return '—';
+    var anio = conAnio || x.a !== partes(new Date()).a;
+    return DIAS[x.dia] + ' ' + n2(x.d) + '/' + n2(x.m) + (anio ? '/' + x.a : '');
   }
   function fechaHora(v) {
-    var d = aFecha(v);
-    if (!d) return '—';
-    var h = d.getHours(), m = d.getMinutes();
-    return fecha(v) + ' ' + ((h % 12) || 12) + ':' + n2(m) + ' ' + (h < 12 ? 'am' : 'pm');
+    var x = partes(v);
+    if (!x) return '—';
+    return fecha(v) + ' ' + ((x.h % 12) || 12) + ':' + n2(x.min) + ' ' + (x.h < 12 ? 'am' : 'pm');
   }
   /* Tiempo que falta hasta un límite: { texto, vencido, tono }. */
   function restante(limite) {

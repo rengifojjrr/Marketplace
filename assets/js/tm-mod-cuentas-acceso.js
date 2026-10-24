@@ -112,11 +112,20 @@
       C.entrada({ nombre: 'clave', etiqueta: 'Contraseña', tipo: 'password', auto: 'new-password', ayuda: 'Entre 8 y 72 caracteres.' }) +
       C.entrada({ nombre: 'repetir', etiqueta: 'Repítela', tipo: 'password', auto: 'new-password' }) +
       '<label class="flex items-start gap-2 cursor-pointer"><input type="checkbox" name="terminos" class="mt-1 w-4 h-4 rounded border-outline text-secondary focus:ring-secondary/40"/>' +
-      '<span class="font-body-sm text-body-sm text-on-surface-variant">Acepto los términos y las políticas de privacidad de la beta' +
-      (r.terminosVersion ? ' (versión ' + esc(r.terminosVersion) + ')' : '') + '.</span></label>' +
+      '<span class="font-body-sm text-body-sm text-on-surface-variant">Acepto los ' + legal('terminos', 'términos') + ' y las ' + legal('privacidad', 'políticas de privacidad') +
+      ' de la beta' + (r.terminosVersion ? ' (versión ' + esc(r.terminosVersion) + ')' : '') + '.' +
+      /* a un comercio, además, el contrato que su panel le pedirá aceptar */
+      (r.comercioNuevo || r.rol === 'seller' ? ' Como comercio también rige el ' + legal('contrato-seller', 'contrato de comercio') + ': lo aceptas en tu panel.' : '') +
+      '</span></label>' +
       '<p data-error class="hidden font-body-sm text-body-sm text-error"></p>' +
       btn('Crear mi cuenta', { estilo: 'marca', tipo: 'submit', icono: 'how_to_reg', clase: 'w-full' }) + '</form>';
     return caja('<h1 class="font-headline-sm text-headline-sm text-primary-container mb-3">Invitación a Tumbo Market</h1>' + cuerpo);
+  }
+
+  /* Enlace a un texto legal del centro de ayuda (en otra pestaña: el
+     formulario no se pierde). */
+  function legal(pagina, texto) {
+    return '<a class="text-secondary underline" href="' + UI.href('app/ayuda/' + pagina + '.html') + '" target="_blank" rel="noopener">' + esc(texto) + '</a>';
   }
 
   function despuesInvitacion(raiz, q) {

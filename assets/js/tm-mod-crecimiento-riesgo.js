@@ -41,6 +41,8 @@
       C().seccion(leerPanel(), 'riesgo', function (d) {
         var u = d.umbrales || {};
         var retenidos = (d.pagos || []).filter(function (x) { return x.retenido; });
+        var verPedido = APP.puedeAbrir('admin/pedido', s, ['superadmin', 'ops']);
+        var verComprador = APP.puedeAbrir('admin/comprador', s, ['superadmin', 'ops']);
         var otros = (d.pagos || []).filter(function (x) { return !x.retenido; });
         function tarjeta(x) {
           return '<article data-pago-riesgo="' + esc(x.pago) + '" class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-3">' +
@@ -49,7 +51,9 @@
             (x.bloqueado ? '' : '<ul class="list-disc pl-5 font-body-sm text-body-sm">' + (x.motivos || []).map(function (m) {
               return '<li>' + esc(m.texto) + ' <span class="text-on-surface-variant">(+' + m.puntos + ')</span></li>'; }).join('') + '</ul>') +
             '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Pedidos: ' + (x.pedidos || []).map(function (p) {
-              return '<a class="text-secondary hover:underline" href="' + href('app/admin/pedido.html?id=' + encodeURIComponent(p)) + '">' + esc(p) + '</a>'; }).join(', ') +
+              /* (el detalle 360 es de superadmin y Operaciones: a Finanzas, el número sin enlace) */
+              return verPedido ? '<a class="text-secondary hover:underline" href="' + href('app/admin/pedido.html?id=' + encodeURIComponent(p)) + '">' + esc(p) + '</a>'
+                : '<span class="font-data-mono text-data-mono">' + esc(p) + '</span>'; }).join(', ') +
               (x.liberado_el ? ' · liberado el ' + esc(C().fecha(x.liberado_el)) + (x.liberado_por ? ' por ' + esc(x.liberado_por) : '') + (x.nota ? ': ' + esc(x.nota) : '') : '') + '</p>' +
             (x.retenido && !x.bloqueado ? '<div class="flex justify-end mt-2">' + btn('Revisado: liberar', { estilo: 'primario', icono: 'lock_open', attr: 'data-liberar="' + esc(x.pago) + '"' }) + '</div>' : '') +
             '</article>';
@@ -86,9 +90,10 @@
             '<div class="flex items-end">' + btn('Agregar a la lista', { estilo: 'primario', tipo: 'submit', icono: 'add' }) + '</div></form>', 'data-lista-nueva') : '') +
           C().subtitulo('Compradores marcados') +
           UI.tabla(['Comprador', 'Motivo', 'Desde'], (d.marcados || []).map(function (m) {
-            return UI.td('<a class="text-secondary hover:underline" href="' + href('app/admin/comprador.html?id=' + encodeURIComponent(m.usuario)) + '">' + esc(m.nombre) + '</a>') +
+            return UI.td(verComprador ? '<a class="text-secondary hover:underline" href="' + href('app/admin/comprador.html?id=' + encodeURIComponent(m.usuario)) + '">' + esc(m.nombre) + '</a>'
+                : esc(m.nombre)) +
               UI.td(esc(m.motivo)) + UI.td(esc(C().fecha(m.desde)) + (m.por ? '<span class="block text-on-surface-variant">' + esc(m.por) + '</span>' : ''));
-          }), '<p class="font-body-sm text-body-sm text-on-surface-variant">Ningún comprador marcado. Se marca desde su ficha 360.</p>');
+          }), '<p class="font-body-sm text-body-sm text-on-surface-variant">Ningún comprador marcado.' + (verComprador ? ' Se marca desde su ficha 360.' : ' Lo marca el superadministrador u Operaciones desde la ficha del comprador.') + '</p>');
       }, 'Cargando el riesgo…');
   }
   function despuesRiesgo(raiz) {

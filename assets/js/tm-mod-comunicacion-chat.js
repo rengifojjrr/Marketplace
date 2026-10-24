@@ -60,7 +60,11 @@
       var d = r.dato;
       var lado = d.lado;
       var mensajes = d.mensajes || [];
-      cuerpo = (d.siguiente ? '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Se muestran los 50 mensajes más recientes.</p>' : '') +
+      /* la conversación de una persona real ante la cuenta de prueba del comercio */
+      if (d.bloqueado) {
+        cuerpo = '<p class="flex items-start gap-2 p-3 rounded-btn bg-warning-container text-on-warning-container font-body-sm text-body-sm" data-chat-bloqueado>' +
+          ic('lock', 'text-[18px] shrink-0') + esc(d.motivo || 'Es la conversación de una persona real.') + '</p>';
+      } else cuerpo = (d.siguiente ? '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Se muestran los 50 mensajes más recientes.</p>' : '') +
         (mensajes.length
           ? '<ol data-chat-lista class="space-y-2 mb-3 max-h-80 overflow-y-auto pr-1">' + mensajes.map(function (m) { return burbuja(m, lado); }).join('') + '</ol>'
           : '<p data-chat-vacio class="font-body-sm text-body-sm text-on-surface-variant mb-3">' +

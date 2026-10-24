@@ -284,8 +284,22 @@
         solicitud ? 'El comercio ya está preparando tu pedido: le enviaremos tu solicitud. Si la aprueba (o no responde en 24 horas), se cancela y el reembolso queda en cola.'
           : 'Se libera el stock reservado y, si el pago ya se había conciliado, el reembolso queda en cola de Finanzas.',
         { accion: solicitud ? 'Enviar solicitud' : 'Cancelar pedido', peligro: true, motivo: 'Motivo (opcional)' }, function (motivo) {
-          UI.accion(null, function () { return TM.cancelarPedido(id, motivo); }, function () {
+          UI.accion(null, function () {
+            return TM.cancelarPedido(id, motivo).catch(function (e) {
+              /* el cupón de Tumbo del pago pide una compra mínima que el resto
+                 ya no alcanza: se ofrece cancelar el pago completo */
+              var pago = e && e.codigo === 'TMPAG' && /PAG-\d{4}-\d+/.exec(e.error || '');
+              if (!pago) throw e;
+              return new Promise(function (ok, mal) {
+                UI.confirmar('Cancelar el pago completo', (e.error || '') + ' Se cancelan juntos todos sus pedidos por pagar y se libera su stock.',
+                  { accion: 'Cancelar el pago ' + pago[0], peligro: true }, function () {
+                    TM.cancelarPedido(pago[0], motivo).then(function () { ok({ pago: pago[0] }); }, mal);
+                  });
+              });
+            });
+          }, function (r) {
             if (solicitud) UI.toast('Solicitud enviada', 'El comercio tiene 24 horas para responder.', 'pending');
+            else if (r && r.pago) UI.toast('Pago cancelado', 'Se cancelaron los pedidos del pago ' + r.pago + ' y se liberó el stock.', 'cancel');
             else UI.toast('Pedido cancelado', 'El stock quedó liberado y Finanzas fue notificada.', 'cancel');
           }, 'No se pudo cancelar');
         });
