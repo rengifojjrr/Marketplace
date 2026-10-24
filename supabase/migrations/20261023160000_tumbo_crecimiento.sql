@@ -1031,10 +1031,39 @@ begin
   return m;
 end $$;
 
--- Los duplicados se buscan por el parecido del nombre normalizado con un
--- índice de trigramas (sin recorrer todo el catálogo del comercio).
-create index productos_nombre_trgm_crec_idx on tumbo.productos
-  using gin (tumbo_privado.normalizar(nombre) extensions.gin_trgm_ops) with (fastupdate = off);
+-- Los duplicados se buscan por el parecido del nombre normalizado, guardado
+-- aquí con un índice de trigramas: sin recorrer todo el catálogo del
+-- comercio ni normalizar cada nombre en cada búsqueda. Lo mantiene un
+-- disparador sobre productos (sin clave foránea: el reinicio de la demo
+-- vacía y reutiliza los SKU; lo que ya no existe no se cruza con productos).
+create table tumbo.productos_nombres (
+  sku         text primary key check (char_length(sku) <= 40),
+  seller_id   text not null,
+  nombre_norm text not null
+);
+create index productos_nombres_trgm_idx on tumbo.productos_nombres using gin (nombre_norm extensions.gin_trgm_ops) with (fastupdate = off);
+create index productos_nombres_seller_idx on tumbo.productos_nombres (seller_id);
+alter table tumbo.productos_nombres enable row level security;
+revoke all on tumbo.productos_nombres from public, anon, authenticated;
+
+create function tumbo_privado.producto_nombre_norm() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if tg_op = 'DELETE' then
+    delete from tumbo.productos_nombres where sku = old.sku;
+    return null;
+  end if;
+  insert into tumbo.productos_nombres (sku, seller_id, nombre_norm) values (new.sku, new.seller_id, tumbo_privado.normalizar(new.nombre))
+  on conflict (sku) do update set seller_id = excluded.seller_id, nombre_norm = excluded.nombre_norm;
+  return null;
+end $$;
+
+create trigger productos_nombre_norm after insert or update of nombre, seller_id or delete on tumbo.productos
+  for each row execute function tumbo_privado.producto_nombre_norm();
+
+insert into tumbo.productos_nombres (sku, seller_id, nombre_norm)
+select p.sku, p.seller_id, tumbo_privado.normalizar(p.nombre) from tumbo.productos p
+on conflict (sku) do nothing;
 
 -- Evalúa un producto con las reglas: vuelve a calcular sus marcas
 -- automáticas abiertas (palabras, precio anómalo frente a la mediana de su
@@ -1096,14 +1125,14 @@ begin
   end if;
   -- un producto parecido del mismo comercio (que no es de la misma familia
   -- de variantes): el operador % de pg_trgm con el umbral del ajuste usa el
-  -- índice de trigramas del nombre normalizado
+  -- índice de trigramas de los nombres normalizados (productos_nombres)
   v_nombre := tumbo_privado.normalizar(p.nombre);
   v_umbral := current_setting('pg_trgm.similarity_threshold', true);
   perform set_config('pg_trgm.similarity_threshold', v_sim::text, true);
-  select x.sku, x.nombre, extensions.similarity(tumbo_privado.normalizar(x.nombre), v_nombre) as sim into r
-  from tumbo.productos x
-  where tumbo_privado.normalizar(x.nombre) operator(extensions.%) v_nombre
-    and x.seller_id = p.seller_id and x.sku <> p.sku and x.estado in ('publicado', 'en_revision', 'pausado')
+  select x.sku, x.nombre, extensions.similarity(n.nombre_norm, v_nombre) as sim into r
+  from tumbo.productos_nombres n join tumbo.productos x on x.sku = n.sku
+  where n.nombre_norm operator(extensions.%) v_nombre and n.seller_id = p.seller_id and n.sku <> p.sku
+    and x.seller_id = p.seller_id and x.estado in ('publicado', 'en_revision', 'pausado')
     and x.padre_sku is distinct from p.sku and p.padre_sku is distinct from x.sku
     and (p.padre_sku is null or x.padre_sku is distinct from p.padre_sku)
   order by 3 desc, x.sku limit 1;
@@ -4539,6 +4568,10 @@ begin
   delete from tumbo.cupon_intentos where clave is not null;
   delete from tumbo.moderacion_marcas where id is not null;
   delete from tumbo.moderacion_medianas where categoria is not null;
+  delete from tumbo.productos_nombres n where not exists (select 1 from tumbo.productos p where p.sku = n.sku);
+  insert into tumbo.productos_nombres (sku, seller_id, nombre_norm)
+  select p.sku, p.seller_id, tumbo_privado.normalizar(p.nombre) from tumbo.productos p
+  on conflict (sku) do update set seller_id = excluded.seller_id, nombre_norm = excluded.nombre_norm;
   update tumbo.moderacion_revision set iniciada = null, terminada = null, ultima = null, cursor = '', revisados = 0, marcados = 0, total = 0
   where id = 1;
   -- las denuncias de la demo (como el reinicio de Comunicación)
