@@ -323,7 +323,8 @@ const ACTIVOS = ['por_aceptar', 'preparando', 'listo', 'despachado'];
     t360.slice(0, 200));
   psql(`update tumbo.sesiones set elevada_hasta = now() + interval '1 hour' where usuario_id = (select id from tumbo.usuarios where email = ${lit(REALES.opsReal.email)})`);
   const rsR = await rpc('tm_resolver_disputa', { p_sesion: s.opsReal, p_id: dsp.dato, p_decision: 'liberar', p_nota: 'El comercio mostró la foto del empaque' });
-  ok(rsR.ok && psql(`select estado || '/' || liquidacion from tumbo.pedidos where id = ${lit(E.ped)}`) === 'cerrado/elegible',
+  /* (con Comunicación, los fondos siguen retenidos mientras el comprador puede apelar) */
+  ok(rsR.ok && /^cerrado\/(elegible|congelado)$/.test(psql(`select estado || '/' || liquidacion from tumbo.pedidos where id = ${lit(E.ped)}`)),
     'con la sesión elevada, la cuenta real de Operaciones resuelve el reclamo', rsR.texto);
 
   /* --- Pago de una persona real ante las cuentas de prueba --- */

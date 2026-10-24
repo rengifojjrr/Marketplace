@@ -8,6 +8,10 @@
  *                    llama a las RPC por PostgREST con la clave de servicio,
  *                    desde la «red de la función» (FUNCION_IP) y con la del
  *                    navegador en x-tumbo-red, como la real
+ *   /functions/v1/tumbo-envios → la función de envíos de la bandeja, con su
+ *                    mismo núcleo (supabase/functions/tumbo-envios/nucleo.mjs)
+ *                    y los proveedores (Resend, WhatsApp) simulados: las
+ *                    pruebas los configuran y leen lo «enviado» en /__sim/envios
  *   /storage/v1/*  → un Storage mínimo: URL firmadas de subida y de
  *                    descarga, objetos de buckets públicos, mover y borrar
  *                    (con la clave de servicio). Los archivos se guardan en
@@ -85,7 +89,7 @@ const CORS = {
   'access-control-allow-origin': '*',
   'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
   'access-control-allow-headers': 'authorization,apikey,content-type,prefer,range,x-client-info,accept-profile,content-profile,' +
-    'x-supabase-api-version,x-tumbo-sesion,x-upsert,cache-control',
+    'x-supabase-api-version,x-tumbo-sesion,x-tumbo-envios,x-upsert,cache-control',
   'access-control-expose-headers': 'content-range,x-supabase-api-version',
   'access-control-max-age': '86400'
 };
@@ -389,12 +393,122 @@ async function funcionArchivos(req, res) {
 }
 
 /* ---------------------------------------------------------------------
+   Función tumbo-envios (gemela de supabase/functions/tumbo-envios: usa su
+   mismo núcleo, nucleo.mjs). Los proveedores se simulan aquí y nada sale a
+   internet: sin configuración no hay «secretos» (como la función recién
+   desplegada) y no se envía nada. Las pruebas los configuran con
+   POST /__sim/envios {resend: {clave, de}, whatsapp: {token, numeroId},
+   fallar: {correo|whatsapp: 'temporal'|'permanente'|'red'|'limite'}}, leen lo
+   «enviado» con GET /__sim/envios y lo vacían con DELETE. Resend respeta la
+   clave de idempotencia (la misma clave no se manda dos veces).
+   ------------------------------------------------------------------- */
+const SIM_ENVIOS = { config: {}, fallar: {}, registro: [], ids: {} };
+let nucleoEnvios = null;
+function cargarNucleoEnvios() {
+  if (!nucleoEnvios) {
+    nucleoEnvios = import(require('url').pathToFileURL(path.join(__dirname, '..', '..', 'supabase', 'functions', 'tumbo-envios', 'nucleo.mjs')).href);
+  }
+  return nucleoEnvios;
+}
+function configEnviosSimulada() {
+  const c = SIM_ENVIOS.config;
+  return { resend: c.resend ? Object.assign({}, c.resend, { url: 'http://proveedor.simulado/resend' }) : {},
+    whatsapp: c.whatsapp ? Object.assign({}, c.whatsapp, { url: 'http://proveedor.simulado/whatsapp' }) : {} };
+}
+async function httpEnviosSimulado(url, init) {
+  const prov = /\/resend/.test(url) ? 'resend' : 'whatsapp';
+  const cuerpo = JSON.parse((init && init.body) || '{}');
+  const modo = SIM_ENVIOS.fallar[prov === 'resend' ? 'correo' : 'whatsapp'];
+  const resp = (estado, dato) => ({ status: estado, text: async () => JSON.stringify(dato) });
+  if (modo === 'red') throw new Error('sin conexión con el proveedor (simulado)');
+  if (modo === 'limite') {
+    return resp(429, prov === 'resend' ? { name: 'rate_limit_exceeded', message: 'Demasiadas solicitudes (simulado)' }
+      : { error: { message: 'Rate limit hit (simulado)', code: 130429 } });
+  }
+  if (modo === 'temporal') {
+    return resp(503, prov === 'resend' ? { name: 'application_error', message: 'Servicio no disponible (simulado)' }
+      : { error: { message: 'Servicio no disponible (simulado)', code: 2 } });
+  }
+  if (modo === 'permanente') {
+    return resp(422, prov === 'resend' ? { name: 'validation_error', message: 'Destino no válido (simulado)' }
+      : { error: { message: 'Plantilla no aprobada (simulado)', code: 132001 } });
+  }
+  if (prov === 'resend') {
+    const clave = (init.headers || {})['idempotency-key'];
+    if (clave && SIM_ENVIOS.ids[clave]) return resp(200, { id: SIM_ENVIOS.ids[clave] });
+    const id = 'sim-correo-' + (SIM_ENVIOS.registro.length + 1);
+    if (clave) SIM_ENVIOS.ids[clave] = id;
+    SIM_ENVIOS.registro.push({ proveedor: 'resend', id, a: cuerpo.to, de: cuerpo.from, asunto: cuerpo.subject, texto: cuerpo.text,
+      html: cuerpo.html, idempotencia: clave || null, autorizacion: /^Bearer .+/.test((init.headers || {}).authorization || '') });
+    return resp(200, { id });
+  }
+  const t = cuerpo.template || {};
+  const id = 'wamid.simulado-' + (SIM_ENVIOS.registro.length + 1);
+  SIM_ENVIOS.registro.push({ proveedor: 'whatsapp', id, a: cuerpo.to, plantilla: t.name || null, idioma: (t.language || {}).code || null,
+    parametros: (((t.components || [])[0] || {}).parameters || []).map((x) => x.text), url });
+  return resp(200, { messaging_product: 'whatsapp', messages: [{ id }] });
+}
+async function funcionEnvios(req, res) {
+  if (req.method !== 'POST') return responder(res, 405, { error: 'Método no permitido.' });
+  let datos;
+  try { datos = JSON.parse((await leerCuerpo(req, 20000)).toString('utf8') || '{}'); } catch (e) {
+    return responder(res, 400, { error: 'Solicitud inválida.' });
+  }
+  const rpcNucleo = async (nombre, params) => {
+    const r = await rpc(nombre, params, '');
+    return { ok: r.ok, dato: r.dato, error: r.dato && r.dato.message };
+  };
+  try {
+    let por = '';
+    if (esServicio(req)) {
+      por = 'Clave de servicio';
+    } else {
+      const secreto = String(req.headers['x-tumbo-envios'] || '') || null;
+      const sesion = String(req.headers['x-tumbo-sesion'] || '') || null;
+      if (!secreto && !sesion) return responder(res, 401, { error: 'No autorizado.' });
+      const a = await rpcNucleo('tm_envios_autorizar', { p_secreto: secreto, p_sesion: sesion });
+      const r = a.dato || {};
+      if (!a.ok || !r.ok) return responder(res, 403, { error: r.error || a.error || 'No autorizado.' });
+      por = String(r.por || '');
+    }
+    const nucleo = await cargarNucleoEnvios();
+    const accion = String(datos.accion || 'enviar');
+    if (accion === 'estado') return responder(res, 200, nucleo.proveedores(configEnviosSimulada()));
+    if (accion !== 'enviar') return responder(res, 400, { error: 'Acción desconocida.' });
+    const r = await nucleo.enviarPendientes({ rpc: rpcNucleo, http: httpEnviosSimulado, config: configEnviosSimulada(),
+      limite: datos.limite, por });
+    return responder(res, r.ok ? 200 : 502, r);
+  } catch (e) {
+    return responder(res, 500, { error: 'La función de envíos falló: ' + e.message });
+  }
+}
+async function simEnvios(req, res) {
+  if (req.method === 'GET') {
+    return responder(res, 200, { config: { correo: !!SIM_ENVIOS.config.resend, whatsapp: !!SIM_ENVIOS.config.whatsapp },
+      fallar: SIM_ENVIOS.fallar, registro: SIM_ENVIOS.registro });
+  }
+  if (req.method === 'DELETE') {
+    SIM_ENVIOS.config = {}; SIM_ENVIOS.fallar = {}; SIM_ENVIOS.registro = []; SIM_ENVIOS.ids = {};
+    return responder(res, 200, { ok: true });
+  }
+  if (req.method !== 'POST') return responder(res, 405, { error: 'Método no permitido.' });
+  let d;
+  try { d = JSON.parse((await leerCuerpo(req, 20000)).toString('utf8') || '{}'); } catch (e) { return responder(res, 400, { error: 'JSON inválido.' }); }
+  if ('resend' in d) SIM_ENVIOS.config.resend = d.resend || undefined;
+  if ('whatsapp' in d) SIM_ENVIOS.config.whatsapp = d.whatsapp || undefined;
+  if ('fallar' in d) SIM_ENVIOS.fallar = d.fallar || {};
+  return responder(res, 200, { ok: true });
+}
+
+/* ---------------------------------------------------------------------
    Servidor
    ------------------------------------------------------------------- */
 http.createServer((req, res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204, CORS); res.end(); return; }
   const url = new URL(req.url, 'http://local');
   if (url.pathname === '/functions/v1/tumbo-archivos') { funcionArchivos(req, res); return; }
+  if (url.pathname === '/functions/v1/tumbo-envios') { funcionEnvios(req, res); return; }
+  if (url.pathname === '/__sim/envios') { simEnvios(req, res).catch((e) => responder(res, 500, { error: e.message })); return; }
   if (url.pathname.startsWith('/storage/v1/')) {
     storage(req, res, url).catch((e) => responder(res, 500, { message: e.message }));
     return;

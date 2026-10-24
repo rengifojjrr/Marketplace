@@ -98,7 +98,30 @@ declare
     'public.tm_operaciones_asignar(text,text,uuid)', 'public.tm_nota_interna(text,text,text)', 'public.tm_pedido_360(text,text)',
     'public.tm_operaciones_panel(text,jsonb)', 'public.tm_courier_guardar(text,jsonb)', 'public.tm_tarifa_guardar(text,jsonb)',
     'public.tm_oficina_guardar(text,jsonb)', 'public.tm_zona_estado(text,text,text)',
-    'public.tm_feriado_guardar(text,date,text,boolean)', 'public.tm_logistica_plazos_guardar(text,jsonb)', 'public.tm_sla_revisar(text)'];
+    'public.tm_feriado_guardar(text,date,text,boolean)', 'public.tm_logistica_plazos_guardar(text,jsonb)', 'public.tm_sla_revisar(text)',
+    -- ola 2 (comunicación)
+    'public.tm_envios_autorizar(text,text)', 'public.tm_envios_tomar(text[],integer)',
+    'public.tm_envios_resultado(bigint,boolean,text,text,text,boolean)', 'public.tm_envios_reporte(jsonb)',
+    'public.tm_mensajes(text,jsonb)', 'public.tm_envios_estado(text)', 'public.tm_mensaje_reintentar(text,bigint)',
+    'public.tm_whatsapp_plantilla_guardar(text,text,jsonb)',
+    'public.tm_avisos(text)', 'public.tm_avisos_guardar(text,jsonb)', 'public.tm_whatsapp_consentimiento(text,boolean)',
+    'public.tm_chat(text,text,bigint)', 'public.tm_chat_pendientes(text)', 'public.tm_chat_enviar(text,text,text,uuid[])',
+    'public.tm_preguntas(text,text,integer)', 'public.tm_pregunta_hacer(text,text,text)', 'public.tm_preguntas_seller(text,text)',
+    'public.tm_pregunta_responder(text,bigint,text)', 'public.tm_respuesta_rapida_guardar(text,bigint,text,text)',
+    'public.tm_reputacion(text)', 'public.tm_resenas(text,text,text,integer)', 'public.tm_resenas_pendientes(text)',
+    'public.tm_resena_crear(text,text,jsonb)', 'public.tm_resenas_seller(text)', 'public.tm_resena_responder(text,bigint,text)',
+    'public.tm_legales(text)', 'public.tm_legal_aceptar(text,text,text)', 'public.tm_legal_publicar(text,jsonb)',
+    'public.tm_legal_texto_publicado(text,text,text)',
+    'public.tm_disputa_envio_vuelta(text,text,numeric,text[])', 'public.tm_disputa_envio_vuelta_resolver(text,text,jsonb)',
+    'public.tm_denunciar(text,text,text,text,text)', 'public.tm_contenido_cola(text,text)',
+    'public.tm_contenido_moderar(text,text,bigint,text,text)', 'public.tm_denuncia_cerrar(text,bigint,text,text)',
+    'public.tm_ticket_crear(text,jsonb)', 'public.tm_tickets(text,jsonb)', 'public.tm_ticket(text,text)',
+    'public.tm_ticket_responder(text,text,text,uuid[],boolean)', 'public.tm_ticket_gestionar(text,text,jsonb)',
+    'public.tm_soporte_macro_guardar(text,bigint,jsonb)',
+    'public.tm_disputa(text,text)', 'public.tm_disputas_resumen(text)', 'public.tm_disputa_resolver(text,text,jsonb)',
+    'public.tm_disputa_mensaje(text,text,text,text[])', 'public.tm_disputa_solicitar(text,text,text,text,integer)',
+    'public.tm_disputa_apelar(text,text,text,text[])', 'public.tm_disputa_apelacion_resolver(text,text,jsonb)',
+    'public.tm_comunicacion_revisar(text)'];
   f text;
   ajenos text;
   b text;
@@ -158,7 +181,7 @@ begin
         delete from storage.objects o
         where o.bucket_id = b
           and (exists (select 1 from tumbo.archivos a where a.ruta = o.name)
-               or o.name ~ '^(producto|perfil|kyc|evidencia|comprobante|guia|entrega|chat|liquidacion)/[A-Za-z0-9-]+/[0-9a-f-]{36}\.(jpg|png|webp|pdf|mp4|bin)$');
+               or o.name ~ '^(producto|perfil|kyc|evidencia|comprobante|guia|entrega|chat|liquidacion|resena|soporte)/[A-Za-z0-9-]+/[0-9a-f-]{36}\.(jpg|png|webp|pdf|mp4|bin)$');
       exception when others then
         raise notice 'Storage no deja borrar los archivos de «%» por SQL (%): vacíalo desde el panel de Supabase.', b, sqlerrm;
       end;
@@ -175,7 +198,8 @@ begin
   end if;
 
   -- Las tareas programadas de Tumbo (pg_cron), si existe: solo las suyas
-  -- (pagos: tumbo-pagos-*; logística: tumbo-sla).
+  -- (pagos: tumbo-pagos-*; logística: tumbo-sla; comunicación:
+  -- tumbo-comunicacion y tumbo-envios).
   if exists (select 1 from pg_extension where extname = 'pg_cron') then
     begin
       for b in execute $q$select jobid::text from cron.job where jobname like 'tumbo-%'$q$ loop

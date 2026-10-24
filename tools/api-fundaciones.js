@@ -525,7 +525,10 @@ async function registrarComprador(rpc, datos) {
     ok(!mk3.ok && !mk3b.ok && mk4.ok, 'un mensaje de seguridad solo lo puede descartar operaciones (ni el superadmin de prueba lo da por enviado)', mk3.texto + mk3b.texto);
     const aud = await rpc('tm_auditoria', { p_sesion: s.finanzas, p_texto: 'Mensaje saliente marcado' });
     ok(aud.ok && aud.dato.eventos.length >= 2, 'las marcas de la bandeja quedan en la auditoría', aud.texto);
+    /* (ola 2, comunicación: WhatsApp solo con el consentimiento de la persona para ese número) */
     psql(`update tumbo.usuarios set telefono = '04125550101' where id = 'a0000000-0000-4000-8000-000000000001';
+          insert into tumbo.consentimientos_whatsapp (usuario_id, accion, telefono, version)
+          values ('a0000000-0000-4000-8000-000000000001', 'otorgar', '04125550101', 'prueba');
           insert into tumbo.preferencias_aviso (usuario_id, tipo, canal, activo)
           values ('a0000000-0000-4000-8000-000000000001', 'pedido_despachado', 'correo', false) on conflict do nothing;
           select tumbo_privado.encolar('a0000000-0000-4000-8000-000000000001', 'pedido_despachado', '{"pedido": "TM-2026-00431", "courier": "Zoom", "guia": "G-1"}');
@@ -536,7 +539,8 @@ async function registrarComprador(rpc, datos) {
        /verificar_telefono:sms,verificar_telefono:whatsapp$/.test(canales),
       'con teléfono sale también por WhatsApp/SMS y se respeta la preferencia de no recibir por correo', canales);
     psql(`update tumbo.usuarios set telefono = null where id = 'a0000000-0000-4000-8000-000000000001';
-          delete from tumbo.preferencias_aviso where usuario_id = 'a0000000-0000-4000-8000-000000000001';`);
+          delete from tumbo.preferencias_aviso where usuario_id = 'a0000000-0000-4000-8000-000000000001';
+          delete from tumbo.consentimientos_whatsapp where usuario_id = 'a0000000-0000-4000-8000-000000000001' and version = 'prueba';`);
   } else {
     omitida('encolar rellena plantillas, respeta preferencias y la bandeja se marca y audita (y protege a las personas reales)');
   }

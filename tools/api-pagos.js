@@ -789,6 +789,10 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
   /* (TM-2026-00428 es de SEL-014, un comercio real en esta suite: su disputa la resuelve una cuenta real) */
   const rd = await rpc('tm_resolver_disputa', { p_sesion: s.admin, p_id: 'DSP-0098', p_decision: 'liberar', p_nota: null });
   if (!rd.ok) process.stdout.write(rojo('  (la disputa DSP-0098 no se resolvió: ' + rd.texto.slice(0, 160) + ')') + '\n');
+  /* (Comunicación retiene los fondos mientras el comprador puede apelar: se simula que venció ese plazo) */
+  psql(`do $$ begin if to_regprocedure('tumbo_privado.tarea_comunicacion()') is not null then
+          update tumbo.disputa_casos set resuelta_en = now() - interval '6 days' where disputa_id = 'DSP-0098';
+          perform tumbo_privado.tarea_comunicacion(); end if; end $$`);
   const prR = await rpc('tm_ejecutar_liquidacion', { p_sesion: fin, p_seller: 'SEL-014', p_pedidos: ['TM-2026-00428'] });
   const lib = await rpc('tm_retencion_seller', { p_sesion: fin, p_seller: 'SEL-014', p_retener: false, p_motivo: 'Revisión terminada' });
   ok(!retDemo.ok && /cuentas de prueba/.test(retDemo.texto) && ret.ok && !prR.ok && /retenidos/.test(prR.texto) && lib.ok,
