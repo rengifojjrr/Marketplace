@@ -39,8 +39,8 @@
 -- (tm_crear_pedido y tm_checkout_crear: interruptores, comisión vigente,
 -- promociones y riesgo) se completan con disparadores en vez de redefinir
 -- moderar_producto y checkout_crear: la migración de la integración de la
--- ola 1 (20261023190000) las redefine y, en el orden de los archivos, se
--- aplica después de esta.
+-- ola 1 (20261023190000) las redefine y así nada se pisa, sea cual sea el
+-- orden (esta migración nació como 20261023160000 y va después de ella).
 -- =========================================================================
 
 -- ---------------------------------------------------------------------------
@@ -957,7 +957,7 @@ create index moderacion_marcas_sku_idx on tumbo.moderacion_marcas (sku, tipo, es
 alter table tumbo.moderacion_marcas enable row level security;
 revoke all on tumbo.moderacion_marcas from public, anon, authenticated;
 
--- Denuncias. La tabla es de Comunicación (migración 20261023150000, que en
+-- Denuncias. La tabla es de Comunicación (migración 20261024150000, que en
 -- el orden de los archivos se aplica antes que esta): quien la crea y la
 -- llena es tm_denunciar. Si no existe (esta rama sola), se crea con su
 -- mismo contrato, columna por columna y restricción por restricción:
@@ -1169,8 +1169,8 @@ create trigger productos_moderacion_auto
 -- revisión hacia la venta (hay que descartar antes la marca si es un
 -- error); al salir de revisión, sus demás marcas abiertas quedan resueltas
 -- (descartadas si se aprobó, confirmadas si se rechazó). Van como
--- disparadores para no redefinir moderar_producto (la integración de la ola
--- 1, que se aplica después en el orden de los archivos, la redefine).
+-- disparadores para no redefinir moderar_producto (la redefine la
+-- integración de la ola 1).
 create function tumbo_privado.producto_moderacion_decision() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -4447,9 +4447,8 @@ end $$;
 -- El checkout de Pagos (tumbo_privado.checkout_crear, cuerpo de
 -- tm_crear_pedido y de tm_checkout_crear) crea el pago y después un pedido
 -- por comercio mientras el carrito sigue completo. Estos disparadores lo
--- completan sin redefinirlo (la integración de la ola 1, que en el orden de
--- los archivos se aplica después de esta migración, lo redefine; así nada se
--- pisa):
+-- completan sin redefinirlo (lo redefine la integración de la ola 1; así
+-- nada se pisa):
 --   · antes de insertar cada pedido: los interruptores (categorías y
 --     ciudades en pausa) y la comisión vigente de su comercio y sus
 --     categorías (comision_carrito) en vez de la global;
@@ -4519,10 +4518,9 @@ $$;
 
 -- tm_archivo_preparar (ola 0) no se redefine aquí: Comunicación también la
 -- extiende (archivo_permitido_comunicacion) y archivo_permitido la redefine
--- la integración de la ola 1, que se aplica después. La integración de la
--- ola 2 agrega en una sola redefinición, junto a la de Comunicación, la
--- rama «marketing»: «or (pr.proposito = 'marketing' and
--- tumbo_privado.marketing_puede_subir(yo, v_entidad))». Hasta entonces el
+-- la integración de la ola 1. La integración de la ola 2 (20261024190000)
+-- conecta la rama «marketing» en archivo_permitido
+-- (tumbo_privado.marketing_puede_subir(yo, entidad)). Hasta entonces el
 -- propósito existe pero nadie sube a él, y admin/marketing lo dice
 -- (marketing_imagenes_listas): los banners salen con su tono de color.
 create function tumbo_privado.marketing_imagenes_listas() returns boolean

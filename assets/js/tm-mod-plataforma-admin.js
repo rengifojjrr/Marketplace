@@ -262,7 +262,7 @@
       '<div class="grid lg:grid-cols-2 gap-5">' +
         seccion('Tasa BCV', 'currency_exchange', bloqueTasa(d)) +
         seccion('Bandeja de salida', 'outbox', bloqueBandeja(d),
-          '<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href('app/admin/bandeja.html') + '">Abrir la bandeja</a>') +
+          '<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href('app/admin/mensajes.html') + '">Abrir los mensajes salientes</a>') +
       '</div>' +
       seccion('Errores recientes', 'bug_report', bloqueErrores(d)) +
       seccion('Almacenamiento', 'database', bloqueAlmacenamiento(d)) +

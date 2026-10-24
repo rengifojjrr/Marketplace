@@ -20,7 +20,7 @@
      lleva a sin-conexion.html.
    ========================================================================= */
 'use strict';
-var VERSION = 'tumbo-18ac3aa068e81964';
+var VERSION = 'tumbo-c5add47ea5a6c4f7';
 var PRECACHE = [
   "index.html",
   "sin-conexion.html",
@@ -46,21 +46,13 @@ var PRECACHE = [
   "assets/js/vendor/qrcode-generator/qrcode.js",
   "assets/js/tm-mod-archivos.js",
   "assets/js/tm-mod-catalogo.js",
-  "assets/js/tm-mod-comunicacion-admin.js",
   "assets/js/tm-mod-comunicacion-ayuda.js",
   "assets/js/tm-mod-comunicacion-chat.js",
   "assets/js/tm-mod-comunicacion-confianza.js",
   "assets/js/tm-mod-comunicacion-cuenta.js",
   "assets/js/tm-mod-comunicacion-disputas.js",
-  "assets/js/tm-mod-comunicacion-seller.js",
   "assets/js/tm-mod-comunicacion.js",
-  "assets/js/tm-mod-crecimiento-admin.js",
   "assets/js/tm-mod-crecimiento-analitica.js",
-  "assets/js/tm-mod-crecimiento-fichas.js",
-  "assets/js/tm-mod-crecimiento-marketing.js",
-  "assets/js/tm-mod-crecimiento-moderacion.js",
-  "assets/js/tm-mod-crecimiento-riesgo.js",
-  "assets/js/tm-mod-crecimiento-seller.js",
   "assets/js/tm-mod-crecimiento-tienda.js",
   "assets/js/tm-mod-crecimiento.js",
   "assets/js/tm-mod-cuentas-direcciones.js",

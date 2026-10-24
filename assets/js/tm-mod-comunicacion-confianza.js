@@ -235,9 +235,9 @@
   /* Enlaces del checkout a lo que se acepta al comprar. */
   function enlacesCheckout() {
     return '<p data-legal-checkout class="mt-6 font-body-sm text-body-sm text-on-surface-variant">' + ic('gavel', 'text-[16px] align-middle') +
-      ' Al confirmar tu compra aceptas los <a class="text-secondary hover:underline" href="' + href('app/ayuda/terminos.html') + '">Términos y condiciones</a>' +
-      ' y la <a class="text-secondary hover:underline" href="' + href('app/ayuda/devoluciones.html') + '">Política de devoluciones</a>. Tu compra está cubierta por la ' +
-      '<a class="text-secondary hover:underline" href="' + href('app/ayuda/compra-protegida.html') + '">Compra Protegida</a>' +
+      ' Al confirmar tu compra aceptas los <a class="text-secondary underline" href="' + href('app/ayuda/terminos.html') + '">Términos y condiciones</a>' +
+      ' y la <a class="text-secondary underline" href="' + href('app/ayuda/devoluciones.html') + '">Política de devoluciones</a>. Tu compra está cubierta por la ' +
+      '<a class="text-secondary underline" href="' + href('app/ayuda/compra-protegida.html') + '">Compra Protegida</a>' +
       ' (textos en borrador, pendientes de revisión legal).</p>';
   }
 

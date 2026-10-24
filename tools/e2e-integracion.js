@@ -179,7 +179,7 @@ const hoy = () => new Date(Date.now() - 4 * 3600000).toISOString().slice(0, 10);
     await p.locator('form[data-paso=mfa] button[type=submit]').click();
     await p.waitForURL(/\/app\//, { timeout: 15000 });
     await abrir('admin/bandeja');
-    if (!/envío automático por correo y WhatsApp todavía no está conectado/.test(await texto())) throw new Error('la bandeja no explica el envío a mano');
+    if (!/Mensajes salientes/.test(await texto()) || !/enviar a mano/.test(await texto())) throw new Error('la bandeja no explica el envío a mano ni remite a Mensajes salientes');
     const msj = p.locator('[data-mensaje]', { hasText: COMPRA.email }).filter({ hasText: 'verificar_correo' }).first();
     await msj.waitFor({ timeout: 15000 });
     if (!/\b\d{6}\b/.test(await msj.innerText())) throw new Error('el superadministrador real no ve el código');

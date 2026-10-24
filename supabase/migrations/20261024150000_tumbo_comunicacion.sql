@@ -33,8 +33,9 @@
 -- (contrato de Catálogo para la ola 2) y, con una sola línea distinta,
 -- tm_archivo_preparar / tm_archivo_acceso (fundaciones: consultan además
 -- los permisos de los archivos de este dominio). tm_resolver_disputa y
--- tumbo_privado.archivo_permitido no se redefinen aquí: la integración de la
--- ola 1 (20261023190000) se aplica después y los volvería a pisar; lo que la
+-- tumbo_privado.archivo_permitido no se redefinen aquí: son de la
+-- integración de la ola 1 (20261023190000, que se aplica antes; esta
+-- migración se escribió sobre ella y nació como 20261023150000); lo que la
 -- ola 2 suma a la resolución de siempre lo pone un disparador.
 -- Las tablas nuevas no tienen FK a pedidos ni a disputas: el reinicio de la
 -- demo las vacía con truncate.
@@ -3334,7 +3335,7 @@ begin
 end $$;
 
 -- La resolución de siempre (tm_resolver_disputa) la define la integración de
--- la ola 1 (20261023190000), que se aplica después de esta migración. Lo
+-- la ola 1 (20261023190000), que se aplica antes y no se redefine aquí. Lo
 -- que la ola 2 suma a toda resolución (el caso con quién decidió, el
 -- mensaje en el expediente, las solicitudes canceladas y el aviso por la
 -- bandeja) lo pone este disparador, sea quien sea el que resolvió;
@@ -4142,10 +4143,10 @@ begin
 end $$;
 
 -- tumbo_privado.archivo_permitido (ola 0) la redefine también la integración
--- de la ola 1 (20261023190000), que se aplica después de esta migración: un
--- cambio ahí se perdería. Por eso se extienden quienes la consultan, que
--- solo define la ola 0: los propósitos de Comunicación los decide además
--- archivo_permitido_comunicacion (una línea en cada una).
+-- de la ola 1 (20261023190000); para no depender del orden, se extienden
+-- quienes la consultan, que solo define la ola 0: los propósitos de
+-- Comunicación los decide además archivo_permitido_comunicacion (una línea
+-- en cada una).
 
 -- Desde la de fundaciones (sin cambios salvo la consulta de permisos).
 create or replace function public.tm_archivo_preparar(p_sesion text, p_proposito text, p_entidad text, p_tipo text,

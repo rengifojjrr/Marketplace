@@ -155,6 +155,20 @@
       ' data-devolucion');
   }
 
+  /* La decisión del reclamo. tumbo.disputas guarda un reembolso parcial como
+     «reembolso»: con servidor manda la decisión de los reclamos v2
+     (TM.disputaResumen, de Comunicación) y, mientras no llega, no se promete
+     un reembolso total. */
+  function textoResolucion(disp) {
+    var x = TM.disputaResumen ? TM.disputaResumen(disp.id) : undefined;
+    var dec = x && x.decision ? x.decision : disp.resolucion.decision;
+    if (dec === 'reembolso_parcial') {
+      return 'reembolso parcial' + (x.reembolso_usd != null ? ' de ' + esc(TM.fmtUsd(Number(x.reembolso_usd))) : '') + ' a tu favor.';
+    }
+    if (dec === 'reembolso') return x === null ? 'reembolso a tu favor.' : 'reembolso total a tu favor.';
+    return dec === 'devolucion' ? 'devolución del producto.' : 'cerrado a favor del seller.';
+  }
+
   function vPedido(q, s) {
     var L = TM.log;
     var p = TM.pedido(q.get('id'));
@@ -209,8 +223,7 @@
           '<h2 class="flex items-center gap-2 font-headline-sm text-headline-sm text-on-surface mb-1">' + ic('gavel', 'text-[20px]') + 'Reclamo ' + esc(disp.id) + ' · ' + UI.badge(disp.estado) + '</h2>' +
           '<p class="font-body-sm text-body-sm text-on-surface mb-1"><strong>' + esc(disp.motivo) + '.</strong> ' + esc(disp.descripcion) + '</p>' +
           (disp.respuestaSeller ? '<p class="font-body-sm text-body-sm text-on-surface-variant mt-2"><strong>Respuesta del seller:</strong> ' + esc(disp.respuestaSeller.texto) + '</p>' : '') +
-          (disp.resolucion ? '<p class="font-body-sm text-body-sm text-on-surface mt-2"><strong>Resolución:</strong> ' +
-            (disp.resolucion.decision === 'reembolso' ? 'reembolso total a tu favor.' : disp.resolucion.decision === 'devolucion' ? 'devolución del producto.' : 'cerrado a favor del seller.') +
+          (disp.resolucion ? '<p data-resolucion class="font-body-sm text-body-sm text-on-surface mt-2"><strong>Resolución:</strong> ' + textoResolucion(disp) +
             (disp.resolucion.nota ? ' ' + esc(disp.resolucion.nota) : '') + '</p>' : '<p class="font-body-sm text-body-sm text-on-surface-variant mt-2">Operaciones está revisando el caso.</p>') +
           '</section>' : '') +
         devolucion(p, d) +

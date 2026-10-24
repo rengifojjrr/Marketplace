@@ -84,12 +84,29 @@ TITULO_AREA = {'seller': 'Seller Center', 'admin': 'Backoffice', 'acceso': 'Acce
 # aquí carga solo en esas superficies o áreas; los que no están, en todas.
 # Dependencias que lo explican: el detalle 360 de Operaciones (admin) usa
 # TM.log.inspeccionar de tm-mod-logistica-seller.js; el equipo del comercio
-# (seller/equipo) vive en tm-mod-cuentas-admin.js.
+# (seller/equipo) vive en tm-mod-cuentas-admin.js; Marketing (admin) usa
+# TM.crecSeller de tm-mod-crecimiento-seller.js; los reclamos del comercio
+# (seller/disputas) y del comprador citan los plazos de TM.ayudaCom
+# (tm-mod-comunicacion-ayuda.js). Los núcleos de Comunicación y Crecimiento,
+# el chat, la cuenta (soporte y avisos de las tres superficies) y los
+# reclamos cargan en todas.
 MODULOS_SUPERFICIE = {
     'tm-vistas-tienda.js': ['tienda'],
     'tm-vistas-seller.js': ['seller'],
     'tm-vistas-admin.js': ['admin'],
     'tm-mod-catalogo-admin.js': ['admin'],
+    'tm-mod-comunicacion-admin.js': ['admin'],
+    'tm-mod-comunicacion-ayuda.js': ['tienda', 'seller'],
+    'tm-mod-comunicacion-confianza.js': ['tienda'],
+    'tm-mod-comunicacion-seller.js': ['seller'],
+    'tm-mod-crecimiento-admin.js': ['admin'],
+    'tm-mod-crecimiento-analitica.js': ['tienda'],
+    'tm-mod-crecimiento-fichas.js': ['admin'],
+    'tm-mod-crecimiento-marketing.js': ['admin'],
+    'tm-mod-crecimiento-moderacion.js': ['admin'],
+    'tm-mod-crecimiento-riesgo.js': ['admin'],
+    'tm-mod-crecimiento-seller.js': ['seller', 'admin'],
+    'tm-mod-crecimiento-tienda.js': ['tienda'],
     'tm-mod-catalogo-seller.js': ['seller'],
     'tm-mod-cuentas-acceso.js': ['acceso'],
     'tm-mod-cuentas-admin.js': ['admin', 'seller'],

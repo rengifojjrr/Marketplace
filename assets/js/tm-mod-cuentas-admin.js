@@ -499,9 +499,9 @@
     if (!C.remoto()) return C.titulo('Bandeja de salida') + C.avisoServidor('Los mensajes salientes (códigos, enlaces y avisos) viven en el servidor.');
     var yo = C.yo();
     return C.titulo('Bandeja de salida') +
-      C.aviso('info', 'outbox', '<strong>El envío automático por correo y WhatsApp todavía no está conectado.</strong> Los códigos de verificación, ' +
-        'los enlaces de recuperación y los avisos esperan aquí: envíalos a mano (copia el texto o ábrelo en el correo o en WhatsApp) y márcalos como enviados. ' +
-        'Los códigos vencen a los 15 minutos y los enlaces de recuperación a los 30.') +
+      C.aviso('info', 'outbox', '<strong>Esta es la vista sencilla de la bandeja.</strong> El estado del envío automático por correo y WhatsApp, los filtros por canal y el reenvío están en ' +
+        '<a class="underline" href="' + UI.href('app/admin/mensajes.html') + '">Mensajes salientes</a>. Aquí puedes enviar a mano lo que espera ' +
+        '(copia el texto o ábrelo en el correo o en WhatsApp) y marcarlo como enviado. Los códigos vencen a los 15 minutos y los enlaces de recuperación a los 30.') +
       (yo.rol === 'superadmin' && !yo.demo ? '' : C.aviso('ambar', 'lock', 'Los mensajes con un código o un enlace de seguridad solo los ve y los envía el superadministrador con su cuenta real' +
         (yo.demo ? '; con una cuenta de prueba solo ves los mensajes de las cuentas de prueba.' : '.'))) +
       '<div class="flex flex-wrap gap-2 mb-4" role="tablist">' + FILTROS_BANDEJA.map(function (f) {
@@ -576,6 +576,6 @@
     'seller/equipo': { roles: ['seller'], titulo: 'Equipo', render: vEquipo, despues: despuesEquipo }
   });
   APP.nav('admin', { vista: 'admin/usuarios', texto: 'Usuarios', icono: 'group', roles: ['superadmin', 'ops'], orden: 85 });
-  APP.nav('admin', { vista: 'admin/bandeja', texto: 'Bandeja de salida', icono: 'outbox', roles: ['superadmin', 'ops'], orden: 86 });
+  /* (admin/bandeja ya no va en el menú: la reemplaza «Mensajes salientes» de Comunicación, ola 2; la página sigue para los enlaces de antes) */
   APP.nav('seller', { vista: 'seller/equipo', texto: 'Equipo', icono: 'group', roles: ['seller'], orden: 60 });
 })();

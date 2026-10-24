@@ -903,7 +903,8 @@
     'banco:VES': 'Banco (bolívares)', 'banco:USD': 'Banco (dólares, Zelle)', 'banco:USDT': 'Billetera USDT', 'caja:USD': 'Caja (efectivo en dólares)',
     por_pagar_seller: 'Por pagar a sellers', ingreso_comision: 'Ingresos por comisión y tarifas', igtf_por_pagar: 'IGTF por pagar',
     descuentos_tumbo: 'Descuentos asumidos por Tumbo', reembolsos_por_pagar: 'Reembolsos por pagar', credito_clientes: 'Crédito de clientes',
-    ajustes_seller: 'Ajustes a sellers', diferencial_cambiario: 'Diferencial cambiario', ingreso_envios: 'Ingresos por envíos (retenidos por Tumbo)'
+    ajustes_seller: 'Ajustes a sellers', diferencial_cambiario: 'Diferencial cambiario', ingreso_envios: 'Ingresos por envíos (retenidos por Tumbo)',
+    devoluciones_envio: 'Envíos de devoluciones pagados por Tumbo'
   };
   var EXPORTS = [['pagos', 'Pagos'], ['conciliaciones', 'Conciliaciones'], ['liquidaciones', 'Liquidaciones'], ['comisiones', 'Comisiones'],
     ['reembolsos', 'Reembolsos'], ['libro_ventas', 'Libro de ventas'], ['asientos', 'Asientos del libro mayor']];
@@ -999,13 +1000,17 @@
           UI.kpi('Cobrado en el período', esc(P().usd(r.cobrado.usd)), esc(P().bs(r.cobrado.bs)) + ' · ' + r.cobrado.n + ' pagos verificados', 'payments') +
           UI.kpi('Por verificar', String(r.por_verificar.n), r.por_verificar.reportados + ' reportados · ' + esc(P().bs(r.por_verificar.bs)) +
             (r.vencidos_recientes ? ' · ' + r.vencidos_recientes + ' vencidos (7 días)' : ''), 'fact_check', 'text-warning') +
-          UI.kpi('Retenido y congelado', esc(P().usd(P().n(r.retenido) + P().n(r.congelado))), 'ventana de reclamo ' + esc(P().usd(r.retenido)) + ' · disputas ' + esc(P().usd(r.congelado)), 'lock', 'text-warning') +
+          UI.kpi('Retenido y congelado', esc(P().usd(P().n(r.retenido) + P().n(r.congelado))), 'ventana de reclamo ' + esc(P().usd(r.retenido)) + ' · disputas ' + esc(P().usd(r.congelado)) +
+            (P().n(r.congelado_apelacion) ? ' (de ellas ' + esc(P().usd(r.congelado_apelacion)) + ' en plazo de apelación)' : ''), 'lock', 'text-warning') +
           UI.kpi('Por liquidar', esc(P().usd(P().n(pl.elegible) + P().n(pl.en_corridas))), 'elegible ' + esc(P().usd(pl.elegible)) + ' · en corridas ' + esc(P().usd(pl.en_corridas)), 'receipt_long') +
           UI.kpi('Reembolsos pendientes', String(r.reembolsos.n), esc(P().usd(r.reembolsos.usd)) + ' · ' + r.reembolsos.sin_destino + ' sin destino · ' + r.reembolsos.fallidos + ' fallidos', 'undo') +
           UI.kpi('Excepciones bancarias', String(r.excepciones), 'movimientos por resolver', 'warning', r.excepciones ? 'text-error' : '') +
           UI.kpi('Comisiones del período', esc(P().usd(r.comisiones)), 'comisión y tarifas de las liquidaciones pagadas', 'trending_up', 'text-tertiary') +
           UI.kpi('IGTF del período', esc(P().usd(r.igtf)), 'cobrado en pagos en divisas (por declarar)', 'account_balance') +
           '</section>' +
+          (P().n(r.congelado_apelacion) ? '<p data-congelado-apelacion class="-mt-2 mb-4 flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant">' + ic('lock_clock', 'text-[16px] mt-0.5') +
+            '<span>Un reclamo resuelto a favor del comercio o con un reembolso parcial deja los fondos del pedido congelados ' + esc(r.dias_apelacion || 5) +
+            ' días, el plazo que tiene el comprador para apelar (o hasta que se revise su apelación). Al vencer, pasan solos a elegibles para la liquidación.</span></p>' : '') +
           '<div class="flex flex-wrap gap-2 mb-4">' +
             '<a class="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary" href="' + href('app/admin/conciliacion.html') + '">' + ic('fact_check', 'text-[18px]') + 'Conciliación</a>' +
             '<a class="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary" href="' + href('app/admin/liquidaciones.html') + '">' + ic('receipt_long', 'text-[18px]') + 'Liquidaciones' + (r.cuentas_por_verificar ? ' (' + r.cuentas_por_verificar + ' cuentas por verificar)' : '') + '</a>' +

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Pruebas por la API de la plataforma (migración
- * 20261023170000_tumbo_plataforma.sql).
+ * 20261024170000_tumbo_plataforma.sql).
  *
  *   TM_SUPABASE_URL=… TM_SUPABASE_KEY=… [TM_PGDATABASE=…] node tools/api-plataforma.js
  *

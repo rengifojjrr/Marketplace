@@ -41,6 +41,14 @@
   function resumen() {
     return C().datos('disp:resumen', function () { return TM.api('tm_disputas_resumen', {}); }, 30000);
   }
+  /* Para otras vistas (p. ej. el pedido del comprador, de Logística): la
+     decisión v2 de un reclamo (reembolso_parcial, reembolso_usd…) o null
+     mientras no llega; undefined sin servidor. */
+  TM.disputaResumen = function (id) {
+    if (!C() || !C().remoto()) return undefined;
+    var r = resumen();
+    return r.listo && r.dato && !r.error ? r.dato[id] || null : null;
+  };
   function trasRefrescar(fn) { TM.refrescar().then(fn, fn); }
   function invalidarTodo(id) { C().invalidar('disp:'); if (id) C().invalidar(claveDisputa(id)); }
 
