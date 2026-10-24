@@ -16,8 +16,11 @@
 --     fallidas, sin datos personales, con tope por red y global) y
 --     tm_salud() público mínimo.
 --   · admin/sistema: tm_sistema (estado de cada tarea, tasa, bandeja,
---     errores recientes y almacenamiento), tm_tarea_correr y
---     tm_tareas_programar (superadministración con sesión elevada).
+--     errores recientes y almacenamiento; a una cuenta de prueba, sin el
+--     detalle), tm_tarea_correr y tm_tareas_programar (superadministración
+--     con sesión elevada).
+--   · El ajuste demo_activa: en false, el reinicio de la demo se rechaza
+--     para todos (lo frena sembrar_ext_plataforma).
 -- Solo agrega (create table / function, insert … on conflict do nothing).
 -- =========================================================================
 

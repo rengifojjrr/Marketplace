@@ -20,16 +20,21 @@
  *   · rendimiento: el peso de cada superficie y que la tienda no carga los
  *     módulos del Seller Center ni del Backoffice;
  *   · con servidor: los errores del navegador, las promesas sin manejar y las
- *     RPC que fallan llegan a admin/sistema sin datos personales; admin/sistema
- *     muestra las tareas y una cuenta real corre una (con TM_PGDATABASE);
- *     la última vista de «Mis pedidos» se ve sin servidor, solo en su sesión,
- *     y cerrar sesión la borra; en modo local, nada sale del navegador.
+ *     RPC que fallan llegan a admin/sistema sin datos personales (los lee una
+ *     cuenta real; la de prueba, solo cuántos); admin/sistema muestra las
+ *     tareas y una cuenta real corre una (con TM_PGDATABASE); la última
+ *     vista de «Mis pedidos» se ve sin servidor, solo en su sesión, y cerrar
+ *     sesión la borra; en modo local, nada sale del navegador;
+ *   · con TM_CONFIG.demo = false: ni cuentas de prueba, ni «beta», ni
+ *     «Reiniciar datos de la demo» (con servidor).
  * Con su propio servidor estático (la configuración del backend de la prueba
  * va en tm-config.js, nunca la de la nube) y el service worker permitido:
  *   · la app es instalable (manifest e íconos, sin errores de instalación de
  *     Chromium), el service worker guarda el armazón con su versión y nada de
- *     la API, y sin señal la tienda abre desde la caché y lo no guardado lleva
- *     a sin-conexion.html.
+ *     la API; un cambio en tm-config.js llega en la visita siguiente (sin
+ *     regenerar) y lo demás se revalida en segundo plano; sin señal la tienda
+ *     abre desde la caché (con la última configuración) y lo no guardado
+ *     lleva a sin-conexion.html.
  */
 const fs = require('fs');
 const http = require('http');
@@ -59,6 +64,24 @@ async function rpc(fn, args) {
   try { dato = JSON.parse(texto); } catch (e) { }
   return { ok: r.ok, status: r.status, texto, dato };
 }
+/* Una cuenta real de superadministración con la 2FA activa y la sesión
+   elevada (solo con TM_PGDATABASE): su ficha de sesión. cerrarReal() la
+   desactiva y borra sus sesiones. */
+function sesionReal() {
+  return psql(`insert into tumbo.usuarios (email, clave_hash, nombre, rol)
+      values (${lit(REAL)}, extensions.crypt(encode(extensions.gen_random_bytes(18), 'hex'), extensions.gen_salt('bf', 4)), 'Dueña E2E Plataforma', 'superadmin')
+      on conflict (email) do update set rol = 'superadmin', activo = true, bloqueado = false;
+    insert into tumbo.usuarios_2fa (usuario_id, secreto, activo, activado)
+      select id, tumbo_privado.cifrar_2fa(extensions.gen_random_bytes(20)), true, now() from tumbo.usuarios where email = ${lit(REAL)}
+      on conflict (usuario_id) do update set activo = true;
+    select tumbo_privado.abrir_sesion(id) from tumbo.usuarios where email = ${lit(REAL)};
+    update tumbo.sesiones set elevada_hasta = now() + interval '10 minutes' where usuario_id = (select id from tumbo.usuarios where email = ${lit(REAL)});`)
+    .split('\n').map((l) => l.trim()).find((l) => /^[0-9a-f]{64}$/.test(l));
+}
+function cerrarReal() {
+  psql(`delete from tumbo.sesiones where usuario_id = (select id from tumbo.usuarios where email = ${lit(REAL)});
+        update tumbo.usuarios set activo = false where email = ${lit(REAL)};`);
+}
 function hoyCaracas() {
   const d = new Date(Date.now() - 4 * 3600000).toISOString().slice(0, 10).split('-');
   return d[2] + '/' + d[1] + '/' + d[0];
@@ -69,12 +92,19 @@ function hoyCaracas() {
 const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.svg': 'image/svg+xml',
   '.woff2': 'font/woff2', '.xml': 'application/xml', '.txt': 'text/plain; charset=utf-8', '.ico': 'image/x-icon' };
-function servidor(config) {
+function servidor(sitio) {
+  /* sitio.config: lo que sirve como tm-config.js; sitio.extra[ruta]: texto
+     que se agrega al final de ese archivo (un archivo «publicado sin regenerar») */
   const srv = http.createServer((req, res) => {
     const ruta = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     if (ruta === '/assets/js/tm-config.js') {
       res.writeHead(200, { 'content-type': TIPOS['.js'], 'cache-control': 'no-cache' });
-      res.end('window.TM_CONFIG = ' + JSON.stringify(config) + ';');
+      res.end('window.TM_CONFIG = ' + JSON.stringify(sitio.config) + ';');
+      return;
+    }
+    if (sitio.extra && sitio.extra[ruta] != null && fs.existsSync(path.join(RAIZ, ruta))) {
+      res.writeHead(200, { 'content-type': TIPOS[path.extname(ruta)] || 'application/octet-stream', 'cache-control': 'no-cache' });
+      res.end(fs.readFileSync(path.join(RAIZ, ruta), 'utf8') + sitio.extra[ruta]);
       return;
     }
     const archivo = path.join(RAIZ, path.normalize(ruta === '/' ? '/index.html' : ruta));
@@ -356,11 +386,23 @@ function servidor(config) {
     if (/ana@|04141234567/.test(JSON.stringify(enviados))) throw new Error('el navegador envió datos personales');
     const rpcFalla = enviados.find((x) => x.p_datos.tipo === 'rpc').p_datos;
     if (!/PGRST/.test(rpcFalla.codigo) || !/^tm_funcion_que_no_existe/.test(rpcFalla.rpc)) throw new Error(JSON.stringify(rpcFalla));
+    /* la cuenta de prueba (contraseña pública) solo ve cuántos */
     const ses = (await rpc('tm_acceder', { p_email: 'superadmin@tumbomarket.demo', p_clave: 'demo1234' })).dato.sesion;
-    const sis = await rpc('tm_sistema', { p_sesion: ses });
-    const mios = (sis.dato.errores.recientes || []).filter((x) => (x.mensaje + (x.rpc || '')).includes(marca.replace(/[^a-z0-9]/g, '')) || x.mensaje.includes(marca));
-    if (mios.length < 3 || !mios.every((x) => x.vista === 'tienda/inicio' && x.pagina === '/app/tienda/inicio.html' && x.version)) {
-      throw new Error('en admin/sistema: ' + JSON.stringify(mios).slice(0, 400));
+    const sisDemo = await rpc('tm_sistema', { p_sesion: ses });
+    const e = (sisDemo.dato && sisDemo.dato.errores) || {};
+    if (sisDemo.dato.detalle !== false || (e.recientes || []).length || !(Number((e.por_tipo || {}).rpc) >= 1) || JSON.stringify(e).includes(marca)) {
+      throw new Error('la cuenta de prueba ve el detalle: ' + JSON.stringify(e).slice(0, 300));
+    }
+    if (!BD) { console.log(t.amarillo('    (sin TM_PGDATABASE: el detalle con una cuenta real se omite)')); return; }
+    const real = sesionReal();
+    try {
+      const sis = await rpc('tm_sistema', { p_sesion: real });
+      const mios = (sis.dato.errores.recientes || []).filter((x) => (x.mensaje + (x.rpc || '')).includes(marca.replace(/[^a-z0-9]/g, '')) || x.mensaje.includes(marca));
+      if (mios.length < 3 || !mios.every((x) => x.vista === 'tienda/inicio' && x.pagina === '/app/tienda/inicio.html' && x.version)) {
+        throw new Error('en admin/sistema: ' + JSON.stringify(mios).slice(0, 400));
+      }
+    } finally {
+      cerrarReal();
     }
   }, /Fallo e2e|Promesa e2e|404|Not Found/);
 
@@ -394,19 +436,12 @@ function servidor(config) {
     if (!(await p.locator('[data-correr="sla"]').isDisabled()) || !(await p.locator('[data-programar]').isDisabled())) {
       throw new Error('una cuenta de prueba puede correr o programar');
     }
+    if (!(await p.locator('[data-errores-sin-detalle]').count())) throw new Error('la cuenta de prueba no dice que los errores son solo para el equipo');
   });
   await pruebaSolo('remoto', 'admin/sistema: una cuenta real con sesión elevada corre una tarea y la ve en su última corrida', async () => {
     if (!BD) { console.log(t.amarillo('    (sin TM_PGDATABASE: se omite la cuenta real)')); return; }
-    const ses = psql(`insert into tumbo.usuarios (email, clave_hash, nombre, rol)
-        values (${lit(REAL)}, extensions.crypt(encode(extensions.gen_random_bytes(18), 'hex'), extensions.gen_salt('bf', 4)), 'Dueña E2E Plataforma', 'superadmin')
-        on conflict (email) do update set rol = 'superadmin', activo = true, bloqueado = false;
-      insert into tumbo.usuarios_2fa (usuario_id, secreto, activo, activado)
-        select id, tumbo_privado.cifrar_2fa(extensions.gen_random_bytes(20)), true, now() from tumbo.usuarios where email = ${lit(REAL)}
-        on conflict (usuario_id) do update set activo = true;
-      delete from tumbo.tareas_ejecuciones where tarea = 'mantenimiento' and origen = 'manual';
-      select tumbo_privado.abrir_sesion(id) from tumbo.usuarios where email = ${lit(REAL)};
-      update tumbo.sesiones set elevada_hasta = now() + interval '10 minutes' where usuario_id = (select id from tumbo.usuarios where email = ${lit(REAL)});`)
-      .split('\n').map((l) => l.trim()).find((l) => /^[0-9a-f]{64}$/.test(l));
+    psql(`delete from tumbo.tareas_ejecuciones where tarea = 'mantenimiento' and origen = 'manual'`);
+    const ses = sesionReal();
     try {
       await p.goto(t.BASE + '/index.html');
       await p.evaluate((s) => { localStorage.clear(); localStorage.setItem('tm.sesion.remota.v1', JSON.stringify({ token: s })); }, ses);
@@ -415,11 +450,11 @@ function servidor(config) {
       await boton.waitFor({ timeout: 10000 });
       await boton.click();
       await t.aviso('Tarea «mantenimiento» terminada');
-      await p.waitForFunction(() => /a mano/.test((document.querySelector('[data-correr="mantenimiento"]') || {}).closest
+      await p.waitForFunction(() => /a mano \(Dueña E2E Plataforma\)/.test((document.querySelector('[data-correr="mantenimiento"]') || {}).closest
         ? document.querySelector('[data-correr="mantenimiento"]').closest('tr').innerText : ''), null, { timeout: 10000 });
+      if (await p.locator('[data-errores-sin-detalle]').count()) throw new Error('la cuenta real ve los errores sin detalle');
     } finally {
-      psql(`delete from tumbo.sesiones where usuario_id = (select id from tumbo.usuarios where email = ${lit(REAL)});
-            update tumbo.usuarios set activo = false where email = ${lit(REAL)};`);
+      cerrarReal();
       await p.goto(t.BASE + '/index.html');
       await p.evaluate(() => localStorage.clear());
     }
@@ -477,15 +512,27 @@ function servidor(config) {
       await abrir('tienda/inicio', q);
       const pie = await q.locator('#raiz footer').innerText();
       if (/beta|ficticios/i.test(pie)) throw new Error('el pie dice: ' + pie.slice(0, 200));
+      /* el menú de la cuenta de la superadministración: con servidor, sin
+         «Reiniciar datos de la demo» (borraría los datos reales); en modo
+         local (la copia de este navegador), sigue */
+      await login('superadmin');
+      for (const r of ['admin/panel', 'tienda/inicio']) {
+        await abrir(r, q);
+        await q.locator('[data-cuenta-btn]').first().click();
+        const reinicio = await q.locator('[data-reiniciar]').count();
+        if (remoto ? reinicio : !reinicio) throw new Error(r + ': botón de reinicio ' + (reinicio ? 'visible' : 'ausente') + ' en modo ' + t.modo);
+      }
     } finally {
       await q.close();
+      await p.goto(t.BASE + '/index.html');
+      await p.evaluate(() => localStorage.clear());
     }
   });
 
   /* ================= PWA con service worker (servidor propio) ================= */
-  const config = remoto ? { supabaseUrl: process.env.TM_SUPABASE_URL, supabaseKey: process.env.TM_SUPABASE_KEY, tiempoReal: false }
-    : { supabaseUrl: '', supabaseKey: '' };
-  const { srv, url: SITIO } = await servidor(config);
+  const sitio = { config: remoto ? { supabaseUrl: process.env.TM_SUPABASE_URL, supabaseKey: process.env.TM_SUPABASE_KEY, tiempoReal: false }
+    : { supabaseUrl: '', supabaseKey: '' }, extra: {} };
+  const { srv, url: SITIO } = await servidor(sitio);
   const ctxSw = await t.navegador.newContext({ viewport: { width: 412, height: 915 }, serviceWorkers: 'allow' });
   /* por si acaso: nada de la nube */
   await ctxSw.route(/supabase\.co/, (r) => r.abort());
@@ -534,6 +581,39 @@ function servidor(config) {
     }
   });
 
+  await prueba('PWA: un cambio en tm-config.js (sin regenerar) llega en la visita siguiente; sin señal queda la última copia', async () => {
+    const marcaConfig = 'cfg-' + Date.now().toString(36);
+    sitio.config = Object.assign({}, sitio.config, { marca: marcaConfig });
+    await q.reload({ waitUntil: 'load' });
+    await q.waitForSelector('#raiz > *');
+    const r = await q.evaluate(() => ({ marca: window.TM_CONFIG.marca, controlada: !!navigator.serviceWorker.controller }));
+    if (!r.controlada || r.marca !== marcaConfig) throw new Error('la visita siguiente usó: ' + JSON.stringify(r));
+    const guardada = await q.evaluate(async () => (await (await caches.match(new URL('assets/js/tm-config.js', document.baseURI.replace(/app\/tienda\/.*$/, '')).href)).text()));
+    if (!guardada.includes(marcaConfig)) throw new Error('la copia para sin señal no se actualizó: ' + guardada.slice(0, 200));
+  });
+
+  await prueba('PWA: lo servido desde la caché se revalida en segundo plano (un archivo publicado sin regenerar llega en la visita siguiente)', async () => {
+    const marcaCss = '/* revalidada ' + Date.now().toString(36) + ' */';
+    sitio.extra['/assets/css/tm.css'] = '\n' + marcaCss + '\n';
+    try {
+      const leer = () => q.evaluate(async () => (await (await caches.match(new URL('assets/css/tm.css', document.baseURI.replace(/app\/tienda\/.*$/, '')).href)).text()));
+      if ((await leer()).includes(marcaCss)) throw new Error('la caché ya tenía la marca');
+      await q.reload({ waitUntil: 'load' });
+      await q.waitForSelector('#raiz > *');
+      let revalidada = false;
+      for (let i = 0; i < 40 && !revalidada; i++) {
+        revalidada = (await leer()).includes(marcaCss);
+        if (!revalidada) await q.waitForTimeout(250);
+      }
+      if (!revalidada) throw new Error('la copia guardada de tm.css no se revalidó');
+      const version = await q.evaluate(() => document.querySelector('meta[name="tm-version"]').content);
+      const claves = await q.evaluate(() => caches.keys());
+      if (claves.join() !== 'tumbo-' + version) throw new Error('cachés: ' + claves.join());
+    } finally {
+      delete sitio.extra['/assets/css/tm.css'];
+    }
+  });
+
   await prueba('PWA: sin señal la tienda abre desde la caché y una página no guardada lleva a sin-conexion.html', async () => {
     /* sin señal de verdad: la página sin red (setOffline) y el sitio apagado (el
        service worker no hereda la emulación de Playwright, así que se apaga el servidor) */
@@ -544,6 +624,7 @@ function servidor(config) {
       await q.waitForSelector('#raiz > *', { timeout: 15000 });
       const texto = await q.locator('#raiz').innerText();
       if (remoto ? !/Estás sin conexión/.test(texto) : !/Tumbo/.test(texto)) throw new Error(texto.slice(0, 200));
+      if (!(await q.evaluate(() => /^cfg-/.test(window.TM_CONFIG.marca || '')))) throw new Error('sin señal no usó la última configuración guardada');
       await q.goto(SITIO + '/app/admin/sistema.html', { waitUntil: 'domcontentloaded' });
       await q.waitForURL(/sin-conexion\.html\?desde=app%2Fadmin%2Fsistema\.html|sin-conexion\.html\?desde=app\/admin\/sistema\.html/, { timeout: 10000 });
       if (!/Estás sin conexión/.test(await q.locator('main').innerText())) throw new Error('sin-conexion.html no se pintó');

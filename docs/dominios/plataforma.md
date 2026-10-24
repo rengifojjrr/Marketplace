@@ -24,8 +24,13 @@ No redefine ninguna función de negocio.
 | Superadministración | `admin/sistema`: cada tarea programada (horario, si pg_cron la tiene, su última corrida y sus errores), «Correr ahora» y «Programar tareas» (con cuenta real y sesión elevada), la tasa BCV, la bandeja de salida, los errores recientes del navegador y de las tareas, y el uso del almacenamiento. Un aviso en la campana cuando una tarea programada falla. |
 | Equipo técnico | CI en cada push, respaldo diario cifrado con simulacro de restauración, `tm_salud()` para un monitor externo, errores del navegador sin datos personales. |
 
-Las cuentas de prueba leen `admin/sistema` (no hay datos de personas: los
-errores no guardan ni cuenta ni red), pero no corren ni programan tareas.
+Las cuentas de prueba (contraseña pública) leen `admin/sistema` **sin el
+detalle** (`detalle: false`): el estado, los horarios y los conteos de cada
+tarea y cuántos errores hubo por tipo, pero no el resultado ni el error de
+las corridas (pueden nombrar comercios reales o los totales del libro), ni el
+mensaje de pg_cron, ni los errores de los navegadores de las personas, ni
+quién del equipo real corrió una tarea (les llega «Equipo de Tumbo»), como
+`auditoria_visible` en la auditoría. No corren ni programan tareas.
 
 ## Tareas programadas
 
@@ -44,10 +49,10 @@ errores no guardan ni cuenta ni red), pero no corren ni programan tareas.
 | `mantenimiento` | `tarea_mantenimiento()` | `tumbo-mantenimiento` | `41 7 * * *` | Plataforma |
 | `archivos` | `tarea_archivos()` | — (la corre la función `tumbo-archivos`) | — | Fundaciones |
 
-**El envoltorio** `tumbo_privado.correr_tarea(tarea, origen, por)` corre la
-función de la tarea en un bloque propio y escribe la corrida en
+**El envoltorio** `tumbo_privado.correr_tarea(tarea, origen, por, por_id)`
+corre la función de la tarea en un bloque propio y escribe la corrida en
 `tumbo.tareas_ejecuciones` (inicio, fin, ok, resultado o error, origen
-`programada`/`manual`/`prueba` y quién la corrió a mano):
+`programada`/`manual`/`prueba` y quién la corrió a mano: nombre y cuenta):
 
 - si la tarea falla se deshace **solo su trabajo** y queda el error (con el
   texto saneado: sin correos ni números largos); una tarea **programada** que
@@ -65,11 +70,15 @@ pero `admin/sistema` también muestra lo que dice `cron.job_run_details`.
 si existe pg_cron y que `admin/sistema` vuelve a correr con «Programar
 tareas»):
 
-- un trabajo que ya programó su dominio (mismo nombre, o una orden que llama
-  a la función) **se reutiliza con su nombre y su horario**: solo cambia la
-  orden por el envoltorio (`cron.alter_job`; sin él, se vuelve a programar con
-  el mismo nombre); los demás trabajos «tumbo-…» que corren lo mismo se
-  quitan (sin duplicar); los de otras aplicaciones no se tocan;
+- un trabajo que ya programó su dominio (el nombre del catálogo, o un
+  «tumbo-…» cuya orden llama a la función) **se reutiliza con su nombre y su
+  horario**: solo cambia la orden por el envoltorio (`cron.alter_job`; sin
+  él, se vuelve a programar con el mismo nombre; si su nombre no es el del
+  catálogo, el catálogo toma el suyo); los demás trabajos «tumbo-…» que
+  corren lo mismo y los **sin nombre** (`cron.schedule` de dos argumentos,
+  programados a mano) se quitan; un trabajo sin nombre **nunca** queda en
+  lugar del suyo (no se vería en `admin/sistema`); los de otras aplicaciones
+  (otro nombre) no se tocan;
 - un trabajo «tumbo-…» de un dominio nuevo cuya orden es
   `select tumbo_privado.tarea_x()` se **adopta** en el catálogo (dominio «Sin
   asignar») y pasa por el envoltorio;
@@ -83,7 +92,9 @@ simulado dentro de una transacción que se deshace (`tools/api-plataforma.js`).
 doble de su frecuencia más 10 minutos), falló, sin pg_cron, sin programar,
 sin registro (pg_cron la corre sin el envoltorio), pausada, la corre su
 función (archivos) y falta la función. También lista las funciones
-`tarea_*` que nadie catalogó y los trabajos «tumbo-…» sin tarea.
+`tarea_*` que nadie catalogó (las que se pueden correr sin argumentos; el
+ayudante del envoltorio se llama `es_tarea_invocable` para no contarse) y los
+trabajos «tumbo-…» sin tarea.
 
 **Tareas propias**:
 
@@ -138,12 +149,19 @@ función (archivos) y falta la función. También lista las funciones
   POST), así que nunca sirve datos de una sesión a otra. Al instalarse guarda
   el armazón de la tienda (sus páginas, el núcleo y sus módulos, fuentes e
   íconos); lo demás, la primera vez que se pide. Todo vive en la caché
-  `tumbo-<versión>`: la versión es la huella de **todo** lo que puede guardar,
-  así que cualquier cambio de un archivo instala un service worker nuevo
-  (que borra las cachés viejas y avisa «Hay una versión nueva de Tumbo»). Las
-  páginas salen de la caché (cada una es un cascarón que coincide siempre con
-  sus scripts); una que no está y no se puede bajar lleva a
-  `sin-conexion.html?desde=…`. No se registra desde `file://`.
+  `tumbo-<versión>`: la versión es la huella de todo lo que puede guardar
+  (menos `tm-config.js`), así que cualquier cambio de un archivo, regenerado,
+  instala un service worker nuevo (que borra las cachés viejas y avisa «Hay
+  una versión nueva de Tumbo»).
+  - **`tm-config.js` va primero a la red** (`RED_PRIMERO`): la copia guardada
+    solo se usa sin señal o si la red tarda más de 4 s. Cambiar la dirección
+    del backend (puesta en marcha, restauración en un proyecto nuevo) no
+    obliga a regenerar y ningún navegador se queda con la vieja.
+  - **Lo demás sale de la caché y se revalida en segundo plano** (con el
+    caché HTTP del navegador: sin volver a pedirlo mientras siga fresco): un
+    archivo publicado sin regenerar llega en la visita siguiente en vez de
+    quedarse viejo para siempre. Una página que no está y no se puede bajar
+    lleva a `sin-conexion.html?desde=…`. No se registra desde `file://`.
 - **Copia sin conexión** (`tm-mod-plataforma.js`): al ver la tienda, la
   compradora deja en este dispositivo sus últimos 25 pedidos (número,
   estado, comercio, total, productos y último paso) y el carrito (nombre,
@@ -277,10 +295,24 @@ correr desde aquí.)
 mano): con el secreto `SUPABASE_DB_URL` corre `tools/respaldo.sh volcar`
 (pg_dump 17 de tumbo y tumbo_privado con datos y privilegios, el SQL de las
 funciones `public.tm_*` con sus permisos, los buckets de Tumbo y un
-manifiesto con las filas por tabla), lo cifra con **AES-256** (gpg, frase en
+manifiesto con, por tabla, sus filas y la huella de su contenido, tomados de
+la misma foto de la base que el volcado), lo cifra con **AES-256** (gpg, frase en
 `RESPALDO_CLAVE`) y lo guarda como artefacto 30 días. Sin `SUPABASE_DB_URL`
 termina avisando; sin `RESPALDO_CLAVE` (o con menos de 20 caracteres) falla y
 no guarda nada sin cifrar. Restaurar y el simulacro: [docs/PRODUCCION.md](../PRODUCCION.md#respaldos).
+
+- **Huella por tabla**: la suma de los md5 del texto completo de cada fila
+  (no depende del orden ni de la intercalación; la sesión fija zona, formato
+  de fechas, decimales y bytea). Cambia con cualquier valor de cualquier fila:
+  una columna que quedó vacía, un texto recodificado, un valor por omisión en
+  lugar del dato. `restaurar` compara `tabla=filas:huella` contra el
+  manifiesto (con un respaldo anterior a las huellas, solo las filas) y que
+  ninguna secuencia de una columna quedó por detrás de su máximo.
+- **La misma foto**: una transacción de solo lectura exporta su snapshot,
+  `pg_dump --snapshot` lo usa y las huellas se calculan en esa misma foto;
+  así el manifiesto describe exactamente lo volcado aunque la base siga
+  recibiendo pedidos (antes, los conteos se tomaban después del volcado y
+  una restauración de producción podía fallar por la actividad del medio).
 
 ## API
 
@@ -288,16 +320,17 @@ no guarda nada sin cifrar. Restaurar y el simulacro: [docs/PRODUCCION.md](../PRO
 | --- | --- | --- |
 | `tm_salud()` | cualquiera | `{ok, hora, version}` |
 | `tm_error_cliente(p_datos)` | cualquiera (sin sesión) | registra un error del navegador o una RPC fallida, saneado y con topes: `{ok}` o `{ok: false, motivo}` (siempre 200) |
-| `tm_sistema(sesión)` | superadmin (también la cuenta de prueba) | estado de las tareas, extensiones, tasa, bandeja, errores y almacenamiento |
+| `tm_sistema(sesión)` | superadmin (la cuenta de prueba, sin el detalle) | estado de las tareas, extensiones, tasa, bandeja, errores y almacenamiento; `detalle: false` con una cuenta de prueba (sin resultados ni errores de las corridas, sin mensajes de pg_cron ni errores de los navegadores, «Equipo de Tumbo» en lugar del nombre de una cuenta real; `errores.por_tipo` con los conteos) |
 | `tm_tarea_correr(sesión, tarea)` | superadmin con sesión elevada | corre una tarea manual del catálogo (una vez por minuto; auditada) |
 | `tm_tareas_programar(sesión)` | superadmin con sesión elevada | `programar_tareas()` (auditada) |
 
 Internas (`tumbo_privado`): `correr_tarea`, `programar_tareas`,
-`catalogo_tareas_base`, `tarea_invocable`, `tarea_almacenamiento`,
+`catalogo_tareas_base`, `es_tarea_invocable`, `tarea_almacenamiento`,
 `tarea_mantenimiento`, `texto_error`, `ruta_error`, `tope_plataforma` y
 `sembrar_ext_plataforma`. Tablas: `tareas_programadas`, `tareas_ejecuciones`,
 `errores_cliente` y `topes_plataforma` (RLS sin políticas, sin privilegios
-para la API). Ajuste privado nuevo: `funciones_url` (texto, vaciable, null).
+para la API). Ajustes privados nuevos: `funciones_url` (texto, vaciable,
+null) y `demo_activa` (sí o no, `true`; ver «Interruptor de la demo»).
 
 ## Para los demás dominios
 
@@ -319,7 +352,8 @@ para la API). Ajuste privado nuevo: `funciones_url` (texto, vaciable, null).
   `e2e-plataforma.js` falla si un icono se pinta como texto.
 - **Después de cambiar cualquier archivo** del sitio: `python3
   tools/generar_paginas.py` (la versión del service worker es la huella de
-  todo; la CI lo comprueba).
+  todo menos `tm-config.js`; la CI lo comprueba). Si se olvida, el service
+  worker igual revalida en segundo plano y la visita siguiente trae el nuevo.
 - `APP.accesibilidad(raiz)`, `APP.meta(datos)`, `UI.enfocables(caja)`, el
   evento `tumbo:salir` (antes de cerrar sesión) y el gancho `sin.conexion`
   (lo que una vista puede mostrar sin servidor) están a disposición.
@@ -350,9 +384,13 @@ para la API). Ajuste privado nuevo: `funciones_url` (texto, vaciable, null).
   pero conserva las corridas y los errores (como la auditoría). No se siembra
   nada inventado.
 - **Las páginas salen de la caché del service worker** (no de la red): así un
-  despliegue nunca mezcla un HTML nuevo con scripts viejos; la versión nueva
-  se instala en segundo plano y la siguiente página ya es nueva (aviso
-  «Actualizar»).
+  despliegue nunca mezcla un HTML nuevo con scripts viejos en la misma
+  carga; la versión nueva se instala en segundo plano y la siguiente página
+  ya es nueva (aviso «Actualizar»). La revalidación en segundo plano solo
+  importa si alguien publica sin regenerar: entonces la visita siguiente
+  trae lo nuevo (puede mezclar archivos de páginas que no se visitaron, que
+  se ponen al día al abrirlas); `tm-config.js`, en cambio, va primero a la
+  red.
 - **La vista previa de WhatsApp** (que no ejecuta JavaScript) muestra el Open
   Graph genérico de la página; el de cada producto lo ven Google y quien
   ejecuta la página. Para vistas previas por producto haría falta servir el
@@ -362,43 +400,63 @@ para la API). Ajuste privado nuevo: `funciones_url` (texto, vaciable, null).
   un buscador solo ve si puede rastrearlas.
 - El tope de errores por red es estricto en local (todas las pruebas salen de
   127.0.0.1) y holgado en la nube; un error repetido no ocupa filas nuevas.
-- Interruptor de la demo: `TM_CONFIG.demo = false` (en `tm-config.js`) quita
-  del cliente las cuentas de prueba del acceso y los textos y la insignia de
-  «beta»; apagar la demo en el servidor (cerrar las cuentas de prueba y
-  suspender los comercios de la semilla) está en
-  [docs/PRODUCCION.md](../PRODUCCION.md#apagar-la-demo-cuando-se-lance).
+- **Interruptor de la demo**, en los dos lados:
+  - en el sitio, `TM_CONFIG.demo = false` (en `tm-config.js`) quita las
+    cuentas de prueba del acceso, los textos y la insignia de «beta» y, con
+    servidor, «Reiniciar datos de la demo» del menú de la cuenta (en modo
+    local sigue: reinicia la copia de ese navegador);
+  - en el servidor, el ajuste `demo_activa = false` (con `tm_ajuste_guardar`
+    y la sesión elevada, o por SQL) rechaza el reinicio para todos, también
+    para una cuenta real con sesión elevada: lo frena
+    `sembrar_ext_plataforma` (que `tm_reiniciar_demo` llama por
+    `sembrar_extensiones(false)`) y el error deshace la transacción entera,
+    también lo que el reinicio ya había vaciado. Lo ideal es que
+    `tm_reiniciar_demo` lo mire al principio (pedido a la integración: no es
+    de la plataforma);
+  - cerrar las cuentas de prueba y suspender los comercios de la semilla:
+    [docs/PRODUCCION.md](../PRODUCCION.md#apagar-la-demo-cuando-se-lance).
 
 ## Pruebas
 
-- `tools/api-plataforma.js` (32 comprobaciones; 8 sin `TM_PGDATABASE`):
+- `tools/api-plataforma.js` (39 comprobaciones; 9 sin `TM_PGDATABASE`):
   salud mínima; errores sin sesión y con 200 siempre; quién ve el sistema;
-  las cuentas de prueba no corren ni programan; con SQL: limpieza de datos
+  la cuenta de prueba lo ve sin el detalle (ni mensajes de los navegadores,
+  ni resultados o errores de las corridas, ni el nombre de la cuenta real que
+  corrió una tarea, ni el mensaje de pg_cron) y la real con él; el ayudante
+  no cuenta como tarea sin catálogo; las cuentas de prueba no corren ni
+  programan; con la demo apagada nadie reinicia; con SQL: limpieza de datos
   personales en el servidor, «veces», topes por red (otras direcciones de
   127.0.0.0/8), techo global y máximo de filas; el envoltorio (deshace la
   tarea que falla, un solo aviso, cualquier tipo de resultado, función que
   falta, corrida omitida si la anterior sigue); pg_cron simulado (envuelve
   sin cambiar nombre ni horario, programa lo que falta, quita duplicados de
-  Tumbo, no toca lo ajeno, adopta lo nuevo, repetir no cambia nada); una
+  Tumbo y los trabajos sin nombre sin que reemplacen al del dominio, no toca
+  lo ajeno, adopta lo nuevo, repetir no cambia nada); una
   cuenta real corre una tarea (corrida y auditoría, una vez por minuto, no
   las externas); mantenimiento y almacenamiento; funciones sin catálogo; el
   reinicio; permisos; y que `retirar-tumbo.sql` conoce **todas** las `tm_*`
   de la base.
-- `tools/e2e-plataforma.js` (19 pruebas con backend, 17 en local): lo
+- `tools/e2e-plataforma.js` (21 pruebas con backend, 19 en local): lo
   generado al día; robots, títulos, Open Graph, sitemap y robots.txt; la
   ficha y la tienda (meta y datos estructurados); compartir por WhatsApp;
   axe-core en 42 páginas; el diálogo; «Saltar al contenido» y los menús; el
   menú lateral del móvil; ningún icono como texto; peso por superficie;
-  errores del navegador hasta `admin/sistema` (o nada en local);
-  `admin/sistema` (y una cuenta real que corre una tarea); la copia sin
-  conexión por sesión; el interruptor de la demo (`demo: false`); y con su
-  propio servidor y el service worker:
-  instalable (sin errores de instalación de Chromium), la caché con su versión
-  y nada de la API, y sin señal (página sin red y sitio apagado) la tienda
-  abre de la caché y lo no guardado lleva a `sin-conexion.html`.
+  errores del navegador hasta `admin/sistema` (los lee la cuenta real; la
+  de prueba, solo cuántos; nada en local); `admin/sistema` (y una cuenta
+  real que corre una tarea y ve su nombre); la copia sin conexión por
+  sesión; el interruptor de la demo (`demo: false`: sin cuentas de prueba,
+  sin «beta» y, con servidor, sin «Reiniciar datos de la demo»); y con su
+  propio servidor y el service worker: instalable (sin errores de
+  instalación de Chromium), la caché con su versión y nada de la API, un
+  cambio en `tm-config.js` llega en la visita siguiente sin regenerar, lo
+  demás se revalida en segundo plano, y sin señal (página sin red y sitio
+  apagado) la tienda abre de la caché con la última configuración y lo no
+  guardado lleva a `sin-conexion.html`.
 - `tools/respaldo.sh simulacro <base>`: vuelca, restaura en una base nueva
-  como la de un proyecto Supabase, compara fila por fila (88 tablas) y las
-  177 funciones `tm_*`, entra con una cuenta y comprueba que la auditoría
-  sigue siendo inmutable.
+  como la de un proyecto Supabase, compara filas y huella del contenido de
+  cada tabla (88) y las secuencias, comprueba que la huella detecta una fila
+  cambiada (un espacio de más), cuenta las 177 funciones `tm_*`, entra con
+  una cuenta y comprueba que la auditoría sigue siendo inmutable.
 
 ## Pendiente y dependencias de terceros
 

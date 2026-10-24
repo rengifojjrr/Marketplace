@@ -39,8 +39,14 @@ cada dominio en [docs/dominios/](dominios/).
    (y las de Comunicación, con sus secretos: `supabase secrets set
    RESEND_API_KEY=… WHATSAPP_TOKEN=… WHATSAPP_NUMERO_ID=…`).
 3. **Sitio**: la *Project URL* y la *publishable key* en
-   `assets/js/tm-config.js`. Con dominio propio: `CNAME` en la raíz del
-   repositorio (GitHub Pages → Custom domain, con HTTPS), regenerar con
+   `assets/js/tm-config.js`. Ese archivo no necesita regenerar: el service
+   worker lo pide primero a la red, así que quien ya visitó el sitio recibe
+   la configuración nueva en su visita siguiente. **Cualquier otro archivo
+   del sitio** que cambies: `python3 tools/generar_paginas.py` y publica
+   también lo que regenera (`sw.js` y las páginas); si se olvida, el service
+   worker revalida en segundo plano y lo trae en la visita siguiente, pero
+   la CI lo marca. Con dominio propio: `CNAME` en la raíz del repositorio
+   (GitHub Pages → Custom domain, con HTTPS), regenerar con
    `TM_SITIO_URL=https://tu-dominio python3 tools/generar_paginas.py` (sitemap,
    robots y Open Graph) y fijar el ajuste `sitio_url` (abajo).
 4. **Primera cuenta real de superadministración** (la documentó Cuentas,
@@ -114,18 +120,26 @@ de la demo». Al lanzar:
 
    (Si algún comercio real todavía no tiene cuenta propia,
    `comercio_de_prueba` lo cuenta como de prueba: invítalo antes.)
-3. **No volver a usar «Reiniciar datos de la demo»**: con datos reales solo lo
-   permite una cuenta real con sesión elevada y borra pedidos, productos y
-   expedientes de **todos** los comercios.
+3. **Apagar el reinicio en el servidor**: «Reiniciar datos de la demo» borra
+   pedidos, productos y expedientes de **todos** los comercios. Con el ajuste
+   `demo_activa = false` el servidor lo rechaza para todos, también para una
+   cuenta real con sesión elevada (desde el Backoffice con
+   `tm_ajuste_guardar`, o en el SQL Editor):
+
+   ```sql
+   update tumbo.ajustes set valor = 'false', actualizado = now(), por = 'lanzamiento' where clave = 'demo_activa';
+   ```
+
 4. **En el sitio**: `demo: false` en `assets/js/tm-config.js`
 
    ```js
    window.TM_CONFIG = { supabaseUrl: '…', supabaseKey: '…', demo: false };
    ```
 
-   El acceso deja de ofrecer las cuentas de prueba y la tienda deja de decir
-   «beta» (pie y avisos). Regenera (`python3 tools/generar_paginas.py`) para
-   que el service worker publique la versión nueva.
+   El acceso deja de ofrecer las cuentas de prueba, la tienda deja de decir
+   «beta» (pie y avisos) y el menú de la cuenta ya no ofrece «Reiniciar datos
+   de la demo». No hace falta regenerar: el service worker pide
+   `tm-config.js` primero a la red.
 5. Quitar `noindex` no hace falta (la tienda pública ya es indexable); sí
    enviar el `sitemap.xml` a Google Search Console con el dominio propio.
 
@@ -144,7 +158,8 @@ mano desde Actions → Respaldo → Run workflow):
 2. Cada corrida deja un artefacto `tumbo-respaldo-AAAAMMDD-HHMM` (30 días)
    con `…tar.gpg`: los esquemas `tumbo` y `tumbo_privado` (datos y
    privilegios), las funciones `public.tm_*` con sus permisos, los buckets de
-   Tumbo y un manifiesto con las filas por tabla, cifrado con AES-256.
+   Tumbo y un manifiesto con las filas y la huella del contenido de cada
+   tabla (de la misma foto de la base que el volcado), cifrado con AES-256.
 
 El respaldo lleva las contraseñas (bcrypt), los secretos de la 2FA **y la
 clave con que se cifran** (`tumbo_privado.secretos`) y los datos de las
@@ -163,19 +178,25 @@ con la API S3 de Storage (p. ej. `rclone sync`) a otro proveedor.
 # 1. bajar el artefacto de Actions y descifrarlo
 gpg --decrypt tumbo-respaldo-20261101-0717.tar.gpg > respaldo.tar      # pide RESPALDO_CLAVE
 # 2. restaurar (crea las extensiones, los esquemas, las funciones tm_* y los
-#    buckets; compara las filas con el manifiesto; con pg_cron vuelve a programar las tareas)
+#    buckets; compara filas y contenido de cada tabla con el manifiesto y las
+#    secuencias con sus columnas; con pg_cron vuelve a programar las tareas)
 PGBIN=/usr/lib/postgresql/17/bin tools/respaldo.sh restaurar respaldo.tar "postgresql://postgres:…@…/postgres"
 ```
 
 Después: desplegar la función `tumbo-archivos`, recargar el esquema de la API
 (`notify pgrst, 'reload schema'`, lo hace el script), copiar los archivos de
-Storage y apuntar `tm-config.js` al proyecto nuevo si cambió.
+Storage y apuntar `tm-config.js` al proyecto nuevo si cambió (sin regenerar:
+el service worker lo pide primero a la red y cada navegador usa el proyecto
+nuevo en su visita siguiente; si tocas otro archivo del sitio, sí:
+`python3 tools/generar_paginas.py` y publica `sw.js` con lo demás).
 
 **Simulacro** (cada vez que cambian las migraciones, y la CI lo corre en cada
 push): `tools/respaldo.sh simulacro <base-local>` vuelca la base local, la
-restaura en una base nueva como la de un proyecto Supabase, compara fila por
-fila, entra con una cuenta y comprueba que la auditoría sigue siendo
-inmutable. Para ensayar con un respaldo real de la nube, una vez al trimestre:
+restaura en una base nueva como la de un proyecto Supabase, compara las filas
+y la huella del contenido de cada tabla (la suma de los md5 de sus filas: un
+valor cambiado en cualquier fila la cambia) y las secuencias, comprueba que
+la huella detecta una fila cambiada, entra con una cuenta y comprueba que la
+auditoría sigue siendo inmutable. Para ensayar con un respaldo real de la nube, una vez al trimestre:
 levantar el entorno local (`tools/supabase-local/levantar.sh tumbo_ensayo …`
 crea la base con las migraciones; para el ensayo, una base vacía con
 `tools/supabase-local/base.sql`), descifrar el último artefacto y
