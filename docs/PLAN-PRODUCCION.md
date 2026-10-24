@@ -517,17 +517,18 @@ pruebas en `tools/api-integracion2.js` y `tools/e2e-integracion2.js`):
   prueba.
 
 **Pruebas del árbol integrado** (base nueva `tumbo_integ2`,
-`verificar-todo.js`: las 33 suites en verde): por la API,
+`verificar-todo.js`: las 33 suites en verde, también después de la revisión
+de la integración, abajo): por la API,
 `verificar-rls` 140 comprobaciones, `api-catalogo` 178, `api-comunicacion`
 118, `api-crecimiento` 249, `api-cuentas` 152, `api-fundaciones` 124,
-`api-integracion` 40, `api-integracion2` 15, `api-logistica` 123,
+`api-integracion` 40, `api-integracion2` 36, `api-logistica` 123,
 `api-pagos` 146 y `api-plataforma` 39; en el navegador con el backend,
 `verificar-beta` 24, `e2e-catalogo` 18, `e2e-comunicacion` 17,
 `e2e-crecimiento` 13, `e2e-cuentas` 20, `e2e-fundaciones` 15,
-`e2e-integracion` 7, `e2e-integracion2` 3, `e2e-logistica` 19, `e2e-pagos`
+`e2e-integracion` 7, `e2e-integracion2` 8, `e2e-logistica` 19, `e2e-pagos`
 15 y `e2e-plataforma` 21; en modo local, `verificar-beta` 24,
 `e2e-catalogo` 7, `e2e-comunicacion` 4, `e2e-crecimiento` 4, `e2e-cuentas`
-3, `e2e-fundaciones` 12, `e2e-integracion` 3, `e2e-integracion2` 1,
+3, `e2e-fundaciones` 12, `e2e-integracion` 3, `e2e-integracion2` 5,
 `e2e-logistica` 4, `e2e-pagos` 6 y `e2e-plataforma` 19. El simulacro de
 respaldo (`tools/respaldo.sh simulacro tumbo_integ2`) restaura las 133
 tablas con el mismo contenido y las 267 funciones `tm_*`. Las cuatro

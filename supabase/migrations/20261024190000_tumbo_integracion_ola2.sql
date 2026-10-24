@@ -37,6 +37,12 @@
 --      dominio, descripción y frecuencia (también si pg_cron ya las había
 --      adoptado como «Sin asignar»), y tm_reiniciar_demo mira el ajuste
 --      demo_activa antes que nada.
+--   7. La revisión de la integración (antes de desplegar): promociones de
+--      un checkout de varios comercios, pago tardío y cancelación con el
+--      cupón de Tumbo; apelaciones; reclamos perdidos; cuentas de prueba
+--      del comercio frente a compradores reales; ajustes de seguridad y de
+--      control con doble aprobación; listas negras y riesgo de la demo;
+--      techo de la analítica y métricas de la demo; ocultar_contacto.
 -- =========================================================================
 
 -- ---------------------------------------------------------------------------
