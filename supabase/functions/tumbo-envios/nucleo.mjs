@@ -17,8 +17,11 @@
         con sus variables (su API no tiene idempotencia: lo que no se
         confirma queda fallido para revisarlo, nunca se reenvía solo);
      4. tm_envios_resultado por mensaje: enviado (con el id del proveedor),
-        reintento con espera (límite de frecuencia, error del proveedor o de
-        la red) o fallido (rechazo permanente);
+        reintento con espera o fallido. Correo: se reintenta el límite de
+        frecuencia y el error del proveedor o de la red (la clave de
+        idempotencia evita el doble envío). WhatsApp: solo se reintenta un
+        límite de frecuencia (Meta no lo entregó); un corte de la red o un
+        error del proveedor queda fallido para revisarlo;
      5. tm_envios_reporte: qué proveedores hay (nunca sus secretos) y el
         resumen, para admin/mensajes.
    ========================================================================= */
@@ -113,8 +116,22 @@ async function enviarWhatsapp(http, config, m) {
   const id = r.dato && r.dato.messages && r.dato.messages[0] && r.dato.messages[0].id;
   if (r.ok && id) return { ok: true, proveedorId: String(id) };
   const e = (r.dato && r.dato.error) || {};
-  return { ok: false, reintentar: temporal(r.estado) || e.code === 130429 || e.code === 131048 || e.code === 80007,
-    error: 'WhatsApp (' + r.estado + (e.code ? ' · ' + e.code : '') + '): ' + String(e.message || r.texto || 'sin respuesta').slice(0, 240) };
+  const detalle = 'WhatsApp (' + r.estado + (e.code ? ' · ' + e.code : '') + '): ' + String(e.message || r.texto || 'sin respuesta').slice(0, 220);
+  /* Sin idempotencia, solo se reintenta lo que Meta rechazó sin entregar
+     (límites de frecuencia). Un corte de la red, un 408 o un 5xx pueden
+     llegar después de que Meta aceptó el mensaje: queda fallido para
+     revisarlo antes de reenviarlo, nunca se manda solo dos veces. */
+  if (whatsappNoEntregado(r.estado, e.code)) return { ok: false, reintentar: true, error: detalle };
+  if (r.estado === 0 || r.estado === 408 || r.estado >= 500 || (r.ok && !id)) {
+    return { ok: false, reintentar: false, error: 'Sin confirmación de WhatsApp: revisa si llegó antes de reenviarlo. ' + detalle };
+  }
+  return { ok: false, reintentar: false, error: detalle };
+}
+
+/* Rechazos de la API de WhatsApp que garantizan que el mensaje no salió:
+   límites de frecuencia de la cuenta, del número o del par. */
+export function whatsappNoEntregado(estado, codigo) {
+  return estado === 429 || [4, 80007, 130429, 131048, 131056].indexOf(Number(codigo)) >= 0;
 }
 
 /* Un recorrido de envío. rpc(nombre, params) → {ok, dato, error};

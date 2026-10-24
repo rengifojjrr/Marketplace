@@ -111,6 +111,8 @@ declare
     'public.tm_reputacion(text)', 'public.tm_resenas(text,text,text,integer)', 'public.tm_resenas_pendientes(text)',
     'public.tm_resena_crear(text,text,jsonb)', 'public.tm_resenas_seller(text)', 'public.tm_resena_responder(text,bigint,text)',
     'public.tm_legales(text)', 'public.tm_legal_aceptar(text,text,text)', 'public.tm_legal_publicar(text,jsonb)',
+    'public.tm_legal_texto_publicado(text,text,text)',
+    'public.tm_disputa_envio_vuelta(text,text,numeric,text[])', 'public.tm_disputa_envio_vuelta_resolver(text,text,jsonb)',
     'public.tm_denunciar(text,text,text,text,text)', 'public.tm_contenido_cola(text,text)',
     'public.tm_contenido_moderar(text,text,bigint,text,text)', 'public.tm_denuncia_cerrar(text,bigint,text,text)',
     'public.tm_ticket_crear(text,jsonb)', 'public.tm_tickets(text,jsonb)', 'public.tm_ticket(text,text)',

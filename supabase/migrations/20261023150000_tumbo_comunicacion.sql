@@ -21,8 +21,10 @@
 --   · documentos legales versionados y su aceptación;
 --   · disputas v2: mensajes de las tres partes, solicitud de evidencia con
 --     plazo, fallo automático a las 72 h sin respuesta del comercio,
---     reembolso parcial, quién paga la logística inversa, apelación (una
---     vez, con evidencia nueva, la revisa otra persona) y plantillas;
+--     reembolso parcial (con el tope de lo pagado), quién paga la logística
+--     inversa y el reintegro del envío de vuelta, apelación (una por parte,
+--     con evidencia nueva, la revisa otra persona; los fondos se retienen
+--     mientras el comprador puede apelar) y plantillas;
 --   · denuncias (publicación, comercio, pregunta o reseña) con su cola;
 --   · soporte: tickets con conversación, adjuntos, macros y SLA.
 -- Funciones redefinidas desde su última definición: tumbo_privado.encolar
@@ -248,6 +250,9 @@ create table tumbo.documentos_legales (
   resumen       text check (char_length(resumen) <= 600),
   roles         text[] not null default '{}',      -- quién debe aceptarla (vacío: no se acepta, solo se publica)
   borrador      boolean not null default true,     -- pendiente de revisión legal
+  -- su texto ya está en el centro de ayuda (lo marca el superadministrador
+  -- al desplegarlo): hasta entonces la versión no rige ni se acepta
+  texto_publicado boolean not null default false,
   publicado_por text,
   creado        timestamptz not null default now(),
   primary key (clave, version)
@@ -270,14 +275,17 @@ revoke all on tumbo.aceptaciones_legales from public, anon, authenticated;
 -- Disputas v2 (sin tocar tumbo.disputas, que tm_cargar entrega entera)
 -- ---------------------------------------------------------------------------
 -- El caso: plazo del comercio (72 h), cómo y quién lo resolvió (reembolso
--- parcial, quién paga el envío de vuelta, plantilla) y la apelación.
+-- parcial, quién paga el envío de vuelta, plantilla), la revisión de las
+-- apelaciones (una ronda: cada parte apela una vez y una sola revisión las
+-- decide; las apelaciones van en disputa_apelaciones) y el reintegro del
+-- envío de vuelta de una devolución que paga el comercio o Tumbo.
 create table tumbo.disputa_casos (
   disputa_id               text primary key,
   plazo_seller             timestamptz not null,
   respondida_en            timestamptz,
   fallo_automatico         boolean not null default false,
   decision                 text check (decision in ('reembolso', 'reembolso_parcial', 'devolucion', 'liberar')),
-  reembolso_usd            numeric(12,2),
+  reembolso_usd            numeric(12,2),          -- lo que devolvió Pagos (no lo que se pidió)
   paga_logistica           text check (paga_logistica in ('comprador', 'seller', 'tumbo')),
   plantilla                text,
   resuelta_por             uuid,
@@ -285,22 +293,43 @@ create table tumbo.disputa_casos (
   resuelta_en              timestamptz,
   ajuste_id                bigint,                 -- el descuento al comercio por un reembolso parcial
   apelacion_estado         text check (apelacion_estado in ('pedida', 'confirmada', 'modificada')),
-  apelacion_de             text check (apelacion_de in ('comprador', 'comercio')),
-  apelacion_motivo         text check (char_length(apelacion_motivo) <= 2000),
-  apelacion_evidencia      text[] not null default '{}',
-  apelacion_fecha          timestamptz,
-  apelacion_congelo        boolean not null default false,
+  apelacion_a_favor        text check (apelacion_a_favor in ('comprador', 'comercio')),
   apelacion_por            uuid,
   apelacion_por_nombre     text,
   apelacion_nota           text check (char_length(apelacion_nota) <= 1000),
   apelacion_resultado      text,
   apelacion_resuelta_en    timestamptz,
   aviso_plazo              timestamptz,            -- recordatorio al comercio antes del fallo automático
+  vuelta_estado            text check (vuelta_estado in ('reportado', 'reintegrado', 'rechazado')),
+  vuelta_bs                numeric(14,2),          -- lo que el comprador dice que pagó por el envío de vuelta
+  vuelta_usd               numeric(12,2),          -- a la tasa del día del reporte
+  vuelta_recibo            text[] not null default '{}',
+  vuelta_reportado         timestamptz,
+  vuelta_reintegro_usd     numeric(12,2),
+  vuelta_reembolso_id      bigint,
+  vuelta_nota              text check (char_length(vuelta_nota) <= 500),
+  vuelta_por               text,
   creado                   timestamptz not null default now()
 );
 create index disputa_casos_plazo_idx on tumbo.disputa_casos (plazo_seller) where respondida_en is null and decision is null;
 alter table tumbo.disputa_casos enable row level security;
 revoke all on tumbo.disputa_casos from public, anon, authenticated;
+
+-- Las apelaciones: una por parte y reclamo (en un reembolso parcial apelan
+-- las dos; la que apela primero no le quita la suya a la otra).
+create table tumbo.disputa_apelaciones (
+  disputa_id text not null,
+  lado       text not null check (lado in ('comprador', 'comercio')),
+  autor_id   uuid,
+  motivo     text not null check (char_length(motivo) between 1 and 2000),
+  evidencia  text[] not null default '{}',
+  decision   text not null,                        -- la decisión que se apeló
+  congelo    boolean not null default false,       -- volvió a congelar los fondos (comprador)
+  creado     timestamptz not null default now(),
+  primary key (disputa_id, lado)
+);
+alter table tumbo.disputa_apelaciones enable row level security;
+revoke all on tumbo.disputa_apelaciones from public, anon, authenticated;
 
 -- Mensajes del expediente entre las tres partes (todos los ven).
 create table tumbo.disputa_mensajes (
@@ -561,17 +590,17 @@ on conflict (clave) do nothing;
 -- Documentos legales: la versión de los términos es la que ya registra
 -- Cuentas al crear la cuenta (ajuste terminos_version). Todos son BORRADOR
 -- pendiente de revisión legal.
-insert into tumbo.documentos_legales (clave, version, titulo, vigente_desde, resumen, roles, borrador) values
+insert into tumbo.documentos_legales (clave, version, titulo, vigente_desde, resumen, roles, borrador, texto_publicado) values
   ('terminos', '2026-10-beta', 'Términos y condiciones de uso', now(), 'Primera versión de la beta (borrador pendiente de revisión legal).',
-   '{comprador,seller,precios,operador,superadmin,ops,finanzas}', true),
+   '{comprador,seller,precios,operador,superadmin,ops,finanzas}', true, true),
   ('privacidad', '2026-10-beta', 'Política de privacidad', now(), 'Primera versión de la beta (borrador pendiente de revisión legal).',
-   '{comprador,seller,precios,operador,superadmin,ops,finanzas}', true),
+   '{comprador,seller,precios,operador,superadmin,ops,finanzas}', true, true),
   ('contrato_seller', '2026-10-beta', 'Contrato de comercio (seller)', now(), 'Primera versión de la beta (borrador pendiente de revisión legal).',
-   '{seller}', true),
+   '{seller}', true, true),
   ('devoluciones', '2026-10-beta', 'Política de devoluciones y reembolsos', now(), 'Primera versión de la beta (borrador pendiente de revisión legal).',
-   '{}', true),
+   '{}', true, true),
   ('compra_protegida', '2026-10-beta', 'Compra Protegida', now(), 'Primera versión de la beta (borrador pendiente de revisión legal).',
-   '{}', true)
+   '{}', true, true)
 on conflict (clave, version) do nothing;
 
 -- Las cuentas de prueba ya aceptaron la versión de la beta (su contraseña es
@@ -580,6 +609,15 @@ insert into tumbo.aceptaciones_legales (usuario_id, clave, version)
 select u.id, d.clave, d.version
 from tumbo.usuarios u cross join tumbo.documentos_legales d
 where tumbo_privado.cuenta_demo(u.email) and d.version = '2026-10-beta' and u.rol = any (d.roles)
+on conflict do nothing;
+
+-- Quien ya tiene cuenta la creó marcando «Acepto los términos y las
+-- políticas de privacidad» (Cuentas guarda solo la versión de los
+-- términos): queda constancia de las dos, con la fecha de su registro.
+insert into tumbo.aceptaciones_legales (usuario_id, clave, version, aceptado)
+select u.id, k.clave, '2026-10-beta', u.terminos_fecha
+from tumbo.usuarios u cross join (values ('terminos'), ('privacidad')) k (clave)
+where not tumbo_privado.cuenta_demo(u.email) and u.terminos_version = '2026-10-beta' and u.terminos_fecha is not null
 on conflict do nothing;
 
 insert into tumbo.disputa_plantillas (clave, titulo, decision, paga, texto, orden) values
@@ -636,12 +674,22 @@ $$;
 -- redes. → {texto, ocultos: ['correo', 'enlace', 'telefono', 'cuenta', 'usuario']}.
 -- Los números que no parecen un teléfono ni una cuenta (guías, montos,
 -- fechas, números de pedido) se dejan.
+-- Las cifras se buscan aunque vengan separadas por espacios, puntos,
+-- barras, paréntesis, guiones bajos o guiones de cualquier tipo (hasta 3
+-- seguidos: «0414 - 555 12 34», «0414 – 5551234», «0414_555_1234») y con
+-- la letra O pegada a una cifra en lugar del cero («O414-555-1234»). Una
+-- tira de 16 cifras o más se oculta siempre (cuenta, tarjeta o varios
+-- números pegados); una de 10 o más que contiene un celular venezolano,
+-- también.
 create function tumbo_privado.ocultar_contacto(p_texto text) returns jsonb
 language plpgsql immutable set search_path = '' as $$
 declare
   v text := coalesce(p_texto, '');
   v_ocultos text[] := '{}';
   v_dom constant text := '\m[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.(com|net|org|ve|co|info|io|me|app|link|ly|gl|xyz|shop|store|site|online|top|biz|page|bio)\M(/[^[:space:]]*)?';
+  v_sep constant text := '[[:space:].()/_‐‑‒–—―−-]';
+  v_dig constant text := '(?:[0-9]|[Oo](?=[0-9])|(?<=[0-9])[Oo])';
+  v_cel constant text := '0?4(12|14|16|22|24|26)[0-9]{7}';
   m text;
   d text;
   r text;
@@ -661,12 +709,13 @@ begin
   end if;
   for m in
     select y from (select distinct x[1] as y
-                   from regexp_matches(v, '(?<![[:alnum:]_-])(\+?[0-9](?:[ .()/-]{0,2}[0-9]){6,24})(?![[:alnum:]_])', 'g') as t (x)) z
+                   from regexp_matches(v, '(?<![[:alnum:]])(\+?' || v_dig || '(?:' || v_sep || '{0,3}' || v_dig || '){6,})(?![[:alnum:]])', 'g') as t (x)) z
     order by char_length(y) desc, y
   loop
-    d := regexp_replace(m, '[^0-9]', '', 'g');
-    r := case when char_length(d) between 16 and 22 then '[número de cuenta oculto]'
+    d := regexp_replace(translate(m, 'Oo', '00'), '[^0-9]', '', 'g');
+    r := case when char_length(d) >= 16 then case when d ~ v_cel then '[teléfono oculto]' else '[número de cuenta oculto]' end
               when d ~ '^(58)?0?(2[0-9]{2}|4(12|14|16|22|24|26))[0-9]{7}$' then '[teléfono oculto]'
+              when char_length(d) >= 10 and d ~ v_cel then '[teléfono oculto]'
               when m like '+%' and char_length(d) between 8 and 15 then '[teléfono oculto]' end;
     continue when r is null;
     v := replace(v, m, r);
@@ -996,14 +1045,32 @@ begin
     resumen = excluded.resumen, por = excluded.por;
 end $$;
 
+-- ¿Hay algo que tm_envios_tomar tomaría por esos canales? (pendiente y en
+-- su hora, o tomado sin resultado hace más de 10 minutos; WhatsApp solo con
+-- plantilla aprobada; nunca los de las cuentas de prueba)
+create function tumbo_privado.envios_por_tomar(p_canales text[]) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (
+    select 1 from tumbo.salida s
+    where s.estado = 'pendiente' and s.canal = any (coalesce(p_canales, '{}')) and s.canal in ('correo', 'whatsapp')
+      and ((s.enviando_desde is null and s.proximo_intento <= now()) or s.enviando_desde < now() - interval '10 minutes')
+      and (s.canal <> 'whatsapp' or exists (select 1 from tumbo.plantillas_whatsapp w where w.clave = s.plantilla and w.aprobada))
+      and not exists (select 1 from tumbo.usuarios u where u.id = s.usuario_id and tumbo_privado.cuenta_demo(u.email)))
+$$;
+
 -- La tarea programada (pg_cron cada minuto, si existe): llama a la función
 -- con pg_net (si existe y si se configuró su URL en el ajuste «envios») y
--- solo cuando hay algo por enviar.
+-- solo cuando hay algo que tm_envios_tomar tomaría: ni los mensajes de las
+-- cuentas de prueba ni los WhatsApp sin plantilla aprobada (esos se envían
+-- a mano), y solo de los canales con proveedor según la última corrida. Si
+-- la función informó que no tiene ninguno, vuelve a probar cada 30 minutos.
 create function tumbo_privado.tarea_envios() returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   v_url text := tumbo_privado.ajuste('envios') ->> 'funcion_url';
   v_req bigint;
+  e tumbo.envios_estado;
+  v_canales text[];
 begin
   if v_url is null or v_url !~ '^https://[A-Za-z0-9.-]+(:[0-9]+)?/functions/v1/tumbo-envios$' then
     return jsonb_build_object('llamada', false, 'motivo', 'Falta la URL de la función tumbo-envios en el ajuste «envios».');
@@ -1011,8 +1078,17 @@ begin
   if not exists (select 1 from pg_extension where extname = 'pg_net') then
     return jsonb_build_object('llamada', false, 'motivo', 'Sin pg_net: la función se llama a mano desde admin/mensajes.');
   end if;
-  if not exists (select 1 from tumbo.salida where estado = 'pendiente' and proximo_intento <= now() and canal in ('correo', 'whatsapp')) then
-    return jsonb_build_object('llamada', false, 'motivo', 'Nada por enviar.');
+  select * into e from tumbo.envios_estado where id = 1;
+  v_canales := array_remove(array[case when e.correo then 'correo' end, case when e.whatsapp then 'whatsapp' end], null);
+  if e.ultima is null or cardinality(v_canales) = 0 then
+    if e.ultima > now() - interval '30 minutes' then
+      return jsonb_build_object('llamada', false, 'motivo', 'La función no tiene proveedores configurados (lo informó a las ' ||
+        to_char(e.ultima at time zone 'America/Caracas', 'HH24:MI') || '): se vuelve a probar cada 30 minutos.');
+    end if;
+    v_canales := array['correo', 'whatsapp'];
+  end if;
+  if not tumbo_privado.envios_por_tomar(v_canales) then
+    return jsonb_build_object('llamada', false, 'motivo', 'Nada que la función pueda enviar.');
   end if;
   execute 'select net.http_post(url := $1, body := $2, headers := $3, timeout_milliseconds := 20000)'
     into v_req
@@ -1374,6 +1450,10 @@ begin
     raise exception '%', a ->> 'motivo';
   end if;
   v_lado := a ->> 'lado';
+  -- una cuenta de prueba (contraseña pública) no le escribe a una persona o un comercio real
+  perform tumbo_privado.exigir_cuenta_real(yo, case v_lado when 'comprador' then tumbo_privado.seller_real(v.seller_id)
+                                                           when 'comercio' then tumbo_privado.comprador_real(v.comprador_id)
+                                                           else tumbo_privado.pedido_real(v) end);
   if char_length(v_texto) = 0 and cardinality(v_adj) = 0 then
     raise exception 'Escribe un mensaje o adjunta un archivo.';
   end if;
@@ -1453,7 +1533,9 @@ language sql stable security definer set search_path = '' as $$
 $$;
 
 -- Las preguntas de un producto (públicas; con sesión, también las propias en
--- revisión). 20 por página.
+-- revisión). 20 por página. Una respuesta solo se entrega publicada: la que
+-- apartó la moderación no la lee nadie (tampoco quien preguntó, que ve que
+-- está en revisión) hasta que la apruebe una persona.
 create function public.tm_preguntas(p_sesion text, p_sku text, p_pagina integer) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -1471,8 +1553,8 @@ begin
   select coalesce(jsonb_agg(jsonb_build_object(
            'id', q.id, 'texto', q.texto, 'creado', q.creado, 'estado', case when q.autor_id = yo.id then q.estado end,
            'mia', coalesce(q.autor_id = yo.id, false),
-           'respuesta', case when q.respuesta_estado = 'publicada' or (q.autor_id = yo.id and q.respuesta is not null and q.respuesta_estado <> 'oculta')
-                             then q.respuesta end,
+           'respuesta', case when q.respuesta_estado = 'publicada' then q.respuesta end,
+           'respuesta_en_revision', coalesce(q.autor_id = yo.id and q.respuesta_estado = 'revision', false),
            'respondida_en', case when q.respuesta_estado = 'publicada' then q.respondida_en end) order by q.creado desc, q.id desc), '[]'::jsonb) into v
   from (select * from tumbo.preguntas q
         where q.sku = p_sku and (q.estado = 'publicada' or (yo.id is not null and q.autor_id = yo.id and q.estado = 'revision'))
@@ -1496,6 +1578,8 @@ begin
   if not found or p.estado <> 'publicado' or not exists (select 1 from tumbo.sellers s where s.id = p.seller_id and s.estado = 'aprobado') then
     raise exception 'Ese producto no está disponible.';
   end if;
+  -- (una cuenta de prueba, de contraseña pública, no publica en la ficha de un comercio real ni le dispara avisos)
+  perform tumbo_privado.exigir_cuenta_real(yo, tumbo_privado.seller_real(p.seller_id));
   if char_length(v_texto) < 5 or char_length(v_texto) > 500 then
     raise exception 'Escribe tu pregunta con entre 5 y 500 caracteres.';
   end if;
@@ -1703,9 +1787,13 @@ begin
     into v_despachos, v_a_tiempo
   from tumbo.envios e
   where e.seller_id = p_seller and e.despachado_en >= v_desde and e.despachar_antes is not null;
-  select count(*), count(*) filter (where d.resolucion_decision in ('reembolso', 'devolucion'))
+  -- perdido: la decisión vigente (después de la apelación, si la hubo) le
+  -- costó al comercio, salvo que la revisión le diera la razón
+  select count(*), count(*) filter (where coalesce(c.decision, d.resolucion_decision) in ('reembolso', 'reembolso_parcial', 'devolucion')
+                                       and c.apelacion_a_favor is distinct from 'comercio')
     into v_reclamos, v_reclamos_perdidos
-  from tumbo.disputas d where d.seller_id = p_seller and d.creado >= v_desde;
+  from tumbo.disputas d left join tumbo.disputa_casos c on c.disputa_id = d.id
+  where d.seller_id = p_seller and d.creado >= v_desde;
   select count(*) into v_cancel from tumbo.cancelaciones c where c.seller_id = p_seller and c.culpa_seller and c.creado >= v_desde;
   v_resp := tumbo_privado.respuesta_horas(p_seller);
   -- chat: horas entre un mensaje del comprador y la siguiente respuesta del comercio
@@ -1784,10 +1872,16 @@ begin
                                               '3', count(*) filter (where r.estrellas = 3), '2', count(*) filter (where r.estrellas = 2),
                                               '1', count(*) filter (where r.estrellas = 1)),
            'calidad', round(avg(r.calidad)::numeric, 1), 'empaque', round(avg(r.empaque)::numeric, 1),
-           'entrega', round(avg(r.entrega)::numeric, 1)), count(*)
-    into v_res, v_total
+           'entrega', round(avg(r.entrega)::numeric, 1))
+    into v_res
   from tumbo.resenas r
   where r.estado = 'publicada' and ((p_tipo = 'producto' and r.sku = p_id) or (p_tipo = 'seller' and r.seller_id = p_id and r.sku is null));
+  -- las páginas, con el mismo filtro que la lista (en la tienda del comercio
+  -- van también las reseñas de sus productos que tienen texto)
+  select count(*) into v_total
+  from tumbo.resenas r
+  where (r.estado = 'publicada' or (yo.id is not null and r.comprador_id = yo.id and r.estado = 'revision'))
+    and ((p_tipo = 'producto' and r.sku = p_id) or (p_tipo = 'seller' and r.seller_id = p_id and (r.sku is null or r.texto is not null)));
   -- aspectos del comercio (empaque, entrega) también en la ficha del producto
   if p_tipo = 'producto' then
     v_res := v_res || (select jsonb_build_object('empaque', round(avg(r.empaque)::numeric, 1), 'entrega', round(avg(r.entrega)::numeric, 1))
@@ -1799,7 +1893,8 @@ begin
         where (r.estado = 'publicada' or (yo.id is not null and r.comprador_id = yo.id and r.estado = 'revision'))
           and ((p_tipo = 'producto' and r.sku = p_id) or (p_tipo = 'seller' and r.seller_id = p_id and (r.sku is null or r.texto is not null)))
         order by r.creado desc, r.id desc offset (v_pag - 1) * 10 limit 10) r;
-  return jsonb_build_object('resumen', v_res, 'resenas', v, 'pagina', v_pag, 'paginas', greatest(1, ceil(v_total / 10.0)::integer));
+  return jsonb_build_object('resumen', v_res, 'resenas', v, 'pagina', v_pag, 'paginas', greatest(1, ceil(v_total / 10.0)::integer),
+                            'total_lista', v_total);
 end $$;
 
 -- Los pedidos que el comprador puede calificar (y lo que ya calificó).
@@ -1850,6 +1945,7 @@ begin
   if v_motivo is not null then
     raise exception '%', v_motivo;
   end if;
+  perform tumbo_privado.exigir_cuenta_real(yo, tumbo_privado.seller_real(v.seller_id));
   if (jsonb_typeof(d -> 'productos') is distinct from 'array' or jsonb_array_length(d -> 'productos') = 0)
      and jsonb_typeof(c) is distinct from 'object' then
     raise exception 'Califica al menos un producto o al comercio.';
@@ -2001,11 +2097,13 @@ create trigger pedidos_invitar_resena
 -- ---------------------------------------------------------------------------
 -- Documentos legales y su aceptación
 -- ---------------------------------------------------------------------------
--- La versión vigente de cada documento (la más reciente ya en vigor).
+-- La versión vigente de cada documento: la más reciente ya en vigor cuyo
+-- texto está publicado en el centro de ayuda (una versión sin su texto no
+-- rige ni se acepta: nadie acepta lo que no pudo leer).
 create function tumbo_privado.legal_vigente(p_clave text) returns tumbo.documentos_legales
 language sql stable security definer set search_path = '' as $$
   select * from tumbo.documentos_legales d
-  where d.clave = p_clave and d.vigente_desde <= now()
+  where d.clave = p_clave and d.vigente_desde <= now() and d.texto_publicado
   order by d.vigente_desde desc, d.creado desc limit 1
 $$;
 
@@ -2017,7 +2115,42 @@ language sql stable security definer set search_path = '' as $$
       or coalesce(p_clave = 'terminos' and p_yo.terminos_version = p_version, false)
 $$;
 
--- Público: los documentos vigentes (y, con sesión, lo que falta aceptar).
+-- Al crear la cuenta (registro o invitación, de Cuentas) la persona marca
+-- «Acepto los términos y las políticas de privacidad»: Cuentas guarda la
+-- versión de los términos en la cuenta y aquí queda constancia de las dos
+-- (la de privacidad, la vigente en ese momento). tm_legal_aceptar, que
+-- también escribe la versión de los términos en la cuenta, se marca para
+-- no acreditar la privacidad que la persona no aceptó ahí.
+create function tumbo_privado.usuario_acepto_registro() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_priv tumbo.documentos_legales;
+begin
+  if coalesce(current_setting('tumbo.legal_aceptando', true), '') = '1' or tumbo_privado.cuenta_demo(new.email) then
+    return null;
+  end if;
+  if tg_op = 'UPDATE' and old.terminos_version is not distinct from new.terminos_version
+     and old.terminos_fecha is not distinct from new.terminos_fecha then
+    return null;
+  end if;
+  v_priv := tumbo_privado.legal_vigente('privacidad');
+  insert into tumbo.aceptaciones_legales (usuario_id, clave, version, red)
+  select new.id, k.clave, k.version, tumbo_privado.ip_cliente()
+  from (values ('terminos', new.terminos_version), ('privacidad', v_priv.version)) k (clave, version)
+  where k.version is not null
+  on conflict do nothing;
+  return null;
+end $$;
+
+create trigger usuarios_acepto_registro
+  after insert or update of terminos_version, terminos_fecha on tumbo.usuarios
+  for each row when (new.terminos_version is not null)
+  execute function tumbo_privado.usuario_acepto_registro();
+
+-- Público: los documentos vigentes (y, con sesión, lo que falta aceptar:
+-- «previa» dice si la persona ya había aceptado otra versión, para no
+-- decirle «actualizamos» a quien nunca lo aceptó). Al superadministrador
+-- real le llegan además las versiones que esperan su texto.
 create function public.tm_legales(p_sesion text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -2027,16 +2160,23 @@ begin
   select coalesce(jsonb_agg(jsonb_build_object('clave', d.clave, 'version', d.version, 'titulo', d.titulo,
            'vigente_desde', d.vigente_desde, 'resumen', d.resumen, 'borrador', d.borrador,
            'requiere', yo.id is not null and yo.rol = any (d.roles),
-           'aceptado', case when yo.id is not null and yo.rol = any (d.roles) then tumbo_privado.legal_aceptado(yo, d.clave, d.version) end)
+           'aceptado', case when yo.id is not null and yo.rol = any (d.roles) then tumbo_privado.legal_aceptado(yo, d.clave, d.version) end,
+           'previa', case when yo.id is not null and yo.rol = any (d.roles) then
+                       exists (select 1 from tumbo.aceptaciones_legales a where a.usuario_id = yo.id and a.clave = d.clave and a.version <> d.version)
+                       or coalesce(d.clave = 'terminos' and yo.terminos_version <> d.version, false) end)
            order by d.clave), '[]'::jsonb) into v
-  from (select distinct on (x.clave) x.* from tumbo.documentos_legales x where x.vigente_desde <= now()
+  from (select distinct on (x.clave) x.* from tumbo.documentos_legales x where x.vigente_desde <= now() and x.texto_publicado
         order by x.clave, x.vigente_desde desc, x.creado desc) d;
   return jsonb_build_object('documentos', v,
     'pendientes', coalesce((select jsonb_agg(e) from jsonb_array_elements(v) e
                             where (e ->> 'requiere')::boolean and not (e ->> 'aceptado')::boolean), '[]'::jsonb),
     'historial', coalesce((select jsonb_agg(jsonb_build_object('clave', h.clave, 'version', h.version, 'vigente_desde', h.vigente_desde,
                                                               'resumen', h.resumen) order by h.clave, h.vigente_desde desc)
-                           from tumbo.documentos_legales h), '[]'::jsonb),
+                           from tumbo.documentos_legales h where h.texto_publicado), '[]'::jsonb),
+    'por_publicar', case when yo.rol = 'superadmin' and not tumbo_privado.cuenta_demo(yo.email) then
+                      coalesce((select jsonb_agg(jsonb_build_object('clave', h.clave, 'version', h.version, 'titulo', h.titulo,
+                                  'vigente_desde', h.vigente_desde, 'resumen', h.resumen, 'publicado_por', h.publicado_por) order by h.creado)
+                                from tumbo.documentos_legales h where not h.texto_publicado), '[]'::jsonb) end,
     -- los plazos vigentes que cita el centro de ayuda (no inventa números)
     'plazos', jsonb_build_object(
       'ventana_reclamo_dias', (select c.ventana_reclamo_dias from tumbo.config c limit 1),
@@ -2049,7 +2189,9 @@ begin
 end $$;
 
 -- Acepta la versión vigente de un documento (la de los términos queda
--- también en la cuenta, donde la registra Cuentas).
+-- también en la cuenta, donde la registra Cuentas). p_version es la versión
+-- del texto que la persona leyó en la página: si no es la vigente, no se
+-- acepta.
 create function public.tm_legal_aceptar(p_sesion text, p_clave text, p_version text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -2060,7 +2202,7 @@ begin
     raise exception 'Ese documento no existe.';
   end if;
   if d.version is distinct from p_version then
-    raise exception 'Hay una versión más nueva de «%»: recarga la página para leerla antes de aceptarla.', d.titulo;
+    raise exception 'La versión vigente de «%» es otra: recarga la página para leerla antes de aceptarla.', d.titulo;
   end if;
   if not (yo.rol = any (d.roles)) then
     raise exception 'Este documento no se acepta desde tu cuenta.';
@@ -2069,17 +2211,41 @@ begin
   values (yo.id, d.clave, d.version, tumbo_privado.ip_cliente())
   on conflict do nothing;
   if d.clave = 'terminos' and not tumbo_privado.cuenta_demo(yo.email) then
+    perform set_config('tumbo.legal_aceptando', '1', true);
     update tumbo.usuarios set terminos_version = d.version, terminos_fecha = now() where id = yo.id;
+    perform set_config('tumbo.legal_aceptando', '', true);
   end if;
   perform tumbo_privado.auditar(yo, 'Documento legal aceptado', d.clave || ' ' || d.version);
   return jsonb_build_object('ok', true, 'clave', d.clave, 'version', d.version);
 end $$;
 
--- El superadministrador real publica una versión nueva (después de
--- desplegar su texto en el centro de ayuda). Si es de los términos, la
--- registra también como la vigente para el registro (ajuste
--- terminos_version de Cuentas). Avisa por la bandeja a quienes deben
--- aceptarla cuando entra en vigor (hasta 5.000 por publicación).
+-- Una versión que ya rige con su texto publicado: si es de los términos,
+-- pasa a ser la del registro (ajuste terminos_version de Cuentas), y a
+-- quienes deben aceptarla les llega el aviso (hasta 5.000). → avisados.
+create function tumbo_privado.legal_entra_en_vigor(d tumbo.documentos_legales, p_yo tumbo.usuarios) returns integer
+language plpgsql security definer set search_path = '' as $$
+declare
+  u record;
+  n integer := 0;
+begin
+  if d.clave = 'terminos' and d.vigente_desde <= now() then
+    update tumbo.ajustes set valor = to_jsonb(d.version), actualizado = now(), por = tumbo_privado.actor(p_yo)
+    where clave = 'terminos_version' and valor is distinct from to_jsonb(d.version);
+  end if;
+  for u in select x.id from tumbo.usuarios x where x.activo and x.rol = any (d.roles) order by x.creado desc limit 5000 loop
+    perform tumbo_privado.encolar(u.id, 'legal_actualizado', jsonb_build_object('documento', d.titulo,
+      'version', d.version, 'desde', tumbo_privado.fecha_legible(d.vigente_desde), 'resumen', coalesce(d.resumen, ''),
+      'enlace', 'app/ayuda/' || replace(d.clave, '_', '-') || '.html'));
+    n := n + 1;
+  end loop;
+  return n;
+end $$;
+
+-- El superadministrador real publica una versión nueva. p_datos =
+-- {clave, version, titulo?, resumen, vigente_desde?, borrador,
+-- texto_publicado}: con texto_publicado (su texto ya está desplegado en el
+-- centro de ayuda) rige desde vigente_desde y se avisa; sin él queda
+-- guardada hasta que se marque con tm_legal_texto_publicado.
 create function public.tm_legal_publicar(p_sesion text, p_datos jsonb) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -2089,7 +2255,8 @@ declare
   v_version text := btrim(coalesce(d ->> 'version', ''));
   v_desde timestamptz;
   v_ant tumbo.documentos_legales;
-  u record;
+  v_nuevo tumbo.documentos_legales;
+  v_listo boolean := coalesce((d ->> 'texto_publicado')::boolean, false);
   n integer := 0;
 begin
   perform tumbo_privado.exigir_elevada(yo);
@@ -2111,21 +2278,40 @@ begin
   if v_desde < now() - interval '1 minute' then
     raise exception 'Una versión nueva no puede regir desde el pasado.';
   end if;
-  insert into tumbo.documentos_legales (clave, version, titulo, vigente_desde, resumen, roles, borrador, publicado_por)
+  insert into tumbo.documentos_legales (clave, version, titulo, vigente_desde, resumen, roles, borrador, texto_publicado, publicado_por)
   values (v_clave, v_version, coalesce(nullif(left(d ->> 'titulo', 120), ''), v_ant.titulo), v_desde,
           nullif(left(btrim(coalesce(d ->> 'resumen', '')), 600), ''), v_ant.roles,
-          coalesce((d ->> 'borrador')::boolean, true), yo.nombre || ' (' || yo.rol || ')');
-  if v_clave = 'terminos' and v_desde <= now() then
-    update tumbo.ajustes set valor = to_jsonb(v_version), actualizado = now(), por = yo.nombre || ' (' || yo.rol || ')'
-    where clave = 'terminos_version';
+          coalesce((d ->> 'borrador')::boolean, true), v_listo, tumbo_privado.actor(yo))
+  returning * into v_nuevo;
+  if v_listo then
+    n := tumbo_privado.legal_entra_en_vigor(v_nuevo, yo);
   end if;
-  for u in select x.id from tumbo.usuarios x where x.activo and x.rol = any (v_ant.roles) order by x.creado desc limit 5000 loop
-    perform tumbo_privado.encolar(u.id, 'legal_actualizado', jsonb_build_object('documento', coalesce(nullif(d ->> 'titulo', ''), v_ant.titulo),
-      'version', v_version, 'desde', tumbo_privado.fecha_legible(v_desde), 'resumen', coalesce(d ->> 'resumen', ''),
-      'enlace', 'app/ayuda/' || replace(v_clave, '_', '-') || '.html'));
-    n := n + 1;
-  end loop;
-  perform tumbo_privado.auditar(yo, 'Documento legal publicado', v_clave || ' ' || v_version || ' desde ' || tumbo_privado.fecha_legible(v_desde));
+  perform tumbo_privado.auditar(yo, 'Documento legal publicado', v_clave || ' ' || v_version || ' desde ' || tumbo_privado.fecha_legible(v_desde) ||
+    case when v_listo then '' else ' (espera su texto en el centro de ayuda)' end);
+  return jsonb_build_object('ok', true, 'avisados', n, 'texto_publicado', v_listo);
+end $$;
+
+-- El texto de una versión ya está en el centro de ayuda (el sitio se
+-- desplegó con él): desde ahora rige (si ya llegó su fecha) y se avisa.
+create function public.tm_legal_texto_publicado(p_sesion text, p_clave text, p_version text) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['superadmin']);
+  d tumbo.documentos_legales;
+  n integer;
+begin
+  perform tumbo_privado.exigir_elevada(yo);
+  select * into d from tumbo.documentos_legales where clave = p_clave and version = p_version for update;
+  if not found then
+    raise exception 'Esa versión no existe.';
+  end if;
+  if d.texto_publicado then
+    raise exception 'El texto de esa versión ya estaba marcado como publicado.';
+  end if;
+  update tumbo.documentos_legales set texto_publicado = true where clave = p_clave and version = p_version
+  returning * into d;
+  n := tumbo_privado.legal_entra_en_vigor(d, yo);
+  perform tumbo_privado.auditar(yo, 'Texto legal publicado', d.clave || ' ' || d.version);
   return jsonb_build_object('ok', true, 'avisados', n);
 end $$;
 
@@ -2160,6 +2346,10 @@ begin
   if yo.seller_id is not null and yo.seller_id = v_seller and p_tipo in ('producto', 'seller') then
     raise exception 'No puedes reportar tu propio comercio.';
   end if;
+  -- una cuenta de prueba no reporta a un comercio real ni lo que escribió una persona real (la cola es del equipo real)
+  perform tumbo_privado.exigir_cuenta_real(yo, tumbo_privado.seller_real(v_seller)
+    or (p_tipo = 'pregunta' and tumbo_privado.comprador_real((select q.autor_id from tumbo.preguntas q where q.id::text = p_objeto)))
+    or (p_tipo = 'resena' and tumbo_privado.comprador_real((select r.comprador_id from tumbo.resenas r where r.id::text = p_objeto))));
   perform tumbo_privado.bloquear_usuario(yo.id, 'denuncias');
   if exists (select 1 from tumbo.denuncias where autor_id = yo.id and tipo = p_tipo and objeto = p_objeto and estado = 'abierta') then
     raise exception 'Ya reportaste esto: el equipo lo está revisando.';
@@ -2675,7 +2865,7 @@ language sql immutable set search_path = '' as $$
     when 'devolucion' then 'devolución del producto' || case p_paga when 'seller' then ' (el envío de vuelta lo paga el comercio)'
                                                                     when 'comprador' then ' (el envío de vuelta lo paga el comprador)'
                                                                     when 'tumbo' then ' (el envío de vuelta lo paga Tumbo)' else '' end
-    when 'liberar' then 'cerrado a favor del comercio: fondos liberados'
+    when 'liberar' then 'cerrado a favor del comercio: fondos liberados al vencer el plazo de apelación'
     else coalesce(p_decision, '') end
 $$;
 
@@ -2697,15 +2887,185 @@ begin
   end if;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- El dinero de un reclamo (con los reembolsos de Pagos)
+-- ---------------------------------------------------------------------------
+-- Lo ya reembolsado de un pedido (en cualquier estado: como lo cuenta
+-- crear_reembolso).
+create function tumbo_privado.reembolsado_pedido(p_pedido text) returns numeric
+language sql stable security definer set search_path = '' as $$
+  select coalesce(sum(r.monto_usd), 0) from tumbo.reembolsos r where r.pedido_id = p_pedido and r.tipo = 'pedido'
+$$;
+
+-- Lo que devuelve un reembolso total: lo que el comprador pagó (con el
+-- IGTF y sin los descuentos; un pedido de antes de los pagos guiados,
+-- productos y envío) menos lo ya reembolsado.
+create function tumbo_privado.disputa_total_reembolso(v tumbo.pedidos) returns numeric
+language sql stable security definer set search_path = '' as $$
+  select greatest(0, case when v.pago_id is null then tumbo_privado.bruto_pedido(v.id) + v.costo_envio_usd
+                          else (tumbo_privado.montos_pedido(v) ->> 'pagado')::numeric end
+                     - tumbo_privado.reembolsado_pedido(v.id))
+$$;
+
+-- El tope (exclusivo) de un reembolso parcial: menos que lo que pagó el
+-- comprador y que lo que cobra el comercio por el pedido (productos con sus
+-- descuentos y envío), lo menor, descontado lo ya reembolsado. Así Pagos
+-- nunca lo asienta como un reembolso completo y al comercio le queda un
+-- resto que liquidar.
+create function tumbo_privado.disputa_tope_parcial(v tumbo.pedidos) returns numeric
+language sql stable security definer set search_path = '' as $$
+  select greatest(0, least(case when v.pago_id is null then tumbo_privado.bruto_pedido(v.id) + v.costo_envio_usd
+                                else (x.m ->> 'pagado')::numeric end,
+                           (x.m ->> 'base_seller')::numeric + (x.m ->> 'envio')::numeric)
+                     - tumbo_privado.reembolsado_pedido(v.id))
+  from (select tumbo_privado.montos_pedido(v) as m) x
+$$;
+
+-- Reembolso parcial (crear_reembolso de Pagos) y el descuento al comercio
+-- por lo que de verdad devolvió Pagos. → {reembolso_id, monto, ajuste_id}
+create function tumbo_privado.disputa_reembolso_parcial(v tumbo.pedidos, p_monto numeric, p_disputa text, p_motivo text) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_tope numeric := tumbo_privado.disputa_tope_parcial(v);
+  v_monto numeric := round(coalesce(p_monto, 0), 2);
+  v_id bigint;
+  v_real numeric;
+  v_aj bigint;
+begin
+  if v_monto <= 0 or v_monto >= v_tope then
+    raise exception 'El reembolso parcial va de $0.01 a menos de % (lo que pagó el comprador o lo que cobra el comercio por el pedido, lo menor); para devolver todo, elige el reembolso total.',
+      tumbo_privado.fmt_usd(v_tope);
+  end if;
+  v_id := tumbo_privado.crear_reembolso(v.id, v_monto, p_motivo);
+  if v_id is null then
+    raise exception 'Este pedido no tiene un pago verificado que reembolsar.';
+  end if;
+  select r.monto_usd into v_real from tumbo.reembolsos r where r.id = v_id;
+  if v_real is distinct from v_monto then
+    raise exception 'Pagos registraría un reembolso de % y no de %: revísalo con Finanzas.', tumbo_privado.fmt_usd(v_real), tumbo_privado.fmt_usd(v_monto);
+  end if;
+  -- (sin asiento propio: el reembolso ya cargó por_pagar_seller; así la corrida le paga al comercio el resto)
+  insert into tumbo.ajustes_seller (seller_id, monto_usd, motivo, por)
+  values (v.seller_id, -v_real, left('Reembolso parcial del reclamo ' || p_disputa || ' (pedido ' || v.id || ')', 300), 'Sistema (reclamo ' || p_disputa || ')')
+  returning id into v_aj;
+  return jsonb_build_object('reembolso_id', v_id, 'monto', v_real, 'ajuste_id', v_aj);
+end $$;
+
+-- Reembolso total: lo que falta para devolver todo lo que pagó el comprador
+-- (con el IGTF). Si ya hubo un reembolso parcial, Pagos asienta este resto
+-- como otro parcial (contra por_pagar_seller); el asiento que sigue lo
+-- completa como el de un reembolso completo de una vez: vuelve el IGTF por
+-- pagar y se revierte el descuento que asumió Tumbo. → {reembolso_id, monto}
+create function tumbo_privado.disputa_reembolso_total(v tumbo.pedidos, p_disputa text, p_motivo text, p_actor text) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  m jsonb := tumbo_privado.montos_pedido(v);
+  v_ya numeric := tumbo_privado.reembolsado_pedido(v.id);
+  v_falta numeric := tumbo_privado.disputa_total_reembolso(v);
+  v_t numeric := coalesce((m ->> 'descuento_tumbo')::numeric, 0);
+  v_i numeric := coalesce((m ->> 'igtf')::numeric, 0);
+  v_id bigint;
+  v_real numeric;
+begin
+  if v_falta <= 0 then
+    return jsonb_build_object('reembolso_id', null, 'monto', 0);
+  end if;
+  v_id := tumbo_privado.crear_reembolso(v.id, v_falta, p_motivo);
+  if v_id is null then
+    return jsonb_build_object('reembolso_id', null, 'monto', 0);
+  end if;
+  select r.monto_usd into v_real from tumbo.reembolsos r where r.id = v_id;
+  if v.pago_id is not null and v_ya > 0 and v_ya + v_real = (m ->> 'pagado')::numeric and (v_t <> 0 or v_i <> 0) then
+    perform tumbo_privado.asentar('reembolso', 'R-' || v_id,
+      'Reembolso del pedido ' || v.id || ' completado a total (reclamo ' || p_disputa || '): IGTF y descuento de Tumbo', coalesce(p_actor, 'Sistema'),
+      jsonb_build_array(jsonb_build_object('cuenta', 'por_pagar_seller', 'seller', v.seller_id, 'debe', v_t - v_i),
+                        jsonb_build_object('cuenta', 'igtf_por_pagar', 'debe', v_i),
+                        jsonb_build_object('cuenta', 'descuentos_tumbo', 'haber', v_t)));
+  end if;
+  return jsonb_build_object('reembolso_id', v_id, 'monto', v_real);
+end $$;
+
+-- ¿Siguen retenidos los fondos de un pedido con el reclamo resuelto? Tras
+-- «liberar» o un reembolso parcial el comprador puede apelar: mientras
+-- corre su plazo (o mientras su apelación espera la revisión) el pedido no
+-- entra en una liquidación.
+create function tumbo_privado.disputa_retiene_fondos(p_disputa text) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select coalesce((
+    select coalesce(c.decision, d.resolucion_decision) in ('liberar', 'reembolso_parcial')
+       and c.apelacion_estado is distinct from 'confirmada' and c.apelacion_estado is distinct from 'modificada'
+       and (now() < coalesce(c.resuelta_en, d.resolucion_fecha, now())
+                    + make_interval(days => tumbo_privado.comunicacion('dias_apelacion', 5)::integer)
+            or exists (select 1 from tumbo.disputa_apelaciones a where a.disputa_id = d.id and a.lado = 'comprador'))
+    from tumbo.disputas d left join tumbo.disputa_casos c on c.disputa_id = d.id
+    where d.id = p_disputa and d.estado = 'resuelta'), false)
+$$;
+
+-- Un pedido con el reclamo resuelto no pasa a elegible mientras el
+-- comprador puede apelar, lo pase quien lo pase (la resolución de siempre,
+-- tm_resolver_disputa, lo deja elegible enseguida): queda congelado y la
+-- tarea del dominio lo libera al vencer el plazo.
+create function tumbo_privado.pedido_retener_apelacion() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.disputa_id is not null and new.liquidacion_id is null and tumbo_privado.disputa_retiene_fondos(new.disputa_id) then
+    new.liquidacion := 'congelado';
+    perform tumbo_privado.evento(new.id, 'Sistema', 'Fondos retenidos hasta que venza el plazo de apelación del reclamo ' || new.disputa_id, 'lock_clock');
+  end if;
+  return new;
+end $$;
+
+create trigger pedidos_retener_apelacion
+  before update of liquidacion on tumbo.pedidos
+  for each row when (new.liquidacion = 'elegible' and old.liquidacion is distinct from 'elegible')
+  execute function tumbo_privado.pedido_retener_apelacion();
+
+-- ¿Puede esta parte apelar? null si puede; si no, el motivo.
+--   · una vez cada parte (en un reembolso parcial apelan las dos), dentro
+--     del plazo desde la decisión y mientras no se revisaron las apelaciones;
+--   · el comprador apela lo que lo dejó sin todo su dinero (fondos
+--     liberados o reembolso parcial) mientras el dinero no entró en una
+--     liquidación; el comercio, lo que le costó (reembolso, reembolso
+--     parcial o devolución).
+create function tumbo_privado.disputa_apelacion_impedida(d tumbo.disputas, c tumbo.disputa_casos, v tumbo.pedidos, p_lado text) returns text
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  v_dias integer := tumbo_privado.comunicacion('dias_apelacion', 5)::integer;
+begin
+  if d.estado <> 'resuelta' or c.decision is null then
+    return 'El reclamo todavía no tiene una decisión que apelar.';
+  end if;
+  if c.apelacion_estado in ('confirmada', 'modificada') then
+    return 'Las apelaciones de este reclamo ya se revisaron: la revisión es definitiva.';
+  end if;
+  if exists (select 1 from tumbo.disputa_apelaciones a where a.disputa_id = d.id and a.lado = p_lado) then
+    return 'Ya apelaste esta decisión: la revisa otra persona del equipo.';
+  end if;
+  if (p_lado = 'comprador' and c.decision not in ('liberar', 'reembolso_parcial'))
+     or (p_lado = 'comercio' and c.decision not in ('reembolso', 'reembolso_parcial', 'devolucion')) then
+    return 'La decisión ya fue a tu favor: no hay nada que apelar.';
+  end if;
+  if now() > c.resuelta_en + make_interval(days => v_dias) then
+    return format('Pasó el plazo de %s días para apelar.', v_dias);
+  end if;
+  if p_lado = 'comprador' and (v.liquidacion_id is not null or v.liquidacion is null or v.liquidacion not in ('congelado', 'elegible')) then
+    return 'El dinero de este pedido ya entró en una liquidación del comercio: escríbele a soporte desde Ayuda.';
+  end if;
+  return null;
+end $$;
+
 -- La resolución de la ola 2, compartida por tm_disputa_resolver (con
 -- reembolso parcial, quién paga el envío de vuelta y plantilla) y el fallo
 -- automático de la tarea (p_yo sin id: el sistema). Mismas reglas que la
 -- última tm_resolver_disputa (integración de la ola 1): el reclamo
 -- de una persona o un comercio real lo decide una cuenta real con sesión
 -- elevada; el reembolso es el de Pagos (crear_reembolso) y la devolución
--- la coordina Logística (su inspección antes del reembolso).
+-- la coordina Logística (su inspección antes del reembolso). Tras «liberar»
+-- o un reembolso parcial los fondos quedan retenidos durante el plazo de
+-- apelación del comprador. → true si resolvió (el fallo automático no
+-- resuelve el reclamo que el comercio respondió mientras tanto).
 create function tumbo_privado.disputa_resolver_interno(p_yo tumbo.usuarios, p_id text, p_decision text, p_nota text,
-                                                       p_monto numeric, p_paga text, p_plantilla text) returns void
+                                                       p_monto numeric, p_paga text, p_plantilla text) returns boolean
 language plpgsql security definer set search_path = '' as $$
 declare
   d tumbo.disputas;
@@ -2713,15 +3073,23 @@ declare
   c tumbo.disputa_casos;
   v_auto boolean := p_yo.id is null;
   v_nota text := left(trim(coalesce(p_nota, '')), 500);
-  v_total numeric;
   v_monto numeric;
-  v_reemb bigint;
+  r jsonb;
   v_aj bigint;
   v_txt text;
   v_hasta timestamptz := now() + make_interval(days => tumbo_privado.comunicacion('dias_apelacion', 5)::integer);
+  v_paga text;
 begin
   select * into d from tumbo.disputas where id = p_id for update;
   if not found then raise exception 'Disputa % no encontrada.', p_id; end if;
+  if v_auto then
+    -- (ya con el reclamo bloqueado: si el comercio respondió mientras la
+    -- tarea lo elegía, o alguien lo resolvió, el fallo automático no va)
+    c := tumbo_privado.disputa_caso(p_id);
+    if d.estado <> 'abierta' or c.respondida_en is not null or c.decision is not null or c.plazo_seller >= now() then
+      return false;
+    end if;
+  end if;
   if d.estado = 'resuelta' then raise exception 'La disputa % ya está resuelta.', p_id; end if;
   if p_decision is null or p_decision not in ('reembolso', 'reembolso_parcial', 'devolucion', 'liberar') then
     raise exception 'Decisión inválida.';
@@ -2733,14 +3101,14 @@ begin
     perform tumbo_privado.exigir_si_real(p_yo, tumbo_privado.pedido_real(v));
   end if;
   c := tumbo_privado.disputa_caso(p_id);
-  v_total := tumbo_privado.bruto_pedido(v.id) + v.costo_envio_usd;
   if p_decision = 'reembolso_parcial' then
     v_monto := round(coalesce(p_monto, 0), 2);
     if v.estado <> 'entregado' then
       raise exception 'El reembolso parcial es para un pedido entregado (el comprador se queda con el producto).';
     end if;
-    if v_monto <= 0 or v_monto >= v_total then
-      raise exception 'El reembolso parcial va de $0.01 a menos de lo cobrado (%); para todo, elige el reembolso total.', tumbo_privado.fmt_usd(v_total);
+    if v_monto <= 0 or v_monto >= tumbo_privado.disputa_tope_parcial(v) then
+      raise exception 'El reembolso parcial va de $0.01 a menos de % (lo que pagó el comprador o lo que cobra el comercio por el pedido, lo menor); para devolver todo, elige el reembolso total.',
+        tumbo_privado.fmt_usd(tumbo_privado.disputa_tope_parcial(v));
     end if;
   end if;
   if p_paga is not null and (p_decision <> 'devolucion' or p_paga not in ('comprador', 'seller', 'tumbo')) then
@@ -2765,18 +3133,19 @@ begin
     perform tumbo_privado.notificar('usr:' || d.comprador_id, 'Tu reclamo ' || p_id || ' fue aprobado: el reembolso está en proceso', 'undo', 'tienda/pedido.html?id=' || d.pedido_id);
     perform tumbo_privado.notificar('seller:' || d.seller_id, 'La disputa ' || p_id || ' se resolvió con reembolso al comprador' ||
       case when v_auto then ' (fallo automático: no respondiste a tiempo)' else '' end, 'gavel', 'seller/disputas.html');
-    v_reemb := tumbo_privado.crear_reembolso(d.pedido_id, v_total, 'Reclamo ' || p_id || ' resuelto con reembolso');
-  elsif p_decision = 'reembolso_parcial' then
-    update tumbo.pedidos set estado = 'cerrado', liquidacion = 'elegible' where id = d.pedido_id;
-    perform tumbo_privado.evento(d.pedido_id, 'Operaciones', 'Disputa resuelta con un reembolso parcial de ' || tumbo_privado.fmt_usd(v_monto) ||
-      ' · el resto se libera al comercio', 'undo');
-    v_reemb := tumbo_privado.crear_reembolso(d.pedido_id, v_monto, 'Reclamo ' || p_id || ': reembolso parcial');
-    if v_reemb is not null then
-      -- (sin asiento propio: el reembolso ya cargó por_pagar_seller; así la corrida le paga al comercio el resto)
-      insert into tumbo.ajustes_seller (seller_id, monto_usd, motivo, por)
-      values (v.seller_id, -v_monto, left('Reembolso parcial del reclamo ' || p_id || ' (pedido ' || v.id || ')', 300), 'Sistema (reclamo ' || p_id || ')')
-      returning id into v_aj;
+    v_monto := tumbo_privado.disputa_total_reembolso(v);
+    r := tumbo_privado.disputa_reembolso_total(v, p_id, 'Reclamo ' || p_id || ' resuelto con reembolso',
+                                               case when v_auto then 'Sistema' else tumbo_privado.actor(p_yo) end);
+    if (r ->> 'reembolso_id') is not null then
+      v_monto := (r ->> 'monto')::numeric;
     end if;
+  elsif p_decision = 'reembolso_parcial' then
+    update tumbo.pedidos set estado = 'cerrado', liquidacion = 'congelado' where id = d.pedido_id;
+    r := tumbo_privado.disputa_reembolso_parcial(v, v_monto, p_id, 'Reclamo ' || p_id || ': reembolso parcial');
+    v_monto := (r ->> 'monto')::numeric;
+    v_aj := (r ->> 'ajuste_id')::bigint;
+    perform tumbo_privado.evento(d.pedido_id, 'Operaciones', 'Disputa resuelta con un reembolso parcial de ' || tumbo_privado.fmt_usd(v_monto) ||
+      ' · el resto se libera al comercio al vencer el plazo de apelación (' || tumbo_privado.fecha_legible(v_hasta) || ')', 'undo');
     perform tumbo_privado.notificar('usr:' || d.comprador_id, 'Tu reclamo ' || p_id || ' se resolvió con un reembolso parcial de ' || tumbo_privado.fmt_usd(v_monto),
       'undo', 'tienda/pedido.html?id=' || d.pedido_id);
     perform tumbo_privado.notificar('seller:' || d.seller_id, 'La disputa ' || p_id || ' se resolvió con un reembolso parcial de ' || tumbo_privado.fmt_usd(v_monto) ||
@@ -2789,8 +3158,8 @@ begin
       update tumbo.devoluciones
       set paga = p_paga, actualizado = now(),
           instrucciones = left(regexp_replace(instrucciones, 'El envío de vuelta lo (paga el comercio[^.]*|pagas tú)\.',
-            case p_paga when 'seller' then 'El envío de vuelta lo paga el comercio: pide «cobro en destino» si la agencia lo ofrece o guarda el recibo.'
-                        when 'tumbo' then 'El envío de vuelta lo paga Tumbo: guarda el recibo y adjúntalo en el reclamo para que te lo reintegremos.'
+            case p_paga when 'seller' then 'El envío de vuelta lo paga el comercio: pide «cobro en destino» si la agencia lo ofrece; si no, pagas tú, guardas el recibo y lo reportas en el expediente del reclamo («Envío de vuelta») para que te lo reintegremos.'
+                        when 'tumbo' then 'El envío de vuelta lo paga Tumbo: guarda el recibo y repórtalo en el expediente del reclamo («Envío de vuelta») para que te lo reintegremos.'
                         else 'El envío de vuelta lo pagas tú.' end), 900)
       where pedido_id = d.pedido_id and estado <> 'cerrada';
       perform tumbo_privado.evento(d.pedido_id, 'Operaciones', 'El envío de vuelta lo paga ' ||
@@ -2799,28 +3168,30 @@ begin
     perform tumbo_privado.notificar('usr:' || d.comprador_id, 'Tu reclamo ' || p_id || ': coordinaremos la devolución del producto', 'assignment_return', 'tienda/pedido.html?id=' || d.pedido_id);
     perform tumbo_privado.notificar('seller:' || d.seller_id, 'La disputa ' || p_id || ' se resolvió con devolución', 'assignment_return', 'seller/disputas.html');
   else
-    update tumbo.pedidos set estado = 'cerrado', liquidacion = 'elegible' where id = d.pedido_id;
-    perform tumbo_privado.evento(d.pedido_id, 'Operaciones', 'Disputa cerrada a favor del seller · fondos liberados', 'lock_open');
+    update tumbo.pedidos set estado = 'cerrado', liquidacion = 'congelado' where id = d.pedido_id;
+    perform tumbo_privado.evento(d.pedido_id, 'Operaciones', 'Disputa cerrada a favor del seller · fondos elegibles al vencer el plazo de apelación (' ||
+      tumbo_privado.fecha_legible(v_hasta) || ')', 'lock_open');
     perform tumbo_privado.notificar('usr:' || d.comprador_id, 'Tu reclamo ' || p_id || ' fue revisado y cerrado sin reembolso', 'gavel', 'tienda/pedido.html?id=' || d.pedido_id);
-    perform tumbo_privado.notificar('seller:' || d.seller_id, 'La disputa ' || p_id || ' se cerró a tu favor: fondos elegibles', 'lock_open', 'seller/finanzas.html');
+    perform tumbo_privado.notificar('seller:' || d.seller_id, 'La disputa ' || p_id || ' se cerró a tu favor: los fondos pasan a elegibles el ' ||
+      tumbo_privado.fecha_legible(v_hasta) || ' si el comprador no apela', 'lock_open', 'seller/disputas.html?id=' || p_id);
   end if;
 
+  v_paga := case when p_decision = 'devolucion' then coalesce(p_paga, (select dv.paga from tumbo.devoluciones dv where dv.pedido_id = d.pedido_id)) end;
   update tumbo.disputa_casos
   set decision = p_decision,
-      reembolso_usd = case p_decision when 'reembolso' then v_total when 'reembolso_parcial' then v_monto end,
-      paga_logistica = case when p_decision = 'devolucion'
-                            then coalesce(p_paga, (select dv.paga from tumbo.devoluciones dv where dv.pedido_id = d.pedido_id)) end,
+      reembolso_usd = case when p_decision in ('reembolso', 'reembolso_parcial') then v_monto end,
+      paga_logistica = v_paga,
       plantilla = left(p_plantilla, 40), resuelta_por = p_yo.id,
       resuelta_por_nombre = case when v_auto then 'Sistema' else p_yo.nombre || ' (' || p_yo.rol || ')' end,
       resuelta_en = now(), fallo_automatico = v_auto, ajuste_id = v_aj
   where disputa_id = p_id;
   update tumbo.disputa_solicitudes set estado = 'cancelada' where disputa_id = p_id and estado = 'pendiente';
-  v_txt := tumbo_privado.disputa_texto(p_decision, v_monto,
-             case when p_decision = 'devolucion' then coalesce(p_paga, (select dv.paga from tumbo.devoluciones dv where dv.pedido_id = d.pedido_id)) end);
+  v_txt := tumbo_privado.disputa_texto(p_decision, v_monto, v_paga);
   insert into tumbo.disputa_mensajes (disputa_id, lado, autor, texto)
   values (p_id, 'sistema', 'Tumbo', left('Decisión' || case when v_auto then ' automática' else '' end || ': ' || v_txt || '.' ||
           case when v_nota <> '' then ' ' || regexp_replace(v_nota, '([^.!?])$', '\1.') else '' end ||
-          ' Si no estás de acuerdo, puedes apelar una vez, con evidencia nueva, hasta el ' || tumbo_privado.fecha_legible(v_hasta) || '.', 2000));
+          ' Si no estás de acuerdo, puedes apelar una vez, con evidencia nueva, hasta el ' || tumbo_privado.fecha_legible(v_hasta) || '.' ||
+          case when p_decision in ('liberar', 'reembolso_parcial') then ' Hasta esa fecha los fondos del pedido siguen retenidos.' else '' end, 2000));
   perform tumbo_privado.disputa_avisar(d, 'resuelto: ' || v_txt, 'resuelto: ' || v_txt);
   if v_auto then
     perform tumbo_privado.auditar(p_yo, 'Resolución de disputa', p_id || ' → reembolso (fallo automático: el comercio no respondió)');
@@ -2829,12 +3200,15 @@ begin
       case when p_decision = 'reembolso_parcial' then ' ' || tumbo_privado.fmt_usd(v_monto) else '' end ||
       case when p_paga is not null then ' · envío de vuelta: ' || p_paga else '' end);
   end if;
+  return true;
 end $$;
 
 -- Apertura de reclamo. Desde la de Logística (con «No llegó» para un pedido
 -- despachado que pasó su fecha prometida). Cambios: el caso con el plazo
 -- del comercio (72 h; si no responde, fallo automático a favor del
--- comprador), el mensaje en el expediente y el aviso por la bandeja.
+-- comprador), el mensaje en el expediente, el aviso por la bandeja y la
+-- descripción (y los nombres de los adjuntos) sin datos de contacto: la lee
+-- el comercio.
 create or replace function public.tm_abrir_disputa(p_sesion text, p_pedido text, p_motivo text, p_descripcion text, p_evidencia text[]) returns text
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -2884,6 +3258,8 @@ begin
      or exists (select 1 from unnest(v_evid) e2 where char_length(e2) > 120) then
     raise exception 'Adjunta como máximo 10 archivos.';
   end if;
+  v_desc := left(tumbo_privado.ocultar_contacto(v_desc) ->> 'texto', 2000);
+  v_evid := tumbo_privado.adjuntos_sin_contacto(v_evid);
 
   v_id := 'DSP-' || tumbo_privado.folio(nextval('tumbo_privado.seq_disputa'), 4);
   insert into tumbo.disputas (id, pedido_id, comprador_id, seller_id, motivo, descripcion, evidencia, monto_usd, estado)
@@ -2906,9 +3282,19 @@ begin
   return v_id;
 end $$;
 
+-- Los adjuntos de un reclamo: los archivos (uuid) tal cual; los nombres
+-- sueltos de la demo, sin datos de contacto (los lee la otra parte).
+create function tumbo_privado.adjuntos_sin_contacto(p text[]) returns text[]
+language sql immutable set search_path = '' as $$
+  select coalesce(array_agg(case when x ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then x
+                                 else left(tumbo_privado.ocultar_contacto(x) ->> 'texto', 120) end order by n), '{}')
+  from unnest(coalesce(p, '{}')) with ordinality as t (x, n)
+$$;
+
 -- Respuesta del comercio. Desde la de funciones (migración 3). Cambios: para
--- el reloj del fallo automático, queda en el expediente y avisa al
--- comprador.
+-- el reloj del fallo automático, queda en el expediente, avisa al
+-- comprador y se guarda sin datos de contacto (el comprador la lee en la
+-- tarjeta de la respuesta y en tm_cargar).
 create or replace function public.tm_responder_disputa(p_sesion text, p_id text, p_texto text, p_evidencia text[]) returns void
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -2931,6 +3317,8 @@ begin
      or exists (select 1 from unnest(v_evid) e where char_length(e) > 120) then
     raise exception 'Adjunta como máximo 10 archivos.';
   end if;
+  v_texto := left(tumbo_privado.ocultar_contacto(v_texto) ->> 'texto', 2000);
+  v_evid := tumbo_privado.adjuntos_sin_contacto(v_evid);
   update tumbo.disputas
   set respuesta_texto = v_texto, respuesta_evidencia = v_evid, respuesta_fecha = now(), estado = 'respondida'
   where id = p_id;
@@ -2938,8 +3326,7 @@ begin
   update tumbo.disputa_casos set respondida_en = coalesce(respondida_en, now()) where disputa_id = p_id;
   insert into tumbo.disputa_mensajes (disputa_id, autor_id, lado, autor, texto, adjuntos)
   values (p_id, yo.id, 'comercio', coalesce((select s.nombre from tumbo.sellers s where s.id = d.seller_id), 'Comercio'),
-          left(tumbo_privado.ocultar_contacto(v_texto) ->> 'texto', 2000),
-          (select coalesce(array_agg(x), '{}') from unnest(v_evid) x where x ~ '^[0-9a-f-]{36}$'));
+          v_texto, (select coalesce(array_agg(x), '{}') from unnest(v_evid) x where x ~ '^[0-9a-f-]{36}$'));
   perform tumbo_privado.notificar('rol:ops', 'El seller respondió la disputa ' || p_id, 'forum', 'admin/disputas.html');
   perform tumbo_privado.notificar('usr:' || d.comprador_id, 'El comercio respondió tu reclamo ' || p_id, 'forum', 'tienda/reclamo.html?id=' || d.pedido_id);
   perform tumbo_privado.disputa_avisar(d, 'el comercio respondió; Operaciones decidirá con la evidencia de los dos', null);
@@ -2952,7 +3339,8 @@ end $$;
 -- mensaje en el expediente, las solicitudes canceladas y el aviso por la
 -- bandeja) lo pone este disparador, sea quien sea el que resolvió;
 -- disputa_resolver_interno lo hace por su cuenta (con el reembolso parcial
--- y quién paga el envío de vuelta) y lo marca en la transacción.
+-- y quién paga el envío de vuelta) y lo marca en la transacción. Los
+-- fondos de un «liberar» los retiene pedidos_retener_apelacion.
 create function tumbo_privado.disputa_al_resolver() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -2960,6 +3348,7 @@ declare
   v tumbo.pedidos;
   v_paga text;
   v_txt text;
+  v_hasta timestamptz := now() + make_interval(days => tumbo_privado.comunicacion('dias_apelacion', 5)::integer);
 begin
   if coalesce(current_setting('tumbo.disputa_v2', true), '') = new.id then
     return null;
@@ -2974,7 +3363,8 @@ begin
     end if;
     update tumbo.disputa_casos
     set decision = new.resolucion_decision,
-        reembolso_usd = case when new.resolucion_decision = 'reembolso' then tumbo_privado.bruto_pedido(v.id) + v.costo_envio_usd end,
+        -- (lo que Pagos devolverá: el reembolso se crea después de esta actualización)
+        reembolso_usd = case when new.resolucion_decision = 'reembolso' then tumbo_privado.disputa_total_reembolso(v) end,
         paga_logistica = v_paga, resuelta_por = u.id,
         resuelta_por_nombre = case when u.id is null then 'Operaciones' else u.nombre || ' (' || u.rol || ')' end,
         resuelta_en = coalesce(new.resolucion_fecha, now())
@@ -2984,8 +3374,8 @@ begin
     insert into tumbo.disputa_mensajes (disputa_id, lado, autor, texto)
     values (new.id, 'sistema', 'Tumbo', left('Decisión: ' || v_txt || '.' ||
             case when coalesce(new.resolucion_nota, '') <> '' then ' ' || regexp_replace(new.resolucion_nota, '([^.!?])$', '\1.') else '' end ||
-            ' Si no estás de acuerdo, puedes apelar una vez, con evidencia nueva, hasta el ' ||
-            tumbo_privado.fecha_legible(now() + make_interval(days => tumbo_privado.comunicacion('dias_apelacion', 5)::integer)) || '.', 2000));
+            ' Si no estás de acuerdo, puedes apelar una vez, con evidencia nueva, hasta el ' || tumbo_privado.fecha_legible(v_hasta) || '.' ||
+            case when new.resolucion_decision = 'liberar' then ' Hasta esa fecha los fondos del pedido siguen retenidos.' else '' end, 2000));
     perform tumbo_privado.disputa_avisar(new, 'resuelto: ' || v_txt, 'resuelto: ' || v_txt);
   exception when others then
     raise warning 'comunicación: no se completó el caso del reclamo % (%)', new.id, sqlerrm;
@@ -3027,6 +3417,15 @@ language sql stable security definer set search_path = '' as $$
   from (select * from tumbo.disputa_mensajes x where x.disputa_id = p_id order by x.id desc limit 300) m
 $$;
 
+-- ¿Sigue abierto el expediente a mensajes? Mientras no hay decisión,
+-- mientras hay apelaciones por revisar y mientras la devolución decidida
+-- sigue en curso (el comprador reporta ahí el envío de vuelta).
+create function tumbo_privado.disputa_abierta_a_mensajes(d tumbo.disputas, c tumbo.disputa_casos, v tumbo.pedidos) returns boolean
+language sql stable set search_path = '' as $$
+  select d.estado <> 'resuelta' or coalesce(c.apelacion_estado = 'pedida', false)
+      or coalesce(c.decision = 'devolucion' and v.estado = 'devolucion', false)
+$$;
+
 -- El expediente completo de un reclamo para el comprador, el comercio o el
 -- equipo. A una cuenta de prueba del equipo, el reclamo de una persona o un
 -- comercio real le llega bloqueado y sin textos ni evidencias.
@@ -3041,7 +3440,9 @@ declare
   v_lado text;
   v_bloq boolean;
   v_apelar_hasta timestamptz;
-  v_puede_apelar boolean;
+  v_lados text[];
+  v_espera timestamptz;
+  v_vuelta boolean;
 begin
   select * into d from tumbo.disputas where id = p_id or (pedido_id = p_id and p_id like 'TM-%') limit 1;
   v_lado := tumbo_privado.disputa_lado(yo, d);
@@ -3054,9 +3455,12 @@ begin
   v_bloq := v_lado = 'tumbo' and tumbo_privado.cuenta_demo(yo.email)
             and (tumbo_privado.comprador_real(d.comprador_id) or tumbo_privado.seller_real(d.seller_id));
   v_apelar_hasta := c.resuelta_en + make_interval(days => tumbo_privado.comunicacion('dias_apelacion', 5)::integer);
-  v_puede_apelar := d.estado = 'resuelta' and c.decision is not null and c.apelacion_estado is null and now() < v_apelar_hasta
-    and ((v_lado = 'comprador' and c.decision in ('liberar', 'reembolso_parcial') and v.liquidacion_id is null)
-         or (v_lado = 'comercio' and c.decision in ('reembolso', 'reembolso_parcial', 'devolucion')));
+  select coalesce(array_agg(a.lado order by a.creado), '{}') into v_lados from tumbo.disputa_apelaciones a where a.disputa_id = d.id;
+  -- en un reembolso parcial apelan las dos partes: la revisión espera a la
+  -- otra hasta que venza su plazo (decide las dos apelaciones juntas)
+  v_espera := case when c.apelacion_estado = 'pedida' and c.decision = 'reembolso_parcial' and cardinality(v_lados) = 1
+                    and now() < v_apelar_hasta then v_apelar_hasta end;
+  v_vuelta := c.decision = 'devolucion' and c.paga_logistica in ('seller', 'tumbo');
   return jsonb_build_object(
     'id', d.id, 'pedido', d.pedido_id, 'lado', v_lado, 'bloqueado', v_bloq, 'seller', d.seller_id,
     'comercio', (select s.nombre from tumbo.sellers s where s.id = d.seller_id),
@@ -3066,7 +3470,12 @@ begin
     'evidencia_nombres', case when v_bloq then '[]'::jsonb else coalesce((select jsonb_agg(x) from unnest(d.evidencia) x
                            where x !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'), '[]'::jsonb) end,
     'monto_usd', d.monto_usd, 'total_usd', tumbo_privado.bruto_pedido(v.id) + v.costo_envio_usd, 'tasa', v.tasa,
+    'pagado_usd', case when v.pago_id is null then tumbo_privado.bruto_pedido(v.id) + v.costo_envio_usd
+                       else (tumbo_privado.montos_pedido(v) ->> 'pagado')::numeric end,
+    'reembolso_total_usd', tumbo_privado.disputa_total_reembolso(v),
+    'tope_parcial_usd', case when d.estado <> 'resuelta' or c.apelacion_estado = 'pedida' then tumbo_privado.disputa_tope_parcial(v) end,
     'pedido_estado', v.estado, 'congelado', v.liquidacion = 'congelado',
+    'retenido_hasta', case when v.liquidacion = 'congelado' and tumbo_privado.disputa_retiene_fondos(d.id) then v_apelar_hasta end,
     'respuesta', case when d.respuesta_fecha is not null then jsonb_build_object(
                    'texto', case when v_bloq then '(oculta a las cuentas de prueba)' else d.respuesta_texto end,
                    'fecha', d.respuesta_fecha,
@@ -3078,34 +3487,46 @@ begin
                     'automatica', c.fallo_automatico, 'texto', tumbo_privado.disputa_texto(coalesce(c.decision, d.resolucion_decision), c.reembolso_usd, c.paga_logistica),
                     'por', case when v_lado = 'tumbo' and not v_bloq then c.resuelta_por_nombre end) end,
     'apelacion', case when c.apelacion_estado is not null then jsonb_build_object(
-                   'estado', c.apelacion_estado, 'de', c.apelacion_de, 'fecha', c.apelacion_fecha,
-                   'motivo', case when v_bloq then null else c.apelacion_motivo end,
-                   'evidencia', case when v_bloq then '[]'::jsonb else tumbo_privado.archivos_json(c.apelacion_evidencia) end,
+                   'estado', c.apelacion_estado, 'de', to_jsonb(v_lados), 'a_favor', c.apelacion_a_favor,
                    'resultado', c.apelacion_resultado, 'nota', case when v_bloq then null else c.apelacion_nota end,
-                   'resuelta_en', c.apelacion_resuelta_en,
+                   'resuelta_en', c.apelacion_resuelta_en, 'espera_hasta', v_espera,
                    'por', case when v_lado = 'tumbo' and not v_bloq then c.apelacion_por_nombre end) end,
+    'apelaciones', case when v_bloq then '[]'::jsonb else coalesce((select jsonb_agg(jsonb_build_object(
+                     'lado', a.lado, 'motivo', a.motivo, 'evidencia', tumbo_privado.archivos_json(a.evidencia), 'fecha', a.creado,
+                     'decision', a.decision, 'congelo', a.congelo, 'mia', a.lado = v_lado) order by a.creado)
+                   from tumbo.disputa_apelaciones a where a.disputa_id = d.id), '[]'::jsonb) end,
     'apelar_hasta', case when d.estado = 'resuelta' then v_apelar_hasta end,
     'devolucion', case when dv.pedido_id is not null and v.disputa_id = d.id then jsonb_build_object(
                     'estado', dv.estado, 'paga', dv.paga, 'inspeccion', dv.inspeccion, 'guia', dv.guia) end,
+    'envio_vuelta', case when v_vuelta then jsonb_build_object(
+                      'paga', c.paga_logistica, 'estado', c.vuelta_estado, 'bs', c.vuelta_bs, 'usd', c.vuelta_usd,
+                      'recibo', case when v_bloq then '[]'::jsonb else tumbo_privado.archivos_json(c.vuelta_recibo) end,
+                      'reportado', c.vuelta_reportado, 'reintegro_usd', c.vuelta_reintegro_usd,
+                      'nota', case when v_bloq then null else c.vuelta_nota end,
+                      'por', case when v_lado = 'tumbo' and not v_bloq then c.vuelta_por end) end,
     'mensajes', case when v_bloq then '[]'::jsonb else tumbo_privado.disputa_mensajes_json(d.id, yo.id) end,
     'solicitudes', coalesce((select jsonb_agg(jsonb_build_object('id', s.id, 'para', s.para, 'texto', s.texto, 'vence', s.vence,
                                'estado', s.estado, 'creado', s.creado, 'respondida_en', s.respondida_en) order by s.id)
                              from tumbo.disputa_solicitudes s where s.disputa_id = d.id and not v_bloq
                                and (v_lado = 'tumbo' or s.para = v_lado)), '[]'::jsonb),
     'acciones', jsonb_build_object(
-      'mensaje', not v_bloq and (d.estado <> 'resuelta' or coalesce(c.apelacion_estado = 'pedida', false)),
+      'mensaje', not v_bloq and tumbo_privado.disputa_abierta_a_mensajes(d, c, v),
       'responder', v_lado = 'comercio' and d.estado = 'abierta',
-      'apelar', v_puede_apelar,
+      'apelar', v_lado in ('comprador', 'comercio') and tumbo_privado.disputa_apelacion_impedida(d, c, v, v_lado) is null,
       'resolver', v_lado = 'tumbo' and not v_bloq and d.estado <> 'resuelta',
       'solicitar', v_lado = 'tumbo' and not v_bloq and d.estado <> 'resuelta',
       'revisar_apelacion', v_lado = 'tumbo' and not v_bloq and coalesce(c.apelacion_estado = 'pedida', false)
-                           and c.resuelta_por is distinct from yo.id),
+                           and c.resuelta_por is distinct from yo.id and v_espera is null,
+      'reportar_vuelta', v_lado = 'comprador' and coalesce(v_vuelta, false) and v.estado in ('devolucion', 'reembolsado')
+                         and coalesce(c.vuelta_estado, 'rechazado') = 'rechazado' and c.resuelta_en > now() - interval '60 days',
+      'resolver_vuelta', v_lado = 'tumbo' and not v_bloq and coalesce(c.vuelta_estado = 'reportado', false)),
     'plantillas', case when v_lado = 'tumbo' then coalesce((select jsonb_agg(jsonb_build_object('clave', p.clave, 'titulo', p.titulo,
                     'decision', p.decision, 'paga', p.paga, 'texto', p.texto) order by p.orden) from tumbo.disputa_plantillas p), '[]'::jsonb) end);
 end $$;
 
 -- Lo que la lista de reclamos necesita además de tm_cargar: plazo del
--- comercio, solicitudes pendientes, mensajes y apelación, por reclamo.
+-- comercio, solicitudes pendientes, mensajes, apelaciones, fondos retenidos
+-- y envío de vuelta, por reclamo.
 create function public.tm_disputas_resumen(p_sesion text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -3115,7 +3536,11 @@ begin
     select jsonb_object_agg(d.id, jsonb_build_object(
              'plazo_seller', c.plazo_seller, 'respondida_en', c.respondida_en, 'decision', c.decision,
              'reembolso_usd', c.reembolso_usd, 'paga', c.paga_logistica, 'automatica', c.fallo_automatico,
-             'apelacion', c.apelacion_estado, 'apelacion_de', c.apelacion_de,
+             'apelacion', c.apelacion_estado, 'apelacion_a_favor', c.apelacion_a_favor,
+             'apelacion_de', (select coalesce(jsonb_agg(a.lado order by a.creado), '[]'::jsonb) from tumbo.disputa_apelaciones a where a.disputa_id = d.id),
+             'retenido_hasta', case when d.estado = 'resuelta' and tumbo_privado.disputa_retiene_fondos(d.id)
+                                    then c.resuelta_en + make_interval(days => tumbo_privado.comunicacion('dias_apelacion', 5)::integer) end,
+             'vuelta', c.vuelta_estado,
              'mensajes', (select count(*) from tumbo.disputa_mensajes m where m.disputa_id = d.id and m.lado <> 'sistema'),
              'solicitudes', (select count(*) from tumbo.disputa_solicitudes s where s.disputa_id = d.id and s.estado = 'pendiente')))
     from (select x.* from tumbo.disputas x
@@ -3128,7 +3553,9 @@ end $$;
 -- evidencia (archivos «evidencia» del reclamo o del pedido). Lo que escriben
 -- las partes sale sin datos de contacto. Un mensaje del comercio en un
 -- reclamo abierto cuenta como su respuesta; uno de la parte a la que se le
--- pidió evidencia responde la solicitud.
+-- pidió evidencia responde la solicitud. Después de la decisión, el
+-- expediente sigue abierto mientras hay apelaciones por revisar o la
+-- devolución está en curso.
 create function public.tm_disputa_mensaje(p_sesion text, p_id text, p_texto text, p_adjuntos text[]) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -3153,7 +3580,7 @@ begin
     perform tumbo_privado.exigir_cuenta_real(yo, tumbo_privado.pedido_real(v));
   end if;
   c := tumbo_privado.disputa_caso(d.id);
-  if d.estado = 'resuelta' and c.apelacion_estado is distinct from 'pedida' then
+  if not tumbo_privado.disputa_abierta_a_mensajes(d, c, v) then
     raise exception 'El reclamo ya está resuelto: si no estás de acuerdo con la decisión, apela una vez con evidencia nueva.';
   end if;
   if char_length(v_texto) < 2 or char_length(v_texto) > 2000 then
@@ -3251,11 +3678,11 @@ begin
   return jsonb_build_object('id', v_id, 'vence', v_vence);
 end $$;
 
--- Apelación (una vez, dentro del plazo, con evidencia nueva subida después
--- de la decisión). El comprador apela lo que lo dejó sin todo su dinero
--- (fondos liberados o reembolso parcial) mientras el dinero no entró en una
--- liquidación: los fondos vuelven a congelarse hasta la revisión. El
--- comercio apela lo que le costó (reembolso o devolución).
+-- Apelación (una por parte, dentro del plazo, con evidencia nueva subida
+-- después de la decisión; ver disputa_apelacion_impedida). En un reembolso
+-- parcial pueden apelar las dos partes: la que apela primero no le quita la
+-- suya a la otra, y una sola revisión decide las dos. La del comprador deja
+-- (o vuelve a dejar) congelados los fondos hasta la revisión.
 create function public.tm_disputa_apelar(p_sesion text, p_id text, p_motivo text, p_evidencia text[]) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -3267,6 +3694,9 @@ declare
   v_motivo text := btrim(coalesce(p_motivo, ''));
   v_evid text[] := coalesce(p_evidencia, '{}');
   v_congela boolean := false;
+  v_imp text;
+  v_otro text;
+  v_hasta timestamptz;
 begin
   select * into d from tumbo.disputas where id = p_id for update;
   v_lado := tumbo_privado.disputa_lado(yo, d);
@@ -3274,18 +3704,10 @@ begin
     raise exception 'Reclamo % no encontrado.', p_id;
   end if;
   c := tumbo_privado.disputa_caso(d.id);
-  if d.estado <> 'resuelta' or c.decision is null then
-    raise exception 'El reclamo todavía no tiene una decisión que apelar.';
-  end if;
-  if c.apelacion_estado is not null then
-    raise exception 'Este reclamo ya se apeló una vez: la decisión de la apelación es definitiva.';
-  end if;
-  if now() > c.resuelta_en + make_interval(days => tumbo_privado.comunicacion('dias_apelacion', 5)::integer) then
-    raise exception 'Pasó el plazo de % días para apelar.', tumbo_privado.comunicacion('dias_apelacion', 5)::integer;
-  end if;
-  if (v_lado = 'comprador' and c.decision not in ('liberar', 'reembolso_parcial'))
-     or (v_lado = 'comercio' and c.decision not in ('reembolso', 'reembolso_parcial', 'devolucion')) then
-    raise exception 'La decisión ya fue a tu favor: no hay nada que apelar.';
+  select * into v from tumbo.pedidos where id = d.pedido_id for update;
+  v_imp := tumbo_privado.disputa_apelacion_impedida(d, c, v, v_lado);
+  if v_imp is not null then
+    raise exception '%', v_imp;
   end if;
   if char_length(v_motivo) < 20 or char_length(v_motivo) > 2000 then
     raise exception 'Explica por qué apelas con al menos 20 caracteres.';
@@ -3295,44 +3717,62 @@ begin
      or exists (select 1 from unnest(v_evid) x join tumbo.archivos a on a.id::text = x where a.creado < c.resuelta_en) then
     raise exception 'La apelación necesita evidencia nueva: adjunta al menos un archivo subido después de la decisión.';
   end if;
-  select * into v from tumbo.pedidos where id = d.pedido_id for update;
+  v_motivo := left(tumbo_privado.ocultar_contacto(v_motivo) ->> 'texto', 2000);
+  v_hasta := c.resuelta_en + make_interval(days => tumbo_privado.comunicacion('dias_apelacion', 5)::integer);
   if v_lado = 'comprador' then
-    if v.liquidacion_id is not null or v.liquidacion is distinct from 'elegible' then
-      raise exception 'El dinero de este pedido ya entró en una liquidación del comercio: escríbele a soporte desde Ayuda.';
+    if v.liquidacion is distinct from 'congelado' then
+      update tumbo.pedidos set liquidacion = 'congelado' where id = v.id;
     end if;
-    update tumbo.pedidos set liquidacion = 'congelado' where id = v.id;
     v_congela := true;
     perform tumbo_privado.evento(v.id, 'Comprador', 'Apelación del reclamo ' || d.id || ' · fondos congelados hasta la revisión', 'gavel');
   else
     perform tumbo_privado.evento(v.id, 'Comercio', 'Apelación del reclamo ' || d.id || ' presentada por el comercio', 'gavel');
   end if;
-  update tumbo.disputa_casos
-  set apelacion_estado = 'pedida', apelacion_de = v_lado, apelacion_motivo = left(tumbo_privado.ocultar_contacto(v_motivo) ->> 'texto', 2000),
-      apelacion_evidencia = v_evid, apelacion_fecha = now(), apelacion_congelo = v_congela
-  where disputa_id = d.id;
+  insert into tumbo.disputa_apelaciones (disputa_id, lado, autor_id, motivo, evidencia, decision, congelo)
+  values (d.id, v_lado, yo.id, v_motivo, v_evid, c.decision, v_congela);
+  update tumbo.disputa_casos set apelacion_estado = 'pedida' where disputa_id = d.id;
+  -- ¿puede apelar también la otra parte? (en un reembolso parcial, hasta el mismo plazo)
+  v_otro := case when v_lado = 'comprador' then 'comercio' else 'comprador' end;
+  if tumbo_privado.disputa_apelacion_impedida(d, (select x from tumbo.disputa_casos x where x.disputa_id = d.id), v, v_otro) is not null then
+    v_otro := null;
+  end if;
   insert into tumbo.disputa_mensajes (disputa_id, autor_id, lado, autor, texto, adjuntos)
   values (d.id, yo.id, v_lado, case v_lado when 'comprador' then 'Comprador'
                                            else coalesce((select s.nombre from tumbo.sellers s where s.id = d.seller_id), 'Comercio') end,
-          left('Apelación: ' || (tumbo_privado.ocultar_contacto(v_motivo) ->> 'texto'), 2000), v_evid);
+          left('Apelación: ' || v_motivo, 2000), v_evid);
+  if v_otro is not null then
+    insert into tumbo.disputa_mensajes (disputa_id, lado, autor, texto)
+    values (d.id, 'sistema', 'Tumbo', 'Apeló ' || case v_lado when 'comprador' then 'el comprador' else 'el comercio' end ||
+            '. ' || case v_otro when 'comprador' then 'El comprador' else 'El comercio' end || ' también puede apelar hasta el ' ||
+            tumbo_privado.fecha_legible(v_hasta) || ': otra persona del equipo revisará las dos apelaciones juntas.');
+  end if;
   perform tumbo_privado.notificar('rol:ops', 'Apelación del reclamo ' || d.id || ': la revisa otra persona del equipo', 'gavel', 'admin/disputas.html?id=' || d.id);
   if v_lado = 'comprador' then
     perform tumbo_privado.notificar('seller:' || d.seller_id, 'El comprador apeló la decisión del reclamo ' || d.id, 'gavel', 'seller/disputas.html?id=' || d.id);
-    perform tumbo_privado.disputa_avisar(d, null, 'el comprador apeló la decisión; otra persona del equipo la revisa');
+    perform tumbo_privado.disputa_avisar(d, null, 'el comprador apeló la decisión; otra persona del equipo la revisa' ||
+      case when v_otro is not null then ' (también puedes apelar hasta el ' || tumbo_privado.fecha_legible(v_hasta) || ')' else '' end);
   else
     perform tumbo_privado.notificar('usr:' || d.comprador_id, 'El comercio apeló la decisión de tu reclamo ' || d.id, 'gavel', 'tienda/reclamo.html?id=' || d.pedido_id);
-    perform tumbo_privado.disputa_avisar(d, 'el comercio apeló la decisión; otra persona del equipo la revisa', null);
+    perform tumbo_privado.disputa_avisar(d, 'el comercio apeló la decisión; otra persona del equipo la revisa' ||
+      case when v_otro is not null then ' (también puedes apelar hasta el ' || tumbo_privado.fecha_legible(v_hasta) || ')' else '' end, null);
   end if;
   perform tumbo_privado.auditar(yo, 'Apelación de disputa', d.id || ' (' || v_lado || ')');
-  return jsonb_build_object('ok', true, 'congelado', v_congela);
+  return jsonb_build_object('ok', true, 'congelado', v_congela, 'otra_parte_hasta', case when v_otro is not null then v_hasta end);
 end $$;
 
--- Revisión de la apelación (otra persona que la que decidió). p_datos =
--- {resultado: confirmar | modificar, nota, decision?, monto?, paga?}.
---   · apelación del comprador, «modificar»: reembolso total, reembolso
---     parcial o devolución (desde un reembolso parcial, solo el total);
---   · apelación del comercio, «modificar»: Tumbo le compensa hasta lo que
---     perdió (un ajuste a favor en su próxima liquidación); el comprador
---     conserva su reembolso.
+-- Revisión de las apelaciones (otra persona que la que decidió; en un
+-- reembolso parcial con una sola apelación, después de que venza el plazo
+-- de la otra parte). p_datos = {resultado: confirmar | modificar, a_favor
+-- (comprador | comercio: obligatorio si apelaron las dos), nota, decision?,
+-- monto?, paga?}. Solo se modifica a favor de una parte que apeló:
+--   · a favor del comprador (sus fondos están congelados): reembolso total
+--     (lo que falta de lo que pagó, con el IGTF), reembolso parcial o
+--     devolución (desde un reembolso parcial, solo el total);
+--   · a favor del comercio: Tumbo le compensa hasta lo que le costó la
+--     decisión (un ajuste a favor en su próxima liquidación); el comprador
+--     conserva lo que recibió.
+-- La decisión nueva queda también en tumbo.disputas (listas, tm_cargar y
+-- reputación).
 create function public.tm_disputa_apelacion_resolver(p_sesion text, p_id text, p_datos jsonb) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -3342,14 +3782,18 @@ declare
   v tumbo.pedidos;
   c tumbo.disputa_casos;
   v_res text := x ->> 'resultado';
+  v_favor text := nullif(x ->> 'a_favor', '');
   v_nota text := btrim(coalesce(x ->> 'nota', ''));
   v_dec text := x ->> 'decision';
   v_paga text := nullif(x ->> 'paga', '');
   v_monto numeric;
-  v_total numeric;
+  v_tope numeric;
+  v_lados text[];
+  v_hasta timestamptz;
   v_aj bigint;
   v_txt text;
   v_aj_liq text;
+  r jsonb;
 begin
   select * into d from tumbo.disputas where id = p_id for update;
   if not found then raise exception 'Disputa % no encontrada.', p_id; end if;
@@ -3362,6 +3806,12 @@ begin
   end if;
   v := tumbo_privado.bloquear_pedido(d.pedido_id, yo);
   perform tumbo_privado.exigir_si_real(yo, tumbo_privado.pedido_real(v));
+  select coalesce(array_agg(a.lado order by a.creado), '{}') into v_lados from tumbo.disputa_apelaciones a where a.disputa_id = d.id;
+  v_hasta := c.resuelta_en + make_interval(days => tumbo_privado.comunicacion('dias_apelacion', 5)::integer);
+  if c.decision = 'reembolso_parcial' and cardinality(v_lados) = 1 and now() < v_hasta then
+    raise exception 'El % todavía puede apelar hasta el %: la revisión decide las dos apelaciones juntas (o la que haya cuando venza ese plazo).',
+      case when v_lados[1] = 'comprador' then 'comercio' else 'comprador' end, tumbo_privado.fecha_legible(v_hasta);
+  end if;
   if v_res is null or v_res not in ('confirmar', 'modificar') then
     raise exception 'Indica si confirmas la decisión o la modificas.';
   end if;
@@ -3373,14 +3823,32 @@ begin
   exception when others then
     raise exception 'El monto no es válido.';
   end;
-  v_total := tumbo_privado.bruto_pedido(v.id) + v.costo_envio_usd;
+  if v_res = 'modificar' then
+    if v_favor is null and cardinality(v_lados) = 1 then
+      v_favor := v_lados[1];
+    end if;
+    if v_favor is null then
+      raise exception 'Apelaron las dos partes: indica a favor de quién se modifica la decisión.';
+    end if;
+    if v_favor not in ('comprador', 'comercio') or not (v_favor = any (v_lados)) then
+      raise exception 'La revisión solo modifica la decisión a favor de una parte que apeló.';
+    end if;
+  else
+    v_favor := null;
+  end if;
+  -- (la ronda queda revisada antes de mover el pedido: así los fondos ya no se retienen por la apelación)
+  update tumbo.disputa_casos
+  set apelacion_estado = case when v_res = 'confirmar' then 'confirmada' else 'modificada' end, apelacion_a_favor = v_favor,
+      apelacion_nota = left(v_nota, 1000), apelacion_resuelta_en = now(),
+      apelacion_por = yo.id, apelacion_por_nombre = yo.nombre || ' (' || yo.rol || ')'
+  where disputa_id = d.id;
 
   if v_res = 'confirmar' then
-    if c.apelacion_congelo and v.liquidacion = 'congelado' and v.estado = 'cerrado' then
+    if v.estado = 'cerrado' and v.liquidacion = 'congelado' and v.liquidacion_id is null then
       update tumbo.pedidos set liquidacion = 'elegible' where id = v.id;
     end if;
     v_txt := 'se confirma la decisión: ' || tumbo_privado.disputa_texto(c.decision, c.reembolso_usd, c.paga_logistica);
-  elsif c.apelacion_de = 'comprador' then
+  elsif v_favor = 'comprador' then
     if v.liquidacion_id is not null or v.liquidacion is distinct from 'congelado' then
       raise exception 'El dinero de este pedido ya no está congelado: no se puede cambiar la decisión desde aquí.';
     end if;
@@ -3393,6 +3861,13 @@ begin
     if v_paga is not null and (v_dec <> 'devolucion' or v_paga not in ('comprador', 'seller', 'tumbo')) then
       raise exception 'Quién paga el envío de vuelta se indica solo en una devolución.';
     end if;
+    if v_dec = 'reembolso_parcial' then
+      v_tope := tumbo_privado.disputa_tope_parcial(v);
+      if v_monto is null or v_monto <= 0 or v_monto >= v_tope then
+        raise exception 'El reembolso parcial va de $0.01 a menos de % (lo que pagó el comprador o lo que cobra el comercio por el pedido, lo menor).',
+          tumbo_privado.fmt_usd(v_tope);
+      end if;
+    end if;
     if c.decision = 'reembolso_parcial' and c.ajuste_id is not null then
       select liquidacion_id into v_aj_liq from tumbo.ajustes_seller where id = c.ajuste_id;
       if v_aj_liq is not null then
@@ -3403,38 +3878,40 @@ begin
     end if;
     if v_dec = 'reembolso' then
       update tumbo.pedidos set estado = 'reembolsado', liquidacion = 'reembolsado' where id = v.id;
-      -- desde un reembolso parcial se devuelve lo que falta (el total ya contado)
-      perform tumbo_privado.crear_reembolso(v.id, v_total - case when c.decision = 'reembolso_parcial' then coalesce(c.reembolso_usd, 0) else 0 end,
-        'Apelación del reclamo ' || d.id || ': reembolso total');
-      v_monto := v_total;
+      -- lo que falta de lo que pagó el comprador (con el IGTF), con el asiento completo
+      r := tumbo_privado.disputa_reembolso_total(v, d.id, 'Apelación del reclamo ' || d.id || ': reembolso total', tumbo_privado.actor(yo));
+      v_monto := tumbo_privado.reembolsado_pedido(v.id);
     elsif v_dec = 'reembolso_parcial' then
-      if v_monto is null or v_monto <= 0 or v_monto >= v_total then
-        raise exception 'El reembolso parcial va de $0.01 a menos de lo cobrado (%).', tumbo_privado.fmt_usd(v_total);
-      end if;
+      r := tumbo_privado.disputa_reembolso_parcial(v, v_monto, d.id, 'Apelación del reclamo ' || d.id || ': reembolso parcial');
+      v_monto := (r ->> 'monto')::numeric;
+      v_aj := (r ->> 'ajuste_id')::bigint;
       update tumbo.pedidos set liquidacion = 'elegible' where id = v.id;
-      if tumbo_privado.crear_reembolso(v.id, v_monto, 'Apelación del reclamo ' || d.id || ': reembolso parcial') is not null then
-        insert into tumbo.ajustes_seller (seller_id, monto_usd, motivo, por)
-        values (v.seller_id, -v_monto, left('Reembolso parcial (apelación) del reclamo ' || d.id || ' (pedido ' || v.id || ')', 300), 'Sistema (reclamo ' || d.id || ')')
-        returning id into v_aj;
-      end if;
     else
       update tumbo.pedidos set estado = 'devolucion' where id = v.id;
       if v_paga is not null then
         update tumbo.devoluciones set paga = v_paga, actualizado = now() where pedido_id = v.id and estado <> 'cerrada';
       end if;
       v_monto := null;
+      v_paga := coalesce(v_paga, (select dv.paga from tumbo.devoluciones dv where dv.pedido_id = v.id));
     end if;
     update tumbo.disputa_casos set decision = v_dec, reembolso_usd = case when v_dec <> 'devolucion' then v_monto end,
-      paga_logistica = case when v_dec = 'devolucion' then coalesce(v_paga, (select dv.paga from tumbo.devoluciones dv where dv.pedido_id = v.id)) end,
+      paga_logistica = case when v_dec = 'devolucion' then v_paga end,
       ajuste_id = v_aj
     where disputa_id = d.id;
     v_txt := 'se modifica a favor del comprador: ' || tumbo_privado.disputa_texto(v_dec, v_monto, v_paga);
+    -- (el reclamo cuenta la decisión vigente: las listas, tm_cargar y la reputación la leen de aquí)
+    update tumbo.disputas
+    set resolucion_decision = case when v_dec = 'reembolso_parcial' then 'reembolso' else v_dec end,
+        resolucion_nota = left('Revisión de la apelación: ' || v_txt || '. ' || v_nota, 500)
+    where id = d.id;
     perform tumbo_privado.evento(v.id, 'Operaciones', 'Apelación del reclamo ' || d.id || ' revisada: ' || tumbo_privado.disputa_texto(v_dec, v_monto, v_paga),
       case when v_dec = 'devolucion' then 'assignment_return' else 'undo' end);
   else
-    -- apelación del comercio: compensación de Tumbo
-    if v_monto is null or v_monto <= 0 or v_monto > coalesce(c.reembolso_usd, v_total) then
-      raise exception 'La compensación al comercio va de $0.01 a % (lo que le costó la decisión).', tumbo_privado.fmt_usd(coalesce(c.reembolso_usd, v_total));
+    -- a favor del comercio: compensación de Tumbo
+    -- (lo que le costó: el reembolso decidido o, en una devolución, lo que se devolvió o se devolverá)
+    v_tope := coalesce(c.reembolso_usd, greatest(tumbo_privado.reembolsado_pedido(v.id), tumbo_privado.disputa_total_reembolso(v)));
+    if v_monto is null or v_monto <= 0 or v_monto > v_tope then
+      raise exception 'La compensación al comercio va de $0.01 a % (lo que le costó la decisión).', tumbo_privado.fmt_usd(v_tope);
     end if;
     insert into tumbo.ajustes_seller (seller_id, monto_usd, motivo, por_id, por)
     values (v.seller_id, v_monto, left('Compensación de Tumbo por la apelación del reclamo ' || d.id, 300), yo.id, tumbo_privado.actor(yo))
@@ -3443,22 +3920,180 @@ begin
       tumbo_privado.actor(yo),
       jsonb_build_array(jsonb_build_object('cuenta', 'ajustes_seller', 'debe', v_monto),
                         jsonb_build_object('cuenta', 'por_pagar_seller', 'seller', v.seller_id, 'haber', v_monto)));
-    v_txt := 'se modifica a favor del comercio: Tumbo le compensa ' || tumbo_privado.fmt_usd(v_monto) || ' (el comprador conserva su reembolso)';
+    if v.estado = 'cerrado' and v.liquidacion = 'congelado' and v.liquidacion_id is null then
+      update tumbo.pedidos set liquidacion = 'elegible' where id = v.id;
+    end if;
+    v_txt := 'se modifica a favor del comercio: Tumbo le compensa ' || tumbo_privado.fmt_usd(v_monto) || ' (el comprador conserva lo que recibió)';
     perform tumbo_privado.evento(v.id, 'Operaciones', 'Apelación del reclamo ' || d.id || ' revisada: compensación de Tumbo al comercio', 'gavel');
   end if;
-  update tumbo.disputa_casos
-  set apelacion_estado = case when v_res = 'confirmar' then 'confirmada' else 'modificada' end,
-      apelacion_resultado = left(v_txt, 300), apelacion_nota = left(v_nota, 1000), apelacion_resuelta_en = now(),
-      apelacion_por = yo.id, apelacion_por_nombre = yo.nombre || ' (' || yo.rol || ')'
-  where disputa_id = d.id;
+  update tumbo.disputa_casos set apelacion_resultado = left(v_txt, 300) where disputa_id = d.id;
   insert into tumbo.disputa_mensajes (disputa_id, autor_id, lado, autor, texto)
   values (d.id, yo.id, 'sistema', 'Tumbo', left('Revisión de la apelación: ' || v_txt || '. ' || regexp_replace(v_nota, '([^.!?])$', '\1.') ||
           ' Esta decisión es definitiva.', 2000));
   perform tumbo_privado.notificar('usr:' || d.comprador_id, 'Revisamos la apelación del reclamo ' || d.id, 'gavel', 'tienda/reclamo.html?id=' || d.pedido_id);
   perform tumbo_privado.notificar('seller:' || d.seller_id, 'Revisamos la apelación del reclamo ' || d.id, 'gavel', 'seller/disputas.html?id=' || d.id);
   perform tumbo_privado.disputa_avisar(d, 'apelación revisada: ' || v_txt, 'apelación revisada: ' || v_txt);
-  perform tumbo_privado.auditar(yo, 'Apelación de disputa revisada', d.id || ' → ' || v_res || coalesce(' ' || v_dec, ''));
-  return jsonb_build_object('ok', true, 'resultado', v_res);
+  perform tumbo_privado.auditar(yo, 'Apelación de disputa revisada', d.id || ' → ' || v_res || coalesce(' a favor del ' || v_favor, '') || coalesce(' ' || v_dec, ''));
+  return jsonb_build_object('ok', true, 'resultado', v_res, 'a_favor', v_favor);
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Envío de vuelta de una devolución que paga el comercio o Tumbo
+-- ---------------------------------------------------------------------------
+-- El comprador reporta lo que pagó (en bolívares) con el recibo (archivos
+-- «evidencia» del reclamo); hasta el equivalente de $200 y tres reportes.
+create function public.tm_disputa_envio_vuelta(p_sesion text, p_id text, p_monto_bs numeric, p_recibo text[]) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['comprador']);
+  d tumbo.disputas;
+  v tumbo.pedidos;
+  c tumbo.disputa_casos;
+  cfg tumbo.config;
+  v_bs numeric := round(coalesce(p_monto_bs, 0), 2);
+  v_usd numeric;
+  v_recibo text[] := coalesce(p_recibo, '{}');
+begin
+  select * into d from tumbo.disputas where id = p_id for update;
+  if not found or tumbo_privado.disputa_lado(yo, d) is distinct from 'comprador' then
+    raise exception 'Reclamo % no encontrado.', p_id;
+  end if;
+  c := tumbo_privado.disputa_caso(d.id);
+  select * into v from tumbo.pedidos where id = d.pedido_id;
+  if c.decision is distinct from 'devolucion' or c.paga_logistica is null or c.paga_logistica not in ('seller', 'tumbo') then
+    raise exception 'En este reclamo el envío de vuelta no se reintegra: no es una devolución que pague el comercio o Tumbo.';
+  end if;
+  if v.estado not in ('devolucion', 'reembolsado') then
+    raise exception 'La devolución de este pedido no se concretó: no hay envío de vuelta que reintegrar.';
+  end if;
+  if c.vuelta_estado = 'reportado' then
+    raise exception 'Ya reportaste el envío de vuelta: Operaciones lo está revisando.';
+  end if;
+  if c.vuelta_estado = 'reintegrado' then
+    raise exception 'El envío de vuelta ya se reintegró.';
+  end if;
+  if c.resuelta_en < now() - interval '60 days' then
+    raise exception 'Pasaron más de 60 días desde la decisión: escríbenos a soporte desde Ayuda.';
+  end if;
+  if (select count(*) from tumbo.disputa_mensajes m where m.disputa_id = d.id and m.autor_id = yo.id and m.texto like 'Envío de vuelta:%') >= 3 then
+    raise exception 'Ya reportaste el envío de vuelta tres veces: escríbenos a soporte desde Ayuda.';
+  end if;
+  select * into cfg from tumbo.config;
+  v_usd := round(v_bs / nullif(cfg.tasa, 0), 2);
+  if v_bs <= 0 or v_usd is null or v_usd <= 0 or v_usd > 200 then
+    raise exception 'Indica lo que pagaste por el envío en bolívares (hasta el equivalente de $200,00).';
+  end if;
+  if cardinality(v_recibo) = 0 or cardinality(v_recibo) > 5
+     or not tumbo_privado.archivos_propios(v_recibo, yo.id, array['evidencia'], array[d.id, d.pedido_id]) then
+    raise exception 'Adjunta el recibo del envío (hasta 5 archivos de evidencia subidos para este reclamo).';
+  end if;
+  update tumbo.disputa_casos
+  set vuelta_estado = 'reportado', vuelta_bs = v_bs, vuelta_usd = v_usd, vuelta_recibo = v_recibo, vuelta_reportado = now(),
+      vuelta_nota = null, vuelta_por = null
+  where disputa_id = d.id;
+  insert into tumbo.disputa_mensajes (disputa_id, autor_id, lado, autor, texto, adjuntos)
+  values (d.id, yo.id, 'comprador', 'Comprador', 'Envío de vuelta: pagué ' || tumbo_privado.fmt_bs(v_bs) || ' (unos ' || tumbo_privado.fmt_usd(v_usd) ||
+          ' a la tasa de hoy). Adjunto el recibo para el reintegro.', v_recibo);
+  perform tumbo_privado.notificar('rol:ops', 'El comprador reportó el envío de vuelta del reclamo ' || d.id || ' para su reintegro', 'local_shipping',
+    'admin/disputas.html?id=' || d.id);
+  perform tumbo_privado.auditar(yo, 'Envío de vuelta reportado', d.id || ' · ' || tumbo_privado.fmt_bs(v_bs));
+  return jsonb_build_object('ok', true, 'usd', v_usd);
+end $$;
+
+-- Operaciones revisa el recibo: lo rechaza (con el motivo; el comprador
+-- puede reportarlo de nuevo) o lo reintegra cuando la devolución ya se cerró
+-- con su reembolso. El reintegro es otro reembolso del pedido (Finanzas lo
+-- envía al destino que elija el comprador) con su asiento: lo carga el
+-- comercio (por_pagar_seller y un descuento en su próxima liquidación) o
+-- Tumbo (devoluciones_envio). Dinero de un pedido real: cuenta real con
+-- sesión elevada. p_datos = {aprobar, monto_usd? (hasta lo reportado), nota}.
+create function public.tm_disputa_envio_vuelta_resolver(p_sesion text, p_id text, p_datos jsonb) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['superadmin', 'ops']);
+  x jsonb := case when jsonb_typeof(p_datos) = 'object' then p_datos else '{}'::jsonb end;
+  d tumbo.disputas;
+  v tumbo.pedidos;
+  c tumbo.disputa_casos;
+  cfg tumbo.config;
+  v_aprobar boolean;
+  v_monto numeric;
+  v_nota text := left(btrim(coalesce(x ->> 'nota', '')), 500);
+  v_id bigint;
+  v_umbral numeric := tumbo_privado.numero(coalesce(tumbo_privado.ajuste('reembolsos'), '{}'::jsonb) -> 'umbral_doble_usd', 200);
+begin
+  select * into d from tumbo.disputas where id = p_id for update;
+  if not found then raise exception 'Disputa % no encontrada.', p_id; end if;
+  c := tumbo_privado.disputa_caso(d.id);
+  if c.vuelta_estado is distinct from 'reportado' then
+    raise exception 'No hay un envío de vuelta reportado por revisar en este reclamo.';
+  end if;
+  v := tumbo_privado.bloquear_pedido(d.pedido_id, yo);
+  perform tumbo_privado.exigir_si_real(yo, tumbo_privado.pedido_real(v));
+  if jsonb_typeof(x -> 'aprobar') is distinct from 'boolean' then
+    raise exception 'Indica si se reintegra o no el envío de vuelta.';
+  end if;
+  v_aprobar := (x ->> 'aprobar')::boolean;
+  if not v_aprobar then
+    if char_length(v_nota) < 5 then
+      raise exception 'Explica por qué no se reintegra (lo lee el comprador).';
+    end if;
+    update tumbo.disputa_casos set vuelta_estado = 'rechazado', vuelta_nota = v_nota, vuelta_por = tumbo_privado.actor(yo) where disputa_id = d.id;
+    insert into tumbo.disputa_mensajes (disputa_id, autor_id, lado, autor, texto)
+    values (d.id, yo.id, 'sistema', 'Tumbo', left('Operaciones no reintegra el envío de vuelta: ' || regexp_replace(v_nota, '([^.!?])$', '\1.') ||
+            ' Puedes reportarlo de nuevo con el recibo correcto.', 2000));
+    perform tumbo_privado.notificar('usr:' || d.comprador_id, 'Revisamos el envío de vuelta de tu reclamo ' || d.id || ': no se reintegra', 'local_shipping',
+      'tienda/reclamo.html?id=' || d.pedido_id);
+    perform tumbo_privado.auditar(yo, 'Envío de vuelta rechazado', d.id || ' · ' || v_nota);
+    return jsonb_build_object('ok', true, 'estado', 'rechazado');
+  end if;
+  if v.estado <> 'reembolsado' then
+    raise exception 'Primero cierra la devolución con su reembolso (en el detalle del pedido): el envío de vuelta se reintegra después.';
+  end if;
+  begin
+    v_monto := round(coalesce(nullif(x ->> 'monto_usd', '')::numeric, c.vuelta_usd), 2);
+  exception when others then
+    raise exception 'El monto no es válido.';
+  end;
+  if v_monto is null or v_monto <= 0 or v_monto > c.vuelta_usd then
+    raise exception 'El reintegro va de $0.01 a lo que reportó el comprador (%).', tumbo_privado.fmt_usd(c.vuelta_usd);
+  end if;
+  select * into cfg from tumbo.config;
+  insert into tumbo.reembolsos (pedido_id, monto_usd, monto_bs, tasa, motivo, por, pago_id, comprador_id, requiere_doble, tipo)
+  values (v.id, v_monto, round(v_monto * cfg.tasa, 2), cfg.tasa,
+          left('Reintegro del envío de vuelta (reclamo ' || d.id || '; lo paga ' || case c.paga_logistica when 'seller' then 'el comercio' else 'Tumbo' end || ')', 300),
+          tumbo_privado.actor(yo), v.pago_id, v.comprador_id, v_monto >= v_umbral, 'pedido')
+  returning id into v_id;
+  if v.pago_id is not null then
+    perform tumbo_privado.asentar('reembolso', 'R-' || v_id, 'Reintegro del envío de vuelta del pedido ' || v.id || ' (reclamo ' || d.id || ') por pagar',
+      tumbo_privado.actor(yo),
+      case when c.paga_logistica = 'seller'
+           then jsonb_build_array(jsonb_build_object('cuenta', 'por_pagar_seller', 'seller', v.seller_id, 'debe', v_monto),
+                                  jsonb_build_object('cuenta', 'reembolsos_por_pagar', 'haber', v_monto))
+           else jsonb_build_array(jsonb_build_object('cuenta', 'devoluciones_envio', 'debe', v_monto),
+                                  jsonb_build_object('cuenta', 'reembolsos_por_pagar', 'haber', v_monto)) end);
+  end if;
+  if c.paga_logistica = 'seller' then
+    -- (sin asiento propio, como el reembolso parcial: el reintegro ya cargó por_pagar_seller)
+    insert into tumbo.ajustes_seller (seller_id, monto_usd, motivo, por)
+    values (v.seller_id, -v_monto, left('Envío de vuelta del reclamo ' || d.id || ' (pedido ' || v.id || ')', 300), 'Sistema (reclamo ' || d.id || ')');
+    perform tumbo_privado.notificar('seller:' || d.seller_id, 'El envío de vuelta del reclamo ' || d.id || ' (' || tumbo_privado.fmt_usd(v_monto) ||
+      ') se descuenta de tu próxima liquidación', 'local_shipping', 'seller/finanzas.html');
+  end if;
+  update tumbo.disputa_casos
+  set vuelta_estado = 'reintegrado', vuelta_reintegro_usd = v_monto, vuelta_reembolso_id = v_id, vuelta_nota = nullif(v_nota, ''),
+      vuelta_por = tumbo_privado.actor(yo)
+  where disputa_id = d.id;
+  insert into tumbo.disputa_mensajes (disputa_id, autor_id, lado, autor, texto)
+  values (d.id, yo.id, 'sistema', 'Tumbo', 'Se reintegra el envío de vuelta: ' || tumbo_privado.fmt_usd(v_monto) ||
+          '. Elige dónde recibirlo en «Mis reembolsos».');
+  perform tumbo_privado.notificar('rol:finanzas', 'Reembolso de ' || tumbo_privado.fmt_usd(v_monto) || ' por enviar (' || v.id || ', envío de vuelta)',
+    'undo', 'admin/reembolsos.html');
+  perform tumbo_privado.notificar('usr:' || d.comprador_id, 'Tienes un reembolso de ' || tumbo_privado.fmt_usd(v_monto) ||
+    ' por el envío de vuelta del pedido ' || v.id || ': indica dónde quieres recibirlo', 'undo', 'tienda/reembolsos.html');
+  perform tumbo_privado.auditar(yo, 'Reintegro del envío de vuelta', d.id || ' · R-' || v_id || ' · ' || tumbo_privado.fmt_usd(v_monto) ||
+    ' · lo paga ' || c.paga_logistica);
+  return jsonb_build_object('ok', true, 'estado', 'reintegrado', 'reembolso', v_id, 'monto', v_monto);
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -3607,18 +4242,25 @@ end $$;
 --     favor del comprador (reembolso total);
 --   · vence las solicitudes de evidencia sin respuesta (avisa a Operaciones);
 --   · avisa a Operaciones de los casos de soporte que pasaron su SLA de
---     primera respuesta (una vez por caso).
+--     primera respuesta (una vez por caso);
+--   · libera (elegibles para la liquidación) los fondos de los reclamos
+--     resueltos cuyo plazo de apelación venció sin apelación del comprador;
+--   · deja la versión vigente de los términos como la del registro (una
+--     versión publicada con fecha futura entra en vigor sola).
 create function tumbo_privado.tarea_comunicacion() returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   r record;
   v_sistema tumbo.usuarios;
   v_fallos integer := 0;
+  v_omitidos integer := 0;
   v_errores integer := 0;
   v_recordatorios integer := 0;
   v_vencidas integer := 0;
   v_sla integer := 0;
+  v_liberados integer := 0;
   v_horas integer := tumbo_privado.comunicacion('horas_respuesta_reclamo', 72)::integer;
+  v_terminos tumbo.documentos_legales;
   u record;
 begin
   -- (una corrida a la vez)
@@ -3642,15 +4284,22 @@ begin
     v_recordatorios := v_recordatorios + 1;
   end loop;
 
+  -- (el reclamo que alguien tiene bloqueado, p. ej. el comercio respondiendo
+  -- justo al vencer, se salta; disputa_resolver_interno vuelve a mirarlo ya
+  -- bloqueado y no falla el que se respondió mientras tanto)
   for r in
     select d.id from tumbo.disputas d join tumbo.disputa_casos c on c.disputa_id = d.id
     where d.estado = 'abierta' and c.respondida_en is null and c.decision is null and c.plazo_seller < now()
     order by c.plazo_seller limit 50
+    for update of d skip locked
   loop
     begin
-      perform tumbo_privado.disputa_resolver_interno(v_sistema, r.id, 'reembolso',
-        'Fallo automático: el comercio no respondió en ' || v_horas || ' horas.', null, null, 'fallo_automatico');
-      v_fallos := v_fallos + 1;
+      if tumbo_privado.disputa_resolver_interno(v_sistema, r.id, 'reembolso',
+           'Fallo automático: el comercio no respondió en ' || v_horas || ' horas.', null, null, 'fallo_automatico') then
+        v_fallos := v_fallos + 1;
+      else
+        v_omitidos := v_omitidos + 1;
+      end if;
     exception when others then
       v_errores := v_errores + 1;
       perform tumbo_privado.notificar('rol:ops', 'No se pudo aplicar el fallo automático de ' || r.id || ': ' || left(sqlerrm, 160), 'warning',
@@ -3678,8 +4327,28 @@ begin
     perform tumbo_privado.notificar('rol:ops', 'El caso ' || r.id || ' pasó su tiempo de primera respuesta: ' || left(r.asunto, 60), 'timer',
       'admin/soporte.html?id=' || r.id);
   end loop;
-  return jsonb_build_object('recordatorios', v_recordatorios, 'fallos_automaticos', v_fallos, 'errores', v_errores,
-                            'evidencias_vencidas', v_vencidas, 'soporte_vencidos', v_sla);
+
+  for r in
+    select p.id, p.seller_id, p.disputa_id from tumbo.pedidos p join tumbo.disputas d on d.id = p.disputa_id
+    where p.liquidacion = 'congelado' and p.estado = 'cerrado' and p.liquidacion_id is null and d.estado = 'resuelta'
+      and not tumbo_privado.disputa_retiene_fondos(d.id)
+    order by p.id limit 500
+    for update of p skip locked
+  loop
+    update tumbo.pedidos set liquidacion = 'elegible' where id = r.id;
+    perform tumbo_privado.evento(r.id, 'Sistema', 'Venció el plazo de apelación del reclamo ' || r.disputa_id || ' · fondos elegibles para la liquidación', 'lock_open');
+    perform tumbo_privado.notificar('seller:' || r.seller_id, 'Los fondos del pedido ' || r.id || ' ya son elegibles: venció el plazo de apelación del reclamo ' ||
+      r.disputa_id, 'lock_open', 'seller/finanzas.html');
+    v_liberados := v_liberados + 1;
+  end loop;
+
+  v_terminos := tumbo_privado.legal_vigente('terminos');
+  if v_terminos.version is not null then
+    update tumbo.ajustes set valor = to_jsonb(v_terminos.version), actualizado = now(), por = 'Sistema (documentos legales)'
+    where clave = 'terminos_version' and valor is distinct from to_jsonb(v_terminos.version);
+  end if;
+  return jsonb_build_object('recordatorios', v_recordatorios, 'fallos_automaticos', v_fallos, 'fallos_omitidos', v_omitidos, 'errores', v_errores,
+                            'evidencias_vencidas', v_vencidas, 'soporte_vencidos', v_sla, 'fondos_liberados', v_liberados);
 end $$;
 
 -- Operaciones corre la tarea a mano (como mucho una vez por minuto).
@@ -3712,33 +4381,37 @@ end $$;
 -- Reinicio de la demo
 -- ---------------------------------------------------------------------------
 -- Lo llama tm_reiniciar_demo después de la semilla base: borra (con WHERE:
--- pg-safeupdate) lo que cuelga de pedidos, productos y reclamos (el reinicio
--- vuelve a usar sus identificadores), los casos de soporte de las cuentas de
--- prueba (los de las personas reales se conservan, sin el pedido) y crea el
--- caso de los reclamos sembrados con su plazo desde hoy. Preferencias y
--- aceptaciones legales son de las cuentas: se conservan; el consentimiento
--- de WhatsApp de las cuentas de prueba vuelve a «sin dar».
--- No siembra mensajes, preguntas ni reseñas: nada inventado.
+-- pg-safeupdate) lo que cuelga de pedidos y reclamos (el reinicio vuelve a
+-- usar sus identificadores: chats, reseñas, expedientes), lo que escribieron
+-- las cuentas de prueba (preguntas, denuncias, casos de soporte, avisos) y
+-- crea el caso de los reclamos sembrados con su plazo desde hoy. Lo de las
+-- personas reales se conserva: sus preguntas (con su respuesta; los SKU de
+-- la demo vuelven con la semilla), sus denuncias, sus casos (sin el pedido)
+-- y sus avisos. Preferencias y aceptaciones legales son de las cuentas: se
+-- conservan; el consentimiento de WhatsApp de las cuentas de prueba vuelve
+-- a «sin dar». No siembra mensajes, preguntas ni reseñas: nada inventado.
 create function tumbo_privado.sembrar_ext_comunicacion(p_auditoria boolean) returns void
 language plpgsql security definer set search_path = '' as $$
 begin
   delete from tumbo.chat_mensajes where id is not null;
   delete from tumbo.chat_lecturas where pedido_id is not null;
   delete from tumbo.chat_avisos where pedido_id is not null;
-  delete from tumbo.preguntas where id is not null;
+  delete from tumbo.preguntas where autor_id is null or not tumbo_privado.comprador_real(autor_id);
   delete from tumbo.respuestas_rapidas where not tumbo_privado.seller_real(seller_id);
   update tumbo.archivos set estado = 'descartado', motivo = 'reinicio de la demo'
   where proposito = 'resena' and estado <> 'descartado';
   delete from tumbo.resenas where id is not null;
   delete from tumbo.disputa_mensajes where id is not null;
   delete from tumbo.disputa_solicitudes where id is not null;
+  delete from tumbo.disputa_apelaciones where disputa_id is not null;
   delete from tumbo.disputa_casos where disputa_id is not null;
-  delete from tumbo.denuncias where id is not null;
+  delete from tumbo.denuncias where autor_id is null or not tumbo_privado.comprador_real(autor_id);
   delete from tumbo.tickets
   where usuario_id is null or usuario_id in (select u.id from tumbo.usuarios u where tumbo_privado.cuenta_demo(u.email));
   update tumbo.tickets set pedido_id = null where pedido_id is not null;
   delete from tumbo.salida where plantilla in ('chat_mensaje', 'pregunta_nueva', 'pregunta_respondida', 'resena_pendiente', 'resena_nueva',
-                                               'resena_respondida', 'reclamo_comercio', 'reclamo_evidencia');
+                                               'resena_respondida', 'reclamo_comercio', 'reclamo_evidencia')
+    and (usuario_id is null or not tumbo_privado.comprador_real(usuario_id));
   -- lo de las cuentas de prueba: sus casos ya se borraron; el consentimiento
   -- de WhatsApp vuelve a «sin dar» (su teléfono lo pone quien prueba)
   delete from tumbo.salida
@@ -3781,6 +4454,7 @@ begin
     'public.tm_reputacion(text)', 'public.tm_resenas(text,text,text,integer)', 'public.tm_resenas_pendientes(text)',
     'public.tm_resena_crear(text,text,jsonb)', 'public.tm_resenas_seller(text)', 'public.tm_resena_responder(text,bigint,text)',
     'public.tm_legales(text)', 'public.tm_legal_aceptar(text,text,text)', 'public.tm_legal_publicar(text,jsonb)',
+    'public.tm_legal_texto_publicado(text,text,text)',
     'public.tm_denunciar(text,text,text,text,text)', 'public.tm_contenido_cola(text,text)',
     'public.tm_contenido_moderar(text,text,bigint,text,text)', 'public.tm_denuncia_cerrar(text,bigint,text,text)',
     'public.tm_ticket_crear(text,jsonb)', 'public.tm_tickets(text,jsonb)', 'public.tm_ticket(text,text)',
@@ -3789,6 +4463,7 @@ begin
     'public.tm_disputa(text,text)', 'public.tm_disputas_resumen(text)', 'public.tm_disputa_resolver(text,text,jsonb)',
     'public.tm_disputa_mensaje(text,text,text,text[])', 'public.tm_disputa_solicitar(text,text,text,text,integer)',
     'public.tm_disputa_apelar(text,text,text,text[])', 'public.tm_disputa_apelacion_resolver(text,text,jsonb)',
+    'public.tm_disputa_envio_vuelta(text,text,numeric,text[])', 'public.tm_disputa_envio_vuelta_resolver(text,text,jsonb)',
     'public.tm_comunicacion_revisar(text)']::regprocedure[]
   loop
     execute format('revoke execute on function %s from public', f);

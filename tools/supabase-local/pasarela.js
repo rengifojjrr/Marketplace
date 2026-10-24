@@ -398,7 +398,7 @@ async function funcionArchivos(req, res) {
    internet: sin configuración no hay «secretos» (como la función recién
    desplegada) y no se envía nada. Las pruebas los configuran con
    POST /__sim/envios {resend: {clave, de}, whatsapp: {token, numeroId},
-   fallar: {correo|whatsapp: 'temporal'|'permanente'|'red'}}, leen lo
+   fallar: {correo|whatsapp: 'temporal'|'permanente'|'red'|'limite'}}, leen lo
    «enviado» con GET /__sim/envios y lo vacían con DELETE. Resend respeta la
    clave de idempotencia (la misma clave no se manda dos veces).
    ------------------------------------------------------------------- */
@@ -421,6 +421,10 @@ async function httpEnviosSimulado(url, init) {
   const modo = SIM_ENVIOS.fallar[prov === 'resend' ? 'correo' : 'whatsapp'];
   const resp = (estado, dato) => ({ status: estado, text: async () => JSON.stringify(dato) });
   if (modo === 'red') throw new Error('sin conexión con el proveedor (simulado)');
+  if (modo === 'limite') {
+    return resp(429, prov === 'resend' ? { name: 'rate_limit_exceeded', message: 'Demasiadas solicitudes (simulado)' }
+      : { error: { message: 'Rate limit hit (simulado)', code: 130429 } });
+  }
   if (modo === 'temporal') {
     return resp(503, prov === 'resend' ? { name: 'application_error', message: 'Servicio no disponible (simulado)' }
       : { error: { message: 'Servicio no disponible (simulado)', code: 2 } });
