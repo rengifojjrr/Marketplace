@@ -314,12 +314,66 @@
   /* ---------------------------------------------------------------------
      Menús
      ------------------------------------------------------------------- */
-  APP.nav('admin', { vista: 'admin/ajustes', texto: 'Ajustes', icono: 'tune', roles: ['superadmin'], orden: 15 });
-  APP.nav('admin', { vista: 'admin/reglas', texto: 'Reglas y denuncias', icono: 'policy', roles: ['superadmin'], orden: 35 });
+  APP.nav('admin', { vista: 'admin/ajustes', texto: 'Ajustes', icono: 'tune', roles: ['superadmin', 'ops', 'finanzas'], permiso: 'ajustes', orden: 15 });
+  APP.nav('admin', { vista: 'admin/reglas', texto: 'Reglas y denuncias', icono: 'policy', roles: ['superadmin', 'ops'], permiso: 'moderar', orden: 35 });
   APP.nav('admin', { vista: 'admin/seller', texto: 'Comercios 360', icono: 'storefront', roles: ['superadmin', 'ops', 'finanzas'], orden: 25 });
   APP.nav('admin', { vista: 'admin/comprador', texto: 'Compradores 360', icono: 'person_search', roles: ['superadmin', 'ops'], orden: 45 });
-  APP.nav('admin', { vista: 'admin/riesgo', texto: 'Riesgo y listas negras', icono: 'gpp_maybe', roles: ['superadmin', 'finanzas'], orden: 65 });
-  APP.nav('admin', { vista: 'admin/marketing', texto: 'Marketing', icono: 'campaign', roles: ['superadmin'], orden: 17 });
+  APP.nav('admin', { vista: 'admin/riesgo', texto: 'Riesgo y listas negras', icono: 'gpp_maybe', roles: ['superadmin', 'finanzas', 'ops'], permiso: 'riesgo', orden: 65 });
+  APP.nav('admin', { vista: 'admin/marketing', texto: 'Marketing', icono: 'campaign', roles: ['superadmin', 'ops'], permiso: 'marketing', orden: 17 });
+
+  /* Las entradas que Operaciones o Finanzas ven solo con un permiso fino
+     (el servidor lo vuelve a exigir). El armazón pinta el menú por rol;
+     aquí, en el mismo paso (antes de que se vea), se ocultan las de un
+     permiso que la sesión no tiene: los permisos efectivos salen de
+     tm_perfil (Cuentas) y se guardan por cuenta unos minutos en esta
+     pestaña. Sin servidor no hay permisos asignados: valen los implícitos
+     del rol. El menú queda marcado con data-crec-permisos cuando ya se
+     aplicaron. */
+  var POR_PERMISO = { 'admin/ajustes': 'ajustes', 'admin/reglas': 'moderar', 'admin/marketing': 'marketing', 'admin/riesgo': 'riesgo' };
+  var CLAVE_PERMISOS = 'tm.crec.permisos.v1';
+  var permisos = { uid: null, lista: null, t: 0, vuelo: false };
+  function leerPermisos(uid) {
+    try {
+      var g = JSON.parse(sessionStorage.getItem(CLAVE_PERMISOS) || 'null');
+      if (g && g.uid === uid && Array.isArray(g.lista) && Date.now() - g.t < 600000) return g;
+    } catch (e) { /* sin almacenamiento: se piden al servidor */ }
+    return null;
+  }
+  function permisosDe(s, alLlegar) {
+    if (permisos.uid !== s.uid) {
+      var g = leerPermisos(s.uid);
+      permisos = { uid: s.uid, lista: g ? g.lista : null, t: g ? g.t : 0, vuelo: false };
+    }
+    if (!permisos.vuelo && Date.now() - permisos.t > 120000) {
+      permisos.vuelo = true;
+      var uid = s.uid;
+      TM.api('tm_perfil', {}).then(function (p) {
+        if (permisos.uid !== uid) return;
+        permisos.lista = (p && Array.isArray(p.permisos)) ? p.permisos : [];
+        permisos.t = Date.now();
+        try { sessionStorage.setItem(CLAVE_PERMISOS, JSON.stringify({ uid: uid, lista: permisos.lista, t: permisos.t })); } catch (e) { /* nada */ }
+      }, function () { if (permisos.uid === uid) permisos.t = Date.now(); })
+        .then(function () { if (permisos.uid === uid) { permisos.vuelo = false; if (alLlegar) alLlegar(); } });
+    }
+    return permisos.lista;
+  }
+  /* Sin servidor, los implícitos del rol (como en tumbo.permisos). */
+  var IMPLICITOS = { finanzas: ['riesgo'], ops: [] };
+  function aplicarPermisos(raiz, s) {
+    var nav = raiz && raiz.querySelector('aside[data-nav] nav');
+    if (!nav) return;
+    var lista = remoto() ? permisos.lista : (IMPLICITOS[s.rol] || []);
+    Object.keys(POR_PERMISO).forEach(function (v) {
+      var a = nav.querySelector('a[href$="app/' + v + '.html"]');
+      if (a) a.style.display = s.rol === 'superadmin' || (lista && lista.indexOf(POR_PERMISO[v]) >= 0) ? '' : 'none';
+    });
+    if (s.rol === 'superadmin' || lista) nav.setAttribute('data-crec-permisos', '');
+  }
+  APP.trasPintar(function (raiz, vista, q, s) {
+    if (!s || ['ops', 'finanzas', 'superadmin'].indexOf(s.rol) < 0 || !raiz.querySelector('aside[data-nav]')) return;
+    if (s.rol !== 'superadmin' && remoto()) permisosDe(s, function () { aplicarPermisos(document.getElementById('raiz'), s); });
+    aplicarPermisos(raiz, s);
+  });
   APP.nav('seller', { vista: 'seller/promociones', texto: 'Promociones', icono: 'sell', roles: ['seller', 'precios'], orden: 22 });
   APP.nav('seller', { vista: 'seller/estadisticas', texto: 'Estadísticas', icono: 'insights', roles: ['seller'], orden: 12 });
 

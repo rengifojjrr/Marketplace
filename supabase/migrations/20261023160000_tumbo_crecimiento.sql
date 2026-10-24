@@ -26,9 +26,15 @@
 -- Redefine (desde su última versión, conservando su comportamiento):
 --   tm_ajuste_guardar (de este dominio); los contratos
 --   tumbo_privado.aplicar_promociones y riesgo_pedido; de Pagos,
---   tumbo_privado.retencion_seller (la sanción de retener fondos) y
---   pedido_liquidable (la retención preventiva por riesgo); de la ola 0,
---   tm_archivo_preparar (el propósito «marketing»).
+--   tumbo_privado.retencion_seller (la sanción de retener fondos y la
+--   cuenta de cobro en la lista negra) y pedido_liquidable (la retención
+--   preventiva por riesgo). No redefine tm_archivo_preparar: la subida de
+--   las imágenes de marketing (marketing_puede_subir) la conecta la
+--   integración de la ola 2 (ver docs/dominios/crecimiento.md).
+-- La tabla tumbo.denuncias es de Comunicación: si aún no existe se crea con
+-- su mismo contrato (objeto, autor_id, estado abierta/cerrada, resolución
+-- procede/no_procede/duplicada); aquí solo se atienden las de productos y
+-- comercios.
 -- La regla de moderación (tm_moderar_producto y el lote) y el checkout
 -- (tm_crear_pedido y tm_checkout_crear: interruptores, comisión vigente,
 -- promociones y riesgo) se completan con disparadores en vez de redefinir
@@ -67,8 +73,8 @@ insert into tumbo.ajustes (clave, valor, tipo, vaciable, publico, descripcion) v
   ('moderacion', '{"precio_factor": 4, "precio_muestra_min": 3, "duplicado_similitud": 0.85, "denuncias_marcar": 2}', 'object', false, false,
    'Moderación automática: cuántas veces por encima o por debajo de la mediana de su categoría es un precio anómalo (con una muestra mínima), parecido para marcar un duplicado y denuncias para marcar un producto.'),
   ('promociones', '{"ofertas_activas_seller": 50, "cupones_activos_seller": 20, "descuento_max_pct": 70,
-                    "relampago_max_horas": 72, "referencia_dias": 7}', 'object', false, false,
-   'Topes de las promociones: ofertas y cupones activos por comercio, descuento máximo, duración de una oferta relámpago y días sin subir el precio antes de usarlo como precio anterior tachado.'),
+                    "relampago_max_horas": 72, "referencia_dias": 7, "cupones_intentos": 10}', 'object', false, false,
+   'Topes de las promociones: ofertas y cupones activos por comercio, descuento máximo, duración de una oferta relámpago, días a la venta sin subir el precio antes de tacharlo y códigos de cupón distintos que una persona puede probar cada 10 minutos.'),
   ('analitica', '{"eventos_minuto_red": 120, "eventos_minuto_total": 6000, "dias_conservar": 400}', 'object', false, false,
    'Analítica de eventos sin datos personales: eventos por minuto que acepta cada red y en total, y días que se conservan.'),
   ('niveles', '{"ventana_dias": 90, "requiere_kyc": true, "niveles": [
@@ -105,14 +111,14 @@ insert into tumbo.ajustes_meta (clave, grupo, etiqueta, ayuda, doble_aprobacion,
   ('cuotas_archivos', 'Topes', 'Cuotas de archivos', null, false,
    '{"archivos_por_dia": {"tipo": "number", "min": 0, "max": 10000000, "entero": true, "etiqueta": "Archivos por persona y día"}, "mb_por_seller": {"tipo": "number", "min": 0, "max": 10000000, "etiqueta": "MB por comercio"}, "mb_por_usuario": {"tipo": "number", "min": 0, "max": 10000000, "etiqueta": "MB por cuenta sin comercio"}}', 50),
   ('promociones', 'Topes', 'Promociones', null, false,
-   '{"ofertas_activas_seller": {"tipo": "number", "min": 1, "max": 1000, "entero": true, "etiqueta": "Ofertas activas por comercio"}, "cupones_activos_seller": {"tipo": "number", "min": 0, "max": 500, "entero": true, "etiqueta": "Cupones activos por comercio"}, "descuento_max_pct": {"tipo": "number", "min": 5, "max": 90, "etiqueta": "Descuento máximo (%)"}, "relampago_max_horas": {"tipo": "number", "min": 1, "max": 336, "entero": true, "etiqueta": "Duración máxima de una relámpago (h)"}, "referencia_dias": {"tipo": "number", "min": 0, "max": 60, "entero": true, "etiqueta": "Días sin subir el precio para tacharlo"}}', 51),
+   '{"ofertas_activas_seller": {"tipo": "number", "min": 1, "max": 1000, "entero": true, "etiqueta": "Ofertas activas por comercio"}, "cupones_activos_seller": {"tipo": "number", "min": 0, "max": 500, "entero": true, "etiqueta": "Cupones activos por comercio"}, "descuento_max_pct": {"tipo": "number", "min": 5, "max": 90, "etiqueta": "Descuento máximo (%)"}, "relampago_max_horas": {"tipo": "number", "min": 1, "max": 336, "entero": true, "etiqueta": "Duración máxima de una relámpago (h)"}, "referencia_dias": {"tipo": "number", "min": 0, "max": 60, "entero": true, "etiqueta": "Días a la venta sin subir el precio para tacharlo"}, "cupones_intentos": {"tipo": "number", "min": 3, "max": 100, "entero": true, "etiqueta": "Códigos de cupón distintos por persona cada 10 minutos"}}', 51),
   ('analitica', 'Topes', 'Analítica', null, false,
    '{"eventos_minuto_red": {"tipo": "number", "min": 10, "max": 10000, "entero": true, "etiqueta": "Eventos por minuto y red"}, "eventos_minuto_total": {"tipo": "number", "min": 100, "max": 1000000, "entero": true, "etiqueta": "Eventos por minuto en total"}, "dias_conservar": {"tipo": "number", "min": 30, "max": 1000, "entero": true, "etiqueta": "Días que se conservan"}}', 52),
   ('riesgo', 'Riesgo', 'Reglas de riesgo', 'Puntaje de 0 a 100 por pago; desde el umbral de retención sus pedidos no se liquidan hasta revisarlo.', false,
    '{"umbral_alerta": {"tipo": "number", "min": 1, "max": 100, "entero": true, "etiqueta": "Puntaje de alerta"}, "umbral_retencion": {"tipo": "number", "min": 1, "max": 100, "entero": true, "etiqueta": "Puntaje de retención preventiva"}, "cuenta_nueva_dias": {"tipo": "number", "min": 0, "max": 365, "entero": true, "etiqueta": "Días de una cuenta nueva"}, "monto_alto_usd": {"tipo": "number", "min": 1, "max": 100000, "etiqueta": "Monto alto (USD)"}, "compras_hora": {"tipo": "number", "min": 1, "max": 100, "entero": true, "etiqueta": "Compras en una hora"}, "compras_dia": {"tipo": "number", "min": 1, "max": 500, "entero": true, "etiqueta": "Compras en un día"}, "rechazos_30d": {"tipo": "number", "min": 1, "max": 50, "entero": true, "etiqueta": "Pagos rechazados en 30 días"}, "pico_factor": {"tipo": "number", "min": 1.5, "max": 50, "etiqueta": "Pico de ventas (veces el promedio)"}, "pico_minimo": {"tipo": "number", "min": 1, "max": 1000, "entero": true, "etiqueta": "Ventas mínimas del pico"}, "disputas_seller": {"tipo": "number", "min": 1, "max": 100, "entero": true, "etiqueta": "Reclamos abiertos del comercio"}}', 60),
   ('moderacion', 'Moderación', 'Moderación automática', null, false,
    '{"precio_factor": {"tipo": "number", "min": 1.5, "max": 100, "etiqueta": "Precio anómalo (veces la mediana)"}, "precio_muestra_min": {"tipo": "number", "min": 1, "max": 100, "entero": true, "etiqueta": "Productos mínimos de la categoría"}, "duplicado_similitud": {"tipo": "number", "min": 0.5, "max": 1, "etiqueta": "Parecido de un duplicado (0,5 a 1)"}, "denuncias_marcar": {"tipo": "number", "min": 1, "max": 100, "entero": true, "etiqueta": "Denuncias para marcar"}}', 70),
-  ('niveles', 'Crecimiento', 'Niveles de los comercios', 'Los recalcula la tarea diaria (o «Recalcular niveles» en Comercios 360).', false, '{}', 80)
+  ('niveles', 'Crecimiento', 'Niveles de los comercios', 'Bajan la comisión de los comercios: cada cambio lo aprueba otra persona. Los recalcula la tarea diaria (o «Recalcular niveles» en Comercios 360).', true, '{}', 80)
 on conflict (clave) do nothing;
 
 -- Historial de cambios de configuración y cambios que esperan la segunda
@@ -232,10 +238,18 @@ begin
       v_ids := v_ids || (n ->> 'id');
       foreach k in array array['ventas_min', 'gmv_min_usd', 'cancelacion_max_pct', 'disputas_perdidas_max_pct', 'a_tiempo_min_pct', 'descuento_comision_pts'] loop
         x := tumbo_privado.num_json(n -> k);
-        if x is null or x < 0 or (k like '%pct' and x > 100) or (k = 'descuento_comision_pts' and x > 10) then
+        if x is null or x < 0 or (k like '%pct' and x > 100) then
           raise exception 'Revisa «%» del nivel «%».', k, n ->> 'nombre';
         end if;
       end loop;
+      -- un nivel se gana vendiendo y su beneficio es acotado (cada punto es
+      -- comisión que Tumbo deja de cobrar a todos los comercios del nivel)
+      if tumbo_privado.num_json(n -> 'ventas_min') < 1 or tumbo_privado.num_json(n -> 'ventas_min') <> trunc(tumbo_privado.num_json(n -> 'ventas_min')) then
+        raise exception 'El nivel «%» pide al menos una venta entregada (un número entero).', n ->> 'nombre';
+      end if;
+      if tumbo_privado.num_json(n -> 'descuento_comision_pts') > 3 then
+        raise exception 'El beneficio del nivel «%» va hasta 3 puntos menos de comisión.', n ->> 'nombre';
+      end if;
     end loop;
     return;
   end if;
@@ -283,7 +297,8 @@ end $$;
 -- Desde la de fundaciones (sigue siendo de este dominio). Cambios: lo pueden
 -- hacer también Operaciones y Finanzas con el permiso fino «ajustes»; se
 -- valida el contenido (validar_ajuste); los marcados con doble aprobación
--- (los datos de cobro) quedan pendientes hasta que otra persona los aprueba
+-- (los datos de cobro y los niveles, que cambian la comisión de los
+-- comercios) quedan pendientes hasta que otra persona los aprueba
 -- (tm_cambio_decidir) y devuelven {pendiente, cambio, mensaje}; cada cambio
 -- queda en el historial. Mismos mensajes para quien ya lo llamaba.
 create or replace function public.tm_ajuste_guardar(p_sesion text, p_clave text, p_valor jsonb) returns jsonb
@@ -681,21 +696,52 @@ begin
   return jsonb_build_object('ok', true, 'estado', 'aplicado');
 end $$;
 
+-- ¿Lee una cuenta de prueba el valor de este ajuste? Los públicos y los
+-- privados que no ayudan a burlar un control (plazos de Logística, topes de
+-- las promociones —el comercio ya los ve— y las liquidaciones). Los demás
+-- privados (riesgo, moderación, conciliación, reembolsos, cuotas,
+-- analítica, tasa) le llegan reservados.
+create function tumbo_privado.ajuste_visible(p_yo tumbo.usuarios, p_clave text) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select not coalesce(tumbo_privado.cuenta_demo(p_yo.email), false)
+      or p_clave in ('logistica', 'promociones', 'liquidaciones')
+      or exists (select 1 from tumbo.ajustes a where a.clave = p_clave and a.publico)
+$$;
+
+-- ¿Ve una cuenta de prueba este cambio del historial? Los de los ajustes
+-- que puede leer, los de la configuración base y las comisiones globales,
+-- por categoría o de los comercios de prueba (nunca las tarifas negociadas
+-- con un comercio real).
+create function tumbo_privado.cambio_visible(p_yo tumbo.usuarios, c tumbo.cambios_config) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select not coalesce(tumbo_privado.cuenta_demo(p_yo.email), false)
+      or (c.tipo = 'ajuste' and tumbo_privado.ajuste_visible(p_yo, c.clave))
+      or c.tipo = 'config'
+      or (c.tipo = 'comision' and coalesce(
+            (select k.seller_id is null or tumbo_privado.comercio_de_prueba(k.seller_id)
+             from tumbo.comisiones k where k.id = nullif(regexp_replace(c.clave, '^fin:', ''), '')::bigint), false))
+$$;
+
 -- Todo lo que muestra admin/ajustes: los ajustes con su tipo y sus
 -- metadatos, la configuración base, las comisiones, los métodos de pago, los
--- cambios pendientes y el historial (a una cuenta de prueba, sin el nombre
--- de las personas reales).
+-- cambios pendientes y el historial. A una cuenta de prueba: sin el nombre
+-- de las personas reales, sin el valor de los ajustes privados de control
+-- (ajuste_visible) y sin las comisiones de los comercios reales
+-- (cambio_visible).
 create function public.tm_ajustes_admin(p_sesion text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   yo tumbo.usuarios := tumbo_privado.exigir_rol(p_sesion, array['superadmin', 'ops', 'finanzas']);
+  v_demo boolean := tumbo_privado.cuenta_demo(yo.email);
   cfg tumbo.config;
 begin
   perform tumbo_privado.exigir_permiso(yo, 'ajustes');
   select * into cfg from tumbo.config where id;
   return jsonb_build_object(
     'ajustes', coalesce((select jsonb_agg(jsonb_build_object(
-        'clave', a.clave, 'valor', a.valor, 'tipo', a.tipo, 'vaciable', a.vaciable, 'publico', a.publico,
+        'clave', a.clave, 'valor', case when tumbo_privado.ajuste_visible(yo, a.clave) then a.valor end,
+        'reservado', not tumbo_privado.ajuste_visible(yo, a.clave),
+        'tipo', a.tipo, 'vaciable', a.vaciable, 'publico', a.publico,
         'descripcion', a.descripcion, 'actualizado', a.actualizado,
         'grupo', coalesce(m.grupo, 'Otros'), 'etiqueta', coalesce(m.etiqueta, a.clave), 'ayuda', m.ayuda,
         'doble', coalesce(m.doble_aprobacion, false), 'esquema', coalesce(m.esquema, '{}'::jsonb), 'orden', coalesce(m.orden, 1000))
@@ -712,6 +758,7 @@ begin
         'rige', c.estado = 'vigente' and c.desde <= now() and (c.hasta is null or c.hasta > now()))
         order by c.estado = 'vigente' desc, c.id desc)
       from (select * from tumbo.comisiones x where x.estado in ('pendiente', 'vigente') and (x.hasta is null or x.hasta > now() - interval '90 days')
+              and (not v_demo or x.seller_id is null or tumbo_privado.comercio_de_prueba(x.seller_id))
             order by x.id desc limit 300) c
       left join tumbo.sellers s on s.id = c.seller_id left join tumbo.categorias k on k.id = c.categoria), '[]'::jsonb),
     'metodos', coalesce((select jsonb_agg(jsonb_build_object('id', m.id, 'nombre', m.nombre, 'activo', m.activo, 'moneda', m.moneda,
@@ -719,18 +766,20 @@ begin
                          from tumbo.metodos_pago m where not m.interno), '[]'::jsonb),
     'categorias', coalesce((select jsonb_agg(jsonb_build_object('id', c.id, 'nombre', c.nombre, 'padre', c.padre) order by c.padre nulls first, c.orden, c.id)
                             from tumbo.categorias c), '[]'::jsonb),
-    'sellers', coalesce((select jsonb_agg(jsonb_build_object('id', s.id, 'nombre', s.nombre) order by s.id) from tumbo.sellers s), '[]'::jsonb),
+    'sellers', coalesce((select jsonb_agg(jsonb_build_object('id', s.id, 'nombre', s.nombre) order by s.id) from tumbo.sellers s
+                         where not v_demo or tumbo_privado.comercio_de_prueba(s.id)), '[]'::jsonb),
     'pendientes', coalesce((select jsonb_agg(jsonb_build_object(
         'id', c.id, 'tipo', c.tipo, 'clave', c.clave, 'antes', c.antes, 'despues', c.despues, 'motivo', c.motivo,
         'propuesto', tumbo_privado.firma_visible(yo, c.propuesto_por, c.propuesto_nombre), 'mio', c.propuesto_por = yo.id, 'creado', c.creado)
-        order by c.id) from tumbo.cambios_config c where c.estado = 'pendiente'), '[]'::jsonb),
+        order by c.id) from tumbo.cambios_config c where c.estado = 'pendiente' and tumbo_privado.cambio_visible(yo, c)), '[]'::jsonb),
     'historial', coalesce((select jsonb_agg(jsonb_build_object(
         'id', c.id, 'tipo', c.tipo, 'clave', c.clave, 'antes', c.antes, 'despues', c.despues, 'estado', c.estado, 'motivo', c.motivo,
         'propuesto', tumbo_privado.firma_visible(yo, c.propuesto_por, c.propuesto_nombre),
         'decidido', tumbo_privado.firma_visible(yo, c.decidido_por, c.decidido_nombre), 'decidido_el', c.decidido_el,
         'nota', c.nota, 'creado', c.creado) order by c.id desc)
-      from (select * from tumbo.cambios_config x where x.estado <> 'pendiente' order by x.id desc limit 100) c), '[]'::jsonb),
-    'editable', not tumbo_privado.cuenta_demo(yo.email),
+      from (select * from tumbo.cambios_config x where x.estado <> 'pendiente' and tumbo_privado.cambio_visible(yo, x)
+            order by x.id desc limit 100) c), '[]'::jsonb),
+    'editable', not v_demo,
     'yo', yo.id);
 end $$;
 
@@ -904,40 +953,42 @@ create table tumbo.moderacion_marcas (
   nota        text check (nota is null or char_length(nota) <= 300)
 );
 create index moderacion_marcas_abiertas_idx on tumbo.moderacion_marcas (sku) where estado = 'abierta';
+create index moderacion_marcas_sku_idx on tumbo.moderacion_marcas (sku, tipo, estado);
 alter table tumbo.moderacion_marcas enable row level security;
 revoke all on tumbo.moderacion_marcas from public, anon, authenticated;
 
--- Denuncias. La tabla es de Comunicación (ola 2); si aún no existe en esta
--- rama, se crea con las columnas que usa la cola de este dominio (contrato
--- documentado en docs/dominios/crecimiento.md): tipo de lo denunciado
--- ('producto', 'seller', …), su identificador, motivo, detalle, quién
--- denunció, estado y resolución.
+-- Denuncias. La tabla es de Comunicación (migración 20261023150000, que en
+-- el orden de los archivos se aplica antes que esta): quien la crea y la
+-- llena es tm_denunciar. Si no existe (esta rama sola), se crea con su
+-- mismo contrato, columna por columna y restricción por restricción:
+-- tipo de lo denunciado ('producto', 'seller', 'pregunta', 'resena'), objeto
+-- (el SKU, el comercio o el id), seller_id, motivo (código), detalle,
+-- autor_id, estado 'abierta' | 'cerrada', resolución 'procede' |
+-- 'no_procede' | 'duplicada', nota, cerrada_por y cerrada_en. Aquí solo se
+-- atienden las de productos y comercios (las de preguntas y reseñas son de
+-- la cola de contenido de Comunicación).
 create table if not exists tumbo.denuncias (
-  id             bigint generated always as identity primary key,
-  tipo           text not null,
-  objeto_id      text not null,
-  motivo         text not null,
-  detalle        text,
-  denunciante_id uuid,
-  estado         text not null default 'abierta',
-  resolucion     text,
-  resuelta_por   text,
-  resuelta_el    timestamptz,
-  creado         timestamptz not null default now()
+  id         bigint generated always as identity primary key,
+  tipo       text not null check (tipo in ('producto', 'seller', 'pregunta', 'resena')),
+  objeto     text not null check (char_length(objeto) <= 60),
+  seller_id  text,
+  motivo     text not null check (motivo in ('falsificacion', 'prohibido', 'engano', 'precio', 'contacto', 'ofensivo', 'fraude', 'otro')),
+  detalle    text check (char_length(detalle) <= 1000),
+  autor_id   uuid references tumbo.usuarios (id) on delete set null,
+  estado     text not null default 'abierta' check (estado in ('abierta', 'cerrada')),
+  resolucion text check (resolucion in ('procede', 'no_procede', 'duplicada')),
+  nota       text check (char_length(nota) <= 600),
+  cerrada_por text,
+  cerrada_en timestamptz,
+  creado     timestamptz not null default now()
 );
-alter table tumbo.denuncias add column if not exists tipo text;
-alter table tumbo.denuncias add column if not exists objeto_id text;
-alter table tumbo.denuncias add column if not exists motivo text;
-alter table tumbo.denuncias add column if not exists detalle text;
-alter table tumbo.denuncias add column if not exists denunciante_id uuid;
-alter table tumbo.denuncias add column if not exists estado text default 'abierta';
-alter table tumbo.denuncias add column if not exists resolucion text;
-alter table tumbo.denuncias add column if not exists resuelta_por text;
-alter table tumbo.denuncias add column if not exists resuelta_el timestamptz;
-alter table tumbo.denuncias add column if not exists creado timestamptz default now();
-create index if not exists denuncias_cola_idx on tumbo.denuncias (tipo, objeto_id) where estado in ('abierta', 'en_revision');
+create unique index if not exists denuncias_abierta_idx on tumbo.denuncias (autor_id, tipo, objeto) where estado = 'abierta';
+create index if not exists denuncias_estado_idx on tumbo.denuncias (estado, creado);
+create index if not exists denuncias_autor_idx on tumbo.denuncias (autor_id, creado);
 alter table tumbo.denuncias enable row level security;
 revoke all on tumbo.denuncias from public, anon, authenticated;
+-- (las abiertas de un mismo objeto: las cuentan la cola y la marca)
+create index denuncias_objeto_crec_idx on tumbo.denuncias (tipo, objeto) where estado = 'abierta';
 
 -- El texto de un producto tal como lo leen las reglas.
 create function tumbo_privado.texto_moderacion(p tumbo.productos) returns text
@@ -946,6 +997,44 @@ language sql stable set search_path = '' as $$
     coalesce((select string_agg(e.value, ' ' order by e.key)
               from jsonb_each_text(case when jsonb_typeof(p.atributos) = 'object' then p.atributos else '{}'::jsonb end) e), '')) || ' '
 $$;
+
+-- Mediana del precio de lo publicado en cada categoría raíz y cuántos
+-- productos la forman, guardada unos minutos: la consultan cada producto
+-- que se envía a revisión (también los de una carga CSV) y la revisión de
+-- lo publicado, sin recorrer la categoría entera por cada producto.
+create table tumbo.moderacion_medianas (
+  categoria text primary key check (char_length(categoria) <= 60),
+  mediana   numeric,
+  n         integer not null default 0,
+  calculado timestamptz not null default now()
+);
+alter table tumbo.moderacion_medianas enable row level security;
+revoke all on tumbo.moderacion_medianas from public, anon, authenticated;
+
+create function tumbo_privado.mediana_categoria(p_raiz text) returns tumbo.moderacion_medianas
+language plpgsql security definer set search_path = '' as $$
+declare
+  m tumbo.moderacion_medianas;
+begin
+  if p_raiz is null then
+    return null;
+  end if;
+  select * into m from tumbo.moderacion_medianas where categoria = p_raiz;
+  if found and m.calculado > now() - interval '10 minutes' then
+    return m;
+  end if;
+  select p_raiz, percentile_cont(0.5) within group (order by x.precio_usd)::numeric, count(*)::integer, now() into m
+  from tumbo.productos x left join tumbo.categorias kx on kx.id = x.categoria
+  where x.estado = 'publicado' and coalesce(kx.padre, kx.id, x.categoria) = p_raiz;
+  insert into tumbo.moderacion_medianas (categoria, mediana, n, calculado) values (m.categoria, m.mediana, m.n, m.calculado)
+  on conflict (categoria) do update set mediana = excluded.mediana, n = excluded.n, calculado = excluded.calculado;
+  return m;
+end $$;
+
+-- Los duplicados se buscan por el parecido del nombre normalizado con un
+-- índice de trigramas (sin recorrer todo el catálogo del comercio).
+create index productos_nombre_trgm_crec_idx on tumbo.productos
+  using gin (tumbo_privado.normalizar(nombre) extensions.gin_trgm_ops) with (fastupdate = off);
 
 -- Evalúa un producto con las reglas: vuelve a calcular sus marcas
 -- automáticas abiertas (palabras, precio anómalo frente a la mediana de su
@@ -960,9 +1049,12 @@ declare
   v_sim numeric := least(greatest(tumbo_privado.numero(cfg -> 'duplicado_similitud', 0.85), 0.5), 1);
   v_texto text;
   v_raiz text;
+  med tumbo.moderacion_medianas;
   v_mediana numeric;
   v_n integer;
   v_nombre text;
+  v_umbral text;
+  v_dup boolean;
   r record;
 begin
   select * into p from tumbo.productos where sku = p_sku;
@@ -989,10 +1081,11 @@ begin
                    r.patron || '»' || coalesce(' (' || r.descripcion || ')', ''), 300), r.id);
     end if;
   end loop;
-  -- precio muy por debajo o por encima de la mediana de lo publicado en su categoría
-  select percentile_cont(0.5) within group (order by x.precio_usd), count(*) into v_mediana, v_n
-  from tumbo.productos x left join tumbo.categorias kx on kx.id = x.categoria
-  where x.sku <> p.sku and x.estado = 'publicado' and coalesce(kx.padre, kx.id, x.categoria) = v_raiz;
+  -- precio muy por debajo o por encima de la mediana de lo publicado en su
+  -- categoría (la guardada; la muestra no cuenta al producto mismo)
+  med := tumbo_privado.mediana_categoria(v_raiz);
+  v_mediana := med.mediana;
+  v_n := coalesce(med.n, 0) - case when p.estado = 'publicado' then 1 else 0 end;
   if v_n >= v_muestra and v_mediana > 0 and (p.precio_usd < v_mediana / v_factor or p.precio_usd > v_mediana * v_factor)
      and not exists (select 1 from tumbo.moderacion_marcas m where m.sku = p.sku and m.tipo = 'precio_anomalo' and m.estado = 'descartada'
                      and m.resuelta_el >= p.actualizado) then
@@ -1001,16 +1094,22 @@ begin
             'Precio ' || tumbo_privado.fmt_usd(p.precio_usd) || ' muy ' || case when p.precio_usd < v_mediana then 'por debajo' else 'por encima' end ||
             ' de la mediana de su categoría (' || tumbo_privado.fmt_usd(round(v_mediana::numeric, 2)) || ', ' || v_n || ' productos)');
   end if;
-  -- un producto parecido del mismo comercio (que no es de la misma familia de variantes)
+  -- un producto parecido del mismo comercio (que no es de la misma familia
+  -- de variantes): el operador % de pg_trgm con el umbral del ajuste usa el
+  -- índice de trigramas del nombre normalizado
   v_nombre := tumbo_privado.normalizar(p.nombre);
+  v_umbral := current_setting('pg_trgm.similarity_threshold', true);
+  perform set_config('pg_trgm.similarity_threshold', v_sim::text, true);
   select x.sku, x.nombre, extensions.similarity(tumbo_privado.normalizar(x.nombre), v_nombre) as sim into r
   from tumbo.productos x
-  where x.seller_id = p.seller_id and x.sku <> p.sku and x.estado in ('publicado', 'en_revision', 'pausado')
+  where tumbo_privado.normalizar(x.nombre) operator(extensions.%) v_nombre
+    and x.seller_id = p.seller_id and x.sku <> p.sku and x.estado in ('publicado', 'en_revision', 'pausado')
     and x.padre_sku is distinct from p.sku and p.padre_sku is distinct from x.sku
     and (p.padre_sku is null or x.padre_sku is distinct from p.padre_sku)
-    and extensions.similarity(tumbo_privado.normalizar(x.nombre), v_nombre) >= v_sim
   order by 3 desc, x.sku limit 1;
-  if found and not exists (select 1 from tumbo.moderacion_marcas m where m.sku = p.sku and m.tipo = 'duplicado' and m.estado = 'descartada'
+  v_dup := found;
+  perform set_config('pg_trgm.similarity_threshold', coalesce(nullif(v_umbral, ''), '0.3'), true);
+  if v_dup and not exists (select 1 from tumbo.moderacion_marcas m where m.sku = p.sku and m.tipo = 'duplicado' and m.estado = 'descartada'
                            and m.resuelta_el >= p.actualizado) then
     insert into tumbo.moderacion_marcas (sku, seller_id, tipo, detalle)
     values (p.sku, p.seller_id, 'duplicado', left('Parece repetido de ' || r.sku || ' («' || r.nombre || '»)', 300));
@@ -1113,6 +1212,26 @@ begin
   return yo;
 end $$;
 
+-- La revisión de lo publicado va por partes: cada llamada revisa hasta 200
+-- productos (o lo que quepa en poco más de un segundo) desde donde quedó la
+-- anterior, y la vista sigue llamando hasta terminar. Una sola corrida a la
+-- vez (esta fila la serializa) y una llamada cada 3 segundos.
+create table tumbo.moderacion_revision (
+  id        smallint primary key default 1 check (id = 1),
+  iniciada  timestamptz,
+  terminada timestamptz,
+  ultima    timestamptz,
+  cursor    text not null default '',
+  revisados integer not null default 0,
+  marcados  integer not null default 0,
+  total     integer not null default 0,
+  por_id    uuid,
+  por       text
+);
+alter table tumbo.moderacion_revision enable row level security;
+revoke all on tumbo.moderacion_revision from public, anon, authenticated;
+insert into tumbo.moderacion_revision (id) values (1) on conflict (id) do nothing;
+
 -- Lo que muestra «Reglas y denuncias»: reglas, marcas abiertas con su
 -- producto (de lo que está en revisión, publicado o pausado) y resumen.
 create function public.tm_moderacion_panel(p_sesion text) returns jsonb
@@ -1120,7 +1239,9 @@ language plpgsql security definer set search_path = '' as $$
 declare
   yo tumbo.usuarios := tumbo_privado.exigir_moderador(p_sesion, false);
   v_demo boolean := tumbo_privado.cuenta_demo(yo.email);
+  rv tumbo.moderacion_revision;
 begin
+  select * into rv from tumbo.moderacion_revision where id = 1;
   return jsonb_build_object(
     'reglas', coalesce((select jsonb_agg(jsonb_build_object('id', g.id, 'tipo', g.tipo, 'patron', g.patron, 'grupo', g.grupo,
                                                             'descripcion', g.descripcion, 'categoria', g.categoria, 'activa', g.activa,
@@ -1133,10 +1254,14 @@ begin
         'bloqueado', v_demo and tumbo_privado.seller_real(p.seller_id)) order by m.tipo = 'prohibido' desc, m.id)
       from tumbo.moderacion_marcas m join tumbo.productos p on p.sku = m.sku left join tumbo.sellers s on s.id = p.seller_id
       where m.estado = 'abierta' and p.estado in ('en_revision', 'publicado', 'pausado')), '[]'::jsonb),
-    'denuncias_abiertas', (select count(*) from tumbo.denuncias d where d.estado in ('abierta', 'en_revision')),
+    'denuncias_abiertas', (select count(*) from tumbo.denuncias d
+                           where d.estado = 'abierta' and d.tipo in ('producto', 'seller') and tumbo_privado.denuncia_visible(yo, d)),
     'publicados', (select count(*) from tumbo.productos where estado = 'publicado'),
     'editable', not v_demo,
-    'ultima_revision', (select max(a.fecha) from tumbo.auditoria a where a.accion = 'Publicados revisados' and a.id > (select coalesce(max(id), 0) - 20000 from tumbo.auditoria)));
+    'ultima_revision', rv.terminada,
+    'revision', case when rv.iniciada is not null and rv.terminada is null
+                     then jsonb_build_object('revisados', rv.revisados, 'marcados', rv.marcados, 'total', greatest(rv.total, rv.revisados),
+                                             'iniciada', rv.iniciada, 'ultima', rv.ultima) end);
 end $$;
 
 -- Crea o edita una regla (datos = {id?, tipo, patron, grupo, descripcion,
@@ -1224,29 +1349,64 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
--- Revisa lo ya publicado con las reglas vigentes (hasta 3.000 productos,
--- los actualizados más recientemente; una vez por minuto).
+-- Revisa lo ya publicado con las reglas vigentes, por partes: cada llamada
+-- sigue la corrida en curso (o empieza una, si la anterior terminó hace más
+-- de un minuto) con hasta 200 productos en orden de SKU o lo que quepa en
+-- 1,2 segundos, y dice cuánto lleva ({revisados, marcados, total, lote,
+-- terminada}). Recorre el catálogo de todos: cuenta real del equipo con
+-- sesión elevada, y una llamada cada 3 segundos.
 create function public.tm_moderacion_revisar_publicados(p_sesion text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   yo tumbo.usuarios := tumbo_privado.exigir_moderador(p_sesion, true);
+  rv tumbo.moderacion_revision;
+  v_t0 timestamptz := clock_timestamp();
   v_sku text;
+  v_ultimo text;
   v_n integer := 0;
-  v_marcados integer := 0;
+  v_m integer := 0;
 begin
-  perform pg_advisory_xact_lock(hashtextextended('tumbo:moderacion:publicados', 0));
-  if exists (select 1 from tumbo.auditoria a where a.accion = 'Publicados revisados' and a.fecha > now() - interval '1 minute'
-             and a.id > (select coalesce(max(id), 0) - 5000 from tumbo.auditoria)) then
-    raise exception 'La revisión se hizo hace menos de un minuto: espera un momento.';
+  perform tumbo_privado.exigir_elevada(yo);
+  insert into tumbo.moderacion_revision (id) values (1) on conflict (id) do nothing;
+  select * into rv from tumbo.moderacion_revision where id = 1 for update;
+  if rv.ultima is not null and rv.ultima > now() - interval '3 seconds' then
+    raise exception 'La revisión de lo publicado va por partes: espera unos segundos antes de seguir.';
   end if;
-  for v_sku in select p.sku from tumbo.productos p where p.estado = 'publicado' order by p.actualizado desc, p.sku limit 3000 loop
-    v_n := v_n + 1;
-    if tumbo_privado.moderacion_evaluar(v_sku) > 0 then
-      v_marcados := v_marcados + 1;
+  if rv.iniciada is null or rv.terminada is not null then
+    if rv.terminada is not null and rv.terminada > now() - interval '1 minute' then
+      raise exception 'La revisión de lo publicado terminó hace menos de un minuto: espera un momento.';
     end if;
+    rv.iniciada := now();
+    rv.terminada := null;
+    rv.cursor := '';
+    rv.revisados := 0;
+    rv.marcados := 0;
+    rv.total := (select count(*) from tumbo.productos where estado = 'publicado');
+    rv.por_id := yo.id;
+    rv.por := tumbo_privado.actor(yo);
+  end if;
+  for v_sku in select p.sku from tumbo.productos p where p.estado = 'publicado' and p.sku > rv.cursor order by p.sku limit 200 loop
+    v_n := v_n + 1;
+    v_ultimo := v_sku;
+    if tumbo_privado.moderacion_evaluar(v_sku) > 0 then
+      v_m := v_m + 1;
+    end if;
+    exit when clock_timestamp() - v_t0 > interval '1200 milliseconds';
   end loop;
-  perform tumbo_privado.auditar(yo, 'Publicados revisados', v_n || ' productos · ' || v_marcados || ' con marcas');
-  return jsonb_build_object('revisados', v_n, 'marcados', v_marcados);
+  rv.cursor := coalesce(v_ultimo, rv.cursor);
+  rv.revisados := rv.revisados + v_n;
+  rv.marcados := rv.marcados + v_m;
+  rv.ultima := now();
+  if not exists (select 1 from tumbo.productos p where p.estado = 'publicado' and p.sku > rv.cursor) then
+    rv.terminada := now();
+    perform tumbo_privado.auditar(yo, 'Publicados revisados', rv.revisados || ' productos · ' || rv.marcados || ' con marcas');
+  end if;
+  update tumbo.moderacion_revision
+  set iniciada = rv.iniciada, terminada = rv.terminada, ultima = rv.ultima, cursor = rv.cursor, revisados = rv.revisados,
+      marcados = rv.marcados, total = rv.total, por_id = rv.por_id, por = rv.por
+  where id = 1;
+  return jsonb_build_object('revisados', rv.revisados, 'marcados', rv.marcados, 'total', greatest(rv.total, rv.revisados),
+                            'lote', v_n, 'terminada', rv.terminada is not null);
 end $$;
 
 -- Retira de la venta hasta 100 productos (marcados o denunciados), cada uno
@@ -1280,6 +1440,29 @@ begin
   return jsonb_build_object('hechos', to_jsonb(v_hechos), 'errores', v_errores);
 end $$;
 
+-- El comercio de una denuncia (el que guardó Comunicación o, si falta, el
+-- del producto o el comercio denunciado).
+create function tumbo_privado.denuncia_seller(d tumbo.denuncias) returns text
+language sql stable security definer set search_path = '' as $$
+  select coalesce(d.seller_id, case when d.tipo = 'seller' then d.objeto
+                                    when d.tipo = 'producto' then (select p.seller_id from tumbo.productos p where p.sku = d.objeto) end)
+$$;
+
+-- ¿Es una denuncia de la demo? La hizo una cuenta de prueba y no es sobre un
+-- comercio real. Una cuenta de prueba del equipo (contraseña pública) solo
+-- ve y atiende esas: el detalle de una denuncia es texto libre de una
+-- persona y suele llevar datos personales.
+create function tumbo_privado.denuncia_de_prueba(d tumbo.denuncias) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from tumbo.usuarios u where u.id = d.autor_id and tumbo_privado.cuenta_demo(u.email))
+     and not coalesce(tumbo_privado.seller_real(tumbo_privado.denuncia_seller(d)), false)
+$$;
+
+create function tumbo_privado.denuncia_visible(p_yo tumbo.usuarios, d tumbo.denuncias) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select not coalesce(tumbo_privado.cuenta_demo(p_yo.email), false) or tumbo_privado.denuncia_de_prueba(d)
+$$;
+
 -- Al llegar a las denuncias configuradas, un producto denunciado queda
 -- marcado para moderación.
 create function tumbo_privado.denuncia_marca() returns trigger
@@ -1290,13 +1473,13 @@ declare
   v_n integer;
 begin
   begin
-    if new.tipo = 'producto' and coalesce(new.estado, 'abierta') = 'abierta' then
-      select seller_id into v_seller from tumbo.productos where sku = new.objeto_id;
-      select count(*) into v_n from tumbo.denuncias d where d.tipo = 'producto' and d.objeto_id = new.objeto_id and d.estado in ('abierta', 'en_revision');
+    if new.tipo = 'producto' and new.estado = 'abierta' then
+      select seller_id into v_seller from tumbo.productos where sku = new.objeto;
+      select count(*) into v_n from tumbo.denuncias d where d.tipo = 'producto' and d.objeto = new.objeto and d.estado = 'abierta';
       if v_seller is not null and v_n >= v_min
-         and not exists (select 1 from tumbo.moderacion_marcas m where m.sku = new.objeto_id and m.tipo = 'denuncia' and m.estado = 'abierta') then
+         and not exists (select 1 from tumbo.moderacion_marcas m where m.sku = new.objeto and m.tipo = 'denuncia' and m.estado = 'abierta') then
         insert into tumbo.moderacion_marcas (sku, seller_id, tipo, detalle)
-        values (new.objeto_id, v_seller, 'denuncia', v_n || ' denuncias abiertas (la última: ' || left(coalesce(new.motivo, ''), 80) || ')');
+        values (new.objeto, v_seller, 'denuncia', v_n || ' denuncias abiertas (la última por «' || new.motivo || '»)');
       end if;
     end if;
   exception when others then
@@ -1308,9 +1491,33 @@ end $$;
 create trigger denuncias_marca after insert on tumbo.denuncias
   for each row execute function tumbo_privado.denuncia_marca();
 
--- Cola de denuncias (estado: 'abiertas' —abiertas y en revisión—,
--- 'resueltas' o 'todas'). A una cuenta de prueba, quien denunció nunca se
--- nombra y las de un comercio real llegan bloqueadas.
+-- Cerrada la última denuncia abierta de un producto (aquí o en la cola de
+-- contenido de Comunicación), su marca se resuelve con esa decisión:
+-- confirmada si procede, descartada si no.
+create function tumbo_privado.denuncia_marca_cierre() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  begin
+    if not exists (select 1 from tumbo.denuncias d where d.tipo = 'producto' and d.objeto = new.objeto and d.estado = 'abierta') then
+      update tumbo.moderacion_marcas
+      set estado = case when new.resolucion = 'procede' then 'confirmada' else 'descartada' end,
+          resuelta_por = coalesce(new.cerrada_por, 'Sistema'), resuelta_el = now(), nota = 'Denuncias cerradas'
+      where sku = new.objeto and tipo = 'denuncia' and estado = 'abierta';
+    end if;
+  exception when others then
+    raise warning 'Tumbo: no se pudo cerrar la marca de la denuncia %: %', new.id, sqlerrm;
+  end;
+  return null;
+end $$;
+
+create trigger denuncias_marca_cierre after update of estado on tumbo.denuncias
+  for each row when (old.estado = 'abierta' and new.estado = 'cerrada' and new.tipo = 'producto')
+  execute function tumbo_privado.denuncia_marca_cierre();
+
+-- Cola de denuncias de productos y comercios (estado: 'abiertas',
+-- 'resueltas' —las cerradas— o 'todas'). A una cuenta de prueba solo le
+-- llegan las de la demo (denuncia_de_prueba); quien denunció nunca se
+-- nombra.
 create function public.tm_denuncias(p_sesion text, p_estado text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -1319,82 +1526,79 @@ declare
 begin
   return coalesce((select jsonb_agg(x order by (x ->> 'estado') = 'abierta' desc, (x ->> 'id')::bigint desc) from (
     select jsonb_build_object(
-      'id', d.id, 'tipo', d.tipo, 'objeto_id', d.objeto_id, 'motivo', d.motivo, 'detalle', d.detalle, 'estado', d.estado,
-      'resolucion', d.resolucion, 'resuelta_por', case when v_demo then null else d.resuelta_por end, 'resuelta_el', d.resuelta_el, 'creado', d.creado,
-      'denunciante', case when d.denunciante_id is null then null else 'Comprador' end,
-      'repetidas', (select count(*) from tumbo.denuncias d2 where d2.tipo = d.tipo and d2.objeto_id = d.objeto_id and d2.estado in ('abierta', 'en_revision')),
+      'id', d.id, 'tipo', d.tipo, 'objeto', d.objeto, 'motivo', d.motivo, 'detalle', d.detalle, 'estado', d.estado,
+      'resolucion', d.resolucion, 'nota', d.nota, 'cerrada_por', case when v_demo then null else d.cerrada_por end,
+      'cerrada_en', d.cerrada_en, 'creado', d.creado,
+      'denunciante', (select case when u.rol = 'comprador' then 'Comprador' else 'Comercio' end from tumbo.usuarios u where u.id = d.autor_id),
+      'repetidas', (select count(*) from tumbo.denuncias d2 where d2.tipo = d.tipo and d2.objeto = d.objeto and d2.estado = 'abierta'),
       'producto', case when d.tipo = 'producto' then (select jsonb_build_object('sku', p.sku, 'nombre', p.nombre, 'estado', p.estado,
                                                                                 'seller_id', p.seller_id, 'precio_usd', p.precio_usd)
-                                                      from tumbo.productos p where p.sku = d.objeto_id) end,
-      'seller', (select jsonb_build_object('id', s.id, 'nombre', s.nombre)
-                 from tumbo.sellers s
-                 where s.id = case when d.tipo = 'seller' then d.objeto_id
-                                   when d.tipo = 'producto' then (select p.seller_id from tumbo.productos p where p.sku = d.objeto_id) end),
-      'bloqueado', v_demo and coalesce(tumbo_privado.seller_real(case when d.tipo = 'seller' then d.objeto_id
-                                                                      when d.tipo = 'producto' then (select p.seller_id from tumbo.productos p where p.sku = d.objeto_id) end), false)
+                                                      from tumbo.productos p where p.sku = d.objeto) end,
+      'seller', (select jsonb_build_object('id', s.id, 'nombre', s.nombre) from tumbo.sellers s where s.id = tumbo_privado.denuncia_seller(d)),
+      'bloqueado', false
     ) as x
     from tumbo.denuncias d
-    where case coalesce(p_estado, 'abiertas')
-            when 'abiertas' then d.estado in ('abierta', 'en_revision')
-            when 'resueltas' then d.estado in ('resuelta', 'descartada')
+    where d.tipo in ('producto', 'seller')
+      and case coalesce(p_estado, 'abiertas')
+            when 'abiertas' then d.estado = 'abierta'
+            when 'resueltas' then d.estado = 'cerrada'
             else true end
+      and tumbo_privado.denuncia_visible(yo, d)
     order by d.id desc limit 300) q), '[]'::jsonb);
 end $$;
 
--- Acciones sobre una denuncia: 'revisar' (en revisión), 'descartar', 'resolver'
--- (sin retirar nada) o 'retirar' (retira el producto denunciado y resuelve
--- todas las denuncias abiertas de ese producto). Siempre con nota.
+-- Acciones sobre una denuncia de un producto o un comercio: 'descartar'
+-- (no procede), 'duplicada', 'resolver' (procede, sin retirar nada) o
+-- 'retirar' (retira el producto denunciado y cierra, como procedentes,
+-- todas sus denuncias abiertas). Siempre con nota; quien denunció recibe el
+-- mismo aviso que con el cierre de Comunicación (tm_denuncia_cerrar).
 create function public.tm_denuncia_resolver(p_sesion text, p_id bigint, p_accion text, p_nota text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   yo tumbo.usuarios := tumbo_privado.exigir_moderador(p_sesion, true);
   d tumbo.denuncias;
-  v_nota text := left(regexp_replace(btrim(coalesce(p_nota, '')), '[[:cntrl:]<>]+', ' ', 'g'), 300);
-  v_seller text;
+  x tumbo.denuncias;
+  v_nota text := left(regexp_replace(btrim(coalesce(p_nota, '')), '[[:cntrl:]<>]+', ' ', 'g'), 600);
+  v_res text;
+  v_por text := yo.nombre || ' (' || yo.rol || ')';
 begin
   select * into d from tumbo.denuncias where id = p_id for update;
-  if not found then
+  if not found or d.tipo not in ('producto', 'seller') then
     raise exception 'Denuncia no encontrada.';
   end if;
-  v_seller := case when d.tipo = 'seller' then d.objeto_id
-                   when d.tipo = 'producto' then (select p.seller_id from tumbo.productos p where p.sku = d.objeto_id) end;
-  perform tumbo_privado.exigir_cuenta_real(yo, coalesce(tumbo_privado.seller_real(v_seller), false)
-                                               or (d.denunciante_id is not null and tumbo_privado.comprador_real(d.denunciante_id)));
-  if d.estado not in ('abierta', 'en_revision') then
-    raise exception 'Esa denuncia ya se cerró.';
+  perform tumbo_privado.exigir_cuenta_real(yo, not tumbo_privado.denuncia_de_prueba(d));
+  if d.estado <> 'abierta' then
+    raise exception 'Esa denuncia ya está cerrada.';
   end if;
-  if p_accion not in ('revisar', 'descartar', 'resolver', 'retirar') then
+  if p_accion is null or p_accion not in ('descartar', 'duplicada', 'resolver', 'retirar') then
     raise exception 'Elige una acción para la denuncia.';
   end if;
-  if p_accion <> 'revisar' and char_length(v_nota) < 5 then
+  if char_length(v_nota) < 5 then
     raise exception 'Escribe una nota (al menos 5 caracteres).';
   end if;
-  if p_accion = 'revisar' then
-    update tumbo.denuncias set estado = 'en_revision' where id = d.id;
-  elsif p_accion = 'retirar' then
+  v_res := case p_accion when 'descartar' then 'no_procede' when 'duplicada' then 'duplicada' else 'procede' end;
+  if p_accion = 'retirar' then
     if d.tipo <> 'producto' then
       raise exception 'Solo se retira un producto denunciado.';
     end if;
-    if exists (select 1 from tumbo.productos where sku = d.objeto_id and estado in ('publicado', 'en_revision', 'pausado')) then
-      perform tumbo_privado.retirar_producto(yo, d.objeto_id, 'Retirado por denuncias: ' || v_nota);
-    end if;
-    update tumbo.denuncias set estado = 'resuelta', resolucion = 'Producto retirado: ' || v_nota, resuelta_por = tumbo_privado.actor(yo), resuelta_el = now()
-    where tipo = 'producto' and objeto_id = d.objeto_id and estado in ('abierta', 'en_revision');
-  else
-    update tumbo.denuncias
-    set estado = case when p_accion = 'descartar' then 'descartada' else 'resuelta' end, resolucion = v_nota,
-        resuelta_por = tumbo_privado.actor(yo), resuelta_el = now()
-    where id = d.id;
-    if d.tipo = 'producto' and not exists (select 1 from tumbo.denuncias x where x.tipo = 'producto' and x.objeto_id = d.objeto_id
-                                                                         and x.estado in ('abierta', 'en_revision')) then
-      update tumbo.moderacion_marcas set estado = 'descartada', resuelta_por = tumbo_privado.actor(yo), resuelta_el = now(), nota = 'Denuncias cerradas'
-      where sku = d.objeto_id and tipo = 'denuncia' and estado = 'abierta';
+    if exists (select 1 from tumbo.productos where sku = d.objeto and estado in ('publicado', 'en_revision', 'pausado')) then
+      perform tumbo_privado.retirar_producto(yo, d.objeto, 'Retirado por denuncias: ' || left(v_nota, 250));
     end if;
   end if;
-  perform tumbo_privado.auditar(yo, 'Denuncia ' || case p_accion when 'revisar' then 'en revisión' when 'descartar' then 'descartada'
-                                                                  when 'retirar' then 'resuelta (producto retirado)' else 'resuelta' end,
-                                d.id || ' · ' || d.tipo || ' ' || d.objeto_id || case when v_nota <> '' then ' · ' || v_nota else '' end);
-  return jsonb_build_object('ok', true);
+  for x in
+    update tumbo.denuncias set estado = 'cerrada', resolucion = v_res, nota = v_nota, cerrada_por = v_por, cerrada_en = now()
+    where estado = 'abierta' and (id = d.id or (p_accion = 'retirar' and tipo = 'producto' and objeto = d.objeto))
+    returning *
+  loop
+    if x.autor_id is not null then
+      perform tumbo_privado.notificar('usr:' || x.autor_id, 'Revisamos tu reporte #' || x.id || ': ' ||
+        case v_res when 'procede' then 'tomamos medidas, gracias por avisar' when 'duplicada' then 'ya lo estábamos atendiendo'
+                   else 'no encontramos una infracción' end, 'flag', null);
+    end if;
+  end loop;
+  perform tumbo_privado.auditar(yo, case p_accion when 'retirar' then 'Denuncia cerrada (producto retirado)' else 'Denuncia cerrada' end,
+                                '#' || d.id || ' ' || d.tipo || ' ' || d.objeto || ' → ' || v_res || ' · ' || v_nota);
+  return jsonb_build_object('ok', true, 'resolucion', v_res);
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -1444,19 +1648,8 @@ language sql stable security definer set search_path = '' as $$
   select tumbo_privado.sancion_retencion(p_seller) is not null
 $$;
 
--- Desde la de Pagos: el motivo por el que los fondos de un seller están
--- retenidos suma la sanción de retener fondos (Crecimiento). La consultan la
--- preparación de corridas, el calendario semanal y la vista de Finanzas.
-create or replace function tumbo_privado.retencion_seller(p_seller text) returns text
-language sql stable security definer set search_path = '' as $$
-  select coalesce(
-    (select 'retención manual: ' || r.motivo from tumbo.retenciones r where r.seller_id = p_seller),
-    (select 'sanción: ' || tumbo_privado.sancion_retencion(p_seller)),
-    (select case s.estado when 'suspendido' then 'comercio suspendido'
-                          when 'observado' then 'expediente observado (en riesgo)'
-                          when 'rechazado' then 'comercio rechazado' end
-     from tumbo.sellers s where s.id = p_seller))
-$$;
+-- (retencion_seller, de Pagos, suma la sanción más abajo: después de
+-- seller_lista_negra, que también consulta.)
 
 -- Limitar publicaciones: el equipo del comercio no publica ni envía a
 -- revisión más productos que el tope de la sanción (lo que hace el equipo de
@@ -1684,9 +1877,10 @@ begin
                             'siguiente', v_siguiente ->> 'nombre', 'faltan', to_jsonb(coalesce(v_faltan_sig, '{}'::text[])));
 end $$;
 
--- Recalcula el nivel de cada comercio; si cambia, cierra el beneficio de
--- comisión del nivel anterior, abre el del nuevo (tumbo.comisiones, origen
--- «nivel») y le avisa al comercio. Tarea diaria (pg_cron, si existe).
+-- Recalcula el nivel de cada comercio; si cambia el nivel o el beneficio
+-- que da (el ajuste «niveles» cambió), cierra la fila de comisión del
+-- beneficio anterior, abre la del nuevo (tumbo.comisiones, origen «nivel»)
+-- y le avisa al comercio. Tarea diaria (pg_cron, si existe).
 create function tumbo_privado.tarea_niveles() returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -1696,31 +1890,54 @@ declare
   m jsonb;
   ev jsonb;
   ant tumbo.niveles_seller;
+  v_pts_ant numeric;
+  v_pts numeric;
   v_cambios jsonb := '[]'::jsonb;
   v_n integer := 0;
 begin
   perform pg_advisory_xact_lock(hashtextextended('tumbo:niveles', 0));
   for s in select x.id from tumbo.sellers x
            where x.estado = 'aprobado' or exists (select 1 from tumbo.niveles_seller n where n.seller_id = x.id and n.nivel is not null)
+              or exists (select 1 from tumbo.comisiones c where c.seller_id = x.id and c.origen = 'nivel' and c.estado = 'vigente'
+                         and (c.hasta is null or c.hasta > now()))
            order by x.id loop
     v_n := v_n + 1;
     m := tumbo_privado.metricas_nivel(s.id, v_dias);
     ev := tumbo_privado.nivel_evaluar(s.id, m);
     select * into ant from tumbo.niveles_seller where seller_id = s.id for update;
+    -- el beneficio que rige hoy y el que corresponde (sin nivel, ninguno)
+    select c.descuento_pts into v_pts_ant from tumbo.comisiones c
+    where c.seller_id = s.id and c.origen = 'nivel' and c.estado = 'vigente' and c.desde <= now() and (c.hasta is null or c.hasta > now())
+    order by c.desde desc, c.id desc limit 1;
+    v_pts := case when ev ->> 'nivel' is not null then least(coalesce(tumbo_privado.num_json(ev -> 'descuento_comision_pts'), 0), 10) else 0 end;
     insert into tumbo.niveles_seller (seller_id, nivel, metricas, calculado, desde)
     values (s.id, ev ->> 'nivel', m || jsonb_build_object('evaluacion', ev), now(), case when ev ->> 'nivel' is not null then now() end)
     on conflict (seller_id) do update
       set nivel = excluded.nivel, metricas = excluded.metricas, calculado = now(),
           desde = case when tumbo.niveles_seller.nivel is not distinct from excluded.nivel then tumbo.niveles_seller.desde else excluded.desde end;
-    if ant.nivel is distinct from (ev ->> 'nivel') then
+    if ant.nivel is not distinct from (ev ->> 'nivel') and coalesce(v_pts_ant, 0) <> v_pts then
+      -- mismo nivel, otro beneficio: se cambia la fila y se avisa
       update tumbo.comisiones set estado = 'anulada'
       where seller_id = s.id and origen = 'nivel' and estado = 'vigente' and desde >= now();
       update tumbo.comisiones set hasta = now()
       where seller_id = s.id and origen = 'nivel' and estado = 'vigente' and desde < now() and (hasta is null or hasta > now());
-      if coalesce(tumbo_privado.num_json(ev -> 'descuento_comision_pts'), 0) > 0 then
+      if v_pts > 0 then
         insert into tumbo.comisiones (seller_id, descuento_pts, desde, origen, estado, motivo, propuesta_nombre, aprobada_nombre, aprobada_el)
-        values (s.id, least(tumbo_privado.num_json(ev -> 'descuento_comision_pts'), 10), now(), 'nivel', 'vigente',
-                'Beneficio del nivel ' || (ev ->> 'nombre'), 'Sistema', 'Sistema (niveles)', now());
+        values (s.id, v_pts, now(), 'nivel', 'vigente', 'Beneficio del nivel ' || (ev ->> 'nombre'), 'Sistema', 'Sistema (niveles)', now());
+      end if;
+      perform tumbo_privado.notificar('seller:' || s.id,
+        'Cambió el beneficio de tu nivel ' || coalesce(ev ->> 'nombre', '') || ': ahora pagas ' || v_pts || ' puntos menos de comisión',
+        'workspace_premium', 'seller/estadisticas.html');
+      v_cambios := v_cambios || jsonb_build_object('seller', s.id, 'antes', ant.nivel, 'ahora', ev ->> 'nivel', 'beneficio_antes', coalesce(v_pts_ant, 0),
+                                                   'beneficio', v_pts);
+    elsif ant.nivel is distinct from (ev ->> 'nivel') then
+      update tumbo.comisiones set estado = 'anulada'
+      where seller_id = s.id and origen = 'nivel' and estado = 'vigente' and desde >= now();
+      update tumbo.comisiones set hasta = now()
+      where seller_id = s.id and origen = 'nivel' and estado = 'vigente' and desde < now() and (hasta is null or hasta > now());
+      if v_pts > 0 then
+        insert into tumbo.comisiones (seller_id, descuento_pts, desde, origen, estado, motivo, propuesta_nombre, aprobada_nombre, aprobada_el)
+        values (s.id, v_pts, now(), 'nivel', 'vigente', 'Beneficio del nivel ' || (ev ->> 'nombre'), 'Sistema', 'Sistema (niveles)', now());
       end if;
       perform tumbo_privado.notificar('seller:' || s.id,
         case when ev ->> 'nivel' is null then 'Tu comercio ya no tiene nivel: revisa en Estadísticas lo que falta para recuperarlo'
@@ -1872,6 +2089,7 @@ create table tumbo.riesgo_pagos (
   retenido     boolean not null default false,
   avisado      boolean not null default false,
   liberado_por text,
+  liberado_por_id uuid,
   liberado_el  timestamptz,
   nota         text check (nota is null or char_length(nota) <= 300)
 );
@@ -1903,6 +2121,103 @@ language sql immutable set search_path = '' as $$
   end
 $$;
 
+-- Los datos que el riesgo compara entre cuentas, con índice: la cédula y el
+-- teléfono normalizados del perfil y del pagador de cada pago (sin ellos
+-- cada evaluación recorría todas las cuentas y los pagos), y los pedidos de
+-- cada comercio por fecha (picos de ventas).
+create index usuarios_riesgo_doc_crec_idx on tumbo.usuarios (tumbo_privado.riesgo_doc(cedula));
+create index usuarios_riesgo_tel_crec_idx on tumbo.usuarios (tumbo_privado.riesgo_tel(telefono));
+create index pagos_riesgo_doc_crec_idx on tumbo.pagos (tumbo_privado.riesgo_doc(pagador ->> 'cedula'));
+create index pagos_riesgo_tel_crec_idx on tumbo.pagos (tumbo_privado.riesgo_tel(pagador ->> 'telefono'));
+create index pedidos_seller_creado_crec_idx on tumbo.pedidos (seller_id, creado);
+
+-- La lista negra contra los datos de cobro de un comercio: el número de su
+-- cuenta de liquidación ('cuenta'), el teléfono de su Pago Móvil, el RIF del
+-- titular y el de su expediente. Devuelve qué coincide (o null). Lo
+-- consultan la retención de sus liquidaciones (retencion_seller), su ficha
+-- 360 y el panel de riesgo.
+create function tumbo_privado.seller_lista_negra(p_seller text) returns text
+language sql stable security definer set search_path = '' as $$
+  select string_agg(distinct case l.tipo when 'cuenta' then 'cuenta bancaria' when 'telefono' then 'teléfono de cobro' else 'RIF' end, ', ')
+  from tumbo.listas_negras l
+  where l.activo and (
+    (l.tipo = 'cuenta' and l.valor in (select c.numero from tumbo.cuentas_liquidacion c
+                                       where c.seller_id = p_seller and c.estado in ('pendiente', 'verificada') and c.numero is not null))
+    or (l.tipo = 'telefono' and l.valor in (select tumbo_privado.riesgo_tel(c.telefono) from tumbo.cuentas_liquidacion c
+                                            where c.seller_id = p_seller and c.estado in ('pendiente', 'verificada') and c.telefono is not null))
+    or (l.tipo = 'rif' and l.valor in (select tumbo_privado.documento(c.rif) from tumbo.cuentas_liquidacion c
+                                       where c.seller_id = p_seller and c.estado in ('pendiente', 'verificada')
+                                       union all
+                                       select tumbo_privado.documento(k.rif) from tumbo.sellers_kyc k where k.seller_id = p_seller)))
+$$;
+
+-- Avisos al momento: una cuenta de liquidación (Pagos) o el destino de un
+-- reembolso que coincide con la lista negra le llega a Finanzas antes de
+-- que el dinero salga (la liquidación además queda retenida:
+-- retencion_seller). Nunca impiden la operación de quien los carga.
+create function tumbo_privado.cuenta_liquidacion_lista_negra() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  v text;
+begin
+  begin
+    if new.estado in ('pendiente', 'verificada') then
+      v := tumbo_privado.seller_lista_negra(new.seller_id);
+      if v is not null then
+        perform tumbo_privado.notificar('rol:finanzas', 'La cuenta de cobro de ' || new.seller_id || ' coincide con la lista negra (' || v ||
+          '): sus liquidaciones quedan retenidas hasta revisarlo', 'gpp_maybe', 'admin/riesgo.html');
+        perform tumbo_privado.auditar(null::tumbo.usuarios, 'Lista negra: cuenta de cobro', new.seller_id || ' · ' || v);
+      end if;
+    end if;
+  exception when others then
+    raise warning 'Tumbo: no se pudo cotejar la cuenta de % con la lista negra: %', new.seller_id, sqlerrm;
+  end;
+  return null;
+end $$;
+
+-- Desde la de Pagos: el motivo por el que los fondos de un seller están
+-- retenidos suma la sanción de retener fondos y los datos de cobro que
+-- coinciden con la lista negra (Crecimiento; el comercio lo ve como una
+-- revisión de su cuenta de cobro). La consultan la preparación de corridas,
+-- el calendario semanal y la vista de Finanzas.
+create or replace function tumbo_privado.retencion_seller(p_seller text) returns text
+language sql stable security definer set search_path = '' as $$
+  select coalesce(
+    (select 'retención manual: ' || r.motivo from tumbo.retenciones r where r.seller_id = p_seller),
+    (select 'sanción: ' || tumbo_privado.sancion_retencion(p_seller)),
+    (select 'cuenta de cobro en revisión de seguridad' where tumbo_privado.seller_lista_negra(p_seller) is not null),
+    (select case s.estado when 'suspendido' then 'comercio suspendido'
+                          when 'observado' then 'expediente observado (en riesgo)'
+                          when 'rechazado' then 'comercio rechazado' end
+     from tumbo.sellers s where s.id = p_seller))
+$$;
+
+create trigger cuentas_liquidacion_lista_negra after insert or update of numero, telefono, rif, estado on tumbo.cuentas_liquidacion
+  for each row execute function tumbo_privado.cuenta_liquidacion_lista_negra();
+
+create function tumbo_privado.reembolso_destino_lista_negra() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  v text;
+begin
+  begin
+    select string_agg(distinct l.tipo, ', ') into v from tumbo.listas_negras l
+    where l.activo and ((l.tipo = 'telefono' and l.valor = tumbo_privado.riesgo_tel(new.datos ->> 'telefono'))
+                        or (l.tipo = 'cedula' and l.valor = tumbo_privado.riesgo_doc(new.datos ->> 'cedula'))
+                        or (l.tipo = 'correo' and l.valor = lower(btrim(new.datos ->> 'correo'))));
+    if v is not null then
+      perform tumbo_privado.notificar('rol:finanzas', 'El destino del reembolso R-' || new.reembolso_id || ' coincide con la lista negra (' || v ||
+        '): revísalo antes de enviarlo', 'gpp_maybe', 'admin/reembolsos.html');
+    end if;
+  exception when others then
+    raise warning 'Tumbo: no se pudo cotejar el destino del reembolso % con la lista negra: %', new.reembolso_id, sqlerrm;
+  end;
+  return null;
+end $$;
+
+create trigger reembolso_destinos_lista_negra after insert or update of datos on tumbo.reembolso_destinos
+  for each row execute function tumbo_privado.reembolso_destino_lista_negra();
+
 -- Contrato riesgo_pedido (Crecimiento; ola 0 lo dejó en 0). p_datos: {pago}
 -- (lo demás sale del pago y sus pedidos) o, sin pago, {total_usd,
 -- referencia, sellers[], pagador{cedula, telefono, correo}, destino{…},
@@ -1911,7 +2226,11 @@ $$;
 -- con monto alto 30; cédula o teléfono en otras cuentas 20; referencia usada
 -- por otra cuenta 30; pagos rechazados repetidos 25; compras muy seguidas
 -- 15; comercio con pico de ventas 15 o con reclamos abiertos 10; lista
--- negra 50 por cada tipo; comprador marcado 40.
+-- negra 50 por cada tipo (cédula, teléfono, correo y RIF del comprador, del
+-- pagador, del destinatario y de la factura); un comercio del pago con sus
+-- datos de cobro en la lista negra (cuenta bancaria, teléfono o RIF) 30;
+-- comprador marcado 40. Las comparaciones entre cuentas usan los índices de
+-- riesgo_doc y riesgo_tel (milisegundos aunque haya muchas cuentas).
 create or replace function tumbo_privado.riesgo_pedido(p_usuario uuid, p_datos jsonb) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 declare
@@ -1971,15 +2290,25 @@ begin
       'texto', 'Cuenta de ' || greatest(extract(day from now() - u.creado)::integer, 0) || ' días con una compra de ' || tumbo_privado.fmt_usd(v_total));
     v_puntos := v_puntos + 30;
   end if;
-  -- 2. la misma cédula o teléfono en otras cuentas (perfil o pagos de 90 días)
-  select count(distinct x.id) into v_n from (
-    select o.id from tumbo.usuarios o
-    where o.id <> p_usuario and o.activo
-      and (tumbo_privado.riesgo_doc(o.cedula) = any (v_docs) or tumbo_privado.riesgo_tel(o.telefono) = any (v_tels))
-    union
-    select q.comprador_id from tumbo.pagos q
-    where q.comprador_id <> p_usuario and q.creado > now() - interval '90 days' and q.pagador is not null
-      and (tumbo_privado.riesgo_doc(q.pagador ->> 'cedula') = any (v_docs) or tumbo_privado.riesgo_tel(q.pagador ->> 'telefono') = any (v_tels))) x;
+  -- 2. la misma cédula o teléfono en otras cuentas (perfil o pagos de 90
+  -- días), por igualdad con los índices de riesgo_doc y riesgo_tel
+  v_n := 0;
+  if cardinality(v_docs) > 0 or cardinality(v_tels) > 0 then
+    select count(distinct x.id) into v_n from (
+      select o.id from tumbo.usuarios o
+      where tumbo_privado.riesgo_doc(o.cedula) = any (v_docs) and o.id is distinct from p_usuario and o.activo
+      union
+      select o.id from tumbo.usuarios o
+      where tumbo_privado.riesgo_tel(o.telefono) = any (v_tels) and o.id is distinct from p_usuario and o.activo
+      union
+      select q.comprador_id from tumbo.pagos q
+      where tumbo_privado.riesgo_doc(q.pagador ->> 'cedula') = any (v_docs)
+        and q.comprador_id is distinct from p_usuario and q.creado > now() - interval '90 days'
+      union
+      select q.comprador_id from tumbo.pagos q
+      where tumbo_privado.riesgo_tel(q.pagador ->> 'telefono') = any (v_tels)
+        and q.comprador_id is distinct from p_usuario and q.creado > now() - interval '90 days') x;
+  end if;
   if v_n > 0 then
     v_motivos := v_motivos || jsonb_build_object('regla', 'dato_compartido', 'puntos', 20,
       'texto', 'La misma cédula o teléfono aparece en ' || v_n || ' cuenta' || case when v_n = 1 then '' else 's' end || ' más');
@@ -2034,6 +2363,17 @@ begin
       'texto', 'Coincide con la lista negra (' || array_to_string(v_tipos, ', ') || ')');
     v_puntos := v_puntos + 50 * cardinality(v_tipos);
   end if;
+  -- 7 b. un comercio del pago cobra en una cuenta, un teléfono o un RIF de la lista negra
+  foreach s in array coalesce(v_sellers, '{}') loop
+    v_marca := tumbo_privado.seller_lista_negra(s);
+    if v_marca is not null then
+      v_motivos := v_motivos || jsonb_build_object('regla', 'lista_negra_comercio', 'puntos', 30,
+        'texto', s || ' cobra con datos de la lista negra (' || v_marca || ')');
+      v_puntos := v_puntos + 30;
+      exit;
+    end if;
+  end loop;
+  v_marca := null;
   -- 8. comprador marcado como riesgoso
   select c.motivo into v_marca from tumbo.compradores_riesgo c where c.usuario_id = p_usuario and c.activo;
   if v_marca is not null then
@@ -2108,40 +2448,57 @@ language sql stable security definer set search_path = '' as $$
 $$;
 
 -- El riesgo como lo ve cada quien: una cuenta de prueba no ve el de los
--- pagos de personas reales (solo que existe).
+-- pagos de personas reales (solo que existe); Operaciones sin el permiso
+-- «riesgo» (p. ej. en el detalle 360 del pedido) ve el nivel y si está
+-- retenido, sin el puntaje ni los motivos (que nombran datos del comprador).
 create function tumbo_privado.riesgo_json(p_yo tumbo.usuarios, r tumbo.riesgo_pagos) returns jsonb
 language sql stable security definer set search_path = '' as $$
   select case when r.pago_id is null then null
               when tumbo_privado.cuenta_demo(p_yo.email) and tumbo_privado.comprador_real(r.comprador_id)
                 then jsonb_build_object('pago', r.pago_id, 'bloqueado', true)
+              when not coalesce(tumbo_privado.tiene_permiso(p_yo, 'riesgo'), false)
+                then jsonb_build_object('pago', r.pago_id, 'nivel', r.nivel, 'retenido', r.retenido and r.liberado_el is null, 'resumen', true)
               else jsonb_build_object('pago', r.pago_id, 'puntaje', r.puntaje, 'nivel', r.nivel, 'motivos', r.motivos,
                                       'calculado', r.calculado, 'retenido', r.retenido and r.liberado_el is null,
-                                      'liberado_el', r.liberado_el, 'liberado_por', tumbo_privado.firma_visible(p_yo, null, r.liberado_por),
+                                      'liberado_el', r.liberado_el,
+                                      'liberado_por', case when r.liberado_por is null then null
+                                                           when r.liberado_por_id is null and tumbo_privado.cuenta_demo(p_yo.email) then 'Cuenta del equipo'
+                                                           else tumbo_privado.firma_visible(p_yo, r.liberado_por_id, r.liberado_por) end,
                                       'nota', r.nota) end
 $$;
 
--- El riesgo de unos pagos (hasta 100) para la conciliación y los 360: los
--- que aún no se verifican se recalculan.
+-- El riesgo de unos pagos (hasta 100) para la conciliación y los 360. Se
+-- lee lo guardado (se calcula al crear el pago, al reportarlo y al
+-- verificarlo); en cada llamada se calculan a lo sumo 10: los que no tienen
+-- evaluación y los pendientes o reportados con una de hace más de 10
+-- minutos (una lista negra nueva, p. ej.). Operaciones sin «riesgo» solo
+-- lee el resumen y no recalcula.
 create function public.tm_riesgo_pagos(p_sesion text, p_pagos text[]) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
-  yo tumbo.usuarios := tumbo_privado.exigir_rol(p_sesion, array['superadmin', 'finanzas', 'ops']);
+  yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['superadmin', 'finanzas', 'ops']);
+  v_permiso boolean := coalesce(tumbo_privado.tiene_permiso(yo, 'riesgo'), false);
+  v_ids text[];
   v_id text;
   r tumbo.riesgo_pagos;
+  v_calc integer := 0;
   v jsonb := '{}'::jsonb;
 begin
   if coalesce(cardinality(p_pagos), 0) > 100 then
     raise exception 'Pide el riesgo de hasta 100 pagos.';
   end if;
-  for v_id in select distinct x from unnest(coalesce(p_pagos, '{}')) x where x ~ '^PAG-[0-9]{4}-[0-9]{5,}$' loop
-    if exists (select 1 from tumbo.pagos g where g.id = v_id and g.estado in ('pendiente', 'reportado'))
-       or not exists (select 1 from tumbo.riesgo_pagos q where q.pago_id = v_id) then
+  select coalesce(array_agg(distinct x), '{}') into v_ids from unnest(coalesce(p_pagos, '{}')) x where x ~ '^PAG-[0-9]{4}-[0-9]{5,}$';
+  if v_permiso then
+    for v_id in select g.id from tumbo.pagos g left join tumbo.riesgo_pagos q on q.pago_id = g.id
+                where g.id = any (v_ids)
+                  and (q.pago_id is null or (g.estado in ('pendiente', 'reportado') and q.calculado < now() - interval '10 minutes'))
+                order by q.pago_id is not null, g.id limit 10 loop
       perform tumbo_privado.evaluar_riesgo_pago(v_id);
-    end if;
-    select * into r from tumbo.riesgo_pagos where pago_id = v_id;
-    if found then
-      v := v || jsonb_build_object(v_id, tumbo_privado.riesgo_json(yo, r));
-    end if;
+      v_calc := v_calc + 1;
+    end loop;
+  end if;
+  for r in select * from tumbo.riesgo_pagos q where q.pago_id = any (v_ids) loop
+    v := v || jsonb_build_object(r.pago_id, tumbo_privado.riesgo_json(yo, r));
   end loop;
   return v;
 end $$;
@@ -2167,14 +2524,17 @@ begin
   if char_length(v_nota) < 10 then
     raise exception 'Explica qué revisaste (al menos 10 caracteres).';
   end if;
-  update tumbo.riesgo_pagos set liberado_por = tumbo_privado.actor(yo), liberado_el = now(), nota = v_nota where pago_id = p_pago;
+  update tumbo.riesgo_pagos set liberado_por = tumbo_privado.actor(yo), liberado_por_id = yo.id, liberado_el = now(), nota = v_nota
+  where pago_id = p_pago;
   perform tumbo_privado.auditar(yo, 'Retención por riesgo liberada', p_pago || ' (puntaje ' || r.puntaje || ') · ' || v_nota);
   return jsonb_build_object('ok', true);
 end $$;
 
 -- Panel de riesgo: umbrales, pagos retenidos y recientes de riesgo medio o
--- alto, listas negras y compradores marcados. Una cuenta de prueba solo ve
--- lo de la demo (nunca datos de personas reales).
+-- alto, listas negras (con dónde se coteja cada tipo), los comercios cuyos
+-- datos de cobro coinciden con ellas y los compradores marcados. Una cuenta
+-- de prueba solo ve lo de la demo (nunca datos de personas o comercios
+-- reales) y no recibe los umbrales (dirían cómo quedar justo debajo).
 create function public.tm_riesgo_panel(p_sesion text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -2183,7 +2543,18 @@ declare
 begin
   perform tumbo_privado.exigir_permiso(yo, 'riesgo');
   return jsonb_build_object(
-    'umbrales', coalesce(tumbo_privado.ajuste('riesgo'), '{}'::jsonb),
+    'umbrales', case when v_demo then null else coalesce(tumbo_privado.ajuste('riesgo'), '{}'::jsonb) end,
+    'cotejo', jsonb_build_object(
+      'cedula', 'El puntaje de cada pago (comprador, pagador y destinatario) y los destinos de reembolso.',
+      'telefono', 'El puntaje de cada pago (comprador, pagador y destinatario), los destinos de reembolso y el Pago Móvil de cobro de los comercios (retiene sus liquidaciones).',
+      'correo', 'El puntaje de cada pago (cuenta del comprador y correo del pagador) y los destinos de reembolso (Zelle).',
+      'rif', 'El puntaje de cada pago (datos de la factura) y el RIF de cobro y del expediente de los comercios (retiene sus liquidaciones).',
+      'cuenta', 'Las cuentas de liquidación de los comercios: retiene sus liquidaciones y suma 30 puntos a los pagos de sus pedidos.'),
+    'comercios', coalesce((select jsonb_agg(jsonb_build_object('id', s.id, 'nombre', s.nombre, 'coincide', tumbo_privado.seller_lista_negra(s.id))
+                                            order by s.id)
+                           from tumbo.sellers s
+                           where tumbo_privado.seller_lista_negra(s.id) is not null
+                             and (not v_demo or tumbo_privado.comercio_de_prueba(s.id))), '[]'::jsonb),
     'pagos', coalesce((select jsonb_agg(tumbo_privado.riesgo_json(yo, r) || jsonb_build_object(
         'estado_pago', g.estado, 'total_usd', g.total_usd, 'creado', g.creado,
         'pedidos', (select coalesce(jsonb_agg(p.id order by p.id), '[]'::jsonb) from tumbo.pedidos p where p.pago_id = g.id))
@@ -2356,6 +2727,7 @@ begin
                                                                    'fecha', l.fecha, 'pedidos', cardinality(l.pedidos)) order by l.fecha desc, l.id desc)
                                from (select * from tumbo.liquidaciones x where x.seller_id = s.id order by x.fecha desc, x.id desc limit 20) l), '[]'::jsonb),
     'retencion', tumbo_privado.retencion_seller(s.id),
+    'lista_negra', tumbo_privado.seller_lista_negra(s.id),
     'equipo', coalesce((select jsonb_agg(jsonb_build_object('id', u.id, 'nombre', u.nombre, 'rol', u.rol, 'activo', u.activo, 'bloqueado', u.bloqueado,
                                                             'demo', tumbo_privado.cuenta_demo(u.email), 'ultimo_acceso', u.ultimo_acceso,
                                                             'totp', exists (select 1 from tumbo.usuarios_2fa z where z.usuario_id = u.id and z.activo))
@@ -2408,10 +2780,22 @@ begin
   if u.id is null or u.rol <> 'comprador' or not tumbo_privado.ve_usuario(yo, u) then
     raise exception 'Comprador no encontrado.';
   end if;
+  -- su perfil, los pagadores de sus pagos y los destinos de sus reembolsos
   select coalesce(jsonb_agg(jsonb_build_object('tipo', l.tipo, 'motivo', l.motivo)), '[]'::jsonb) into v_listas
   from tumbo.listas_negras l
-  where l.activo and ((l.tipo = 'correo' and l.valor = lower(u.email)) or (l.tipo = 'cedula' and l.valor = tumbo_privado.riesgo_doc(u.cedula))
-                      or (l.tipo = 'telefono' and l.valor = tumbo_privado.riesgo_tel(u.telefono)));
+  where l.activo and (
+    (l.tipo = 'correo' and (l.valor = lower(u.email)
+                            or l.valor in (select lower(g.pagador ->> 'correo') from tumbo.pagos g where g.comprador_id = u.id)
+                            or l.valor in (select lower(d.datos ->> 'correo') from tumbo.reembolso_destinos d join tumbo.reembolsos r on r.id = d.reembolso_id
+                                           where r.comprador_id = u.id or r.pedido_id in (select p.id from tumbo.pedidos p where p.comprador_id = u.id))))
+    or (l.tipo = 'cedula' and (l.valor = tumbo_privado.riesgo_doc(u.cedula)
+                               or l.valor in (select tumbo_privado.riesgo_doc(g.pagador ->> 'cedula') from tumbo.pagos g where g.comprador_id = u.id)
+                               or l.valor in (select tumbo_privado.riesgo_doc(d.datos ->> 'cedula') from tumbo.reembolso_destinos d join tumbo.reembolsos r on r.id = d.reembolso_id
+                                              where r.comprador_id = u.id or r.pedido_id in (select p.id from tumbo.pedidos p where p.comprador_id = u.id))))
+    or (l.tipo = 'telefono' and (l.valor = tumbo_privado.riesgo_tel(u.telefono)
+                                 or l.valor in (select tumbo_privado.riesgo_tel(g.pagador ->> 'telefono') from tumbo.pagos g where g.comprador_id = u.id)
+                                 or l.valor in (select tumbo_privado.riesgo_tel(d.datos ->> 'telefono') from tumbo.reembolso_destinos d join tumbo.reembolsos r on r.id = d.reembolso_id
+                                                where r.comprador_id = u.id or r.pedido_id in (select p.id from tumbo.pedidos p where p.comprador_id = u.id)))));
   return jsonb_build_object(
     'usuario', jsonb_build_object('id', u.id, 'nombre', u.nombre, 'email', u.email, 'telefono', u.telefono, 'cedula', u.cedula,
                                   'creado', u.creado, 'ultimo_acceso', u.ultimo_acceso, 'activo', u.activo, 'bloqueado', u.bloqueado,
@@ -2452,7 +2836,8 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- Imágenes de banners y colecciones: un propósito público nuevo (5 MB, las
 -- mismas imágenes que un producto). Las sube el equipo de marketing con una
--- cuenta real (archivo_permitido, abajo).
+-- cuenta real (marketing_puede_subir, abajo; la subida la conecta la
+-- integración de la ola 2).
 insert into tumbo.archivo_propositos (proposito, bucket, max_bytes, tipos, publico) values
   ('marketing', 'tumbo-publico', 5242880, array['image/jpeg', 'image/png', 'image/webp'], true)
 on conflict (proposito) do nothing;
@@ -2466,6 +2851,7 @@ create table tumbo.campanas (
   color       text not null default 'azul' check (color in ('azul', 'verde', 'ambar', 'rojo', 'violeta')),
   activa      boolean not null default true,
   demo        boolean not null default false,
+  por_id      uuid,
   por         text,
   creado      timestamptz not null default now(),
   check (hasta > desde)
@@ -2489,6 +2875,7 @@ create table tumbo.banners (
   activo      boolean not null default true,
   campana_id  bigint,
   demo        boolean not null default false,
+  por_id      uuid,
   por         text,
   creado      timestamptz not null default now(),
   check (hasta > desde)
@@ -2510,6 +2897,7 @@ create table tumbo.colecciones (
   activa      boolean not null default true,
   campana_id  bigint,
   demo        boolean not null default false,
+  por_id      uuid,
   por         text,
   creado      timestamptz not null default now(),
   check (hasta > desde)
@@ -2555,6 +2943,59 @@ create index ofertas_sku_idx on tumbo.ofertas (sku) where activa;
 create index ofertas_seller_idx on tumbo.ofertas (seller_id);
 alter table tumbo.ofertas enable row level security;
 revoke all on tumbo.ofertas from public, anon, authenticated;
+
+-- Desde cuándo cada producto está a la venta (publicado o pausado) a su
+-- precio actual o a uno mayor: el precio que se puede tachar es uno que de
+-- verdad se cobró durante los días de referencia. Lo lleva un disparador
+-- sobre productos: la primera publicación y cada subida de precio lo
+-- reinician (también una subida fuera de la venta); una baja no, y el
+-- precio de lista vigente es entonces el menor de la ventana.
+create table tumbo.precio_referencia (
+  sku         text primary key check (char_length(sku) <= 40),
+  precio_usd  numeric(12,2) not null,
+  desde       timestamptz not null,
+  actualizado timestamptz not null default now()
+);
+alter table tumbo.precio_referencia enable row level security;
+revoke all on tumbo.precio_referencia from public, anon, authenticated;
+
+create function tumbo_privado.producto_precio_referencia() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.estado in ('publicado', 'pausado') then
+    insert into tumbo.precio_referencia as r (sku, precio_usd, desde) values (new.sku, new.precio_usd, now())
+    on conflict (sku) do update
+      set desde = case when excluded.precio_usd > r.precio_usd then now() else r.desde end,
+          precio_usd = excluded.precio_usd, actualizado = now();
+  elsif tg_op = 'UPDATE' and new.precio_usd > old.precio_usd then
+    update tumbo.precio_referencia set precio_usd = new.precio_usd, desde = now(), actualizado = now() where sku = new.sku;
+  end if;
+  return null;
+end $$;
+
+create trigger productos_precio_referencia after insert or update of estado, precio_usd on tumbo.productos
+  for each row execute function tumbo_privado.producto_precio_referencia();
+
+-- Lo que ya está a la venta al aplicar esta migración: desde su creación o
+-- desde su última subida de precio registrada (lo que sea posterior).
+insert into tumbo.precio_referencia (sku, precio_usd, desde)
+select p.sku, p.precio_usd,
+       greatest(p.creado, coalesce((select max(h.fecha) from tumbo.precio_historial h where h.sku = p.sku and h.despues > h.antes), p.creado))
+from tumbo.productos p where p.estado in ('publicado', 'pausado')
+on conflict (sku) do nothing;
+
+-- Desde cuándo se puede mostrar el precio de lista de un producto tachado
+-- (una oferta de precio o relámpago): lleva los días de referencia
+-- (promociones.referencia_dias) a la venta sin subirlo. Null: no está a la
+-- venta (p. ej. sigue en revisión).
+create function tumbo_privado.tachable_desde(p tumbo.productos) returns timestamptz
+language sql stable security definer set search_path = '' as $$
+  select case when p.estado in ('publicado', 'pausado') then
+    greatest((select r.desde from tumbo.precio_referencia r where r.sku = p.sku),
+             (select max(h.fecha) from tumbo.precio_historial h where h.sku = p.sku and h.despues > h.antes))
+    + make_interval(days => tumbo_privado.numero(coalesce(tumbo_privado.ajuste('promociones'), '{}'::jsonb) -> 'referencia_dias', 7)::integer)
+  end
+$$;
 
 -- Cupones: código, % o monto, compra mínima, tope de descuento, usos en
 -- total y por persona, vigencia, quién lo financia (Tumbo: aplica a todo el
@@ -2644,6 +3085,64 @@ begin
   return v_n > p_tope;
 end $$;
 
+-- Códigos de cupón probados por persona y por red en ventanas de 10
+-- minutos (sin bitácora): contra la adivinación de códigos, que son dinero.
+create unlogged table tumbo.cupon_intentos (
+  clave   text not null,
+  ventana timestamptz not null,
+  codigo  text not null,
+  primary key (clave, ventana, codigo)
+);
+alter table tumbo.cupon_intentos enable row level security;
+revoke all on tumbo.cupon_intentos from public, anon, authenticated;
+
+-- ¿Puede probar este código? Cuenta los códigos distintos de la ventana: la
+-- persona hasta promociones.cupones_intentos (10); en una cuenta de prueba
+-- (compartida) por cuenta y red, con un respaldo de diez veces por cuenta;
+-- la red, el triple (varias personas pueden salir por la misma). Un código
+-- ya probado en la ventana no vuelve a contar (la cotización y el checkout
+-- lo consultan varias veces). Lo usa el contrato aplicar_promociones, así
+-- vale para tm_promociones_cotizar y para el checkout de Pagos.
+create function tumbo_privado.cupon_intento(p_usuario uuid, p_codigo text) returns boolean
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_tope integer := greatest(tumbo_privado.numero(coalesce(tumbo_privado.ajuste('promociones'), '{}'::jsonb) -> 'cupones_intentos', 10), 3)::integer;
+  v_ventana timestamptz := date_bin(interval '10 minutes', now(), timestamptz '2000-01-01');
+  v_red text := tumbo_privado.ip_cliente();
+  v_demo boolean := false;
+  v_claves text[] := '{}';
+  v_topes integer[] := '{}';
+  i integer;
+begin
+  if p_usuario is not null then
+    v_demo := exists (select 1 from tumbo.usuarios u where u.id = p_usuario and tumbo_privado.cuenta_demo(u.email));
+    if v_demo then
+      v_claves := v_claves || ('usr:' || p_usuario || '@' || coalesce(v_red, 'desconocida')) || ('usr:' || p_usuario);
+      v_topes := v_topes || v_tope || v_tope * 10;
+    else
+      v_claves := v_claves || ('usr:' || p_usuario);
+      v_topes := v_topes || v_tope;
+    end if;
+  end if;
+  if v_red is not null and v_red <> 'desconocida' then
+    v_claves := v_claves || ('red:' || v_red);
+    v_topes := v_topes || v_tope * 3;
+  end if;
+  for i in 1 .. coalesce(cardinality(v_claves), 0) loop
+    if not exists (select 1 from tumbo.cupon_intentos c where c.clave = v_claves[i] and c.ventana = v_ventana and c.codigo = p_codigo)
+       and (select count(*) from tumbo.cupon_intentos c where c.clave = v_claves[i] and c.ventana = v_ventana) >= v_topes[i] then
+      return false;
+    end if;
+  end loop;
+  for i in 1 .. coalesce(cardinality(v_claves), 0) loop
+    insert into tumbo.cupon_intentos (clave, ventana, codigo) values (v_claves[i], v_ventana, p_codigo) on conflict do nothing;
+  end loop;
+  if random() < 0.01 then
+    delete from tumbo.cupon_intentos where ventana < now() - interval '1 hour';
+  end if;
+  return true;
+end $$;
+
 -- Unidades vendidas de una oferta y usos de un cupón (lo pagado o por pagar).
 create function tumbo_privado.oferta_vendidas(p_oferta bigint) returns integer
 language sql stable security definer set search_path = '' as $$
@@ -2671,12 +3170,16 @@ declare
   v_uni integer;
   v_mejor jsonb;
   v_mejor_desc numeric := 0;
+  v_minimo numeric := (select p.precio_minimo from tumbo.productos p where p.sku = p_sku);
 begin
   for o in select * from tumbo.ofertas x
            where x.sku = p_sku and x.activa and x.desde <= now() and x.hasta > now() and p_precio <= x.precio_referencia_usd
            order by x.id loop
     v_desc := 0;
     v_uni := p_cant;
+    -- ninguna oferta deja la unidad por debajo del precio mínimo que rige hoy
+    continue when v_minimo is not null
+      and coalesce(o.precio_oferta_usd, round(p_precio * (1 - o.descuento_pct / 100), 2)) < v_minimo;
     if o.tipo = 'cantidad' then
       if p_cant >= o.cantidad_min then
         v_desc := round(p_precio * p_cant * o.descuento_pct / 100, 2);
@@ -2697,16 +3200,20 @@ begin
   return v_mejor;
 end $$;
 
--- Contrato aplicar_promociones (Crecimiento; la ola 0 dejó las líneas sin
--- descuento). Lo llama el checkout de Pagos (checkout_calcular) con el
--- carrito: devuelve las líneas con su descuento (y quién lo financia), el
--- descuento total (lo que excede a las líneas es el cupón de Tumbo, que el
--- checkout reparte entre los comercios), las promociones aplicadas y el
--- cupón si es válido (si no, cupon = null y cupon_error dice por qué).
-create or replace function tumbo_privado.aplicar_promociones(p_usuario uuid, p_items jsonb, p_cupon text) returns jsonb
-language plpgsql stable security definer set search_path = '' as $$
+-- El cálculo de las promociones de un carrito: devuelve las líneas con su
+-- descuento (y quién lo financia), el descuento total (lo que excede a las
+-- líneas es el cupón de Tumbo, que el checkout reparte entre los
+-- comercios), las promociones aplicadas y el cupón si es válido (si no,
+-- cupon = null y cupon_error dice por qué: el mismo mensaje para un código
+-- que no existe y para uno que no aplica, salvo la compra mínima y el uso
+-- ya hecho por la misma persona). Con p_contar, un código nuevo cuenta para
+-- el tope de códigos probados (cupon_intento); el registro del checkout
+-- (registrar_promociones) vuelve a calcular sin contar.
+create function tumbo_privado.calcular_promociones(p_usuario uuid, p_items jsonb, p_cupon text, p_contar boolean) returns jsonb
+language plpgsql security definer set search_path = '' as $$
 declare
   v_codigo text := nullif(upper(btrim(coalesce(p_cupon, ''))), '');
+  v_no_valido text := 'El cupón ' || coalesce(nullif(upper(btrim(coalesce(p_cupon, ''))), ''), '') || ' no es válido o no aplica a este carrito.';
   l record;
   b jsonb;
   v_lineas jsonb := '[]'::jsonb;
@@ -2745,22 +3252,21 @@ begin
     end if;
   end loop;
 
-  if v_codigo is not null then
+  if v_codigo is not null and (char_length(v_codigo) > 24 or v_codigo !~ '^[A-Z0-9][A-Z0-9_-]+$') then
+    v_error := v_no_valido;
+  elsif v_codigo is not null and p_contar and not tumbo_privado.cupon_intento(p_usuario, v_codigo) then
+    v_error := 'Probaste muchos códigos de cupón distintos seguidos: espera unos minutos.';
+  elsif v_codigo is not null then
     select * into c from tumbo.cupones where codigo = v_codigo and activo order by id desc limit 1;
-    if not found then
-      v_error := 'El cupón ' || v_codigo || ' no existe o ya no está activo.';
-    elsif c.desde > now() then
-      v_error := 'El cupón ' || v_codigo || ' empieza a valer el ' || to_char(c.desde at time zone 'America/Caracas', 'DD/MM/YYYY') || '.';
-    elsif c.hasta <= now() then
-      v_error := 'El cupón ' || v_codigo || ' venció.';
+    if not found or c.desde > now() or c.hasta <= now() then
+      v_error := v_no_valido;
     else
       v_uso := tumbo_privado.cupon_uso(c.id, p_usuario);
-      if c.usos_max is not null and (v_uso ->> 'usos')::integer >= c.usos_max then
-        v_error := 'El cupón ' || v_codigo || ' ya se usó todas las veces posibles.';
-      elsif p_usuario is not null and (v_uso ->> 'usos_usuario')::integer >= c.usos_por_usuario then
+      if p_usuario is not null and (v_uso ->> 'usos_usuario')::integer >= c.usos_por_usuario then
         v_error := 'Ya usaste el cupón ' || v_codigo || case when c.usos_por_usuario = 1 then '.' else ' ' || c.usos_por_usuario || ' veces.' end;
-      elsif c.presupuesto_usd is not null and (v_uso ->> 'gastado_usd')::numeric >= c.presupuesto_usd then
-        v_error := 'El cupón ' || v_codigo || ' agotó su presupuesto.';
+      elsif (c.usos_max is not null and (v_uso ->> 'usos')::integer >= c.usos_max)
+            or (c.presupuesto_usd is not null and (v_uso ->> 'gastado_usd')::numeric >= c.presupuesto_usd) then
+        v_error := v_no_valido;
       end if;
     end if;
     if v_error is null then
@@ -2769,7 +3275,7 @@ begin
       where (x2 ->> 'total_usd')::numeric > 0
         and (c.seller_id is null or (x2 ->> 'seller_id' = c.seller_id and x2 ->> 'financia' = 'seller'));
       if v_n = 0 then
-        v_error := 'El cupón ' || v_codigo || ' es de otro comercio: no aplica a este carrito.';
+        v_error := v_no_valido;
       elsif v_elegible < c.minimo_usd then
         v_error := 'El cupón ' || v_codigo || ' pide una compra mínima de ' || tumbo_privado.fmt_usd(c.minimo_usd) ||
                    case when c.seller_id is not null then ' en productos de ese comercio' else '' end || '.';
@@ -2808,7 +3314,7 @@ begin
       v_promos := v_promos || jsonb_build_object('tipo', 'cupon', 'id', c.id, 'codigo', c.codigo, 'descuento_usd', v_desc_cupon,
                                                  'financia', c.financia, 'seller_id', c.seller_id, 'descripcion', c.descripcion);
     elsif v_error is null then
-      v_error := 'El cupón ' || v_codigo || ' no da descuento en este carrito.';
+      v_error := v_no_valido;
     end if;
   end if;
 
@@ -2822,11 +3328,25 @@ begin
     'cupon_error', v_error);
 end $$;
 
+-- Contrato aplicar_promociones (Crecimiento; la ola 0 dejó las líneas sin
+-- descuento). Lo llama el checkout de Pagos (checkout_calcular, también en
+-- tm_checkout_cotizar) con el carrito: el cálculo de arriba, con el tope de
+-- códigos de cupón probados (es volátil: lo cuenta).
+create or replace function tumbo_privado.aplicar_promociones(p_usuario uuid, p_items jsonb, p_cupon text) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+begin
+  return tumbo_privado.calcular_promociones(p_usuario, p_items, p_cupon, true);
+end $$;
+
 -- Registra lo que aplicó el checkout en un pedido recién creado (lo llama
 -- el disparador de pedidos, con el carrito todavía completo). Bloquea las
 -- ofertas de sus productos y el cupón del pago y vuelve a calcular: si una
 -- relámpago se agotó, un cupón llegó a su tope o el descuento cambió
--- mientras el comprador confirmaba, rechaza el checkout (nada se crea).
+-- mientras el comprador confirmaba, rechaza el checkout (nada se crea). Se
+-- compara con lo que cobró el checkout tanto lo que financia el comercio
+-- (por pedido) como el descuento de todo el pago (también lo de Tumbo: su
+-- cupón y sus ofertas), así dos checkouts a la vez no gastan más que el
+-- presupuesto de un cupón ni lo registrado difiere de lo cobrado.
 create function tumbo_privado.registrar_promociones(p_yo tumbo.usuarios, v tumbo.pedidos, g tumbo.pagos) returns void
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -2847,7 +3367,7 @@ begin
   end if;
   select coalesce(jsonb_agg(jsonb_build_object('sku', ci.sku, 'cant', ci.cant) order by ci.sku), '[]'::jsonb) into v_items
   from tumbo.carrito_items ci where ci.usuario_id = v.comprador_id;
-  promo := tumbo_privado.aplicar_promociones(v.comprador_id, v_items, g.cupon);
+  promo := tumbo_privado.calcular_promociones(v.comprador_id, v_items, g.cupon, false);
   if g.cupon is not null and nullif(promo ->> 'cupon', '') is null then
     raise exception 'El cupón % ya no se puede usar (%): quítalo y revisa el total.', g.cupon,
       coalesce(promo ->> 'cupon_error', 'llegó a su tope mientras confirmabas');
@@ -2858,6 +3378,11 @@ begin
   where l ->> 'seller_id' = v.seller_id and coalesce(l ->> 'financia', 'seller') = 'seller';
   if abs(round(v_desc_seller, 2) - coalesce(v.descuento_usd, 0)) >= 0.01 then
     raise exception 'Las promociones de tu carrito cambiaron mientras confirmabas (una oferta terminó o se agotó): revisa el total.';
+  end if;
+  -- y el descuento de todo el pago (con el cupón y las ofertas de Tumbo),
+  -- calculado ya con el cupón bloqueado, debe ser el que se cobró
+  if abs(round(coalesce((promo ->> 'descuento_usd')::numeric, 0), 2) - coalesce(g.descuento_usd, 0)) >= 0.01 then
+    raise exception 'Las promociones de tu carrito cambiaron mientras confirmabas (un cupón u oferta llegó a su tope): revisa el total.';
   end if;
   for x in select * from jsonb_array_elements(case when jsonb_typeof(promo -> 'promociones') = 'array' then promo -> 'promociones' else '[]'::jsonb end) loop
     if x ->> 'tipo' = 'oferta' and x ->> 'seller_id' = v.seller_id then
@@ -2871,12 +3396,14 @@ begin
                                      or (x ->> 'seller_id' is null and not exists (select 1 from tumbo.promociones_aplicadas a
                                                                                    where a.pago_id = g.id and a.cupon_id = (x ->> 'id')::bigint))) then
       select * into c from tumbo.cupones where id = (x ->> 'id')::bigint;
-      v_uso := tumbo_privado.cupon_uso(c.id, v.comprador_id);
-      if c.presupuesto_usd is not null and (v_uso ->> 'gastado_usd')::numeric + (x ->> 'descuento_usd')::numeric > c.presupuesto_usd + 0.005 then
-        raise exception 'El cupón % agotó su presupuesto mientras confirmabas: quítalo y revisa el total.', c.codigo;
-      end if;
       insert into tumbo.promociones_aplicadas (pago_id, pedido_id, comprador_id, seller_id, cupon_id, descuento_usd, financia)
       values (g.id, case when c.seller_id is not null then v.id end, v.comprador_id, c.seller_id, c.id, (x ->> 'descuento_usd')::numeric, c.financia);
+      -- (de respaldo: con lo registrado, el cupón no pasa su presupuesto ni sus usos)
+      v_uso := tumbo_privado.cupon_uso(c.id, null);
+      if (c.presupuesto_usd is not null and (v_uso ->> 'gastado_usd')::numeric > c.presupuesto_usd + 0.005)
+         or (c.usos_max is not null and (v_uso ->> 'usos')::integer > c.usos_max) then
+        raise exception 'El cupón % llegó a su tope mientras confirmabas: quítalo y revisa el total.', c.codigo;
+      end if;
     end if;
   end loop;
 end $$;
@@ -2897,6 +3424,7 @@ language sql stable security definer set search_path = '' as $$
                          from tumbo.ofertas o
                          where o.sku = p.sku and o.activa and o.desde <= now() and o.hasta > now() and p.precio_usd <= o.precio_referencia_usd
                            and (o.tipo = 'cantidad' or o.precio_oferta_usd < p.precio_usd)
+                           and (p.precio_minimo is null or coalesce(o.precio_oferta_usd, round(p.precio_usd * (1 - o.descuento_pct / 100), 2)) >= p.precio_minimo)
                            and (o.tipo <> 'relampago' or o.stock_oferta > tumbo_privado.oferta_vendidas(o.id))), '[]'::jsonb),
     'nivel', (select jsonb_build_object('nivel', n.nivel,
                      'nombre', (select z ->> 'nombre' from jsonb_array_elements(coalesce(tumbo_privado.ajuste('niveles') -> 'niveles', '[]'::jsonb)) z
@@ -2919,6 +3447,7 @@ language sql stable security definer set search_path = '' as $$
     where p.sku = any ((coalesce(p_skus, '{}'))[1:100]) and p.estado = 'publicado'
       and o.activa and o.desde <= now() and o.hasta > now() and o.tipo in ('precio', 'relampago')
       and p.precio_usd <= o.precio_referencia_usd and o.precio_oferta_usd < p.precio_usd
+      and (p.precio_minimo is null or o.precio_oferta_usd >= p.precio_minimo)
       and (o.tipo <> 'relampago' or o.stock_oferta > tumbo_privado.oferta_vendidas(o.id))
     order by p.sku, o.precio_oferta_usd, o.id) q
 $$;
@@ -3025,7 +3554,7 @@ begin
   end if;
   if v_id is not null then
     update tumbo.campanas set nombre = v_nombre, descripcion = v_desc, desde = v_desde, hasta = v_hasta, color = v_color,
-                              activa = coalesce((d ->> 'activa')::boolean, activa), demo = false, por = tumbo_privado.actor(yo)
+                              activa = coalesce((d ->> 'activa')::boolean, activa), demo = false, por_id = yo.id, por = tumbo_privado.actor(yo)
     where id = v_id returning * into k;
     if not found then
       raise exception 'Campaña no encontrada.';
@@ -3034,8 +3563,8 @@ begin
     if (select count(*) from tumbo.campanas where activa and hasta > now()) >= 100 then
       raise exception 'Hay 100 campañas vigentes o programadas.';
     end if;
-    insert into tumbo.campanas (nombre, descripcion, desde, hasta, color, por)
-    values (v_nombre, v_desc, v_desde, v_hasta, v_color, tumbo_privado.actor(yo)) returning * into k;
+    insert into tumbo.campanas (nombre, descripcion, desde, hasta, color, por_id, por)
+    values (v_nombre, v_desc, v_desde, v_hasta, v_color, yo.id, tumbo_privado.actor(yo)) returning * into k;
   end if;
   perform tumbo_privado.auditar(yo, 'Campaña guardada', k.id || ' · ' || k.nombre);
   return to_jsonb(k);
@@ -3082,7 +3611,7 @@ begin
     update tumbo.banners
     set titulo = v_titulo, texto = v_texto, imagen = v_imagen, enlace = v_enlace, boton = v_boton, tono = coalesce(d ->> 'tono', 'marca'),
         desde = v_desde, hasta = v_hasta, orden = least(greatest(v_orden, 0), 1000)::integer, campana_id = v_campana,
-        activo = coalesce((d ->> 'activo')::boolean, activo), demo = false, por = tumbo_privado.actor(yo)
+        activo = coalesce((d ->> 'activo')::boolean, activo), demo = false, por_id = yo.id, por = tumbo_privado.actor(yo)
     where id = v_id returning * into b;
     if not found then
       raise exception 'Banner no encontrado.';
@@ -3091,9 +3620,9 @@ begin
     if (select count(*) from tumbo.banners where activo and hasta > now()) >= 30 then
       raise exception 'Hay 30 banners vigentes o programados: desactiva alguno.';
     end if;
-    insert into tumbo.banners (titulo, texto, imagen, enlace, boton, tono, desde, hasta, orden, campana_id, por)
+    insert into tumbo.banners (titulo, texto, imagen, enlace, boton, tono, desde, hasta, orden, campana_id, por_id, por)
     values (v_titulo, v_texto, v_imagen, v_enlace, v_boton, coalesce(d ->> 'tono', 'marca'), v_desde, v_hasta,
-            least(greatest(v_orden, 0), 1000)::integer, v_campana, tumbo_privado.actor(yo))
+            least(greatest(v_orden, 0), 1000)::integer, v_campana, yo.id, tumbo_privado.actor(yo))
     returning * into b;
   end if;
   perform tumbo_privado.auditar(yo, 'Banner guardado', b.id || ' · ' || b.titulo);
@@ -3146,7 +3675,7 @@ begin
     update tumbo.colecciones
     set slug = v_slug, titulo = v_titulo, descripcion = v_desc, skus = v_skus, desde = v_desde, hasta = v_hasta,
         orden = least(greatest(coalesce(tumbo_privado.num_json(d -> 'orden'), 100), 0), 1000)::integer, campana_id = v_campana,
-        activa = coalesce((d ->> 'activa')::boolean, activa), demo = false, por = tumbo_privado.actor(yo)
+        activa = coalesce((d ->> 'activa')::boolean, activa), demo = false, por_id = yo.id, por = tumbo_privado.actor(yo)
     where id = v_id returning * into k;
     if not found then
       raise exception 'Colección no encontrada.';
@@ -3158,9 +3687,9 @@ begin
     if (select count(*) from tumbo.colecciones where activa and hasta > now()) >= 30 then
       raise exception 'Hay 30 colecciones vigentes o programadas.';
     end if;
-    insert into tumbo.colecciones (slug, titulo, descripcion, skus, desde, hasta, orden, campana_id, por)
+    insert into tumbo.colecciones (slug, titulo, descripcion, skus, desde, hasta, orden, campana_id, por_id, por)
     values (v_slug, v_titulo, v_desc, v_skus, v_desde, v_hasta,
-            least(greatest(coalesce(tumbo_privado.num_json(d -> 'orden'), 100), 0), 1000)::integer, v_campana, tumbo_privado.actor(yo))
+            least(greatest(coalesce(tumbo_privado.num_json(d -> 'orden'), 100), 0), 1000)::integer, v_campana, yo.id, tumbo_privado.actor(yo))
     returning * into k;
   end if;
   perform tumbo_privado.auditar(yo, 'Colección guardada', k.slug || ' · ' || cardinality(k.skus) || ' productos');
@@ -3228,6 +3757,11 @@ begin
     if v_pct is null or v_pct <= 0 or v_pct > v_max_pct then
       raise exception 'El descuento va de 1 a % %%.', v_max_pct;
     end if;
+    -- como cualquier cambio de precio, no atraviesa el precio mínimo del SKU
+    if p.precio_minimo is not null and round(p.precio_usd * (1 - v_pct / 100), 2) < p.precio_minimo then
+      raise exception 'Con ese descuento cada unidad quedaría en %, por debajo del precio mínimo del producto (%).',
+        tumbo_privado.fmt_usd(round(p.precio_usd * (1 - v_pct / 100), 2)), tumbo_privado.fmt_usd(p.precio_minimo);
+    end if;
     v_precio := null;
     v_stock := null;
   else
@@ -3243,10 +3777,19 @@ begin
     if p.precio_minimo is not null and v_precio < p.precio_minimo then
       raise exception 'El precio de oferta no puede bajar del precio mínimo del producto (%).', tumbo_privado.fmt_usd(p.precio_minimo);
     end if;
+    -- el precio tachado es uno que de verdad se cobró: el producto lleva los
+    -- días de referencia a la venta sin subirlo (tachable_desde)
+    if p.estado not in ('publicado', 'pausado') then
+      raise exception '% todavía no está a la venta: para tachar su precio debe llevar % días publicado a ese precio.', p.sku, v_dias_ref;
+    end if;
     if exists (select 1 from tumbo.precio_historial h where h.sku = p.sku and h.despues > h.antes
                and h.fecha > now() - make_interval(days => v_dias_ref::integer)) then
       raise exception 'El precio de % subió en los últimos % días: para mostrar un precio anterior tachado debe llevar ese tiempo sin subir.',
         p.sku, v_dias_ref;
+    end if;
+    if coalesce(tumbo_privado.tachable_desde(p), 'infinity'::timestamptz) > greatest(v_desde, now()) then
+      raise exception 'Para tachar el precio de % debe llevar % días a la venta sin subirlo: la oferta puede empezar desde el %.', p.sku, v_dias_ref,
+        coalesce(to_char(tumbo_privado.tachable_desde(p) at time zone 'America/Caracas', 'DD/MM/YYYY HH24:MI'), 'momento en que se publique');
     end if;
     if v_tipo = 'relampago' then
       if v_stock is null or v_stock <> trunc(v_stock) or v_stock < 1 then
@@ -3439,8 +3982,12 @@ begin
 end $$;
 
 -- Lo que muestra admin/marketing: campañas (con su calendario), banners,
--- colecciones, cupones y ofertas de Tumbo, y las de los comercios (a una
--- cuenta de prueba, solo las de los comercios de prueba), con su uso.
+-- colecciones, cupones y ofertas de Tumbo, y las de los comercios, con su
+-- uso; quién creó cada cosa pasa por firma_visible. A una cuenta de prueba
+-- (contraseña pública) solo le llega lo de la demo: las campañas, los
+-- cupones y las ofertas de la semilla y de los comercios de prueba, y los
+-- banners y colecciones de la demo o que ya están a la vista en la portada;
+-- nunca un cupón de Tumbo ni de un comercio real (su código es dinero).
 create function public.tm_marketing_admin(p_sesion text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -3449,20 +3996,32 @@ declare
 begin
   perform tumbo_privado.exigir_permiso(yo, 'marketing');
   return jsonb_build_object(
-    'campanas', coalesce((select jsonb_agg(to_jsonb(k) order by k.desde desc) from tumbo.campanas k where k.hasta > now() - interval '180 days'), '[]'::jsonb),
-    'banners', coalesce((select jsonb_agg(to_jsonb(b) || jsonb_build_object('imagen_url', tumbo_privado.url_publica(b.imagen),
+    'campanas', coalesce((select jsonb_agg(to_jsonb(k) - 'por_id' || jsonb_build_object('por', tumbo_privado.firma_visible(yo, k.por_id, k.por))
+                                           order by k.desde desc)
+                          from tumbo.campanas k where k.hasta > now() - interval '180 days' and (not v_demo or k.demo)), '[]'::jsonb),
+    'banners', coalesce((select jsonb_agg(to_jsonb(b) - 'por_id' || jsonb_build_object('por', tumbo_privado.firma_visible(yo, b.por_id, b.por),
+                                                                            'imagen_url', tumbo_privado.url_publica(b.imagen),
                                                                             'vigente', b.activo and b.desde <= now() and b.hasta > now()) order by b.orden, b.id)
-                         from tumbo.banners b where b.hasta > now() - interval '180 days'), '[]'::jsonb),
-    'colecciones', coalesce((select jsonb_agg(to_jsonb(c) || jsonb_build_object('vigente', c.activa and c.desde <= now() and c.hasta > now()) order by c.orden, c.id)
-                             from tumbo.colecciones c where c.hasta > now() - interval '180 days'), '[]'::jsonb),
-    'cupones', coalesce((select jsonb_agg(to_jsonb(c) - 'por_id' || tumbo_privado.cupon_uso(c.id, null) order by c.id desc)
+                         from tumbo.banners b
+                         where b.hasta > now() - interval '180 days' and (not v_demo or b.demo or (b.activo and b.desde <= now() and b.hasta > now()))), '[]'::jsonb),
+    'colecciones', coalesce((select jsonb_agg(to_jsonb(c) - 'por_id' || jsonb_build_object('por', tumbo_privado.firma_visible(yo, c.por_id, c.por),
+                                                                                'vigente', c.activa and c.desde <= now() and c.hasta > now()) order by c.orden, c.id)
+                             from tumbo.colecciones c
+                             where c.hasta > now() - interval '180 days' and (not v_demo or c.demo or (c.activa and c.desde <= now() and c.hasta > now()))), '[]'::jsonb),
+    'cupones', coalesce((select jsonb_agg(to_jsonb(c) - 'por_id' || jsonb_build_object('por', tumbo_privado.firma_visible(yo, c.por_id, c.por))
+                                          || tumbo_privado.cupon_uso(c.id, null) order by c.id desc)
                          from tumbo.cupones c
-                         where c.hasta > now() - interval '180 days' and (c.seller_id is null or not v_demo or tumbo_privado.comercio_de_prueba(c.seller_id))), '[]'::jsonb),
-    'ofertas', coalesce((select jsonb_agg(to_jsonb(o) - 'por_id' || jsonb_build_object('vendidas', tumbo_privado.oferta_vendidas(o.id), 'nombre', p.nombre) order by o.id desc)
+                         where c.hasta > now() - interval '180 days'
+                           and (not v_demo or c.demo or (c.seller_id is not null and tumbo_privado.comercio_de_prueba(c.seller_id)))), '[]'::jsonb),
+    'ofertas', coalesce((select jsonb_agg(to_jsonb(o) - 'por_id' || jsonb_build_object('por', tumbo_privado.firma_visible(yo, o.por_id, o.por),
+                                                                                       'vendidas', tumbo_privado.oferta_vendidas(o.id), 'nombre', p.nombre)
+                                          order by o.id desc)
                          from tumbo.ofertas o left join tumbo.productos p on p.sku = o.sku
-                         where o.hasta > now() - interval '180 days' and (o.financia = 'tumbo' or not v_demo or tumbo_privado.comercio_de_prueba(o.seller_id))), '[]'::jsonb),
+                         where o.hasta > now() - interval '180 days'
+                           and (not v_demo or o.demo or (o.financia = 'seller' and tumbo_privado.comercio_de_prueba(o.seller_id)))), '[]'::jsonb),
     'productos', coalesce((select jsonb_agg(jsonb_build_object('sku', p.sku, 'nombre', p.nombre, 'precio_usd', p.precio_usd, 'seller_id', p.seller_id) order by p.sku)
                            from tumbo.productos p where p.estado = 'publicado'), '[]'::jsonb),
+    'imagenes', tumbo_privado.marketing_imagenes_listas(),
     'editable', not v_demo);
 end $$;
 
@@ -3475,19 +4034,22 @@ declare
   cfg jsonb := coalesce(tumbo_privado.ajuste('promociones'), '{}'::jsonb);
 begin
   return jsonb_build_object(
-    'ofertas', coalesce((select jsonb_agg(to_jsonb(o) - 'por_id' || jsonb_build_object('vendidas', tumbo_privado.oferta_vendidas(o.id), 'nombre', p.nombre,
+    'ofertas', coalesce((select jsonb_agg(to_jsonb(o) - 'por_id' || jsonb_build_object('por', tumbo_privado.firma_visible(yo, o.por_id, o.por),
+                                                                                        'vendidas', tumbo_privado.oferta_vendidas(o.id), 'nombre', p.nombre,
                                                                                         'precio_actual', p.precio_usd,
                                                                                         'vigente', o.activa and o.desde <= now() and o.hasta > now()
                                                                                                    and p.precio_usd <= o.precio_referencia_usd)
                                           order by o.id desc)
                          from tumbo.ofertas o left join tumbo.productos p on p.sku = o.sku
                          where o.seller_id = yo.seller_id and o.hasta > now() - interval '120 days'), '[]'::jsonb),
-    'cupones', case when yo.rol = 'seller' then coalesce((select jsonb_agg(to_jsonb(c) - 'por_id' || tumbo_privado.cupon_uso(c.id, null) order by c.id desc)
+    'cupones', case when yo.rol = 'seller' then coalesce((select jsonb_agg(to_jsonb(c) - 'por_id' || jsonb_build_object('por', tumbo_privado.firma_visible(yo, c.por_id, c.por))
+                                                                           || tumbo_privado.cupon_uso(c.id, null) order by c.id desc)
                                                           from tumbo.cupones c where c.seller_id = yo.seller_id and c.hasta > now() - interval '120 days'), '[]'::jsonb) end,
     'productos', coalesce((select jsonb_agg(jsonb_build_object('sku', p.sku, 'nombre', p.nombre, 'precio_usd', p.precio_usd, 'estado', p.estado,
                                                                'disponible', p.stock_fis - p.stock_res, 'precio_minimo', p.precio_minimo,
                                                                'subio', exists (select 1 from tumbo.precio_historial h where h.sku = p.sku and h.despues > h.antes
-                                                                                and h.fecha > now() - make_interval(days => tumbo_privado.numero(cfg -> 'referencia_dias', 7)::integer)))
+                                                                                and h.fecha > now() - make_interval(days => tumbo_privado.numero(cfg -> 'referencia_dias', 7)::integer)),
+                                                               'tachable_desde', tumbo_privado.tachable_desde(p))
                                             order by p.nombre)
                            from tumbo.productos p where p.seller_id = yo.seller_id and p.estado in ('publicado', 'pausado', 'en_revision')), '[]'::jsonb),
     'topes', cfg,
@@ -3647,8 +4209,10 @@ $$;
 -- rate real (comisión y tarifa guardadas en cada pedido), conversión del
 -- embudo, recompra, tiempos de conciliación y despacho, % de reclamos y de
 -- cancelaciones, por período y por categoría o comercio. A una cuenta de
--- prueba solo le llegan los datos de la demo (sin pedidos de personas o
--- comercios reales).
+-- prueba solo le llegan los datos de la demo: sin pedidos de personas o
+-- comercios reales, y la analítica (embudo, lo más visto) solo de los
+-- comercios de prueba y de lo que no es de ningún comercio (búsquedas,
+-- checkout); el filtro por un comercio real se rechaza.
 create function public.tm_metricas_negocio(p_sesion text, p_filtros jsonb) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -3661,9 +4225,16 @@ declare
   v_agrupar text := per ->> 'agrupar';
   v_cat text := nullif(f ->> 'categoria', '');
   v_seller text := nullif(f ->> 'seller', '');
+  v_prueba text[];
   cfg tumbo.config;
   r jsonb;
 begin
+  if v_demo then
+    select coalesce(array_agg(s.id), '{}') into v_prueba from tumbo.sellers s where tumbo_privado.comercio_de_prueba(s.id);
+    if v_seller is not null and not (v_seller = any (v_prueba)) then
+      raise exception 'Con una cuenta de prueba solo ves los comercios de la demo.' using errcode = '42501';
+    end if;
+  end if;
   select * into cfg from tumbo.config where id;
   create temporary table if not exists crec_ped (id text primary key, comprador_id uuid, seller_id text, estado text, creado timestamptz,
                                                  bruto numeric, base numeric, comision numeric, unidades integer, vendido boolean) on commit drop;
@@ -3740,15 +4311,18 @@ begin
         'vistas', count(*) filter (where e.tipo = 'vista_producto'))
       from tumbo.eventos_analitica e
       where e.creado >= v_ini and e.creado < v_fin and (v_seller is null or e.seller_id = v_seller or e.tipo in ('busqueda', 'inicio_checkout', 'abandono_checkout', 'pago_reportado'))
-        and (v_cat is null or e.categoria = v_cat or e.categoria is null)),
+        and (v_cat is null or e.categoria = v_cat or e.categoria is null)
+        and (not v_demo or e.seller_id is null or e.seller_id = any (v_prueba))),
     'top_busquedas', coalesce((select jsonb_agg(jsonb_build_object('texto', t, 'veces', n) order by n desc, t)
                                from (select e.texto as t, count(*) as n from tumbo.eventos_analitica e
                                      where e.tipo = 'busqueda' and e.texto is not null and e.creado >= v_ini and e.creado < v_fin
+                                       and (not v_demo or e.seller_id is null or e.seller_id = any (v_prueba))
                                      group by 1 order by 2 desc, 1 limit 15) s), '[]'::jsonb),
     'top_vistos', coalesce((select jsonb_agg(jsonb_build_object('sku', s.sku, 'nombre', p.nombre, 'vistas', s.n) order by s.n desc, s.sku)
                             from (select e.sku, count(*) as n from tumbo.eventos_analitica e
                                   where e.tipo = 'vista_producto' and e.creado >= v_ini and e.creado < v_fin
                                     and (v_seller is null or e.seller_id = v_seller) and (v_cat is null or e.categoria = v_cat)
+                                    and (not v_demo or e.seller_id = any (v_prueba))
                                   group by 1 order by 2 desc, 1 limit 10) s
                             left join tumbo.productos p on p.sku = s.sku), '[]'::jsonb),
     'filtros', jsonb_build_object('categoria', v_cat, 'seller', v_seller),
@@ -3886,7 +4460,13 @@ begin
     return null;
   end if;
   perform tumbo_privado.registrar_promociones(u, new, g);
-  perform tumbo_privado.evaluar_riesgo_pago(new.pago_id);
+  -- el riesgo, una sola vez por pago: con el último de sus pedidos (cuando
+  -- cada comercio del carrito ya tiene el suyo)
+  if not exists (select 1 from tumbo.carrito_items ci join tumbo.productos p on p.sku = ci.sku
+                 where ci.usuario_id = new.comprador_id
+                   and not exists (select 1 from tumbo.pedidos x where x.pago_id = new.pago_id and x.seller_id = p.seller_id)) then
+    perform tumbo_privado.evaluar_riesgo_pago(new.pago_id);
+  end if;
   return null;
 end $$;
 
@@ -3905,77 +4485,21 @@ language sql stable security definer set search_path = '' as $$
                   and (p_yo.rol = 'superadmin' or (p_yo.rol = 'ops' and tumbo_privado.tiene_permiso(p_yo, 'marketing'))), false)
 $$;
 
--- Desde la de fundaciones (ola 0): solo cambia la comprobación de quién sube,
--- que para el propósito «marketing» es marketing_puede_subir (la regla de
--- los demás propósitos sigue en archivo_permitido, que redefine la
--- integración de la ola 1 después de esta migración; en la integración de
--- la ola 2 esta rama puede pasar a archivo_permitido). Ver un archivo de
--- marketing no cambia: es público.
-create or replace function public.tm_archivo_preparar(p_sesion text, p_proposito text, p_entidad text, p_tipo text,
-                                           p_bytes bigint, p_nombre text) returns jsonb
-language plpgsql security definer set search_path = '' as $$
-declare
-  yo tumbo.usuarios := tumbo_privado.exigir(p_sesion, array['comprador', 'seller', 'precios', 'operador', 'superadmin', 'ops', 'finanzas']);
-  pr tumbo.archivo_propositos;
-  v_tipo text := lower(trim(coalesce(p_tipo, '')));
-  v_entidad text := trim(coalesce(p_entidad, ''));
-  v_nombre text := left(regexp_replace(trim(coalesce(p_nombre, '')), '[[:cntrl:]/\\<>"]+', '', 'g'), 120);
-  v_cuotas jsonb := coalesce(tumbo_privado.ajuste('cuotas_archivos'), '{}'::jsonb);
-  v_por_dia numeric := tumbo_privado.numero(v_cuotas -> 'archivos_por_dia', 100);
-  v_red text := tumbo_privado.ip_cliente();
-  v_demo boolean := tumbo_privado.cuenta_demo(yo.email);
-  v_id uuid := gen_random_uuid();
-  v_bucket text;
-  v_excedida text;
-  v_ext text;
-  v_ruta text;
-begin
-  select * into pr from tumbo.archivo_propositos where proposito = p_proposito;
-  if not found then
-    raise exception 'Ese tipo de adjunto no existe.';
-  end if;
-  if not (v_tipo = any (pr.tipos)) then
-    raise exception 'Ese archivo no se admite aquí: sube %.', tumbo_privado.tipos_legibles(pr.tipos);
-  end if;
-  if p_bytes is null or p_bytes <= 0 then
-    raise exception 'El archivo está vacío.';
-  end if;
-  if p_bytes > pr.max_bytes then
-    raise exception 'El archivo pesa más de % MB, el máximo para este adjunto.', round(pr.max_bytes / 1048576.0);
-  end if;
-  if char_length(v_entidad) = 0 or char_length(v_entidad) > 60
-     or not coalesce(case when pr.proposito = 'marketing' then tumbo_privado.marketing_puede_subir(yo, v_entidad)
-                          else tumbo_privado.archivo_permitido(yo, pr.proposito, v_entidad, 'subir') end, false) then
-    raise exception 'No puedes adjuntar archivos a «%».', left(v_entidad, 60);
-  end if;
-  v_bucket := case when pr.publico then 'tumbo-espera' else pr.bucket end;
-
-  -- Las subidas de una cuenta (y de un comercio) se cuentan de a una.
-  perform tumbo_privado.bloquear_usuario(yo.id, 'archivos');
-  if (select count(*) from tumbo.archivos
-      where propietario = yo.id and creado > now() - interval '1 day' and (not v_demo or red = v_red)) >= v_por_dia then
-    raise exception 'Llegaste al máximo de % archivos por día. Podrás subir más mañana.', trunc(v_por_dia);
-  end if;
-  if v_demo and (select count(*) from tumbo.archivos
-                 where propietario = yo.id and creado > now() - interval '1 day') >= v_por_dia * 10 then
-    raise exception 'Esta cuenta de prueba ya subió muchos archivos hoy. Podrás subir más mañana.';
-  end if;
-  if yo.seller_id is not null then
-    perform pg_advisory_xact_lock(hashtextextended('tumbo:archivos:' || yo.seller_id, 0));
-  end if;
-  v_excedida := tumbo_privado.cuota_excedida(yo.seller_id, yo.id, null, p_bytes);
-  if v_excedida is not null then
-    raise exception '%', v_excedida;
-  end if;
-
-  v_ext := case v_tipo when 'image/jpeg' then 'jpg' when 'image/png' then 'png' when 'image/webp' then 'webp'
-                       when 'application/pdf' then 'pdf' when 'video/mp4' then 'mp4' else 'bin' end;
-  v_ruta := pr.proposito || '/' || coalesce(yo.seller_id, yo.id::text) || '/' || v_id::text || '.' || v_ext;
-  insert into tumbo.archivos (id, proposito, bucket, ruta, entidad, propietario, seller_id, tipo, bytes, reserva, nombre, red)
-  values (v_id, pr.proposito, v_bucket, v_ruta, v_entidad, yo.id, yo.seller_id, v_tipo, p_bytes,
-          greatest(p_bytes, tumbo_privado.tope_bucket(v_bucket, pr.max_bytes)), v_nombre, v_red);
-  return jsonb_build_object('id', v_id, 'bucket', v_bucket, 'ruta', v_ruta);
-end $$;
+-- tm_archivo_preparar (ola 0) no se redefine aquí: Comunicación también la
+-- extiende (archivo_permitido_comunicacion) y archivo_permitido la redefine
+-- la integración de la ola 1, que se aplica después. La integración de la
+-- ola 2 agrega en una sola redefinición, junto a la de Comunicación, la
+-- rama «marketing»: «or (pr.proposito = 'marketing' and
+-- tumbo_privado.marketing_puede_subir(yo, v_entidad))». Hasta entonces el
+-- propósito existe pero nadie sube a él, y admin/marketing lo dice
+-- (marketing_imagenes_listas): los banners salen con su tono de color.
+create function tumbo_privado.marketing_imagenes_listas() returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+                 where ((n.nspname = 'public' and p.proname = 'tm_archivo_preparar')
+                        or (n.nspname = 'tumbo_privado' and p.proname = 'archivo_permitido'))
+                   and p.prosrc like '%marketing_puede_subir%')
+$$;
 
 
 -- ---------------------------------------------------------------------------
@@ -4012,7 +4536,23 @@ begin
   delete from tumbo.riesgo_pagos where pago_id is not null;
   delete from tumbo.eventos_analitica where id is not null;
   delete from tumbo.topes_crecimiento where red is not null;
+  delete from tumbo.cupon_intentos where clave is not null;
   delete from tumbo.moderacion_marcas where id is not null;
+  delete from tumbo.moderacion_medianas where categoria is not null;
+  update tumbo.moderacion_revision set iniciada = null, terminada = null, ultima = null, cursor = '', revisados = 0, marcados = 0, total = 0
+  where id = 1;
+  -- las denuncias de la demo (como el reinicio de Comunicación)
+  delete from tumbo.denuncias where autor_id is null or not tumbo_privado.comprador_real(autor_id);
+  -- desde cuándo está a la venta cada producto: la semilla los trae a la
+  -- venta desde hace 30 días (sus pedidos son de meses atrás); los demás,
+  -- desde su creación o su última subida de precio
+  delete from tumbo.precio_referencia where sku is not null;
+  insert into tumbo.precio_referencia (sku, precio_usd, desde)
+  select p.sku, p.precio_usd,
+         case when tumbo_privado.comercio_de_prueba(p.seller_id) then now() - interval '30 days'
+              else greatest(p.creado, coalesce((select max(h.fecha) from tumbo.precio_historial h where h.sku = p.sku and h.despues > h.antes), p.creado)) end
+  from tumbo.productos p where p.estado in ('publicado', 'pausado')
+  on conflict (sku) do nothing;
   delete from tumbo.ofertas where demo or not exists (select 1 from tumbo.productos p where p.sku = ofertas.sku)
                               or tumbo_privado.comercio_de_prueba(seller_id);
   delete from tumbo.cupones where demo or (seller_id is not null and tumbo_privado.comercio_de_prueba(seller_id));

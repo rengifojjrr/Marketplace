@@ -91,6 +91,9 @@
           ' · <a class="text-secondary hover:underline" href="' + href('app/admin/sellers.html') + '">expediente</a></p>' +
         (d.retencion ? '<p data-retencion class="flex items-start gap-1.5 rounded-btn bg-error-container text-on-error-container px-3 py-2 mb-4 font-body-sm text-body-sm">' +
           ic('lock', 'text-[16px] mt-0.5') + 'Fondos retenidos: ' + esc(d.retencion) + '.</p>' : '') +
+        (d.lista_negra ? '<p data-lista-negra-seller class="flex items-start gap-1.5 rounded-btn bg-error-container text-on-error-container px-3 py-2 mb-4 font-body-sm text-body-sm">' +
+          ic('gpp_maybe', 'text-[16px] mt-0.5') + 'Sus datos de cobro coinciden con la lista negra (' + esc(d.lista_negra) +
+          '): sus liquidaciones quedan retenidas hasta que lo revises en ' + '<a class="underline" href="' + href('app/admin/riesgo.html') + '">Riesgo y listas negras</a>.</p>' : '') +
         '<section data-metricas-seller class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">' +
           metricaKpi('Ventas (90 días)', C().entero(m.ventas), C().usd(m.gmv_usd) + ' vendidos', 'trending_up') +
           metricaKpi('Cancelación', C().pct(m.cancelacion_pct), 'atribuible al comercio', 'cancel', C().n(m.cancelacion_pct) > 5) +

@@ -159,7 +159,11 @@
         var p = productos.filter(function (x) { return x.sku === sku.value; })[0];
         info.innerHTML = p ? esc('Precio actual ' + C().usd(p.precio_usd) + ' · disponibles ' + C().entero(p.disponible) +
           (p.precio_minimo ? ' · precio mínimo ' + C().usd(p.precio_minimo) : '')) +
-          (p.subio && tipo.value !== 'cantidad' ? ' · <strong class="text-error">su precio subió hace poco: no admite precio tachado todavía</strong>' : '') : '';
+          (tipo.value === 'cantidad' ? ''
+            : p.subio ? ' · <strong class="text-error">su precio subió hace poco: no admite precio tachado todavía</strong>'
+            : !p.tachable_desde ? ' · <strong class="text-error">aún no está a la venta: su precio se puede tachar cuando lleve los días de referencia publicado</strong>'
+            : Date.parse(p.tachable_desde) > Date.now() ? ' · <strong class="text-error">su precio se puede tachar desde el ' + esc(C().fecha(p.tachable_desde)) +
+              ' (debe llevar ' + esc(String(((r.dato || {}).topes || {}).referencia_dias || 7)) + ' días a la venta sin subirlo)</strong>' : '') : '';
       };
       tipo.addEventListener('change', mostrar);
       sku.addEventListener('change', mostrar);

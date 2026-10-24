@@ -116,7 +116,12 @@
   function formBanner(d) {
     return '<form data-banner-form class="grid sm:grid-cols-2 gap-3"><input type="hidden" name="id" value=""/>' +
       '<div class="sm:col-span-2"><span class="' + C().ETIQUETA + '">Imagen (opcional, 1600 px de ancho)</span>' +
-        TM.archivos.selector({ proposito: 'marketing', entidad: 'marketing', nombre: 'imagen', acepta: 'image/jpeg,image/png,image/webp', texto: 'Elegir imagen', camara: false }) +
+        (d.imagenes
+          ? TM.archivos.selector({ proposito: 'marketing', entidad: 'marketing', nombre: 'imagen', acepta: 'image/jpeg,image/png,image/webp', texto: 'Elegir imagen', camara: false })
+          /* el servidor dice si la subida de este propósito ya está conectada
+             (la conecta la integración de la ola 2): mientras no, se dice */
+          : '<input type="hidden" name="imagen" value=""/><p data-imagenes-pendientes class="flex items-start gap-1.5 rounded-btn bg-surface-container-low px-3 py-2 font-body-sm text-body-sm text-on-surface-variant">' +
+            ic('cloud_off', 'text-[16px] mt-0.5 shrink-0') + 'Subir la imagen de un banner está pendiente de conectar: el propósito «marketing» ya existe, pero la subida de archivos lo habilita en la integración de la ola 2. Mientras tanto el banner sale con su tono de color.</p>') +
         '<p data-banner-imagen-actual class="mt-1 font-body-sm text-body-sm text-on-surface-variant" hidden></p></div>' +
       C().campo('bn-titulo', 'Título', '<input id="bn-titulo" name="titulo" maxlength="80" class="' + C().CAMPO + '"/>') +
       C().campo('bn-texto', 'Texto (opcional)', '<input id="bn-texto" name="texto" maxlength="160" class="' + C().CAMPO + '"/>') +

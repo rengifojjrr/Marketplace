@@ -24,6 +24,10 @@
   };
   var GRUPOS = { medicamentos: 'Medicamentos', armas: 'Armas', replicas: 'Réplicas', divisas: 'Venta de divisas', drogas: 'Drogas',
     fauna: 'Fauna protegida', alcohol_tabaco: 'Alcohol y tabaco', otros: 'Otros' };
+  /* Los motivos de una denuncia (códigos de Comunicación, tm_denunciar). */
+  var MOTIVOS = { falsificacion: 'Falsificación o réplica', prohibido: 'Artículo prohibido', engano: 'Engañoso', precio: 'Precio abusivo',
+    contacto: 'Pide contacto fuera de Tumbo', ofensivo: 'Contenido ofensivo', fraude: 'Posible fraude', otro: 'Otro motivo' };
+  var RESOLUCION = { procede: 'procede', no_procede: 'no procede', duplicada: 'repetida' };
   function chipTipo(t) { var x = TIPOS[t] || [t, 'gris', 'flag']; return C().chip(x[0], x[1], x[2]); }
 
   function leerPanel() { return C().datos('moderacion', function () { return TM.api('tm_moderacion_panel', {}); }, 20000); }
@@ -39,6 +43,7 @@
 
   var TABS = [['marcas', 'Marcas', 'flag'], ['denuncias', 'Denuncias', 'report'], ['reglas', 'Reglas', 'policy']];
   var SEL = {};
+  var revisando = false;
 
   function tabs(actual) {
     return '<nav class="flex flex-wrap gap-2 mb-4" role="tablist">' + TABS.map(function (t) {
@@ -57,7 +62,9 @@
     return '<div class="flex flex-wrap items-center gap-2 rounded-card border border-outline-variant bg-surface-container-lowest p-3 mb-4">' +
         '<span class="font-body-sm text-body-sm text-on-surface-variant mr-auto">' + skus.length + ' productos con marcas abiertas · ' + C().entero(d.publicados) + ' publicados' +
         (d.ultima_revision ? ' · última revisión de lo publicado: ' + esc(C().fecha(d.ultima_revision)) : '') + '</span>' +
-        btn('Revisar lo publicado con las reglas', { icono: 'manage_search', attr: 'data-revisar-publicados' }) +
+        (d.revision ? '<span data-revision-progreso class="font-body-sm text-body-sm text-on-surface">Revisión en curso: ' + C().entero(d.revision.revisados) + ' de ' +
+          C().entero(d.revision.total) + ' (' + C().entero(d.revision.marcados) + ' con marcas)</span>' : '') +
+        (d.editable ? btn(d.revision ? 'Seguir revisando lo publicado' : 'Revisar lo publicado con las reglas', { icono: 'manage_search', attr: 'data-revisar-publicados' }) : '') +
         (skus.length ? btn('Retirar seleccionados', { estilo: 'peligro', icono: 'block', attr: 'data-retirar-lote' }) : '') + '</div>' +
       (skus.length ? skus.map(function (sku) {
         var ms = porSku[sku], p = ms[0];
@@ -90,26 +97,27 @@
           href('app/admin/reglas.html?tab=denuncias&estado=' + x[0]) + '">' + esc(x[1]) + '</a>';
       }).join('') + '</div>' +
       (lista.length ? lista.map(function (x) {
-        var abierta = x.estado === 'abierta' || x.estado === 'en_revision';
+        var abierta = x.estado === 'abierta';
         var objeto = x.producto ? esc(x.producto.nombre) + ' <span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(x.producto.sku) + '</span> ' + UI.badge(x.producto.estado)
-          : x.seller ? esc(x.seller.nombre) : esc(x.tipo + ' ' + x.objeto_id);
+          : x.seller ? esc(x.seller.nombre) : esc(x.tipo + ' ' + x.objeto);
         return '<article data-denuncia="' + x.id + '" class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-3">' +
-          '<div class="flex flex-wrap items-center gap-2 mb-1">' + C().chip(x.estado.replace('_', ' '), abierta ? 'rojo' : 'gris', 'report') +
+          '<div class="flex flex-wrap items-center gap-2 mb-1">' + C().chip(abierta ? 'abierta' : 'cerrada' + (x.resolucion ? ' · ' + (RESOLUCION[x.resolucion] || x.resolucion) : ''),
+            abierta ? 'rojo' : 'gris', 'report') +
             '<span class="font-body-md text-body-md text-on-surface">' + objeto + '</span>' +
             (x.repetidas > 1 ? C().chip(x.repetidas + ' denuncias abiertas', 'ambar') : '') + '</div>' +
-          '<p class="font-body-sm text-body-sm"><strong>' + esc(x.motivo) + '</strong>' + (x.detalle ? ' · ' + esc(x.detalle) : '') + '</p>' +
+          '<p class="font-body-sm text-body-sm"><strong>' + esc(MOTIVOS[x.motivo] || x.motivo) + '</strong>' + (x.detalle ? ' · ' + esc(x.detalle) : '') + '</p>' +
           '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(C().fecha(x.creado)) + (x.denunciante ? ' · ' + esc(x.denunciante) : '') +
             (x.seller ? ' · <a class="text-secondary hover:underline" href="' + href('app/admin/seller.html?id=' + encodeURIComponent(x.seller.id)) + '">ficha del comercio</a>' : '') +
-            (x.resolucion ? ' · ' + esc(x.resolucion) : '') + '</p>' +
+            (x.nota ? ' · ' + esc(x.nota) : '') + (x.cerrada_por ? ' · ' + esc(x.cerrada_por) : '') + '</p>' +
           (abierta ? '<div class="flex flex-wrap justify-end gap-2 mt-2">' + (x.bloqueado ? C().soloReal('Comercio o persona real: la atiende una cuenta real.')
-            : (x.estado === 'abierta' ? btn('En revisión', { attr: 'data-denuncia-accion="revisar" data-id="' + x.id + '"' }) : '') +
-              btn('Descartar', { attr: 'data-denuncia-accion="descartar" data-id="' + x.id + '"' }) +
-              btn('Resolver', { attr: 'data-denuncia-accion="resolver" data-id="' + x.id + '"' }) +
+            : btn('No procede', { attr: 'data-denuncia-accion="descartar" data-id="' + x.id + '"' }) +
+              btn('Repetida', { attr: 'data-denuncia-accion="duplicada" data-id="' + x.id + '"' }) +
+              btn('Procede', { attr: 'data-denuncia-accion="resolver" data-id="' + x.id + '"' }) +
               (x.producto && ['publicado', 'en_revision', 'pausado'].indexOf(x.producto.estado) >= 0
                 ? btn('Retirar el producto', { estilo: 'peligro', icono: 'block', attr: 'data-denuncia-accion="retirar" data-id="' + x.id + '"' }) : '')) + '</div>' : '') +
           '</article>';
       }).join('') : UI.vacio('report_off', 'Sin denuncias', estado === 'abiertas' ? 'No hay denuncias por atender.' : 'No hay denuncias en esta lista.')) +
-      C().nota('Las denuncias las hacen compradores y visitantes (Comunicación); con varias abiertas, el producto queda marcado para moderación.');
+      C().nota('Aquí llegan las denuncias de productos y comercios que hacen compradores y comercios (Comunicación; las de preguntas y reseñas van a su cola de contenido). Con varias abiertas, el producto queda marcado para moderación; quien denunció recibe el aviso de la decisión.');
   }
 
   function vistaReglas(d) {
@@ -156,11 +164,28 @@
     raiz.querySelectorAll('[data-sel-marca]').forEach(function (c) {
       c.addEventListener('change', function () { SEL[c.getAttribute('data-sel-marca')] = c.checked; });
     });
+    /* La revisión de lo publicado va por partes (el servidor revisa un lote
+       por llamada, una cada 3 segundos): se sigue llamando mientras la
+       vista esté abierta y falte, con el avance a la vista. */
     var rev = raiz.querySelector('[data-revisar-publicados]');
     if (rev) rev.addEventListener('click', function () {
-      UI.accion(rev, function () { return C().accion('tm_moderacion_revisar_publicados', {}, ['moderacion']); }, function (r) {
-        UI.toast('Publicados revisados', r.revisados + ' productos · ' + r.marcados + ' con marcas', 'manage_search');
+      if (revisando) return;
+      revisando = true;
+      function lote() {
+        return TM.api('tm_moderacion_revisar_publicados', {}).then(function (r) {
+          C().invalidar('moderacion');
+          TM._avisar('propio');
+          if (r && !r.terminada && document.querySelector('[data-revisar-publicados]')) {
+            return new Promise(function (ok) { setTimeout(ok, 3300); }).then(lote);
+          }
+          return r;
+        });
+      }
+      UI.accion(rev, function () { return lote().catch(function (e) { revisando = false; throw e; }); }, function (r) {
+        revisando = false;
+        UI.toast(r && r.terminada ? 'Publicados revisados' : 'Revisión en pausa', r ? C().entero(r.revisados) + ' productos · ' + C().entero(r.marcados) + ' con marcas' : '', 'manage_search');
       }, 'No se revisó');
+      setTimeout(function () { revisando = false; }, 600000);
     });
     function retirar(skus, boton) {
       UI.confirmar('Retirar de la venta', skus.length + ' producto(s) dejan de venderse; el comercio ve el motivo y puede corregirlo y reenviarlo a revisión.',
@@ -194,9 +219,9 @@
       b.addEventListener('click', function () {
         var acc = b.getAttribute('data-denuncia-accion');
         var id = Number(b.getAttribute('data-id'));
-        if (acc === 'revisar') { accion('tm_denuncia_resolver', { p_id: id, p_accion: 'revisar', p_nota: null }, 'Denuncia en revisión', b); return; }
-        UI.confirmar({ descartar: 'Descartar la denuncia', resolver: 'Resolver la denuncia', retirar: 'Retirar el producto denunciado' }[acc],
-          acc === 'retirar' ? 'El producto deja de venderse y se cierran todas sus denuncias abiertas.' : 'La denuncia se cierra con tu nota.',
+        UI.confirmar({ descartar: 'La denuncia no procede', duplicada: 'Denuncia repetida', resolver: 'La denuncia procede', retirar: 'Retirar el producto denunciado' }[acc],
+          acc === 'retirar' ? 'El producto deja de venderse y se cierran (procede) todas sus denuncias abiertas.'
+            : 'La denuncia se cierra con tu nota y quien la hizo recibe el aviso de la decisión.',
           { accion: 'Confirmar', peligro: acc === 'retirar', motivo: 'Nota (obligatoria)' }, function (nota) {
             accion('tm_denuncia_resolver', { p_id: id, p_accion: acc, p_nota: nota }, 'Denuncia atendida', b);
           });

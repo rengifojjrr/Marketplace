@@ -22,7 +22,8 @@
     if (!r) return '';
     if (r.bloqueado) return C().chip('riesgo reservado (persona real)', 'gris', 'lock');
     return '<span data-riesgo="' + esc(r.nivel) + '" class="inline-flex flex-col gap-0.5">' +
-      C().chip('Riesgo ' + r.nivel + ' · ' + r.puntaje, TONO[r.nivel], r.nivel === 'bajo' ? 'verified_user' : 'gpp_maybe') +
+      C().chip('Riesgo ' + r.nivel + (r.puntaje != null ? ' · ' + r.puntaje : ''), TONO[r.nivel], r.nivel === 'bajo' ? 'verified_user' : 'gpp_maybe') +
+      (r.resumen && conMotivos ? '<span class="font-body-sm text-body-sm text-on-surface-variant">El puntaje y los motivos los ve quien tiene el permiso «riesgo».</span>' : '') +
       (r.retenido ? '<span class="font-body-sm text-body-sm text-error">Retenido: sus pedidos no se liquidan hasta liberarlo.</span>' : '') +
       (conMotivos && (r.motivos || []).length ? '<span class="font-body-sm text-body-sm text-on-surface-variant">' +
         r.motivos.map(function (m) { return esc(m.texto) + ' (+' + m.puntos + ')'; }).join(' · ') + '</span>' : '') + '</span>';
@@ -53,14 +54,25 @@
             (x.retenido && !x.bloqueado ? '<div class="flex justify-end mt-2">' + btn('Revisado: liberar', { estilo: 'primario', icono: 'lock_open', attr: 'data-liberar="' + esc(x.pago) + '"' }) + '</div>' : '') +
             '</article>';
         }
-        return (d.editable ? '' : C().avisoDemo('Con una cuenta de prueba ves solo los pagos y las listas de la demo; agregar a la lista negra pide una cuenta real con verificación en dos pasos.')) +
-          '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Cada pago suma puntos por regla (cuenta nueva con monto alto, datos compartidos con otras cuentas, referencia usada por otra cuenta, rechazos, compras seguidas, picos o reclamos del comercio, listas negras y compradores marcados). Alerta desde <strong>' +
-          esc(String(u.umbral_alerta)) + '</strong>; desde <strong>' + esc(String(u.umbral_retencion)) + '</strong> el pago queda retenido: Finanzas lo concilia, pero sus pedidos no entran en una liquidación hasta que alguien lo revisa y lo libera.</p>' +
+        var cotejo = d.cotejo || {};
+        return (d.editable ? '' : C().avisoDemo('Con una cuenta de prueba ves solo los pagos y las listas de la demo (sin los umbrales); agregar a la lista negra pide una cuenta real con verificación en dos pasos.')) +
+          '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Cada pago suma puntos por regla (cuenta nueva con monto alto, datos compartidos con otras cuentas, referencia usada por otra cuenta, rechazos, compras seguidas, picos o reclamos del comercio, listas negras y compradores marcados). ' +
+          (d.umbrales ? 'Alerta desde <strong>' + esc(String(u.umbral_alerta)) + '</strong>; desde <strong>' + esc(String(u.umbral_retencion)) + '</strong> el pago' : 'Desde el umbral de retención el pago') +
+          ' queda retenido: Finanzas lo concilia, pero sus pedidos no entran en una liquidación hasta que alguien lo revisa y lo libera.</p>' +
           C().subtitulo('Retenidos (' + retenidos.length + ')') +
           (retenidos.length ? retenidos.map(tarjeta).join('') : UI.vacio('verified_user', 'Nada retenido', 'Ningún pago pasó el umbral de retención.')) +
           C().subtitulo('Riesgo medio o alto recientes') +
           (otros.length ? otros.map(tarjeta).join('') : '<p class="font-body-sm text-body-sm text-on-surface-variant">Sin pagos de riesgo recientes.</p>') +
+          ((d.comercios || []).length ? C().subtitulo('Comercios con datos de cobro en la lista negra') +
+            '<div data-comercios-lista class="space-y-2 mb-2">' + d.comercios.map(function (x) {
+              return '<p class="flex flex-wrap items-center gap-2 rounded-btn border border-error bg-error-container/30 px-3 py-2 font-body-sm text-body-sm">' +
+                ic('gpp_maybe', 'text-[18px] text-error') + '<a class="text-secondary hover:underline" href="' + href('app/admin/seller.html?id=' + encodeURIComponent(x.id)) + '">' +
+                esc(x.nombre + ' · ' + x.id) + '</a><span>coincide: ' + esc(x.coincide) + '. Sus liquidaciones quedan retenidas hasta revisarlo.</span></p>';
+            }).join('') + '</div>' : '') +
           C().subtitulo('Listas negras') +
+          '<ul data-cotejo class="mb-3 space-y-0.5 font-body-sm text-body-sm text-on-surface-variant">' + Object.keys(TIPOS).map(function (k) {
+            return cotejo[k] ? '<li><strong class="text-on-surface">' + esc(TIPOS[k]) + ':</strong> ' + esc(cotejo[k]) + '</li>' : '';
+          }).join('') + '</ul>' +
           UI.tabla(['Tipo', 'Dato', 'Motivo', 'Agregó', ''], (d.listas || []).map(function (l) {
             return UI.td(esc(TIPOS[l.tipo] || l.tipo)) + UI.td('<span class="font-data-mono text-data-mono">' + esc(l.valor) + '</span>' + (l.demo ? ' ' + C().chip('ejemplo de la demo', 'gris') : '')) +
               UI.td(esc(l.motivo)) + UI.td(esc(l.por || '') + '<span class="block text-on-surface-variant">' + esc(C().fecha(l.creado)) + '</span>') +

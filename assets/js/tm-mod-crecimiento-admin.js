@@ -262,7 +262,11 @@
     var dis = editable ? '' : ' disabled';
     var control;
     var esq = a.esquema || {};
-    if (a.tipo === 'boolean') {
+    if (a.reservado) {
+      control = '<p data-aj-reservado class="flex items-start gap-1.5 rounded-btn bg-surface-container-low px-3 py-2 font-body-sm text-body-sm text-on-surface-variant">' +
+        ic('lock', 'text-[16px] mt-0.5 shrink-0') + 'Valor reservado: es un control contra el fraude o el abuso y una cuenta de prueba (contraseña pública) no lo ve.</p>';
+      editable = false;
+    } else if (a.tipo === 'boolean') {
       control = '<select id="' + id + '" data-aj-valor class="' + C().CAMPO + '"' + dis + '><option value="true"' + (a.valor ? ' selected' : '') + '>Sí</option>' +
         '<option value="false"' + (a.valor ? '' : ' selected') + '>No</option></select>';
     } else if (a.tipo === 'number') {

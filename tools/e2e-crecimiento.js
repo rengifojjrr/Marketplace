@@ -8,7 +8,9 @@
  * prueba, fichas 360 con notas internas, riesgo en la conciliación, marcas
  * de moderación y, con una cuenta real (TM_PGDATABASE, solo en local), el
  * aviso de incidencia en toda la tienda, una categoría en pausa en la ficha
- * y una campaña en el calendario. Móvil a 390 px sin desborde.
+ * y una campaña en el calendario, y que Operaciones ve en el menú lo que su
+ * permiso fino le abre (Marketing con «marketing»). Móvil a 390 px sin
+ * desborde.
  *
  *   node tools/e2e-crecimiento.js [urlBase]      # mismas variables que verificar-beta.js
  *
@@ -22,6 +24,7 @@ const C2 = require('./cuentas-comun');
 
 const BD = process.env.TM_PGDATABASE || '';
 const REAL = { email: 'superadmin-e2e-crecimiento@tumbo-local.ve', clave: 'clave-real-crecimiento-1' };
+const OPS_REAL = { email: 'ops-e2e-crecimiento@tumbo-local.ve', clave: 'clave-real-crecimiento-2' };
 /* su verificación en dos pasos: 20 bytes conocidos, en base32 para el TOTP */
 const REAL_HEX = '3132333435363738393031323334353637383930';
 const REAL_TOTP = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
@@ -45,7 +48,34 @@ function psql(consulta) {
     const actual = await p.evaluate(() => { try { const s = TM.sesion(); return s && !s.demo ? 'real' : s && s.rol; } catch (e) { return null; } }).catch(() => null);
     if (actual !== rol) await login(rol);
   }
-  async function menu() { return (await p.locator('#raiz aside nav').first().innerText()).replace(/\n/g, ' '); }
+  /* el menú del Backoffice, ya con los permisos finos aplicados (data-crec-permisos) */
+  async function menu() {
+    if (await p.locator('#raiz aside nav').count() && /\/app\/admin\//.test(p.url())) await esperar('#raiz aside nav[data-crec-permisos]');
+    return (await p.locator('#raiz aside nav').first().innerText()).replace(/\n/g, ' ');
+  }
+  /* Entra con una cuenta real (contraseña y código de la verificación en dos pasos). */
+  async function entrarReal(cuenta) {
+    await p.goto(`${BASE}/index.html`, { waitUntil: 'domcontentloaded' });
+    await p.evaluate(() => { localStorage.clear(); try { sessionStorage.clear(); } catch (e) { } });
+    await p.goto(`${BASE}/index.html`, { waitUntil: 'domcontentloaded' });
+    await p.fill('#ac-correo', cuenta.email);
+    await p.fill('#ac-clave', cuenta.clave);
+    await p.locator('form[data-paso=credenciales] button[type=submit]').click();
+    await p.locator('#ac-codigo').waitFor({ state: 'visible', timeout: 15000 });
+    await p.fill('#ac-codigo', C2.totp(REAL_TOTP));
+    await p.locator('form[data-paso=mfa] button[type=submit]').click();
+    await p.waitForURL(/\/app\//, { timeout: 15000 });
+  }
+  function crearReal(cuenta, nombre, rol) {
+    psql(`insert into tumbo.usuarios (email, clave_hash, nombre, rol)
+            values ('${cuenta.email}', extensions.crypt('${cuenta.clave}', extensions.gen_salt('bf', 4)), '${nombre}', '${rol}')
+            on conflict (email) do update set rol = '${rol}', seller_id = null, activo = true, bloqueado = false, clave_hash = excluded.clave_hash;
+          delete from tumbo.intentos_seguridad where tipo = '2fa' and clave = (select id::text from tumbo.usuarios where email = '${cuenta.email}');
+          delete from tumbo.permisos_usuario where usuario_id = (select id from tumbo.usuarios where email = '${cuenta.email}');
+          delete from tumbo.usuarios_2fa where usuario_id = (select id from tumbo.usuarios where email = '${cuenta.email}');
+          insert into tumbo.usuarios_2fa (usuario_id, secreto, activo, activado)
+          select id, tumbo_privado.cifrar_2fa(decode('${REAL_HEX}', 'hex')), true, now() from tumbo.usuarios where email = '${cuenta.email}'`);
+  }
   async function descarga(sel) {
     const [d] = await Promise.all([p.waitForEvent('download'), p.locator(sel).first().click()]);
     return { nombre: d.suggestedFilename(), texto: fs.readFileSync(await d.path(), 'utf8') };
@@ -316,23 +346,8 @@ function psql(consulta) {
 
   if (remoto && BD) {
     await prueba('cuenta real: aviso de incidencia en toda la tienda, categoría en pausa en la ficha y campaña en el calendario', async () => {
-      psql(`insert into tumbo.usuarios (email, clave_hash, nombre, rol)
-              values ('${REAL.email}', extensions.crypt('${REAL.clave}', extensions.gen_salt('bf', 4)), 'Superadmin E2E Crecimiento', 'superadmin')
-              on conflict (email) do update set rol = 'superadmin', seller_id = null, activo = true, bloqueado = false, clave_hash = excluded.clave_hash;
-            delete from tumbo.intentos_seguridad where tipo = '2fa' and clave = (select id::text from tumbo.usuarios where email = '${REAL.email}');
-            delete from tumbo.usuarios_2fa where usuario_id = (select id from tumbo.usuarios where email = '${REAL.email}');
-            insert into tumbo.usuarios_2fa (usuario_id, secreto, activo, activado)
-            select id, tumbo_privado.cifrar_2fa(decode('${REAL_HEX}', 'hex')), true, now() from tumbo.usuarios where email = '${REAL.email}'`);
-      await p.goto(`${BASE}/index.html`, { waitUntil: 'domcontentloaded' });
-      await p.evaluate(() => localStorage.clear());
-      await p.goto(`${BASE}/index.html`, { waitUntil: 'domcontentloaded' });
-      await p.fill('#ac-correo', REAL.email);
-      await p.fill('#ac-clave', REAL.clave);
-      await p.locator('form[data-paso=credenciales] button[type=submit]').click();
-      await p.locator('#ac-codigo').waitFor({ state: 'visible', timeout: 15000 });
-      await p.fill('#ac-codigo', C2.totp(REAL_TOTP));
-      await p.locator('form[data-paso=mfa] button[type=submit]').click();
-      await p.waitForURL(/\/app\//, { timeout: 15000 });
+      crearReal(REAL, 'Superadmin E2E Crecimiento', 'superadmin');
+      await entrarReal(REAL);
       await abrir('admin/ajustes');
       await esperar('[data-aviso-publicar]');
       if (await p.locator('[data-aviso-demo]').count()) throw new Error('la cuenta real ve el aviso de las cuentas de prueba');
@@ -372,6 +387,23 @@ function psql(consulta) {
           update tumbo.ajustes set valor = 'null'::jsonb where clave = 'aviso_incidencia';
           delete from tumbo.sesiones where usuario_id = (select id from tumbo.usuarios where email = '${REAL.email}');
           update tumbo.usuarios set activo = false where email = '${REAL.email}';`);
+
+    await prueba('Operaciones con el permiso «marketing» ve Marketing en el menú (y no lo que no le dieron)', async () => {
+      crearReal(OPS_REAL, 'Operaciones E2E Crecimiento', 'ops');
+      psql(`insert into tumbo.permisos_usuario (usuario_id, permiso, otorgado_por)
+            select id, 'marketing', 'pruebas e2e' from tumbo.usuarios where email = '${OPS_REAL.email}'`);
+      await entrarReal(OPS_REAL);
+      await abrir('admin/pedidos');
+      const m = await menu();
+      if (!/Marketing/.test(m) || /Ajustes|Riesgo y listas|Reglas y denuncias/.test(m)) throw new Error('menú de operaciones con «marketing»: ' + m);
+      await p.locator('#raiz aside nav a', { hasText: 'Marketing' }).click();
+      await p.waitForURL('**/admin/marketing.html');
+      await esperar('[data-calendario]');
+      await esperar('[data-campana-nueva]');
+    });
+    psql(`delete from tumbo.permisos_usuario where usuario_id = (select id from tumbo.usuarios where email = '${OPS_REAL.email}');
+          delete from tumbo.sesiones where usuario_id = (select id from tumbo.usuarios where email = '${OPS_REAL.email}');
+          update tumbo.usuarios set activo = false where email = '${OPS_REAL.email}';`);
   } else if (remoto) {
     process.stdout.write(t.amarillo('– ') + 'cuenta real: aviso de incidencia, categoría en pausa y campaña' + t.amarillo('  (sin TM_PGDATABASE)') + '\n');
   }
