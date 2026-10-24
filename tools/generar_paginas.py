@@ -81,22 +81,24 @@ TITULO_AREA = {'seller': 'Seller Center', 'admin': 'Backoffice', 'acceso': 'Acce
 # --- Rendimiento: módulos por superficie ---------------------------------------
 # Superficie de una página: 'seller' y 'admin' son las suyas; las demás áreas
 # (tienda, acceso, ayuda…) usan el armazón de la tienda. Un módulo listado
-# aquí carga solo en esas superficies o áreas; los que no están, en todas.
-# Dependencias que lo explican: el detalle 360 de Operaciones (admin) usa
-# TM.log.inspeccionar de tm-mod-logistica-seller.js; el equipo del comercio
-# (seller/equipo) vive en tm-mod-cuentas-admin.js; Marketing (admin) usa
-# TM.crecSeller de tm-mod-crecimiento-seller.js; los reclamos del comercio
-# (seller/disputas) y del comprador citan los plazos de TM.ayudaCom
-# (tm-mod-comunicacion-ayuda.js). Los núcleos de Comunicación y Crecimiento,
+# aquí carga solo en esas superficies, áreas o vistas («admin/pedido»); los
+# que no están, en todas. Dependencias que lo explican: el detalle 360 de
+# Operaciones (admin/pedido) usa TM.log.inspeccionar de
+# tm-mod-logistica-seller.js; el equipo del comercio (seller/equipo) vive en
+# tm-mod-cuentas-admin.js; Marketing (admin/marketing) usa TM.crecSeller de
+# tm-mod-crecimiento-seller.js; el centro de ayuda (tm-mod-comunicacion-ayuda.js)
+# solo en su área (los plazos que citan los reclamos están en el núcleo de
+# Comunicación: TM.com.plazos). Los núcleos de Comunicación y Crecimiento,
 # el chat, la cuenta (soporte y avisos de las tres superficies) y los
-# reclamos cargan en todas.
+# reclamos cargan en todas. (Así cada superficie cabe en su presupuesto de
+# peso: tools/e2e-plataforma.js.)
 MODULOS_SUPERFICIE = {
     'tm-vistas-tienda.js': ['tienda'],
     'tm-vistas-seller.js': ['seller'],
     'tm-vistas-admin.js': ['admin'],
     'tm-mod-catalogo-admin.js': ['admin'],
     'tm-mod-comunicacion-admin.js': ['admin'],
-    'tm-mod-comunicacion-ayuda.js': ['tienda', 'seller'],
+    'tm-mod-comunicacion-ayuda.js': ['ayuda'],
     'tm-mod-comunicacion-confianza.js': ['tienda'],
     'tm-mod-comunicacion-seller.js': ['seller'],
     'tm-mod-crecimiento-admin.js': ['admin'],
@@ -105,14 +107,14 @@ MODULOS_SUPERFICIE = {
     'tm-mod-crecimiento-marketing.js': ['admin'],
     'tm-mod-crecimiento-moderacion.js': ['admin'],
     'tm-mod-crecimiento-riesgo.js': ['admin'],
-    'tm-mod-crecimiento-seller.js': ['seller', 'admin'],
+    'tm-mod-crecimiento-seller.js': ['seller', 'admin/marketing'],
     'tm-mod-crecimiento-tienda.js': ['tienda'],
     'tm-mod-catalogo-seller.js': ['seller'],
     'tm-mod-cuentas-acceso.js': ['acceso'],
     'tm-mod-cuentas-admin.js': ['admin', 'seller'],
     'tm-mod-cuentas-direcciones.js': ['tienda'],
     'tm-mod-logistica-ops.js': ['admin'],
-    'tm-mod-logistica-seller.js': ['seller', 'admin'],
+    'tm-mod-logistica-seller.js': ['seller', 'admin/pedido'],
     'tm-mod-logistica-tienda.js': ['tienda'],
     'tm-mod-pagos-admin.js': ['admin'],
     'tm-mod-pagos-seller.js': ['seller'],
@@ -203,14 +205,14 @@ def modulos():
     return sorted(os.path.basename(m) for m in glob.glob(os.path.join(RAIZ, 'assets', 'js', 'tm-mod-*.js')))
 
 
-def scripts_de(area, mods):
-    """Los scripts de una página de esa área: el núcleo y los módulos de su
-    superficie, en el orden de siempre (núcleo, vistas, módulos alfabéticos)."""
+def scripts_de(area, mods, vista=None):
+    """Los scripts de una página de esa área (y vista): el núcleo y los módulos
+    de su superficie, en el orden de siempre (núcleo, vistas, módulos alfabéticos)."""
     sup = superficie(area)
 
     def carga(nombre):
         donde = MODULOS_SUPERFICIE.get(nombre)
-        return donde is None or sup in donde or area in donde
+        return donde is None or sup in donde or area in donde or (vista is not None and vista in donde)
     lista = [n for n in NUCLEO if carga(os.path.basename(n))] + [m for m in mods if carga(m)]
     return lista
 
@@ -237,7 +239,7 @@ def pagina(area, n, mods, version):
         social = SOCIAL % {'canonica': '<link rel="canonical" href="%s"/>\n' % url if fija else '',
                            'og_url': '<meta property="og:url" content="%s"/>\n' % url if fija else '',
                            'titulo': esc(titulo_completo), 'descripcion': esc(desc), 'sitio': esc(SITIO)}
-    scripts = ''.join('<script src="../../assets/js/%s"></script>\n' % s for s in scripts_de(area, mods))
+    scripts = ''.join('<script src="../../assets/js/%s"></script>\n' % s for s in scripts_de(area, mods, vista))
     return PLANTILLA % {
         'robots': 'index, follow' if indexable else 'noindex, nofollow',
         'titulo': esc(titulo_completo), 'descripcion': esc(desc), 'color': COLOR_TEMA,

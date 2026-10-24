@@ -317,7 +317,7 @@
         disputaId: r.disputa_id, liquidacionId: r.liquidacion_id,
         creado: fecha(r.creado), entregadoEl: fecha(r.entregado_el),
         items: items,
-        timeline: (r.pedido_eventos || []).map(function (t) { return { fecha: fecha(t.fecha), actor: t.actor, texto: t.texto, icono: t.icono }; }),
+        timeline: (r.pedido_eventos || []).map(function (t) { return { fecha: fecha(t.fecha), actor: conRol(t.actor), texto: t.texto, icono: t.icono }; }),
         /* pagos (ola 1): su pago y lo cobrado al venderse (tasa congelada) */
         pagoId: r.pago_id || null, montoBs: num(r.monto_bs), comisionPct: num(r.comision_pct), tarifaUsd: num(r.tarifa_usd),
         descuentoUsd: num(r.descuento_usd) || 0, descuentoTumboUsd: num(r.descuento_tumbo_usd) || 0, ivaUsd: num(r.iva_usd) || 0,
@@ -374,8 +374,22 @@
     return e;
   }
 
+  /* El actor de un evento llega como «Nombre (rol)» o solo el rol
+     («superadmin»): con el nombre del rol para personas («Ana (Finanzas)»). */
+  var NOMBRE_ROL = { comprador: 'Comprador', seller: 'Seller principal', precios: 'Gestor de precios', operador: 'Operador',
+    superadmin: 'Superadministrador', ops: 'Operaciones', finanzas: 'Finanzas' };
+  function conRol(t) {
+    var x = String(t == null ? '' : t);
+    if (NOMBRE_ROL[x]) return NOMBRE_ROL[x];
+    return x.replace(/\((superadmin|ops|finanzas|seller|precios|operador|comprador)\)$/, function (m, r) { return '(' + NOMBRE_ROL[r] + ')'; });
+  }
+  /* «PAG-2026-00008 · pago_movil PM-…» (auditoría de pagos): el método con
+     su nombre (tm-mod-pagos.js, en las páginas que lo cargan). */
+  function conMetodo(t) {
+    return TM.pagos ? t.replace(/(PAG-[\w-]+ · )([a-z_]+)\b/g, function (m, id, metodo) { return id + TM.pagos.nombreMetodo(metodo); }) : t;
+  }
   function evento(r) {
-    return { id: r.id, fecha: fecha(r.fecha), actor: r.actor, accion: r.accion, detalle: r.detalle };
+    return { id: r.id, fecha: fecha(r.fecha), actor: conRol(r.actor), accion: r.accion, detalle: conMetodo(conRol(r.detalle)) };
   }
 
   /* Recarga la caché. Si llegan dos recargas solapadas gana la última; una

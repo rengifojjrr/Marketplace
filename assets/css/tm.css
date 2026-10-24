@@ -49,8 +49,13 @@ body { min-height: 100vh; }
   body:has(#raiz header.sticky) .tm-toasts { top: calc(64px + env(safe-area-inset-top)); }
   .tm-toast { animation-name: tm-entra-arriba; }
 }
+/* En el teléfono, compacto: el texto en cinco líneas como mucho (los avisos
+   de la app caben en dos o tres; el tope es para un error largo del
+   servidor); dura menos (UI.toast) y un toque en el aviso lo cierra. */
 @media (max-width: 639.98px) {
   .tm-toasts { left: 16px; right: 16px; width: auto; }
+  .tm-toast { padding-top: 10px; padding-bottom: 10px; cursor: pointer; }
+  .tm-toast__cuerpo > span { display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
 }
 
 /* --- Modales ------------------------------------------------------------ */
@@ -225,10 +230,15 @@ button[aria-busy="true"]:disabled { opacity: .65; cursor: progress; }
   :where(#raiz, .tm-modal, [data-tumbo-propio]) summary { min-height: 44px; }
   :where(#raiz, .tm-modal, [data-tumbo-propio]) :where(summary) { padding-top: 12px; padding-bottom: 12px; }
   .tm-toast__x { min-width: 44px; min-height: 44px; margin: -12px -4px -12px 0; }
+  /* la acción del aviso («Ver carrito») también mide 44 px con el dedo */
+  .tm-toast__accion { min-height: 44px; margin-top: 0; }
 }
 
 /* --- Filas desplazables a lo ancho ---------------------------------------- */
 .tm-tira { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; }
+/* los puntos de ajuste dejan el chip fuera de los bordes que se desvanecen
+   (32 px a la izquierda y 40 a la derecha, ver [data-desborda]) */
+.tm-tira, .tm-tira-movil { scroll-padding-inline: 32px 40px; }
 .tm-tira::-webkit-scrollbar { display: none; }
 .tm-tira > * { flex: none; scroll-snap-align: start; }
 @media (max-width: 639.98px) {
@@ -292,7 +302,8 @@ button[aria-busy="true"]:disabled { opacity: .65; cursor: progress; }
     font: 600 12px/20px Inter, system-ui, sans-serif; letter-spacing: .01em; color: #44506a; overflow-wrap: break-word;
   }
   /* un ancho mínimo pensado para la columna de la tabla no ensancha la tarjeta */
-  :is([data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas]) > :is(tbody, tfoot) > tr > td [class*="min-w-["] { min-width: 0 !important; }
+  /* (salvo el mínimo de un objetivo táctil: min-w-[40px]/[44px]) */
+  :is([data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas]) > :is(tbody, tfoot) > tr > td [class*="min-w-["]:not([class*="min-w-[40px]"]):not([class*="min-w-[44px]"]) { min-width: 0 !important; }
   /* sin cabecera (acciones, casilla): a lo ancho; las acciones a la derecha */
   :is([data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas]) > :is(tbody, tfoot) > tr > td[data-th=""]:not(.hidden) {
     display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; padding-top: 8px;
@@ -300,6 +311,49 @@ button[aria-busy="true"]:disabled { opacity: .65; cursor: progress; }
   :is([data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas]) > :is(tbody, tfoot) > tr > td[data-th=""]:first-child { justify-content: flex-start; padding-top: 0; }
   :is([data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas]) > :is(tbody, tfoot) > tr > td[data-th=""]:only-child { justify-content: flex-start; }
 }
+
+/* Las tablas anchas del Backoffice (UI.tabla con {tarjetas: 'lg'}) también
+   van en tarjetas en la tableta (640–1023 px), sin barra lateral: con siete
+   columnas no cabían y sus botones quedaban fuera de la vista. Las mismas
+   reglas que en el teléfono. */
+@media (min-width: 640px) and (max-width: 1023.98px) {
+  [data-tabla="lg"] > table { display: block; width: 100%; }
+  /* (cada celda ya lleva su etiqueta) */
+  [data-tabla="lg"] > table > thead { display: none; }
+  /* una cabecera con «elegir todos» se queda como barra */
+  [data-tabla="lg"] > table > thead:has(input, button, select) { display: block; }
+  [data-tabla="lg"] > table > thead:has(input, button, select) > tr { display: flex; padding: 0 16px; }
+  [data-tabla="lg"] > table > thead:has(input, button, select) th { display: none; }
+  [data-tabla="lg"] > table > thead:has(input, button, select) th:has(input, button, select) {
+    display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0;
+  }
+  [data-tabla="lg"] > table > thead th:has(> input[type=checkbox])::after {
+    content: "Elegir todos"; font: 400 14px/20px Inter, system-ui, sans-serif; text-transform: none; letter-spacing: normal; color: #172033;
+  }
+  [data-tabla="lg"] > table > :is(tbody, tfoot) { display: block; }
+  [data-tabla="lg"] > table > :is(tbody, tfoot) > tr { display: block; padding: 12px 16px; }
+  /* la celda es una tabla de dos columnas: la etiqueta (::before, una
+     celda) y todo su contenido (una celda anónima), así el valor nunca se
+     mete debajo de la etiqueta, tenga lo que tenga */
+  [data-tabla="lg"] > table > :is(tbody, tfoot) > tr > :is(td, th):not(.hidden) {
+    display: table; table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 0;
+    padding: 4px 0; text-align: left !important; white-space: normal; overflow-wrap: anywhere;
+  }
+  [data-tabla="lg"] > table > :is(tbody, tfoot) > tr > td[data-th]:not([data-th=""])::before {
+    content: attr(data-th); display: table-cell; width: 38%; padding-right: 12px; vertical-align: top;
+    font: 600 12px/20px Inter, system-ui, sans-serif; letter-spacing: .01em; color: #44506a; overflow-wrap: break-word;
+  }
+  /* un ancho mínimo pensado para la columna de la tabla no ensancha la tarjeta */
+  /* (salvo el mínimo de un objetivo táctil: min-w-[40px]/[44px]) */
+  [data-tabla="lg"] > table > :is(tbody, tfoot) > tr > td [class*="min-w-["]:not([class*="min-w-[40px]"]):not([class*="min-w-[44px]"]) { min-width: 0 !important; }
+  /* sin cabecera (acciones, casilla): a lo ancho; las acciones a la derecha */
+  [data-tabla="lg"] > table > :is(tbody, tfoot) > tr > td[data-th=""]:not(.hidden) {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; padding-top: 8px;
+  }
+  [data-tabla="lg"] > table > :is(tbody, tfoot) > tr > td[data-th=""]:first-child { justify-content: flex-start; padding-top: 0; }
+  [data-tabla="lg"] > table > :is(tbody, tfoot) > tr > td[data-th=""]:only-child { justify-content: flex-start; }
+}
+
 
 /* --- Indicadores (UI.kpi) -------------------------------------------------- */
 /* En el teléfono, dos por fila y compactos (antes, una columna de tarjetas altas). */
@@ -330,4 +384,38 @@ html.tm-sin-scroll, html.tm-sin-scroll body { overflow: hidden; }
   position: absolute; top: 0; left: 0; right: 0; height: 56px; padding: 0 16px;
   display: flex; align-items: center; gap: 8px; background: #0b2545; color: #fff;
   font: 700 18px/1 Inter, system-ui, sans-serif;
+}
+/* En el escritorio con ratón, el menú lateral es más compacto (36 px por
+   entrada): con 44 px y los títulos de sección no cabía en 800 px de alto.
+   Con el dedo, 44 px siempre. (El menú se queda fijo al desplazar la
+   página y se desplaza por dentro: tm-app.js, aside[data-nav].) */
+@media (min-width: 1024px) and (pointer: fine) {
+  [data-nav] nav a { min-height: 36px; padding-top: 6px; padding-bottom: 6px; }
+  [data-seccion]::before { padding: 12px 16px 4px; }
+}
+
+/* --- Botones de un formulario ----------------------------------------------
+   .tm-acciones: la fila de botones al pie de un formulario (y su nota). En
+   el escritorio, a la derecha; en el teléfono, a lo ancho y apilados, el
+   mismo patrón en todos los formularios (antes unos iban a la izquierda,
+   otros a la derecha y otros a lo ancho). */
+.tm-acciones { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+@media (max-width: 639.98px) {
+  .tm-acciones > * { flex: 1 1 100%; }
+  .tm-acciones > :is(button, a) { justify-content: center; }
+}
+
+/* --- Tablas que se desplazan a lo ancho: los botones a la vista ------------
+   En la tableta (o en el escritorio, si no cabe), una tabla de UI.tabla cuya
+   última columna son los botones (data-acciones-fijas) la deja fija a la
+   derecha, con una sombra: la acción principal de una cola (Conciliar,
+   Detalle, Correr ahora) ya no queda fuera de la vista. Sin el borde que se
+   desvanece a la derecha (taparía los botones); la pista «Desliza para ver
+   más» sigue debajo. */
+@media (min-width: 640px) {
+  [data-tabla][data-acciones-fijas][data-desborda] { -webkit-mask-image: none; mask-image: none; }
+  [data-tabla][data-acciones-fijas][data-desborda] > table > :is(thead, tbody) > tr > :last-child {
+    position: sticky; right: 0; z-index: 1; background: #fff; box-shadow: -10px 0 10px -10px rgba(11, 37, 69, .35);
+  }
+  [data-tabla][data-acciones-fijas][data-desborda] > table > thead > tr > :last-child { background: #f4f7fa; }
 }

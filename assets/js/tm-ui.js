@@ -31,9 +31,12 @@
   var ESTADOS = {
     /* pedido */
     pago_por_verificar: { t: 'Pago por verificar', tono: 'ambar',  i: 'schedule' },
+    /* (el comprador aún no reportó su pago: en la tienda no es «por verificar») */
+    por_pagar:          { t: 'Esperando tu pago',  tono: 'ambar',  i: 'payments' },
     por_aceptar:        { t: 'Por aceptar',        tono: 'ambar',  i: 'notifications' },
     preparando:         { t: 'En preparación',     tono: 'azul',   i: 'inventory_2' },
-    listo:              { t: 'Listo para retiro',  tono: 'azul',   i: 'package_2' },
+    /* «Listo para retiro» solo cuando se retira en la tienda ({retiro: true}) */
+    listo:              { t: 'Listo para despacho', tono: 'azul',  i: 'package_2', retiro: 'Listo para retiro' },
     despachado:         { t: 'En camino',          tono: 'azul',   i: 'local_shipping' },
     entregado:          { t: 'Entregado',          tono: 'verde',  i: 'check_circle' },
     cerrado:            { t: 'Completado',         tono: 'verde',  i: 'task_alt' },
@@ -51,9 +54,10 @@
     observado:  { t: 'Observado',    tono: 'ambar', i: 'warning' },
     suspendido: { t: 'Suspendido',   tono: 'rojo',  i: 'block' },
     pendiente:  { t: 'Pendiente',    tono: 'ambar', i: 'schedule' },
-    abierta:    { t: 'Abierta',      tono: 'rojo',  i: 'gavel' },
+    /* (m: en masculino, para «el reclamo»: {masculino: true}) */
+    abierta:    { t: 'Abierta',      tono: 'rojo',  i: 'gavel', m: 'Abierto' },
     respondida: { t: 'Con respuesta',tono: 'ambar', i: 'forum' },
-    resuelta:   { t: 'Resuelta',     tono: 'verde', i: 'task_alt' },
+    resuelta:   { t: 'Resuelta',     tono: 'verde', i: 'task_alt', m: 'Resuelto' },
     pagada:     { t: 'Pagada',       tono: 'verde', i: 'check_circle' },
     /* dinero del seller */
     retenido:   { t: 'Retenido',     tono: 'ambar', i: 'lock' },
@@ -70,12 +74,18 @@
     gris:  'bg-surface-container-high text-on-surface-variant'
   };
 
-  function badge(clave) {
+  /* opciones: {masculino: true} («Reclamo abierto»), {retiro: true} (el
+     pedido se retira en la tienda: «Listo para retiro»). */
+  function nombreEstado(clave, opciones) {
+    var e = ESTADOS[clave] || { t: clave };
+    opciones = opciones || {};
+    return (opciones.masculino && e.m) || (opciones.retiro && e.retiro) || e.t;
+  }
+  function badge(clave, opciones) {
     var e = ESTADOS[clave] || { t: clave, tono: 'gris', i: 'info' };
     return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-label-sm text-label-sm whitespace-nowrap ' +
-      TONOS[e.tono] + '">' + ic(e.i, 'text-[14px]') + esc(e.t) + '</span>';
+      TONOS[e.tono] + '">' + ic(e.i, 'text-[14px]') + esc(nombreEstado(clave, opciones)) + '</span>';
   }
-  function nombreEstado(clave) { return (ESTADOS[clave] || { t: clave }).t; }
 
   /* ---------------------------------------------------------------------
      Piezas pequeñas
@@ -151,11 +161,15 @@
      cabecera de su columna; la columna sin cabecera (los botones) va a lo
      ancho. Las celdas, sus atributos data-* y sus acciones son las mismas.
      Por omisión van en tarjetas las de 4 columnas o más; opciones.tarjetas
-     (true/false) lo fija. Las que no (o en la tableta, si no caben) se
+     (true/false) lo fija; 'lg': también en la tableta (las tablas anchas del
+     Backoffice). Las que no (o en la tableta, si no caben) se
      desplazan a lo ancho con la pista «Desliza para ver más» y un borde que
      se desvanece (tm-app marca data-desborda). Una cabecera vacía (la columna
      de botones) se nombra para los lectores; una que es un marcador de HTML
-     («<todos>», que el módulo reemplaza) no da etiqueta. */
+     («<todos>», que el módulo reemplaza) no da etiqueta. opciones.desdeLg:
+     las columnas (índices desde 0) cuya cabecera solo se ve desde lg (sus celdas
+     llevan «hidden lg:table-cell» y su dato va dentro de otra celda: en la
+     tableta la tabla cabe sin desplazarse). */
   function etiquetaColumna(c) { return c && !/^<[^>]*>$/.test(String(c)) ? String(c) : ''; }
   function conEtiquetas(fila, etiquetas) {
     var i = 0;
@@ -173,11 +187,16 @@
     opciones = opciones || {};
     var tarjetas = opciones.tarjetas != null ? !!opciones.tarjetas : cabeceras.length >= 4;
     var etiquetas = cabeceras.map(etiquetaColumna);
+    /* la última columna sin cabecera son los botones: si la tabla se desplaza
+       (la tableta), queda fija a la derecha y siempre a la vista (tm.css) */
+    var accionesFijas = cabeceras.length >= 4 && !etiquetas[etiquetas.length - 1];
     /* (relative: el nombre oculto de la columna no se sale de la región que se desplaza) */
-    return '<div class="relative overflow-x-auto rounded-card border border-outline-variant bg-surface-container-lowest" data-tabla' + (tarjetas ? '' : '="desliza"') + '>' +
+    var modo = opciones.tarjetas === 'lg' ? '="lg"' : tarjetas ? '' : '="desliza"';
+    return '<div class="relative overflow-x-auto rounded-card border border-outline-variant bg-surface-container-lowest" data-tabla' + modo + (accionesFijas ? ' data-acciones-fijas' : '') + '>' +
       '<table class="w-full text-body-sm font-body-sm"><thead><tr class="border-b border-outline-variant bg-surface-container-low">' +
-      cabeceras.map(function (c) {
-        return '<th class="text-left px-4 py-3 font-label-caps text-label-caps uppercase tracking-[0.05em] text-on-surface-variant whitespace-nowrap">' +
+      cabeceras.map(function (c, n) {
+        var desdeLg = (opciones.desdeLg || []).indexOf(n) >= 0;
+        return '<th class="' + (desdeLg ? 'hidden lg:table-cell ' : '') + 'text-left px-4 py-3 font-label-caps text-label-caps uppercase tracking-[0.05em] text-on-surface-variant whitespace-nowrap">' +
           (c ? esc(c) : '<span class="sr-only">Acciones</span>') + '</th>';
       }).join('') +
       '</tr></thead><tbody>' +
@@ -197,10 +216,14 @@
   /* Chip o pestaña de filtro (44 px en pantallas táctiles). Para una fila de
      chips que en el teléfono se desplaza a lo ancho: un contenedor
      «flex flex-wrap gap-2 tm-tira-movil». */
+  /* La clase de un chip o pestaña (el activo, azul de acción): la misma en
+     los enlaces de UI.chip y en las pestañas que son botones. */
+  function claseChip(activo) {
+    return 'tm-chip border font-label-md text-label-md ' +
+      (activo ? 'bg-secondary text-on-secondary border-secondary' : 'border-outline-variant text-on-surface-variant hover:border-secondary bg-surface-container-lowest');
+  }
   function chip(texto, ruta, activo, attrs) {
-    return '<a class="tm-chip border font-label-md text-label-md ' +
-      (activo ? 'bg-secondary text-on-secondary border-secondary' : 'border-outline-variant text-on-surface-variant hover:border-secondary bg-surface-container-lowest') +
-      '" href="' + esc(ruta) + '"' + (activo ? ' aria-current="page"' : '') + (attrs ? ' ' + attrs : '') + '>' + esc(texto) + '</a>';
+    return '<a class="' + claseChip(activo) + '" href="' + esc(ruta) + '"' + (activo ? ' aria-current="page"' : '') + (attrs ? ' ' + attrs : '') + '>' + esc(texto) + '</a>';
   }
 
   /* Aviso de cuenta de prueba / solo lectura en una línea, con el detalle
@@ -211,10 +234,23 @@
       (detalle
         ? '<details class="group"><summary class="flex items-center gap-2 px-3 py-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden">' +
             ic(icono || 'lock', 'shrink-0 text-[18px]') + '<span class="flex-1 min-w-0">' + esc(texto) + '</span>' +
-            '<span class="shrink-0 inline-flex items-center font-label-md text-label-md underline">Más' + ic('expand_more', 'text-[18px] group-open:rotate-180 transition') + '</span></summary>' +
+            '<span class="shrink-0 inline-flex items-center font-label-md text-label-md"><span class="underline underline-offset-2">Más</span>' + ic('expand_more', 'text-[18px] group-open:rotate-180 transition') + '</span></summary>' +
             '<div class="px-3 pb-3 pl-9">' + detalle + '</div></details>'
         : '<p class="flex items-center gap-2 px-3 py-2">' + ic(icono || 'lock', 'shrink-0 text-[18px]') + '<span class="min-w-0">' + esc(texto) + '</span></p>') +
       '</div>';
+  }
+
+  /* Un correo que, si no cabe, se parte tras la arroba o antes de un punto
+     (no a la mitad de una palabra: «comprador@demo.» / «ve»). Para un
+     elemento con [overflow-wrap:anywhere], no break-all. */
+  function partirCorreo(e) { return e.replace(/@/g, '@<wbr>').replace(/\./g, '<wbr>.'); }
+  function correo(email) { return partirCorreo(esc(email)); }
+
+  /* Explicación larga plegada («¿Cómo funciona?»): en el teléfono no empuja
+     el contenido real debajo del pliegue. clase: el margen exterior. */
+  function explicacion(html, resumen, clase) {
+    return '<details class="' + (clase || 'mb-3') + '" data-explicacion><summary class="inline-flex items-center gap-1 cursor-pointer font-label-md text-label-md text-secondary">' +
+      ic('help', 'text-[18px]') + esc(resumen || '¿Cómo funciona?') + '</summary><p class="mt-1 max-w-3xl font-body-sm text-body-sm text-on-surface-variant">' + html + '</p></details>';
   }
 
   /* Fecha y hora con el formato del sitio (docs/DESIGN.md), en hora de
@@ -234,6 +270,43 @@
     FMT_FECHA.formatToParts(d).forEach(function (x) { p[x.type] = x.value; });
     var f = p.day + '/' + p.month + '/' + p.year;
     return opciones && opciones.hora === false ? f : f + ' ' + p.hour + ':' + p.minute + ' ' + String(p.dayPeriod || '').toLowerCase();
+  }
+
+  /* Identificadores e importes dentro de un texto mixto («Confirmar la
+     entrega de TM-2026-00431», «IGTF (3 %)», «pagó Bs. 349,69») no se
+     parten a la mitad: cada uno queda en un <span class="tm-id"> (tm.css,
+     sin cortes). El texto no cambia. Lo usan tm-app (tras cada pintado) y
+     los diálogos. Un elemento cuyo texto es SOLO el identificador lo marca
+     tm-app (data-unido); los indicadores (data-kpi) pueden partirse. */
+  var RE_PARTE = /[A-Z]{2,5}(?:-[A-Z0-9]{2,}){1,4}|(?:Bs\.|US\$)\s[\d.,]+|\d+(?:[.,]\d+)?\s%/g;
+  var NO_TEXTO = /^(SCRIPT|STYLE|TEXTAREA|OPTION|SELECT|TITLE|CODE|PRE)$/;
+  function unirPartes(raiz) {
+    if (!raiz || !document.createTreeWalker) return;
+    var w = document.createTreeWalker(raiz, 4 /* NodeFilter.SHOW_TEXT */, null);
+    var nodos = [], n;
+    while ((n = w.nextNode())) {
+      var padre = n.parentNode;
+      if (n.data.length < 5 || !padre || padre.nodeType !== 1 || NO_TEXTO.test(padre.tagName)) continue;
+      var partes = n.data.match(RE_PARTE);
+      /* sin partes, o el texto es solo una (eso ya lo marca data-unido) */
+      if (!partes || (partes.length === 1 && partes[0] === n.data.trim() && padre.childNodes.length === 1)) continue;
+      if (padre.closest('.tm-id, .tm-num, [data-unido], [data-kpi], [contenteditable], .whitespace-nowrap')) continue;
+      nodos.push(n);
+    }
+    nodos.forEach(function (nodo) {
+      var t = nodo.data, frag = document.createDocumentFragment(), desde = 0, m;
+      RE_PARTE.lastIndex = 0;
+      while ((m = RE_PARTE.exec(t))) {
+        if (m.index > desde) frag.appendChild(document.createTextNode(t.slice(desde, m.index)));
+        var sp = document.createElement('span');
+        sp.className = 'tm-id';
+        sp.textContent = m[0];
+        frag.appendChild(sp);
+        desde = m.index + m[0].length;
+      }
+      if (desde < t.length) frag.appendChild(document.createTextNode(t.slice(desde)));
+      nodo.parentNode.replaceChild(frag, nodo);
+    });
   }
 
   /* Cierra los desplegables de la cabecera (cuenta, notificaciones). */
@@ -266,8 +339,13 @@
      Avisos y confirmaciones
      ------------------------------------------------------------------- */
   /* Aviso emergente. opciones.accion = {texto, href} (o {texto, alTocar})
-     agrega un enlace, p. ej. «Ver carrito». En el teléfono va arriba y se
-     ve uno a la vez: el nuevo reemplaza al anterior (tm.css .tm-toasts). */
+     agrega un enlace, p. ej. «Ver carrito». En el teléfono va arriba, se ve
+     uno a la vez (el nuevo reemplaza al anterior), es compacto, dura menos y
+     un toque en él lo cierra (tm.css .tm-toasts). */
+  /* El texto de un aviso, con sus correos partidos donde deben (UI.correo). */
+  function conCorreos(texto) {
+    return esc(texto).replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, partirCorreo);
+  }
   function toast(titulo, texto, icono, opciones) {
     opciones = opciones || {};
     var pila = document.querySelector('.tm-toasts');
@@ -278,7 +356,8 @@
       pila.setAttribute('aria-live', 'polite');
       document.body.appendChild(pila);
     }
-    if (window.matchMedia && window.matchMedia('(max-width: 639.98px)').matches) {
+    var telefono = !!(window.matchMedia && window.matchMedia('(max-width: 639.98px)').matches);
+    if (telefono) {
       Array.prototype.forEach.call(pila.querySelectorAll('.tm-toast'), function (v) { v.remove(); });
     }
     var a = opciones.accion;
@@ -286,14 +365,16 @@
     t.className = 'tm-toast';
     t.innerHTML = ic(icono || 'info', 'tm-toast__ico') +
       '<span class="tm-toast__cuerpo"><strong>' + esc(titulo) + '</strong>' +
-      (texto ? '<span>' + esc(texto) + '</span>' : '') +
+      (texto ? '<span>' + conCorreos(texto) + '</span>' : '') +
       (a && a.texto ? (a.href ? '<a class="tm-toast__accion" href="' + esc(a.href) + '">' : '<button type="button" class="tm-toast__accion">') +
         esc(a.texto) + ic('arrow_forward', 'text-[16px]') + (a.href ? '</a>' : '</button>') : '') + '</span>' +
       '<button type="button" class="tm-toast__x" aria-label="Cerrar aviso">' + ic('close') + '</button>';
     t.querySelector('.tm-toast__x').addEventListener('click', function () { t.remove(); });
     if (a && a.alTocar) t.querySelector('.tm-toast__accion').addEventListener('click', function () { t.remove(); a.alTocar(); });
+    /* en el teléfono, tocar el aviso (fuera de su acción) lo cierra */
+    if (telefono) t.addEventListener('click', function (ev) { if (!ev.target.closest('.tm-toast__accion')) t.remove(); });
     pila.appendChild(t);
-    var dura = a ? 6400 : 4200;
+    var dura = telefono ? (a ? 5000 : 3200) : (a ? 6400 : 4200);
     setTimeout(function () { t.classList.add('sale'); }, dura);
     setTimeout(function () { t.remove(); }, dura + 600);
   }
@@ -354,6 +435,7 @@
     document.addEventListener('keydown', teclas, true);
     cerrarDesplegables();
     document.body.appendChild(velo);
+    unirPartes(caja);
     if (fondo) fondo.inert = true;
     velo.querySelectorAll('[data-cerrar]').forEach(function (b) { b.addEventListener('click', cerrar); });
     /* el primer campo; si no hay, la salida segura (Cancelar), nunca la
@@ -368,6 +450,12 @@
   }
 
   var nCampos = 0;
+  /* El botón que cierra un diálogo sin hacer nada. Si la acción es
+     «Cancelar…» (un pedido, una suscripción), no se rotula también
+     «Cancelar»: dos botones casi iguales con significados opuestos. */
+  function textoCerrar(accion, cerrar) {
+    return cerrar || (/^cancelar\b/i.test(String(accion || '')) ? 'Volver' : 'Cancelar');
+  }
   function confirmar(titulo, texto, opciones, alConfirmar) {
     var idMotivo = 'tm-motivo-' + (++nCampos);
     modal(
@@ -375,9 +463,9 @@
       '<p class="font-body-sm text-body-sm text-on-surface-variant mb-4">' + esc(texto) + '</p>' +
       (opciones.motivo ? '<label class="block font-label-md text-label-md text-on-surface mb-1" for="' + idMotivo + '">' + esc(opciones.motivo) + '</label>' +
         '<textarea data-motivo id="' + idMotivo + '" rows="3" class="w-full mb-4 px-3 py-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"></textarea>' : '') +
-      '<div class="flex flex-wrap justify-end gap-2">' +
-      btn('Cancelar', { attr: 'data-cerrar' }) +
-      btn(opciones.accion || 'Confirmar', { estilo: opciones.peligro ? 'peligro' : 'primario', attr: 'data-ok' }) +
+      '<div class="tm-acciones">' +
+      btn(textoCerrar(opciones.accion, opciones.cerrar), { attr: 'data-cerrar' }) +
+      btn(opciones.accion || 'Confirmar', { estilo: opciones.peligro ? 'peligro' : (opciones.estilo || 'primario'), attr: 'data-ok' }) +
       '</div>',
       function (velo, cerrar) {
         velo.querySelector('[data-ok]').addEventListener('click', function () {
@@ -410,7 +498,7 @@
       '<input data-codigo id="' + idCodigo + '" autocomplete="one-time-code" ' + (real ? 'maxlength="9" autocapitalize="characters"' : 'inputmode="numeric" pattern="[0-9]*" maxlength="6"') +
       ' placeholder="000000" class="w-full h-12 px-4 mb-1 rounded-btn border border-outline-variant bg-surface-container-low font-data-mono text-[20px] leading-6 tracking-[0.4em] text-center focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>' +
       '<p data-error class="hidden font-body-sm text-body-sm text-error mb-2" role="alert"></p>' +
-      '<div class="flex flex-wrap justify-end gap-2 mt-3">' + btn('Cancelar', { attr: 'data-cerrar' }) +
+      '<div class="tm-acciones mt-3">' + btn('Cancelar', { attr: 'data-cerrar' }) +
       btn('Verificar y continuar', { estilo: 'marca', attr: 'data-ok', icono: 'lock_open' }) + '</div>',
       function (velo, cerrar) {
         var campo = velo.querySelector('[data-codigo]');
@@ -479,9 +567,9 @@
     badge: badge, nombreEstado: nombreEstado, estrellas: estrellas, precio: precio,
     imgProducto: imgProducto, tarjetaProducto: tarjetaProducto,
     kpi: kpi, vacio: vacio, tabla: tabla, td: td, btn: btn,
-    enlace: enlace, chip: chip, avisoPrueba: avisoPrueba, fechaHora: fechaHora,
+    enlace: enlace, chip: chip, claseChip: claseChip, avisoPrueba: avisoPrueba, explicacion: explicacion, fechaHora: fechaHora, correo: correo,
     toast: toast, modal: modal, confirmar: confirmar, pedir2fa: pedir2fa,
     accion: accion, mensajeError: mensajeError, enfocables: enfocables,
-    cerrarDesplegables: cerrarDesplegables, tactil: tactil, etiquetaColumna: etiquetaColumna
+    cerrarDesplegables: cerrarDesplegables, tactil: tactil, etiquetaColumna: etiquetaColumna, unirPartes: unirPartes, textoCerrar: textoCerrar
   };
 })();

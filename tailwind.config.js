@@ -7,6 +7,7 @@ module.exports = {
   darkMode: 'class',
   content: [
     './index.html',
+    './sin-conexion.html',
     './app/**/*.html',
     './prototipo/**/*.html',
     './paginas/**/*.html',

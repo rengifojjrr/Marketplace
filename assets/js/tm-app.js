@@ -40,7 +40,7 @@
       { vista: 'admin/panel',        texto: 'Panel',          icono: 'dashboard',     roles: ['superadmin'] },
       { vista: 'admin/sellers',      texto: 'Sellers y KYC',  icono: 'verified_user', roles: ['superadmin'] },
       { vista: 'admin/moderacion',   texto: 'Moderación',     icono: 'category',      roles: ['superadmin'] },
-      { vista: 'admin/pedidos',      texto: 'Pedidos',        icono: 'local_shipping',roles: ['superadmin', 'ops'] },
+      { vista: 'admin/pedidos',      texto: 'Pedidos',        icono: 'package_2',     roles: ['superadmin', 'ops'] },
       { vista: 'admin/disputas',     texto: 'Disputas',       icono: 'gavel',         roles: ['superadmin', 'ops'] },
       { vista: 'admin/conciliacion', texto: 'Conciliación',   icono: 'fact_check',    roles: ['superadmin', 'finanzas'] },
       { vista: 'admin/liquidaciones',texto: 'Liquidaciones',  icono: 'receipt_long',  roles: ['superadmin', 'finanzas'] },
@@ -224,7 +224,8 @@
               '<hr class="my-1 border-outline-variant"/>' +
               '<button data-salir class="' + item + '">Cerrar sesión</button>'
             : '<a class="flex items-center justify-center mx-4 my-2 min-h-[44px] rounded-btn bg-secondary text-on-secondary font-label-md text-label-md" href="' + href('index.html') + '">Iniciar sesión</a>' +
-              '<p class="px-4 pb-2 font-body-sm text-body-sm text-on-surface-variant">¿Nuevo aquí? El registro está en la misma pantalla.</p>') +
+              '<p class="px-4 pt-1 font-body-sm text-body-sm text-on-surface-variant">¿Nuevo aquí?</p>' +
+              '<a class="' + item + ' text-secondary font-semibold" href="' + href('index.html?registro=1') + '">Crea tu cuenta de comprador</a>') +
           '</div></div>' +
         /* un usuario de panel no compra: en el lugar del carrito, su camino de vuelta */
         (vuelta ? '<a data-volver-panel class="flex items-center gap-1 min-h-[44px] px-2 rounded hover:bg-white/10 shrink-0" href="' + vuelta.href + '">' +
@@ -233,9 +234,10 @@
         (s ? '<a class="hidden lg:flex flex-col justify-center min-h-[44px] leading-tight px-2 rounded hover:bg-white/10 shrink-0" href="' + href('app/tienda/pedidos.html') + '">' +
           '<span class="text-[12px] text-white/75">Devoluciones</span><span class="text-[13px] font-bold">y pedidos</span></a>' : '') +
         (s ? '<div class="shrink-0">' + campanita(s) + '</div>' : '') +
-        (vuelta ? '' : '<a class="relative flex items-center justify-center gap-1 min-h-[44px] min-w-[44px] px-1.5 rounded hover:bg-white/10 shrink-0" href="' + href('app/tienda/carrito.html') + '" aria-label="Carrito (' + nCarrito + ')">' +
-          ic('shopping_cart', 'text-[26px]') +
-          '<span class="absolute top-0.5 left-6 min-w-[20px] h-5 inline-flex items-center justify-center px-1 rounded-full bg-warning text-on-warning text-[12px] leading-none font-bold"' + (nCarrito ? '' : ' hidden') + '>' + nCarrito + '</span>' +
+        /* la insignia cuelga del icono (no del enlace): con el texto «Carrito» al lado ya no lo tapa */
+        (vuelta ? '' : '<a class="flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] px-1.5 rounded hover:bg-white/10 shrink-0" href="' + href('app/tienda/carrito.html') + '" aria-label="Carrito (' + nCarrito + ')">' +
+          '<span class="relative inline-flex">' + ic('shopping_cart', 'text-[26px]') +
+          '<span class="absolute -top-1.5 -right-2.5 min-w-[20px] h-5 inline-flex items-center justify-center px-1 rounded-full bg-warning text-on-warning text-[12px] leading-none font-bold"' + (nCarrito ? '' : ' hidden') + '>' + nCarrito + '</span></span>' +
           '<span class="hidden sm:inline text-[13px] font-bold">Carrito</span></a>') +
       '</div>' +
       /* categorías: se desplazan a lo ancho con el borde que se desvanece
@@ -397,8 +399,10 @@
           '</div></div>' +
       '</div></header>' +
     '<div class="flex-1 flex min-h-0">' +
-      '<aside data-nav id="tm-menu-panel" class="fixed lg:static top-14 bottom-0 left-0 z-[35] lg:z-auto w-72 max-w-[85vw] lg:w-60 lg:max-w-none shrink-0 flex flex-col ' +
-        'overflow-y-auto overscroll-contain lg:overflow-visible bg-surface-container-lowest border-r border-outline-variant shadow-nivel-3 lg:shadow-none -translate-x-full lg:translate-x-0 transition-transform">' +
+      /* desde lg, la columna se queda a la vista al desplazar la página
+         (sticky) y se desplaza por dentro: con 25 entradas no cabía en 800 px */
+      '<aside data-nav id="tm-menu-panel" class="fixed lg:sticky top-14 bottom-0 left-0 z-[35] lg:z-auto w-72 max-w-[85vw] lg:w-60 lg:max-w-none lg:h-[calc(100vh-3.5rem)] lg:self-start shrink-0 flex flex-col ' +
+        'overflow-y-auto overscroll-contain bg-surface-container-lowest border-r border-outline-variant shadow-nivel-3 lg:shadow-none -translate-x-full lg:translate-x-0 transition-transform">' +
         /* en el cajón, quién eres (en el escritorio lo dice la cabecera) */
         '<div class="lg:hidden flex items-center gap-3 mx-3 mt-3 pl-3 pr-1 py-1 rounded-lg bg-surface-container-low">' +
           ic(superficie === 'seller' ? 'storefront' : 'admin_panel_settings', 'shrink-0 text-[22px] text-secondary') +
@@ -425,6 +429,16 @@
       'Por eso tampoco aparece en tu menú: en Tumbo lo que no puedes usar no se muestra.</p>' +
       '<a class="inline-flex items-center gap-2 min-h-[44px] px-5 rounded-btn bg-primary-container text-on-primary font-label-md text-label-md" href="' + href(ROLES[s.rol].inicio) + '">' +
       ic('arrow_back', 'text-[18px]') + 'Volver a mi inicio</a></div></div>';
+  }
+
+  /* El servidor niega la sección a este rol (le falta el permiso fino:
+     «Tu rol no permite…»): el 403 de siempre, sin un «Reintentar» que nunca
+     va a funcionar. '' si el error es otro. Lo usan los módulos al pintar
+     un error de datos. */
+  function html403Error(error) {
+    var s = TM.sesion();
+    if (!s || !ROLES[s.rol] || !/^Tu rol no (permite|tiene)/.test(String(error || ''))) return '';
+    return html403(s, String(document.title || '').split(' · ')[0] || 'esta sección');
   }
 
   /* Cierra los desplegables de la cabecera (y lo dice a los lectores). */
@@ -530,7 +544,7 @@
     var reiniciar = raiz.querySelector('[data-reiniciar]');
     if (reiniciar && (DEMO || TM.modo !== 'remoto')) reiniciar.addEventListener('click', function () {
       var texto = TM.modo === 'remoto'
-        ? 'Todos los pedidos, productos y movimientos vuelven a la semilla para TODOS los usuarios de la beta. Las cuentas se conservan.'
+        ? 'Todos los pedidos, productos y movimientos vuelven a los datos de ejemplo iniciales para TODOS los usuarios de la beta. Las cuentas se conservan.'
         : 'Se pierden los datos creados en este navegador y todo vuelve al estado inicial.';
       UI.confirmar('Reiniciar la demo', texto, { accion: 'Reiniciar', peligro: true }, function () {
         UI.accion(null, function () { return TM.reiniciarDemo(); }, function () {
@@ -625,6 +639,7 @@
   function accesibilidad(raiz) {
     tirasDeChips(raiz);
     unirTextos(raiz);
+    UI.unirPartes(raiz);
     tablasQueNoCaben(raiz);
     etiquetarTablas(raiz);
     envolverFilas(raiz);
@@ -632,7 +647,7 @@
     raiz.querySelectorAll('.overflow-x-auto, .overflow-auto').forEach(function (el) {
       if (el.hasAttribute('tabindex') || el.scrollWidth <= el.clientWidth + 1) return;
       /* con botones o enlaces dentro, el teclado ya la recorre: solo el nombre */
-      if (UI.enfocables && UI.enfocables(el).length) {
+      if (UI.enfocables(el).length) {
         if (el.querySelector('table, [data-tabla]') && !el.getAttribute('role') && !el.getAttribute('aria-label')) {
           var th0 = el.querySelector('th');
           el.setAttribute('role', 'region');
@@ -683,9 +698,24 @@
         Array.prototype.forEach.call(tr.cells, function (td) {
           var n = td.colSpan || 1;
           if (td.tagName === 'TD' && !td.hasAttribute('data-th')) td.setAttribute('data-th', n > 1 ? '' : (cab[col] || ''));
+          conservarEspacios(td);
           col += n;
         });
       });
+    });
+  }
+
+  /* En la tarjeta, la celda es una tabla (tm.css) y Chrome descarta un
+     espacio suelto entre dos elementos en línea de su contenido
+     («<strong>MRW</strong> <span>mrw</span>» se leía «MRWmrw»): ese espacio
+     pasa a un <span>, que sí lo conserva. El texto no cambia. */
+  function conservarEspacios(td) {
+    Array.prototype.forEach.call(td.childNodes, function (n) {
+      if (n.nodeType !== 3 || /\S/.test(n.data) || !n.data.length) return;
+      if (!(n.previousSibling && n.previousSibling.nodeType === 1 && n.nextSibling && n.nextSibling.nodeType === 1)) return;
+      var sp = document.createElement('span');
+      sp.textContent = ' ';
+      td.replaceChild(sp, n);
     });
   }
 
@@ -713,8 +743,13 @@
         var act = el.querySelector('[aria-current]:not([aria-current="false"]), [aria-selected="true"], .rounded-full.bg-secondary');
         if (act) {
           var r = act.getBoundingClientRect(), c = el.getBoundingClientRect();
+          /* sin el ajuste (scroll-snap) mientras se centra: si no, lo volvía a
+             pegar al borde, debajo del desvanecido */
+          var ajuste = el.style.scrollSnapType;
+          el.style.scrollSnapType = 'none';
           el.scrollLeft += (r.left + r.width / 2) - (c.left + c.width / 2);
           estadoDesborde(el);
+          requestAnimationFrame(function () { el.style.scrollSnapType = ajuste; });
         }
       }
     });
@@ -936,7 +971,7 @@
   }
 
   window.APP = {
-    ROLES: ROLES, registrar: registrar, params: params, montar: montar, html403: html403,
+    ROLES: ROLES, registrar: registrar, params: params, montar: montar, html403: html403, html403Error: html403Error,
     nav: nav, navDe: navDe, enlace: enlace, gancho: gancho, ganchos: ganchos, trasPintar: trasPintar, puedeAbrir: puedeAbrir,
     meta: meta, accesibilidad: accesibilidad
   };
