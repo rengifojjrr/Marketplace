@@ -121,7 +121,25 @@ declare
     'public.tm_disputa(text,text)', 'public.tm_disputas_resumen(text)', 'public.tm_disputa_resolver(text,text,jsonb)',
     'public.tm_disputa_mensaje(text,text,text,text[])', 'public.tm_disputa_solicitar(text,text,text,text,integer)',
     'public.tm_disputa_apelar(text,text,text,text[])', 'public.tm_disputa_apelacion_resolver(text,text,jsonb)',
-    'public.tm_comunicacion_revisar(text)'];
+    'public.tm_comunicacion_revisar(text)',
+    -- ola 2 (crecimiento)
+    'public.tm_ajustes_admin(text)', 'public.tm_config_guardar(text,text,jsonb)', 'public.tm_cambio_decidir(text,bigint,boolean,text)',
+    'public.tm_comision_proponer(text,jsonb)', 'public.tm_comision_terminar(text,bigint,text)',
+    'public.tm_moderacion_panel(text)', 'public.tm_moderacion_regla(text,jsonb)', 'public.tm_moderacion_marca(text,bigint,text,text)',
+    'public.tm_moderacion_revisar_publicados(text)', 'public.tm_moderacion_retirar(text,text[],text)',
+    'public.tm_denuncias(text,text)', 'public.tm_denuncia_resolver(text,bigint,text,text)',
+    'public.tm_sancion_aplicar(text,text,text,text,jsonb)', 'public.tm_sancion_levantar(text,bigint,text)',
+    'public.tm_niveles_recalcular(text)', 'public.tm_niveles_publicos()', 'public.tm_ficha_nota(text,text,text,text)',
+    'public.tm_seller_360(text,text)', 'public.tm_comprador_360(text,uuid)',
+    'public.tm_riesgo_pagos(text,text[])', 'public.tm_riesgo_liberar(text,text,text)', 'public.tm_riesgo_panel(text)',
+    'public.tm_lista_negra_guardar(text,text,text,text)', 'public.tm_lista_negra_quitar(text,bigint,text)',
+    'public.tm_comprador_marcar(text,uuid,boolean,text)',
+    'public.tm_promos_producto(text)', 'public.tm_promos_skus(text[])', 'public.tm_promociones_cotizar(text,jsonb,text)',
+    'public.tm_marketing_portada()', 'public.tm_coleccion(text)', 'public.tm_marketing_admin(text)',
+    'public.tm_campana_guardar(text,jsonb)', 'public.tm_banner_guardar(text,jsonb)', 'public.tm_coleccion_guardar(text,jsonb)',
+    'public.tm_oferta_guardar(text,jsonb)', 'public.tm_cupon_guardar(text,jsonb)', 'public.tm_promocion_estado(text,text,bigint,boolean)',
+    'public.tm_seller_promociones(text)',
+    'public.tm_analitica_registrar(jsonb)', 'public.tm_metricas_negocio(text,jsonb)', 'public.tm_seller_estadisticas(text,jsonb)'];
   f text;
   ajenos text;
   b text;
@@ -181,7 +199,7 @@ begin
         delete from storage.objects o
         where o.bucket_id = b
           and (exists (select 1 from tumbo.archivos a where a.ruta = o.name)
-               or o.name ~ '^(producto|perfil|kyc|evidencia|comprobante|guia|entrega|chat|liquidacion|resena|soporte)/[A-Za-z0-9-]+/[0-9a-f-]{36}\.(jpg|png|webp|pdf|mp4|bin)$');
+               or o.name ~ '^(producto|perfil|kyc|evidencia|comprobante|guia|entrega|chat|liquidacion|resena|soporte|marketing)/[A-Za-z0-9-]+/[0-9a-f-]{36}\.(jpg|png|webp|pdf|mp4|bin)$');
       exception when others then
         raise notice 'Storage no deja borrar los archivos de «%» por SQL (%): vacíalo desde el panel de Supabase.', b, sqlerrm;
       end;
@@ -199,7 +217,7 @@ begin
 
   -- Las tareas programadas de Tumbo (pg_cron), si existe: solo las suyas
   -- (pagos: tumbo-pagos-*; logística: tumbo-sla; comunicación:
-  -- tumbo-comunicacion y tumbo-envios).
+  -- tumbo-comunicacion y tumbo-envios; crecimiento: tumbo-crecimiento-*).
   if exists (select 1 from pg_extension where extname = 'pg_cron') then
     begin
       for b in execute $q$select jobid::text from cron.job where jobname like 'tumbo-%'$q$ loop

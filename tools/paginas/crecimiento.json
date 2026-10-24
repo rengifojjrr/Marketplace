@@ -1,0 +1,5 @@
+{
+  "tienda": ["coleccion"],
+  "seller": ["promociones", "estadisticas"],
+  "admin": ["ajustes", "marketing", "seller", "comprador", "reglas", "riesgo"]
+}

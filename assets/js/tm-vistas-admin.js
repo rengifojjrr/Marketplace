@@ -14,53 +14,10 @@
       '<h1 class="font-headline-md text-headline-md text-primary-container">' + esc(t) + '</h1>' + (extraHtml || '') + '</div>';
   }
 
-  /* =====================================================================
-     Panel ejecutivo (superadmin)
-     ===================================================================== */
-  function vPanel(q, s) {
-    var e = TM.estado;
-    var gmv = e.pedidos.filter(function (p) { return ['cancelado', 'pago_por_verificar'].indexOf(p.estado) < 0; })
-      .reduce(function (t, p) { return t + TM.totalPedidoUsd(p); }, 0);
-    /* en Bs., cada pedido con su tasa congelada al venderse */
-    var gmvBs = e.pedidos.filter(function (p) { return ['cancelado', 'pago_por_verificar'].indexOf(p.estado) < 0; })
-      .reduce(function (t, p) { return t + TM.totalPedidoUsd(p) * p.tasa; }, 0);
-    var abiertas = e.disputas.filter(function (d) { return d.estado !== 'resuelta'; }).length;
-    var porConciliar = e.pedidos.filter(function (p) { return p.estado === 'pago_por_verificar'; }).length;
-    var kycPend = e.sellers.filter(function (x) { return x.estado === 'en_revision' || x.estado === 'observado'; }).length;
-    var moderar = e.productos.filter(function (p) { return p.estado === 'en_revision'; }).length;
-
-    var colas = [
-      { t: 'Sellers por revisar (KYC)', n: kycPend, i: 'verified_user', h: 'app/admin/sellers.html' },
-      { t: 'Productos por moderar', n: moderar, i: 'category', h: 'app/admin/moderacion.html' },
-      { t: 'Pagos por conciliar', n: porConciliar, i: 'fact_check', h: 'app/admin/conciliacion.html' },
-      { t: 'Disputas abiertas', n: abiertas, i: 'gavel', h: 'app/admin/disputas.html' }
-    ];
-    return titulo('Panel ejecutivo') +
-      '<section class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">' +
-      UI.kpi('GMV acumulado (demo)', esc(TM.fmtUsd(gmv)), esc(TM.fmtBs(gmvBs, 1)), 'trending_up') +
-      UI.kpi('Pedidos totales', e.pedidos.length, 'todas las superficies', 'package_2') +
-      UI.kpi('Sellers activos', e.sellers.filter(function (x) { return x.estado === 'aprobado'; }).length + ' / ' + e.sellers.length, 'homologados / registrados', 'storefront') +
-      UI.kpi('Publicaciones', e.productos.filter(function (p) { return p.estado === 'publicado'; }).length, 'visibles en la tienda', 'inventory_2') +
-      '</section>' +
-      '<h2 class="font-label-caps text-label-caps uppercase tracking-[0.06em] text-on-surface-variant mb-2">Colas de trabajo</h2>' +
-      '<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">' +
-      colas.map(function (c) {
-        return '<a class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 hover:border-secondary hover:shadow-nivel-2 transition" href="' + href(c.h) + '">' +
-          '<div class="flex items-center justify-between">' + ic(c.i, 'text-[22px] text-secondary') +
-          '<span class="font-headline-md text-headline-md font-bold ' + (c.n ? 'text-primary-container' : 'text-outline') + '">' + c.n + '</span></div>' +
-          '<p class="font-body-sm text-body-sm text-on-surface mt-1">' + esc(c.t) + '</p></a>';
-      }).join('') + '</div>' +
-      APP.ganchos('panel.admin', { sesion: s }) +
-      '<h2 class="font-label-caps text-label-caps uppercase tracking-[0.06em] text-on-surface-variant mb-2">Actividad reciente</h2>' +
-      '<div class="rounded-card border border-outline-variant bg-surface-container-lowest divide-y divide-outline-variant">' +
-      e.eventos.slice(0, 6).map(function (ev) {
-        return '<div class="flex flex-wrap gap-x-3 gap-y-0.5 px-4 py-2.5 font-body-sm text-body-sm">' +
-          '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(ev.fecha) + '</span>' +
-          '<span class="font-bold text-on-surface">' + esc(ev.actor) + '</span>' +
-          '<span>' + esc(ev.accion) + '</span>' +
-          '<span class="text-on-surface-variant">' + esc(ev.detalle) + '</span></div>';
-      }).join('') + '</div>';
-  }
+  /* Panel ejecutivo: lo registra el módulo de crecimiento
+     (assets/js/tm-mod-crecimiento-admin.js, ola 2), con las métricas de
+     negocio. Queda la declaración para la línea del registro de abajo. */
+  var vPanel;
 
   /* Sellers y KYC, y moderación de productos: los registra el módulo de
      catálogo (assets/js/tm-mod-catalogo-admin.js, ola 1). */
