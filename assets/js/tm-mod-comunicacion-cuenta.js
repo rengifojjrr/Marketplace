@@ -31,8 +31,10 @@
 
   function leerAvisos() { return C().datos('avisos', function () { return TM.api('tm_avisos', {}); }, 60000); }
 
+  /* En la tienda la página son las preferencias (la bandeja es la campana):
+     el título lo dice. */
   function vAvisos(q, s) {
-    var titulo = C().titulo('Notificaciones');
+    var titulo = C().titulo(s && s.rol === 'comprador' ? 'Preferencias de avisos' : 'Notificaciones');
     if (!C().remoto()) return titulo + C().avisoServidor('Las preferencias de aviso por correo y WhatsApp se guardan en el servidor.');
     var r = leerAvisos();
     return titulo + C().seccion(r, 'avisos', function (d) { return htmlAvisos(d, s); }, 'Cargando tus avisos…');
@@ -46,11 +48,12 @@
     var perfil = href(CUENTA_PERFIL[s.rol] || 'app/tienda/cuenta.html');
     var wa;
     if (!w.telefono) {
-      wa = '<p class="font-body-sm text-body-sm text-on-surface-variant">Agrega tu teléfono en <a class="text-secondary font-semibold hover:underline" href="' + perfil +
-        '">Mi cuenta → Perfil</a> para recibir avisos por WhatsApp.</p>';
+      wa = '<p class="font-body-sm text-body-sm text-on-surface-variant">Agrega tu teléfono en tu perfil para recibir avisos por WhatsApp.</p>' +
+        '<p class="mt-1">' + UI.enlace('Ir a Mi cuenta → Perfil', perfil, 'arrow_forward') + '</p>';
     } else if (!w.telefono_verificado) {
       wa = '<p class="font-body-sm text-body-sm text-on-surface-variant">Tu teléfono <span class="font-data-mono text-data-mono">' + esc(w.telefono) +
-        '</span> aún no está verificado. <a class="text-secondary font-semibold hover:underline" href="' + perfil + '">Verifícalo en tu perfil</a> para activar WhatsApp (así nadie suscribe un número ajeno).</p>';
+        '</span> aún no está verificado: verifícalo en tu perfil para activar WhatsApp (así nadie suscribe un número ajeno).</p>' +
+        '<p class="mt-1">' + UI.enlace('Verificar mi teléfono', perfil, 'arrow_forward') + '</p>';
     } else {
       wa = '<div class="flex flex-wrap items-center justify-between gap-3">' +
         '<p class="font-body-sm text-body-sm text-on-surface">' + (w.consentido
@@ -68,29 +71,47 @@
         : '<strong>El envío automático todavía no está conectado.</strong> Tus avisos quedan en cola y el equipo de Tumbo envía a mano los importantes; tus preferencias se respetan igual.',
       ' data-estado-envio');
     var consentido = !!w.consentido;
+    /* Una lista (no una tabla): en el teléfono cada aviso ocupa el ancho, con
+       sus casillas «Correo» y «WhatsApp» rotuladas debajo; desde sm, en dos
+       columnas con su cabecera. Si ningún aviso se puede cambiar (los del
+       equipo son de seguridad), no hay botón de guardar. */
+    var editables = 0;
+    var COLS = 'grid grid-cols-2 sm:grid-cols-[minmax(0,1fr)_104px_104px] gap-x-3';
+    var lista = Object.keys(grupos).map(function (g) {
+      return '<li class="pt-4 pb-1 font-label-caps text-label-caps uppercase tracking-[0.06em] text-on-surface-variant">' + esc(GRUPOS[g] || g) + '</li>' +
+        grupos[g].map(function (t) {
+          function caja(canal) {
+            var nombre = canal === 'correo' ? 'Correo' : 'WhatsApp';
+            if (!(canal in (t.canales || {}))) return '<span class="invisible sm:visible text-center text-on-surface-variant" aria-hidden="true">—</span>';
+            if (t.obligatorio) return '<span class="inline-flex items-center sm:justify-center gap-1.5 min-h-[44px] text-on-surface-variant" title="Aviso de seguridad">' +
+              ic('lock', 'text-[16px] shrink-0') + '<span><span class="sm:hidden">' + nombre + ': </span>siempre</span></span>';
+            var off = canal === 'whatsapp' && !consentido;
+            editables++;
+            return '<label class="inline-flex items-center sm:justify-center gap-2 min-h-[44px] ' + (off ? 'cursor-not-allowed text-on-surface-variant' : 'cursor-pointer text-on-surface') + '">' +
+              '<input type="checkbox" class="w-5 h-5 shrink-0 rounded border-outline text-secondary" data-aviso="' + esc(t.plantilla) +
+              '" data-canal="' + canal + '"' + (t.canales[canal] && !off ? ' checked' : '') + (off ? ' disabled title="Activa WhatsApp arriba"' : '') +
+              ' aria-label="' + esc(t.nombre + ' por ' + (canal === 'correo' ? 'correo' : 'WhatsApp')) + '"/>' +
+              '<span class="sm:hidden" aria-hidden="true">' + nombre + (off ? ' (actívalo arriba)' : '') + '</span></label>';
+          }
+          return '<li class="' + COLS + ' items-center py-2 border-t border-outline-variant"><div class="col-span-2 sm:col-span-1 min-w-0">' +
+            '<span class="block text-on-surface">' + esc(t.nombre) + '</span><span class="text-on-surface-variant">' + esc(t.descripcion || '') + '</span></div>' +
+            caja('correo') + caja('whatsapp') + '</li>';
+        }).join('');
+    }).join('');
     return estadoEnvio +
       C().tarjeta(ic('chat', 'text-[20px] align-middle mr-1') + 'WhatsApp', wa, ' data-bloque-whatsapp') +
       '<form data-form-avisos class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-4">' +
         '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Qué avisos recibir</h2>' +
         '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">La campana de Tumbo siempre muestra todo; aquí eliges qué te llega además por correo o WhatsApp.</p>' +
-        '<div class="overflow-x-auto"><table class="w-full font-body-sm text-body-sm"><thead><tr class="text-left text-on-surface-variant">' +
-          '<th class="py-2 pr-3 font-semibold">Aviso</th><th class="py-2 px-2 font-semibold text-center">Correo</th><th class="py-2 px-2 font-semibold text-center">WhatsApp' + (consentido ? '' : '<span class="block font-normal text-[11px]">(actívalo arriba)</span>') + '</th></tr></thead><tbody>' +
-        Object.keys(grupos).map(function (g) {
-          return '<tr><th colspan="3" class="pt-4 pb-1 text-left font-label-caps text-label-caps uppercase tracking-[0.06em] text-on-surface-variant">' + esc(GRUPOS[g] || g) + '</th></tr>' +
-            grupos[g].map(function (t) {
-              function caja(canal) {
-                if (!(canal in (t.canales || {}))) return '<td class="py-2 px-2 text-center text-on-surface-variant">—</td>';
-                if (t.obligatorio) return '<td class="py-2 px-2 text-center"><span class="font-label-sm text-label-sm text-on-surface-variant" title="Aviso de seguridad">Siempre</span></td>';
-                var off = canal === 'whatsapp' && !consentido;
-                return '<td class="py-2 px-2 text-center"><input type="checkbox" class="w-5 h-5 rounded border-outline text-secondary" data-aviso="' + esc(t.plantilla) +
-                  '" data-canal="' + canal + '"' + (t.canales[canal] && !off ? ' checked' : '') + (off ? ' disabled title="Activa WhatsApp arriba"' : '') +
-                  ' aria-label="' + esc(t.nombre + ' por ' + (canal === 'correo' ? 'correo' : 'WhatsApp')) + '"/></td>';
-              }
-              return '<tr class="border-t border-outline-variant"><td class="py-2 pr-3"><span class="block text-on-surface">' + esc(t.nombre) + '</span>' +
-                '<span class="text-on-surface-variant">' + esc(t.descripcion || '') + '</span></td>' + caja('correo') + caja('whatsapp') + '</tr>';
-            }).join('');
-        }).join('') + '</tbody></table></div>' +
-        '<div class="flex justify-end mt-3">' + btn('Guardar preferencias', { estilo: 'primario', icono: 'save', tipo: 'submit', attr: 'data-guardar-avisos' }) + '</div>' +
+        '<div class="hidden sm:grid sm:grid-cols-[minmax(0,1fr)_104px_104px] gap-x-3 items-end pb-2 font-body-sm text-body-sm font-semibold text-on-surface-variant" aria-hidden="true">' +
+          '<span>Aviso</span><span class="text-center">Correo</span><span class="text-center">WhatsApp' + (consentido ? '' : '<span class="block font-normal text-[12px] leading-4">(actívalo arriba)</span>') + '</span></div>' +
+        '<ul class="font-body-sm text-body-sm">' + lista + '</ul>' +
+        /* con cambios a mano: en el teléfono el botón queda fijo abajo mientras se recorre la lista */
+        (editables
+          ? '<div class="sticky bottom-0 z-10 -mx-4 -mb-4 mt-3 px-4 py-3 rounded-b-card border-t border-outline-variant bg-surface-container-lowest sm:static sm:m-0 sm:mt-3 sm:p-0 sm:border-0 tm-acciones">' +
+              btn('Guardar preferencias', { estilo: 'primario', icono: 'save', tipo: 'submit', attr: 'data-guardar-avisos' }) + '</div>'
+          : '<p class="mt-3 flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant" data-sin-editables>' + ic('lock', 'text-[16px] mt-0.5 shrink-0') +
+              'Estos avisos son de seguridad: te llegan siempre y no se pueden desactivar.</p>') +
       '</form>' +
       (d.demo ? '<p class="font-body-sm text-body-sm text-on-surface-variant">Cuenta de prueba: sus avisos nunca se envían automáticamente (quedan en la bandeja del equipo, para practicar).</p>' : '');
   }
@@ -153,14 +174,15 @@
     var items = (p.items || []).filter(function (i) { return !i.resenado; });
     return '<form data-resena-pedido="' + esc(id) + '" class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-5">' +
       '<div class="flex flex-wrap items-center justify-between gap-2 mb-3">' +
-        '<h2 class="font-headline-sm text-headline-sm text-primary-container">Pedido <span class="font-data-mono">' + esc(id) + '</span> · ' + esc(p.comercio) + '</h2>' +
+        '<h2 class="font-headline-sm text-headline-sm text-primary-container">Pedido <span class="font-data-mono tm-id">' + esc(id) + '</span> · ' + esc(p.comercio) + '</h2>' +
         '<span class="font-body-sm text-body-sm text-on-surface-variant">Entregado el ' + esc(C().dia(p.entregado)) + ' · califícalo hasta el ' + esc(C().dia(p.vence)) + '</span></div>' +
       items.map(function (i) {
         var k = id + '-' + i.sku;
+        /* (la leyenda flota: así la línea de arriba no se corta detrás del texto) */
         return '<fieldset data-item="' + esc(i.sku) + '" class="border-t border-outline-variant pt-3 mt-3">' +
-          '<legend class="flex items-center gap-3 font-body-md text-body-md font-semibold text-on-surface">' +
-            C().imgSku(i.sku, i.img, i.nombre, 'w-12 h-12 object-cover shrink-0') + esc(i.nombre) + '</legend>' +
-          '<div class="grid sm:grid-cols-2 gap-x-6 mt-2">' + C().selectorEstrellas('est-' + k, 'Tu calificación del producto', 0) +
+          '<legend class="float-left w-full flex items-center gap-3 font-body-md text-body-md font-semibold text-on-surface">' +
+            C().imgSku(i.sku, i.img, i.nombre, 'w-12 h-12 object-cover shrink-0') + '<span class="min-w-0 break-words">' + esc(i.nombre) + '</span></legend>' +
+          '<div class="clear-both grid sm:grid-cols-2 gap-x-6 pt-2">' + C().selectorEstrellas('est-' + k, 'Tu calificación del producto', 0) +
             C().selectorEstrellas('cal-' + k, 'Calidad (opcional)', 0) + '</div>' +
           '<label class="block font-label-md text-label-md text-on-surface mb-1" for="txt-' + esc(k) + '">Tu opinión (opcional)</label>' +
           '<textarea id="txt-' + esc(k) + '" name="txt-' + esc(i.sku) + '" rows="2" maxlength="1500" placeholder="¿Qué te gustó? ¿Es como se describe?" class="' + C().CLASE_AREA + '"></textarea>' +
@@ -169,16 +191,15 @@
       }).join('') +
       (p.comercio_resenado ? '' :
         '<fieldset data-comercio class="border-t border-outline-variant pt-3 mt-4">' +
-          '<legend class="font-body-md text-body-md font-semibold text-on-surface">El comercio: ' + esc(p.comercio) + '</legend>' +
-          '<div class="grid sm:grid-cols-3 gap-x-6 mt-2">' + C().selectorEstrellas('com-' + id, 'Atención general', 0) +
+          '<legend class="float-left w-full font-body-md text-body-md font-semibold text-on-surface">El comercio: ' + esc(p.comercio) + '</legend>' +
+          '<div class="clear-both grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 pt-2">' + C().selectorEstrellas('com-' + id, 'Atención general', 0) +
             C().selectorEstrellas('emp-' + id, 'Empaque (opcional)', 0) + C().selectorEstrellas('ent-' + id, 'Tiempo de entrega (opcional)', 0) + '</div>' +
           '<label class="block font-label-md text-label-md text-on-surface mb-1" for="tcom-' + esc(id) + '">Tu opinión del comercio (opcional)</label>' +
           '<textarea id="tcom-' + esc(id) + '" name="tcom" rows="2" maxlength="1500" class="' + C().CLASE_AREA + '"></textarea>' +
         '</fieldset>') +
       '<p data-error-resena class="hidden mt-2 font-body-sm text-body-sm text-error"></p>' +
-      '<div class="flex flex-wrap items-center justify-between gap-2 mt-4">' +
-        '<p class="font-body-sm text-body-sm text-on-surface-variant">Puedes calificar una parte ahora y el resto después.</p>' +
-        btn('Publicar mi calificación', { estilo: 'primario', icono: 'send', tipo: 'submit', attr: 'data-publicar-resena' }) + '</div>' +
+      '<p class="mt-4 font-body-sm text-body-sm text-on-surface-variant">Puedes calificar una parte ahora y el resto después.</p>' +
+      '<div class="tm-acciones mt-2">' + btn('Publicar mi calificación', { estilo: 'primario', icono: 'send', tipo: 'submit', attr: 'data-publicar-resena' }) + '</div>' +
     '</form>';
   }
 
@@ -257,16 +278,17 @@
           CATEGORIAS.map(function (c) { return '<option value="' + c[0] + '"' + (c[0] === cat ? ' selected' : '') + '>' + esc(c[1]) + '</option>'; }).join('') + '</select></label>' +
         '<label class="block"><span class="block font-label-md text-label-md text-on-surface mb-1">Pedido (opcional)</span>' +
           '<select name="pedido" class="' + C().CLASE_INPUT + '"><option value="">Ninguno</option>' +
-          pedidos.map(function (p) { return '<option value="' + esc(p.id) + '"' + (p.id === pref.pedido ? ' selected' : '') + '>' + esc(p.id) + ' · ' + esc(UI.nombreEstado ? UI.nombreEstado(p.estado) : p.estado) + '</option>'; }).join('') +
+          pedidos.map(function (p) { return '<option value="' + esc(p.id) + '"' + (p.id === pref.pedido ? ' selected' : '') + '>' + esc(p.id) + ' · ' + esc(UI.nombreEstado(p.estado)) + '</option>'; }).join('') +
           (pref.pedido && !pedidos.some(function (p) { return p.id === pref.pedido; }) ? '<option value="' + esc(pref.pedido) + '" selected>' + esc(pref.pedido) + '</option>' : '') +
           '</select></label></div>' +
       '<label class="block"><span class="block font-label-md text-label-md text-on-surface mb-1">Asunto</span>' +
         '<input name="asunto" required minlength="5" maxlength="120" class="' + C().CLASE_INPUT + '" placeholder="En pocas palabras"/></label>' +
       '<label class="block"><span class="block font-label-md text-label-md text-on-surface mb-1">Cuéntanos qué pasó</span>' +
-        '<textarea name="texto" required minlength="15" maxlength="3000" rows="4" class="' + C().CLASE_AREA + '" placeholder="Con el mayor detalle posible: qué esperabas, qué pasó y desde cuándo."></textarea></label>' +
+        '<textarea name="texto" required minlength="15" maxlength="3000" rows="4" class="' + C().CLASE_AREA + '" placeholder="Qué pasó y desde cuándo"></textarea>' +
+        '<span class="block mt-1 font-body-sm text-body-sm text-on-surface-variant">Con el mayor detalle posible: qué esperabas, qué pasó y desde cuándo.</span></label>' +
       C().adjuntos('ticket:nuevo', { proposito: 'soporte', entidad: s.uid, max: 5, texto: 'Adjuntar captura o PDF' }) +
       '<p data-error-ticket class="hidden font-body-sm text-body-sm text-error"></p>' +
-      '<div class="flex justify-end">' + btn('Enviar a soporte', { estilo: 'primario', icono: 'send', tipo: 'submit', attr: 'data-enviar-ticket' }) + '</div>' +
+      '<div class="tm-acciones">' + btn('Enviar a soporte', { estilo: 'primario', icono: 'send', tipo: 'submit', attr: 'data-enviar-ticket' }) + '</div>' +
     '</form>';
   }
   function enlazarFormulario(raiz, s) {
@@ -317,15 +339,16 @@
     var lista = C().datos('tickets:mios', function () { return TM.api('tm_tickets', { p_filtros: { mios: true } }); }, 20000);
     var nuevo = q.get('nuevo') === '1' || !!q.get('pedido');
     return titulo +
-      '<details data-nuevo-ticket class="mb-5"' + (nuevo ? ' open' : '') + '><summary class="inline-flex items-center gap-1 cursor-pointer min-h-[40px] px-4 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md">' +
+      '<details data-nuevo-ticket class="mb-5"' + (nuevo ? ' open' : '') + '><summary class="inline-flex items-center gap-1 cursor-pointer list-none [&::-webkit-details-marker]:hidden min-h-[40px] px-4 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md">' +
         ic('add', 'text-[18px]') + 'Abrir un caso nuevo</summary><div class="mt-3 max-w-3xl">' + formulario({ pedido: q.get('pedido') || '', categoria: q.get('categoria') || '' }, s) + '</div></details>' +
       C().seccion(lista, 'tickets:mios', function (d) {
         var ts = (d && d.tickets) || [];
-        if (!ts.length) return UI.vacio('support_agent', 'Sin casos', 'Cuando abras un caso con soporte, lo verás aquí con sus respuestas.');
+        if (!ts.length) return '<div class="rounded-card border border-outline-variant bg-surface-container-lowest">' +
+          UI.vacio('support_agent', 'Sin casos', 'Cuando abras un caso con soporte, lo verás aquí con sus respuestas.', '', { compacto: true }) + '</div>';
         return '<div class="space-y-3" data-mis-tickets>' + ts.map(function (t) {
           return '<a data-ticket="' + esc(t.id) + '" class="block rounded-card border border-outline-variant bg-surface-container-lowest p-4 hover:border-secondary" href="' +
             href(paginaSoporte(s) + '?id=' + encodeURIComponent(t.id)) + '">' +
-            '<div class="flex flex-wrap items-center gap-2 mb-1"><span class="font-data-mono text-data-mono text-on-surface">' + esc(t.id) + '</span>' + chipEstado(t) +
+            '<div class="flex flex-wrap items-center gap-2 mb-1"><span class="font-data-mono text-data-mono text-on-surface tm-id">' + esc(t.id) + '</span>' + chipEstado(t) +
               '<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(nombreCategoria(t.categoria)) + (t.pedido ? ' · ' + esc(t.pedido) : '') + '</span></div>' +
             '<p class="font-body-md text-body-md text-on-surface">' + esc(t.asunto) + '</p>' +
             '<p class="font-body-sm text-body-sm text-on-surface-variant">Actualizado ' + esc(C().hace(t.actualizado)) +
@@ -405,9 +428,9 @@
   });
 
   APP.registrar({
-    'tienda/notificaciones': { armazon: 'tienda', roles: ['comprador'], titulo: 'Notificaciones', render: vAvisos, despues: despuesAvisos },
-    'seller/notificaciones': { roles: ['seller', 'precios', 'operador'], titulo: 'Avisos', render: vAvisos, despues: despuesAvisos },
-    'admin/notificaciones': { roles: ['superadmin', 'ops', 'finanzas'], titulo: 'Avisos', render: vAvisos, despues: despuesAvisos },
+    'tienda/notificaciones': { armazon: 'tienda', roles: ['comprador'], titulo: 'Preferencias de avisos', render: vAvisos, despues: despuesAvisos },
+    'seller/notificaciones': { roles: ['seller', 'precios', 'operador'], titulo: 'Notificaciones', render: vAvisos, despues: despuesAvisos },
+    'admin/notificaciones': { roles: ['superadmin', 'ops', 'finanzas'], titulo: 'Notificaciones', render: vAvisos, despues: despuesAvisos },
     'tienda/resenas': { armazon: 'tienda', roles: ['comprador'], titulo: 'Califica tus compras', render: vResenas, despues: despuesResenas },
     'tienda/soporte': { armazon: 'tienda', roles: ['comprador'], titulo: 'Ayuda y soporte', render: vSoporte, despues: despuesSoporte },
     'seller/soporte': { roles: ['seller', 'precios', 'operador'], titulo: 'Soporte', render: vSoporte, despues: despuesSoporte }

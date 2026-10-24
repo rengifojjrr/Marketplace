@@ -235,6 +235,17 @@
     }).join('') + '</ol>';
   }
 
+  /* Partes de una zona sin vacíos ni repetidas («Chacao, Chacao, Caracas» → «Chacao, Caracas»). */
+  function sinRepetir(lista) {
+    var vistos = {};
+    return lista.filter(function (x) {
+      var k = String(x || '').trim().toLowerCase();
+      if (!k || vistos[k]) return false;
+      vistos[k] = true;
+      return true;
+    });
+  }
+
   /* Datos del destinatario (lo que el servidor deja ver a ese rol). */
   function destinatario(d) {
     if (!d) return '<p class="font-body-sm text-body-sm text-on-surface-variant">Sin datos del destinatario.</p>';
@@ -247,11 +258,11 @@
     return '<dl data-destinatario>' +
       fila('Recibe', esc(d.nombre)) +
       fila('Cédula', d.cedula ? '<span class="font-data-mono text-data-mono">' + esc(d.cedula) + '</span>' : '<span class="text-on-surface-variant">no indicada</span>') +
-      fila('Teléfono', d.telefono ? '<a class="text-secondary hover:underline" href="tel:' + esc(String(d.telefono).replace(/[^0-9+]/g, '')) + '">' + esc(d.telefono) + '</a>'
+      fila('Teléfono', d.telefono ? '<a class="tm-tocable justify-end text-secondary hover:underline" href="tel:' + esc(String(d.telefono).replace(/[^0-9+]/g, '')) + '">' + esc(d.telefono) + '</a>'
         : '<span class="text-on-surface-variant">no indicado</span>') +
       fila('Dirección', esc(d.direccion)) +
       fila('Referencia', d.referencia ? esc(d.referencia) : '') +
-      fila('Zona', esc([d.parroquia, d.municipio, d.ciudad, d.estado].filter(Boolean).join(', '))) +
+      fila('Zona', esc(sinRepetir([d.parroquia, d.municipio, d.ciudad, d.estado]).join(', '))) +
       '</dl>';
   }
 
@@ -286,7 +297,8 @@
       (opciones.texto ? '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">' + esc(opciones.texto) + '</p>' : '') +
       '<form data-modal-form novalidate>' + cuerpo +
       '<p data-modal-error role="alert" class="hidden mb-3 font-body-sm text-body-sm text-error"></p>' +
-      '<div class="flex justify-end gap-2 mt-2">' + UI.btn('Cancelar', { attr: 'data-cerrar' }) +
+      /* (si la acción es «Cancelar…», el botón de salida dice «Volver»: UI.textoCerrar) */
+      '<div class="tm-acciones mt-2">' + UI.btn(UI.textoCerrar(textoBoton, opciones.cerrar), { attr: 'data-cerrar' }) +
       UI.btn(textoBoton, { estilo: opciones.peligro ? 'peligro' : 'primario', attr: 'data-ok', tipo: 'submit', icono: opciones.icono }) + '</div></form>',
       function (velo, cerrar) {
         if (TM.archivos && TM.archivos.enlazar) TM.archivos.enlazar(velo);
@@ -309,8 +321,9 @@
             err.classList.remove('hidden');
           });
         });
+        /* con el dedo, el teclado no se abre solo al abrir el diálogo */
         var primero = velo.querySelector('input:not([type=hidden]):not([type=file]), select, textarea');
-        if (primero) primero.focus();
+        if (primero && !UI.tactil()) primero.focus();
         if (opciones.alAbrir) opciones.alAbrir(velo, cerrar);
       });
   }
@@ -334,17 +347,23 @@
     var st = document.getElementById('tm-log-impresion');
     if (!st) { st = document.createElement('style'); st.id = 'tm-log-impresion'; document.head.appendChild(st); }
     st.textContent =
-      '.tm-etiqueta{width:100mm;min-height:150mm;box-sizing:border-box;border:1px dashed #9aa5b1;background:#fff;color:#000;padding:5mm;' +
-        'display:flex;flex-direction:column;gap:3mm;font:11pt/1.3 Inter,system-ui,sans-serif;margin:0 auto 6mm}' +
+      /* en pantalla la etiqueta cabe en el teléfono (hasta 10 cm de ancho); al imprimir, 10×15 cm exactos */
+      '.tm-etiqueta{width:100%;max-width:100mm;min-height:150mm;box-sizing:border-box;border:1px dashed #9aa5b1;background:#fff;color:#000;padding:5mm;' +
+        'display:flex;flex-direction:column;gap:3mm;font:11pt/1.3 Inter,system-ui,sans-serif;margin:0 auto 6mm;overflow-wrap:anywhere}' +
+      '.tm-etiqueta .tm-qr{width:min(132px,30vw);height:auto;display:block}' +
+      '@media screen and (max-width:639.98px){.tm-etiqueta{min-height:0;padding:4mm}}' +
       '.tm-etiqueta h3{font-size:9pt;text-transform:uppercase;letter-spacing:.06em;margin:0;color:#333}' +
       '.tm-etiqueta .tm-et-dest{font-size:13pt;font-weight:700}' +
       '.tm-etiqueta .tm-et-mono{font-family:ui-monospace,Menlo,monospace}' +
       '.tm-etiqueta .tm-et-borde{border-top:1px solid #000;padding-top:2mm}' +
       '.tm-picking table{width:100%;border-collapse:collapse}.tm-picking th,.tm-picking td{border:1px solid #c4cbd3;padding:4px 6px;text-align:left}' +
+      /* en el teléfono la hoja de picking va en tarjetas (table[data-tarjetas]): sin la rejilla de la hoja impresa */
+      '@media screen and (max-width:639.98px){.tm-picking table{border:1px solid #c4cbd3;border-radius:12px;overflow:hidden}' +
+        '.tm-picking th,.tm-picking td{border:0}.tm-picking tbody tr+tr{border-top:1px solid #c4cbd3}}' +
       '@media print{' +
         'header,aside[data-nav],[data-velo-nav],.tm-toasts,[data-no-imprimir]{display:none!important}' +
         'body,#raiz{background:#fff!important}main{padding:0!important;max-width:none!important;margin:0!important}' +
-        '.tm-etiqueta{border:0;margin:0;page-break-after:always;break-after:page;width:100mm;height:150mm}' +
+        '.tm-etiqueta{border:0;margin:0;page-break-after:always;break-after:page;width:100mm;max-width:none;height:150mm;padding:5mm}.tm-etiqueta .tm-qr{width:132px}' +
         (tipo === 'etiquetas' ? '@page{size:100mm 150mm;margin:0}' : '@page{size:A4;margin:12mm}') + '}';
   }
 
@@ -357,14 +376,14 @@
         '<div><div style="font-weight:800;font-size:15pt">Tumbo Market</div>' +
         '<div>' + esc(e.servicio || '') + (e.courier ? ' · <strong>' + esc(e.courier) + '</strong>' : '') + '</div>' +
         (e.cobro_destino ? '<div><strong>COBRO EN DESTINO</strong></div>' : '') + '</div>' +
-        '<div>' + qr + '</div></div>' +
+        '<div style="flex:none">' + qr + '</div></div>' +
       '<div class="tm-et-borde"><h3>Destinatario</h3>' +
         '<div class="tm-et-dest">' + esc(d.nombre || '—') + '</div>' +
         (d.cedula ? '<div>C.I. <span class="tm-et-mono">' + esc(d.cedula) + '</span></div>' : '') +
         (d.telefono ? '<div>Tel. <span class="tm-et-mono">' + esc(d.telefono) + '</span></div>' : '') +
         '<div>' + esc(d.direccion || '') + '</div>' +
         (d.referencia ? '<div>Ref.: ' + esc(d.referencia) + '</div>' : '') +
-        '<div><strong>' + esc([d.municipio, d.ciudad, d.estado].filter(Boolean).join(', ')) + '</strong>' +
+        '<div><strong>' + esc(sinRepetir([d.municipio, d.ciudad, d.estado]).join(', ')) + '</strong>' +
         (d.codigo_postal ? ' · ' + esc(d.codigo_postal) : '') + '</div></div>' +
       '<div class="tm-et-borde"><h3>Remitente</h3><div>' + esc((e.remitente || {}).nombre || '') + '</div>' +
         '<div>' + esc([(e.remitente || {}).ciudad, (e.remitente || {}).estado].filter(Boolean).join(', ')) + '</div></div>' +
@@ -389,18 +408,19 @@
     });
     var filas = Object.keys(total).sort().map(function (k) {
       var t = total[k];
-      return '<tr><td><input type="checkbox" aria-label="Recogido"/></td><td class="font-data-mono">' + esc(t.sku) + '</td><td>' + esc(t.nombre) +
+      return '<tr><td><label class="inline-flex items-center justify-center w-11 min-h-[32px] cursor-pointer"><input type="checkbox" aria-label="Recogido: ' + esc(t.sku) + '" class="w-5 h-5 rounded border-outline text-secondary"/></label></td>' +
+        '<td class="tm-id font-data-mono">' + esc(t.sku) + '</td><td>' + esc(t.nombre) +
         '</td><td style="text-align:right"><strong>' + t.cant + '</strong></td><td class="font-data-mono" style="font-size:9pt">' + esc(t.pedidos.join(', ')) + '</td></tr>';
     }).join('');
     return '<div class="tm-picking font-body-sm text-body-sm" data-picking>' +
-      '<p class="mb-2"><strong>Hoja de picking</strong> · ' + pedidos.length + ' pedido' + (pedidos.length === 1 ? '' : 's') + ' · generada el ' +
+      '<p class="mb-2"><strong class="hidden print:inline">Hoja de picking · </strong>' + pedidos.length + ' pedido' + (pedidos.length === 1 ? '' : 's') + ' · generada el ' +
       esc(fechaHora(new Date().toISOString())) + '</p>' +
-      '<table><thead><tr><th>✓</th><th>SKU</th><th>Producto</th><th style="text-align:right">Unidades</th><th>Pedidos</th></tr></thead><tbody>' + filas + '</tbody></table>' +
+      '<table data-tarjetas><thead><tr><th>Recogido</th><th>SKU</th><th>Producto</th><th style="text-align:right">Unidades</th><th>Pedidos</th></tr></thead><tbody>' + filas + '</tbody></table>' +
       '<p class="mt-4 mb-1"><strong>Por pedido</strong></p>' +
       pedidos.map(function (p) {
-        return '<div class="mb-2" style="break-inside:avoid"><strong class="font-data-mono">' + esc(p.id) + '</strong> · ' + esc(p.envio.courier || '') +
+        return '<div class="mb-2" style="break-inside:avoid"><strong class="tm-id font-data-mono">' + esc(p.id) + '</strong> · ' + esc(p.envio.courier || '') +
           '<ul style="margin:2px 0 0 16px;list-style:disc">' + p.items.map(function (i) {
-            return '<li>' + esc((TM.producto(i.sku) || i).nombre || i.sku) + ' × ' + i.cant + ' <span class="font-data-mono">(' + esc(i.sku) + ')</span></li>';
+            return '<li>' + esc((TM.producto(i.sku) || i).nombre || i.sku) + ' × ' + i.cant + ' <span class="tm-id font-data-mono">(' + esc(i.sku) + ')</span></li>';
           }).join('') + '</ul></div>';
       }).join('') + '</div>';
   }
@@ -411,23 +431,29 @@
     var ids = (q.get('ids') || '').split(',').filter(function (x) { return /^TM-\d{4}-\d{5,}$/.test(x); }).slice(0, 50);
     var volver = s.rol === 'ops' || s.rol === 'superadmin' ? (ids.length === 1 ? 'app/admin/pedido.html?id=' + ids[0] : 'app/admin/operaciones.html')
       : 'app/seller/pedidos.html';
-    var cab = '<div data-no-imprimir class="flex flex-wrap items-center justify-between gap-2 mb-4">' +
-      '<a class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline" href="' + UI.href(volver) + '">' +
-      ic('arrow_back', 'text-[16px]') + 'Volver</a>' +
-      '<h1 class="font-headline-md text-headline-md text-primary-container">' + (tipo === 'picking' ? 'Hoja de picking' : 'Etiquetas 10×15') + '</h1>' +
-      UI.btn('Imprimir', { estilo: 'primario', icono: 'print', attr: 'data-imprimir' }) + '</div>';
-    if (!ids.length) return cab + UI.vacio('print', 'Nada que imprimir', 'Elige los pedidos desde la lista de pedidos.');
+    /* «Volver» arriba; el título a la izquierda y «Imprimir» a la derecha (en el teléfono, debajo y a lo ancho) */
+    /* «Imprimir» solo cuando hay algo que imprimir (antes imprimía una hoja vacía) */
+    function cabecera(conBoton) {
+      return '<div data-no-imprimir class="mb-4">' +
+        '<p class="mb-1">' + UI.enlace('Volver', UI.href(volver), 'arrow_back') + '</p>' +
+        '<div class="flex flex-wrap items-center justify-between gap-3">' +
+        '<h1 class="font-headline-md text-headline-md text-primary-container">' + (tipo === 'picking' ? 'Hoja de picking' : 'Etiquetas 10×15') + '</h1>' +
+        (conBoton ? UI.btn('Imprimir', { estilo: 'primario', icono: 'print', attr: 'data-imprimir', clase: 'w-full sm:w-auto' }) : '') + '</div></div>';
+    }
+    var cab = cabecera(true), cabSin = cabecera(false);
+    if (!ids.length) return cabSin + UI.vacio('print', 'Nada que imprimir', 'Elige los pedidos desde la lista de pedidos.');
     if (tipo === 'picking') {
       var peds = ids.map(function (id) { return TM.pedido(id); }).filter(function (p) {
         return p && (s.rol === 'ops' || s.rol === 'superadmin' || p.sellerId === s.sellerId);
       });
-      return cab + (peds.length ? pickingHtml(peds) : UI.vacio('search_off', 'Pedidos no encontrados', 'Los pedidos no existen o son de otro comercio.'));
+      return peds.length ? cab + pickingHtml(peds) : cabSin + UI.vacio('search_off', 'Pedidos no encontrados', 'Los pedidos no existen o son de otro comercio.');
     }
-    if (!remoto()) return cab + avisoServidor('Las etiquetas llevan los datos del destinatario, que solo entrega el servidor.');
+    if (!remoto()) return cabSin + avisoServidor('Las etiquetas llevan los datos del destinatario, que solo entrega el servidor.');
     var clave = 'etiquetas:' + ids.join(',');
     var d = dato(clave, 'tm_envio_etiquetas', { p_ids: ids }, 600000);
-    if (error(clave)) return cab + errorHtml(error(clave));
-    if (!d) return cab + cargandoHtml('Preparando las etiquetas…');
+    if (error(clave)) return cabSin + errorHtml(error(clave));
+    if (!d) return cabSin + cargandoHtml('Preparando las etiquetas…');
+    if (!d.length) return cabSin + UI.vacio('print', 'Sin etiquetas que imprimir', 'La etiqueta se genera cuando el comercio prepara el pedido.');
     return cab + '<p data-no-imprimir class="font-body-sm text-body-sm text-on-surface-variant mb-4">Formato 10×15 cm (impresora térmica o papel recortado). ' +
       'El QR identifica el pedido y su referencia de Tumbo; la guía es la que entrega el courier al recibir el paquete.</p>' +
       d.map(etiquetaHtml).join('');

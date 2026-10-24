@@ -168,12 +168,14 @@
     if (s && s.rol === 'comprador') {
       pedidos = (TM.estado.pedidos || []).filter(function (p) { return p.compradorEmail === s.email; }).slice(0, 25).map(function (p) {
         var vend = TM.seller(p.sellerId);
-        var ultimo = (p.timeline || [])[(p.timeline || []).length - 1];
+        /* el último evento que el comprador entiende (sin la contabilidad del comercio) */
+        var texto = TM.textoEventoComprador || function (x) { return x; };
+        var ultimo = (p.timeline || []).filter(function (t) { return texto(t.texto); }).slice(-1)[0];
         return {
           id: p.id, estado: UI.nombreEstado(p.estado), creado: p.creado, comercio: vend ? vend.nombre : '',
           total: TM.fmtTotalPedido ? TM.fmtTotalPedido(p) : '',
           items: (p.items || []).slice(0, 6).map(function (i) { return { nombre: i.nombre, cant: i.cant }; }),
-          ultimo: ultimo ? { texto: recorte(ultimo.texto, 140), fecha: ultimo.fecha } : null
+          ultimo: ultimo ? { texto: recorte(texto(ultimo.texto), 140), fecha: ultimo.fecha } : null
         };
       });
     }
@@ -192,11 +194,8 @@
     escribir(CLAVE_COPIA, c);
   }
 
-  function fechaCorta(iso) {
-    try {
-      return new Date(iso).toLocaleString('es-VE', { timeZone: 'America/Caracas', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-    } catch (e) { return ''; }
-  }
+  /* el formato del sitio («24/10/2026 05:35 pm», hora de Caracas) */
+  function fechaCorta(iso) { return UI.fechaHora(iso); }
 
   /* La copia, si es de esta sesión. */
   function copiaVigente() {
@@ -207,17 +206,22 @@
 
   function htmlCopia(c, vista) {
     var pedidos = (c.pedidos || []).map(function (p) {
+      /* (como sin-conexion.html: el estado en un chip, un producto por línea y
+         los nombres o guías largos se parten en el teléfono) */
       return '<li class="py-3 border-b border-outline-variant last:border-0">' +
-        '<p class="flex flex-wrap justify-between gap-2 font-label-md text-label-md text-on-surface"><span class="font-data-mono">' + esc(p.id) + '</span>' +
-        '<span>' + esc(p.estado) + '</span></p>' +
-        '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(p.comercio) + (p.creado ? ' · ' + esc(p.creado) : '') + (p.total ? ' · ' + esc(p.total) : '') + '</p>' +
-        '<p class="font-body-sm text-body-sm text-on-surface">' + (p.items || []).map(function (i) { return esc(i.cant + ' × ' + i.nombre); }).join(' · ') + '</p>' +
-        (p.ultimo ? '<p class="font-body-sm text-body-sm text-on-surface-variant">Último paso: ' + esc(p.ultimo.texto) + (p.ultimo.fecha ? ' (' + esc(p.ultimo.fecha) + ')' : '') + '</p>' : '') +
+        '<p class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 font-label-md text-label-md text-on-surface"><span class="font-data-mono whitespace-nowrap">' + esc(p.id) + '</span>' +
+        '<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm">' + esc(p.estado) + '</span></p>' +
+        '<p class="mt-1 font-body-sm text-body-sm text-on-surface-variant break-words">' + esc(p.comercio) + (p.creado ? ' · ' + esc(p.creado) : '') +
+          (p.total ? ' · <span class="whitespace-nowrap">' + esc(p.total) + '</span>' : '') + '</p>' +
+        ((p.items || []).length ? '<ul class="mt-1 font-body-sm text-body-sm text-on-surface space-y-0.5">' + p.items.map(function (i) {
+          return '<li class="break-words">' + esc(i.cant + ' × ' + i.nombre) + '</li>';
+        }).join('') + '</ul>' : '') +
+        (p.ultimo ? '<p class="mt-1 font-body-sm text-body-sm text-on-surface-variant break-words">Último paso: ' + esc(p.ultimo.texto) + (p.ultimo.fecha ? ' (' + esc(p.ultimo.fecha) + ')' : '') + '</p>' : '') +
         '</li>';
     }).join('');
     var carrito = (c.carrito || []).map(function (i) {
       return '<li class="py-2 flex justify-between gap-3 border-b border-outline-variant last:border-0 font-body-sm text-body-sm">' +
-        '<span>' + esc(i.cant + ' × ' + i.nombre) + '</span><span class="whitespace-nowrap">' + esc(i.total) + '</span></li>';
+        '<span class="min-w-0 break-words">' + esc(i.cant + ' × ' + i.nombre) + '</span><span class="shrink-0 whitespace-nowrap font-semibold">' + esc(i.total) + '</span></li>';
     }).join('');
     var bloqueP = pedidos ? '<section class="tm-sin-conexion" data-copia-pedidos><h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Tus pedidos</h2>' +
       '<ul>' + pedidos + '</ul></section>' : '';

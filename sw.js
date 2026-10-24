@@ -20,7 +20,7 @@
      lleva a sin-conexion.html.
    ========================================================================= */
 'use strict';
-var VERSION = 'tumbo-4587234a43ebb93e';
+var VERSION = 'tumbo-b9bb335568e89719';
 var PRECACHE = [
   "index.html",
   "sin-conexion.html",
@@ -46,7 +46,6 @@ var PRECACHE = [
   "assets/js/vendor/qrcode-generator/qrcode.js",
   "assets/js/tm-mod-archivos.js",
   "assets/js/tm-mod-catalogo.js",
-  "assets/js/tm-mod-comunicacion-ayuda.js",
   "assets/js/tm-mod-comunicacion-chat.js",
   "assets/js/tm-mod-comunicacion-confianza.js",
   "assets/js/tm-mod-comunicacion-cuenta.js",

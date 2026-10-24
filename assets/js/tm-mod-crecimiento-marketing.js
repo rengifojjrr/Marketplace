@@ -47,6 +47,9 @@
       C().campo(prefijo + '-hasta', 'Termina', '<input id="' + prefijo + '-hasta" name="hasta" type="datetime-local" value="' +
         esc(C().localCaracas(hasta || new Date(Date.now() + (diasFin || 14) * 86400000).toISOString())) + '" class="' + C().CAMPO + '"/>');
   }
+  function vacioSeccion(icono, titulo, texto) {
+    return '<div class="rounded-card border border-outline-variant bg-surface-container-lowest">' + UI.vacio(icono, titulo, texto, '', { compacto: true }) + '</div>';
+  }
   function estado(activo, desde, hasta) { return S().estadoVigencia(activo, desde, hasta); }
   function botonEstado(tipo, x, activo) {
     if (Date.parse(x.hasta) <= Date.now()) return '';
@@ -84,7 +87,7 @@
       celdas.push('<div data-dia="' + clave + '" class="tm-crec-dia rounded-btn border ' + (clave === hoy ? 'border-secondary' : 'border-outline-variant') +
         ' bg-surface-container-lowest p-1 overflow-hidden"><span class="block font-data-mono text-data-mono text-on-surface-variant">' + dd + '</span>' +
         camp.map(function (k) {
-          return '<span class="block truncate rounded px-1 text-[11px] leading-4 mb-0.5 ' + (COLORES[k.color] || COLORES.azul) + '" title="' + esc(k.nombre) + '">' + esc(k.nombre) + '</span>';
+          return '<span class="block truncate rounded px-1 text-[12px] leading-4 mb-0.5 ' + (COLORES[k.color] || COLORES.azul) + '" title="' + esc(k.nombre) + '">' + esc(k.nombre) + '</span>';
         }).join('') +
         (ini.length ? '<span class="flex flex-wrap gap-0.5">' + ini.map(function (x) {
           return '<span title="' + esc(x.texto) + '" class="text-secondary">' + ic(x.icono, 'text-[14px]') + '</span>';
@@ -108,10 +111,10 @@
     return C().subtitulo('Campañas', editable ? btn('Nueva campaña', { icono: 'add', attr: 'data-campana-nueva' }) : '') +
       '<div data-campanas>' + UI.tabla(['Campaña', 'Fechas', 'Estado', ''], (d.campanas || []).map(function (k) {
         return UI.td('<span class="inline-block w-3 h-3 rounded-full align-middle mr-1.5 ' + (COLORES[k.color] || COLORES.azul) + '"></span><strong>' + esc(k.nombre) + '</strong>' +
-            (k.descripcion ? '<span class="block text-on-surface-variant">' + esc(k.descripcion) + '</span>' : '') + (k.demo ? ' ' + C().chip('de la demo', 'gris') : '')) +
+            (k.descripcion ? '<span class="block text-on-surface-variant">' + esc(k.descripcion) + '</span>' : '') + (k.demo ? '<span class="ml-1.5">' + C().chip('De la demo', 'gris') + '</span>' : '')) +
           UI.td('<span class="font-body-sm text-body-sm">' + S().vigencia(k.desde, k.hasta) + '</span>') + UI.td(estado(k.activa, k.desde, k.hasta)) +
           UI.td(editable ? '<span class="inline-flex gap-2">' + btn('Editar', { attr: 'data-campana-editar="' + k.id + '"' }) + botonEstado('campana', k, k.activa) + '</span>' : '', 'text-right');
-      }), UI.vacio('event', 'Sin campañas', 'Una campaña agrupa banners, colecciones, cupones y ofertas con las mismas fechas.')) + '</div>';
+      }), vacioSeccion('event', 'Sin campañas', 'Una campaña agrupa banners, colecciones, cupones y ofertas con las mismas fechas.')) + '</div>';
   }
   function formBanner(d) {
     return '<form data-banner-form class="grid sm:grid-cols-2 gap-3"><input type="hidden" name="id" value=""/>' +
@@ -144,9 +147,9 @@
             '<span><strong>' + esc(b.titulo) + '</strong>' + (b.texto ? '<span class="block text-on-surface-variant">' + esc(b.texto) + '</span>' : '') +
             (b.enlace ? '<a class="block font-data-mono text-data-mono text-secondary hover:underline" href="' + href(b.enlace) + '">' + esc(b.enlace) + '</a>' : '') + '</span></span>') +
           UI.td('<span class="font-body-sm text-body-sm">' + S().vigencia(b.desde, b.hasta) + '</span><span class="block text-on-surface-variant">orden ' + b.orden + '</span>') +
-          UI.td(estado(b.activo, b.desde, b.hasta) + (b.demo ? ' ' + C().chip('de la demo', 'gris') : '')) +
+          UI.td(estado(b.activo, b.desde, b.hasta) + (b.demo ? ' ' + C().chip('De la demo', 'gris') : '')) +
           UI.td(editable ? '<span class="inline-flex gap-2">' + btn('Editar', { attr: 'data-banner-editar="' + b.id + '"' }) + botonEstado('banner', b, b.activo) + '</span>' : '', 'text-right');
-      }), UI.vacio('view_carousel', 'Sin banners', 'Los banners vigentes salen arriba de la portada, en el orden que les des.')) + '</div>';
+      }), vacioSeccion('view_carousel', 'Sin banners', 'Los banners vigentes salen arriba de la portada, en el orden que les des.')) + '</div>';
   }
   function formColeccion(d) {
     return '<form data-coleccion-form class="grid sm:grid-cols-2 gap-3"><input type="hidden" name="id" value=""/>' +
@@ -170,9 +173,9 @@
             href('app/tienda/coleccion.html?id=' + encodeURIComponent(k.slug)) + '">' + esc(k.slug) + '</a>') +
           UI.td('<span class="tm-crec-num">' + (k.skus || []).length + '</span>') +
           UI.td('<span class="font-body-sm text-body-sm">' + S().vigencia(k.desde, k.hasta) + '</span>') +
-          UI.td(estado(k.activa, k.desde, k.hasta) + (k.demo ? ' ' + C().chip('de la demo', 'gris') : '')) +
+          UI.td(estado(k.activa, k.desde, k.hasta) + (k.demo ? ' ' + C().chip('De la demo', 'gris') : '')) +
           UI.td(editable ? '<span class="inline-flex gap-2">' + btn('Editar', { attr: 'data-coleccion-editar="' + k.id + '"' }) + botonEstado('coleccion', k, k.activa) + '</span>' : '', 'text-right');
-      }), UI.vacio('collections_bookmark', 'Sin colecciones', 'Una colección reúne productos con su propia página y sale en la portada.')) + '</div>';
+      }), vacioSeccion('collections_bookmark', 'Sin colecciones', 'Una colección reúne productos con su propia página y sale en la portada.')) + '</div>';
   }
   function formCupon(d) {
     return '<form data-cupon-tumbo-form class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">' +
@@ -201,9 +204,9 @@
           UI.td('<span class="font-body-sm text-body-sm">' + S().vigencia(c.desde, c.hasta) + '</span>') +
           UI.td('<span class="tm-crec-num">' + C().entero(c.usos) + (c.usos_max ? ' / ' + C().entero(c.usos_max) : '') + '</span><span class="block text-on-surface-variant">' +
             esc(C().usd(c.gastado_usd)) + (c.presupuesto_usd ? ' de ' + esc(C().usd(c.presupuesto_usd)) : '') + '</span>') +
-          UI.td(estado(c.activo, c.desde, c.hasta) + (c.demo ? ' ' + C().chip('de la demo', 'gris') : '')) +
+          UI.td(estado(c.activo, c.desde, c.hasta) + (c.demo ? ' ' + C().chip('De la demo', 'gris') : '')) +
           UI.td(editable && c.financia === 'tumbo' ? botonEstado('cupon', c, c.activo) : '', 'text-right');
-      }), UI.vacio('confirmation_number', 'Sin cupones', 'Los cupones de Tumbo se aplican a todo el carrito; los de un comercio, a sus productos.')) + '</div>';
+      }), vacioSeccion('confirmation_number', 'Sin cupones', 'Los cupones de Tumbo se aplican a todo el carrito; los de un comercio, a sus productos.')) + '</div>';
   }
   function formOferta(d) {
     return '<form data-oferta-tumbo-form class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">' +
@@ -230,20 +233,24 @@
           UI.td(o.financia === 'tumbo' ? C().chip('Tumbo', 'azul') : esc(o.seller_id)) +
           UI.td('<span class="font-body-sm text-body-sm">' + S().vigencia(o.desde, o.hasta) + '</span>') +
           UI.td('<span class="tm-crec-num">' + C().entero(o.vendidas) + (o.stock_oferta ? ' / ' + C().entero(o.stock_oferta) : '') + '</span>') +
-          UI.td(estado(o.activa, o.desde, o.hasta) + (o.demo ? ' ' + C().chip('de la demo', 'gris') : '')) +
+          UI.td(estado(o.activa, o.desde, o.hasta) + (o.demo ? ' ' + C().chip('De la demo', 'gris') : '')) +
           UI.td(editable && o.financia === 'tumbo' ? botonEstado('oferta', o, o.activa) : '', 'text-right');
-      }), UI.vacio('sell', 'Sin ofertas', 'Las ofertas tachan el precio de lista en la ficha, las colecciones y el carrito.')) + '</div>';
+      }), vacioSeccion('sell', 'Sin ofertas', 'Las ofertas tachan el precio de lista en la ficha, las colecciones y el carrito.')) + '</div>';
   }
 
   function vMarketing(q, s) {
+    /* sin el permiso «marketing» (Operaciones): el 403, no un error con «Reintentar» */
+    var no = C().sinAcceso(s, 'marketing', 'Marketing');
+    if (no) return no;
     var t = C().titulo('Marketing');
     if (!C().remoto()) return t + C().avisoServidor('Los banners, colecciones, campañas, cupones y ofertas se programan en el servidor.');
     var r = leer();
     return t + C().seccion(r, 'marketing', function (d) {
       var editable = !!d.editable;
-      return (editable ? '' : C().avisoDemo('Estás con una cuenta de prueba: ves el marketing en modo lectura. Publicar en la portada o crear cupones de Tumbo exige una cuenta real con verificación en dos pasos.')) +
-        '<p class="font-body-sm text-body-sm text-on-surface-variant mb-4">Lo vigente sale en la portada (banners y colecciones), la ficha, el carrito y el checkout. ' +
-          'Guardar pide la verificación en dos pasos. Las imágenes son públicas: no subas fotos de personas sin su permiso.</p>' +
+      return (editable ? '' : '<div data-aviso-demo>' + UI.avisoPrueba('Cuenta de prueba: ves el marketing en modo lectura.',
+          '<p>Publicar en la portada o crear cupones de Tumbo exige una cuenta real con verificación en dos pasos.</p>') + '</div>') +
+        '<p class="font-body-sm text-body-sm text-on-surface-variant mb-4">Lo vigente sale en la portada (banners y colecciones), la ficha, el carrito y el checkout.' +
+          (editable ? ' Guardar pide la verificación en dos pasos. Las imágenes son públicas: no subas fotos de personas sin su permiso.' : '') + '</p>' +
         calendario(d) + seccionCampanas(d, editable) + seccionBanners(d, editable) + seccionColecciones(d, editable) + seccionCupones(d, editable) + seccionOfertas(d, editable);
     }, 'Cargando el marketing…');
   }

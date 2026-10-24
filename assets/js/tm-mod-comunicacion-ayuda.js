@@ -45,18 +45,8 @@
   /* ---------------------------------------------------------------------
      Plazos vigentes (del servidor; sin él, los de la demo)
      ------------------------------------------------------------------- */
-  function plazos(s) {
-    var cfg = (TM.estado && TM.estado.config) || {};
-    if (!C().remoto()) {
-      return { cargado: true, reclamo: cfg.ventanaReclamoDias || 3, respuesta: 72, evidencia: 48, apelacion: 5, resena: 90,
-        sla: { alta: 4, normal: 24, baja: 48 } };
-    }
-    var r = C().legales(s);
-    var p = r.listo && r.dato && r.dato.plazos;
-    if (!p) return { cargado: false, reclamo: cfg.ventanaReclamoDias || null, sla: {} };
-    return { cargado: true, reclamo: p.ventana_reclamo_dias, respuesta: p.horas_respuesta_reclamo, evidencia: p.horas_evidencia,
-      apelacion: p.dias_apelacion, resena: p.dias_resena, sla: p.sla_soporte || {} };
-  }
+  /* (los plazos vigentes los da el núcleo de Comunicación: también los citan los reclamos) */
+  function plazos(s) { return C().plazos(s); }
   /* «72 horas», «3 días»; sin dato aún, «el plazo vigente». */
   function n(v, unidad) {
     if (v == null) return 'el plazo vigente';
@@ -67,52 +57,78 @@
   /* ---------------------------------------------------------------------
      Piezas
      ------------------------------------------------------------------- */
+  /* Marca de borrador, solo en los documentos legales (CLAVE_LEGAL): una
+     línea con el detalle plegado («¿Qué significa?»), que no empuja el texto
+     fuera de la primera pantalla del teléfono. */
   function borrador() {
-    return '<p data-borrador class="flex items-start gap-2 rounded-btn bg-warning-container text-on-warning-container px-3 py-2 mb-5 font-body-sm text-body-sm">' +
-      ic('edit_note', 'text-[18px] shrink-0 mt-0.5') + '<span><strong>Borrador · pendiente de revisión legal.</strong> ' +
-      'Este texto explica cómo funciona hoy la beta de Tumbo Market; antes del lanzamiento lo revisa un abogado y puede cambiar. ' +
-      'Si cambia un documento legal, te avisamos y te pedimos aceptar la versión nueva.</span></p>';
+    return '<details data-borrador class="group mb-5 rounded-btn bg-warning-container text-on-warning-container font-body-sm text-body-sm">' +
+      '<summary class="flex items-center gap-2 px-3 py-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden">' +
+        ic('edit_note', 'text-[18px] shrink-0') + '<strong class="flex-1 min-w-0">Borrador · pendiente de revisión legal.</strong>' +
+        '<span class="shrink-0 inline-flex items-center font-label-md text-label-md"><span class="underline underline-offset-2">¿Qué significa?</span>' +
+        ic('expand_more', 'text-[18px] group-open:rotate-180 transition') + '</span></summary>' +
+      '<p class="px-3 pb-3 pl-9">Este texto explica cómo funciona hoy la beta de Tumbo Market; antes del lanzamiento lo revisa un abogado y puede cambiar. ' +
+        'Si cambia un documento legal, te avisamos y te pedimos aceptar la versión nueva.</p></details>';
   }
   function secciones(lista) {
     return lista.map(function (x, i) {
-      return '<section class="mb-6" id="s' + (i + 1) + '"><h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">' + esc(x[0]) + '</h2>' +
-        '<div class="space-y-2 font-body-md text-body-md text-on-surface leading-relaxed">' + x[1] + '</div></section>';
+      return '<section class="mb-6 scroll-mt-4" id="s' + (i + 1) + '"><h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">' + esc(x[0]) + '</h2>' +
+        '<div class="space-y-3 font-body-md text-body-md text-on-surface leading-relaxed">' + x[1] + '</div></section>';
     }).join('');
   }
   function p(t) { return '<p>' + t + '</p>'; }
   function lista(items, ordenada) {
     var tag = ordenada ? 'ol' : 'ul';
-    return '<' + tag + ' class="' + (ordenada ? 'list-decimal' : 'list-disc') + ' pl-5 space-y-1">' +
+    return '<' + tag + ' class="' + (ordenada ? 'list-decimal' : 'list-disc') + ' pl-5 space-y-2">' +
       items.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</' + tag + '>';
   }
   function a(ruta, texto) {
-    return '<a class="text-secondary font-semibold hover:underline" href="' + href(ruta) + '">' + texto + '</a>';
+    return '<a class="text-secondary font-semibold underline-offset-2 hover:underline" href="' + href(ruta) + '">' + texto + '</a>';
+  }
+  /* Botón-enlace de 44 px (borde: secundario) */
+  function boton(ruta, texto, icono, borde) {
+    return '<a class="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-btn font-label-md text-label-md ' +
+      (borde ? 'border border-outline-variant bg-surface-container-lowest text-on-surface hover:border-secondary' : 'bg-secondary text-on-secondary hover:brightness-110') +
+      '" href="' + href(ruta) + '">' + ic(icono, 'text-[18px]') + esc(texto) + '</a>';
   }
   function menuTemas(activo) {
-    return '<nav aria-label="Temas de ayuda" data-menu-ayuda class="rounded-card border border-outline-variant bg-surface-container-lowest p-2">' +
+    return '<nav aria-label="Temas de ayuda" data-menu-ayuda class="rounded-card border border-outline-variant bg-surface-container-lowest p-2 space-y-0.5">' +
       TEMAS.map(function (t) {
         var on = t[0] === activo;
-        return '<a class="flex items-center gap-2 px-3 py-2 rounded-btn font-body-sm text-body-sm ' +
+        return '<a class="flex items-center gap-3 min-h-[44px] lg:min-h-[40px] px-3 py-2 rounded-btn font-body-md text-body-md lg:font-body-sm lg:text-body-sm ' +
           (on ? 'bg-secondary-container text-on-secondary-container font-semibold' : 'text-on-surface hover:bg-surface-container-low') + '"' +
-          (on ? ' aria-current="page"' : '') + ' href="' + href('app/ayuda/' + t[0] + '.html') + '">' + ic(t[2], 'text-[18px]') + esc(t[1]) + '</a>';
+          (on ? ' aria-current="page"' : '') + ' href="' + href('app/ayuda/' + t[0] + '.html') + '">' + ic(t[2], 'text-[20px] shrink-0 ' + (on ? '' : 'text-secondary')) +
+          '<span class="min-w-0">' + esc(t[1]) + '</span></a>';
       }).join('') + '</nav>';
+  }
+  /* Bajo lg, los temas arriba en una tira de chips que se desliza (el activo
+     a la vista). lg:hidden va en el contenedor: .tm-tira fija display:flex. */
+  function tiraTemas(activo) {
+    return '<div class="lg:hidden -mx-4 mb-4"><nav aria-label="Temas de ayuda" data-temas-movil class="px-4 flex gap-2 tm-tira">' +
+      TEMAS.map(function (t) {
+        var on = t[0] === activo;
+        return '<a class="' + UI.claseChip(on) + '"' +
+          (on ? ' aria-current="page"' : '') + ' href="' + href('app/ayuda/' + t[0] + '.html') + '">' + ic(t[2], 'text-[18px]') + esc(t[0] === 'inicio' ? 'Inicio' : t[1]) + '</a>';
+      }).join('') + '</nav></div>';
   }
   function marco(id, cuerpo, s) {
     var t = tema(id);
-    return '<nav class="mb-3 font-body-sm text-body-sm text-on-surface-variant" aria-label="Ruta">' +
-        (id === 'inicio' ? '' : a('app/ayuda/inicio.html', 'Centro de ayuda') + ' › ') + esc(t[1]) + '</nav>' +
+    /* (en la portada, el título ya dice dónde estás; bajo lg, la tira de temas
+       con su chip «Inicio» ya ubica a la persona: sin la ruta, que repetía el tema) */
+    return (id === 'inicio' ? '' :
+      '<nav class="hidden lg:flex mb-2 font-body-sm text-body-sm text-on-surface-variant flex-wrap items-center gap-x-1" aria-label="Ruta">' +
+        '<a class="tm-tocable text-secondary font-semibold hover:underline" href="' + href('app/ayuda/inicio.html') + '">Centro de ayuda</a>' +
+        '<span aria-hidden="true">›</span><span class="min-w-0" aria-current="page">' + esc(t[1]) + '</span></nav>' + tiraTemas(id)) +
       '<div class="grid lg:grid-cols-[260px_1fr] gap-6 items-start">' +
         '<aside class="hidden lg:block lg:sticky lg:top-4">' + menuTemas(id) + '</aside>' +
         '<article data-ayuda="' + esc(id) + '" class="min-w-0 max-w-3xl">' +
-          '<h1 class="flex items-center gap-2 font-headline-md text-headline-md text-primary-container mb-1">' + ic(t[2], 'text-[28px]') + esc(t[1]) + '</h1>' +
-          '<p class="font-body-md text-body-md text-on-surface-variant mb-4">' + esc(t[3]) + '</p>' +
-          borrador() + cuerpo +
+          '<h1 class="flex items-start gap-2 font-headline-md text-headline-md text-primary-container mb-1">' + ic(t[2], 'text-[28px] shrink-0 mt-0.5') + '<span class="min-w-0">' + esc(t[1]) + '</span></h1>' +
+          '<p class="font-body-md text-body-md text-on-surface-variant mb-5">' + esc(t[3]) + '</p>' +
+          (CLAVE_LEGAL[id] ? borrador() : '') + cuerpo +
+          /* (en Contacto no: llevaría a la misma página) */
+          (id === 'contacto' ? '' :
           '<div class="mt-8 rounded-card border border-outline-variant bg-surface-container-low p-4 flex flex-wrap items-center justify-between gap-3">' +
-            '<p class="font-body-sm text-body-sm text-on-surface">¿No encontraste lo que buscabas?</p>' +
-            '<a class="inline-flex items-center gap-1 min-h-[40px] px-4 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md" href="' +
-              href('app/ayuda/contacto.html') + '">' + ic('support_agent', 'text-[18px]') + 'Escríbenos</a></div>' +
-          '<details class="lg:hidden mt-6"><summary class="cursor-pointer font-label-md text-label-md text-secondary">Otros temas de ayuda</summary><div class="mt-2">' +
-            menuTemas(id) + '</div></details>' +
+            '<p class="font-body-md text-body-md text-on-surface">¿No encontraste lo que buscabas?</p>' +
+            boton('app/ayuda/contacto.html', 'Escríbenos', 'support_agent') + '</div>') +
         '</article></div>';
   }
 
@@ -120,7 +136,7 @@
   function estadoLegal(clave, s) {
     if (!C().remoto()) {
       return '<div data-legal-estado="' + esc(clave) + '" class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-5 font-body-sm text-body-sm">' +
-        '<p><strong>Versión ' + esc(VERSION_TEXTO) + '</strong> (borrador). La aceptación de cada versión se registra con el servidor de Tumbo.</p></div>';
+        '<p><strong>Versión ' + esc(VERSION_TEXTO) + '</strong>. La aceptación de cada versión se registra con el servidor de Tumbo.</p></div>';
     }
     var r = C().legales(s);
     if (!r.listo) return r.error ? C().fallo(r.error, 'legales') : C().cargando('Consultando la versión vigente…');
@@ -128,23 +144,24 @@
     if (!d) return '';
     var historial = ((r.dato && r.dato.historial) || []).filter(function (x) { return x.clave === clave; });
     var desfase = d.version !== VERSION_TEXTO;
+    /* (que es un borrador ya lo dice la línea de arriba: no se repite en el resumen) */
+    var resumen = String(d.resumen || '').replace(/\s*\((?:borrador|pendiente)[^)]*\)/i, '').trim();
     return '<div data-legal-estado="' + esc(clave) + '" data-version="' + esc(d.version) + '" class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-5">' +
       '<div class="flex flex-wrap items-center gap-2 mb-1">' +
         '<span class="font-label-md text-label-md text-on-surface">Versión vigente: <span class="font-data-mono text-data-mono">' + esc(d.version) + '</span></span>' +
-        (d.borrador ? C().chip('Borrador', 'ambar', 'edit_note') : '') +
         (d.requiere ? (d.aceptado ? '<span data-legal-aceptado>' + C().chip('Aceptaste esta versión', 'verde', 'check_circle') + '</span>'
                                   : C().chip('Falta tu aceptación', 'ambar', 'pending')) : '') + '</div>' +
       '<p class="font-body-sm text-body-sm text-on-surface-variant">Rige desde el ' + esc(C().dia(d.vigente_desde)) + '.' +
-        (d.resumen ? ' ' + esc(d.resumen) : '') + '</p>' +
+        (resumen ? ' ' + esc(resumen) : '') + '</p>' +
       (desfase ? C().aviso('ambar', 'info', 'El texto de abajo es de la versión ' + esc(VERSION_TEXTO) + '; el de la versión ' + esc(d.version) +
         ' todavía no llegó a esta página.' + (d.requiere && !d.aceptado ? ' Podrás aceptarla cuando se publique: nadie acepta un texto que no pudo leer.' : ''),
         ' data-legal-desfase') : '') +
       /* se acepta la versión del texto que la página muestra (el servidor
          rechaza la aceptación si no es la vigente) */
       (d.requiere && !d.aceptado && !desfase
-        ? '<div class="mt-3">' + btn('He leído y acepto esta versión', { estilo: 'primario', icono: 'task_alt', attr: 'data-aceptar-legal="' + esc(clave) + '" data-version="' + esc(VERSION_TEXTO) + '"' }) + '</div>'
+        ? '<div class="mt-3">' + btn('He leído y acepto esta versión', { estilo: 'primario', icono: 'task_alt', clase: 'w-full sm:w-auto min-h-[44px]', attr: 'data-aceptar-legal="' + esc(clave) + '" data-version="' + esc(VERSION_TEXTO) + '"' }) + '</div>'
         : '') +
-      (historial.length > 1 ? '<details class="mt-3"><summary class="cursor-pointer font-label-md text-label-md text-secondary">Versiones anteriores</summary>' +
+      (historial.length > 1 ? '<details class="mt-3"><summary class="cursor-pointer flex items-center min-h-[44px] font-label-md text-label-md text-secondary">Versiones anteriores</summary>' +
         '<ul class="mt-2 space-y-1 font-body-sm text-body-sm text-on-surface-variant">' + historial.map(function (h) {
           return '<li><span class="font-data-mono text-data-mono">' + esc(h.version) + '</span> · desde el ' + esc(C().dia(h.vigente_desde)) + (h.resumen ? ' · ' + esc(h.resumen) : '') + '</li>';
         }).join('') + '</ul></details>' : '') +
@@ -165,16 +182,18 @@
     ];
     return marco('inicio',
       '<div class="grid sm:grid-cols-2 gap-3 mb-8">' + TEMAS.slice(1).map(function (t) {
-        return '<a data-tema="' + esc(t[0]) + '" class="flex gap-3 rounded-card border border-outline-variant bg-surface-container-lowest p-4 hover:border-secondary hover:shadow-nivel-2 transition" href="' +
+        return '<a data-tema="' + esc(t[0]) + '" class="flex items-start gap-3 rounded-card border border-outline-variant bg-surface-container-lowest p-4 hover:border-secondary hover:shadow-nivel-2 transition" href="' +
           href('app/ayuda/' + t[0] + '.html') + '">' + ic(t[2], 'text-[26px] text-secondary shrink-0') +
-          '<span><span class="block font-body-md text-body-md font-bold text-on-surface">' + esc(t[1]) + '</span>' +
-          '<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(t[3]) + '</span></span></a>';
+          '<span class="min-w-0 flex-1"><span class="block font-body-md text-body-md font-bold text-on-surface">' + esc(t[1]) + '</span>' +
+          '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(t[3]) + '</span></span>' +
+          ic('chevron_right', 'text-[20px] text-outline shrink-0 self-center') + '</a>';
       }).join('') + '</div>' +
       '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-3">Preguntas frecuentes</h2>' +
       '<div class="divide-y divide-outline-variant rounded-card border border-outline-variant bg-surface-container-lowest">' + faq.map(function (f) {
-        return '<details class="group px-4 py-3"><summary class="cursor-pointer font-body-md text-body-md font-semibold text-on-surface flex items-center justify-between gap-2">' +
-          esc(f[0]) + ic('expand_more', 'text-[20px] group-open:rotate-180 transition') + '</summary>' +
-          '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant">' + f[1] + '</p></details>';
+        /* (el relleno va en el <summary>: toda la fila abre la respuesta) */
+        return '<details class="group"><summary class="cursor-pointer list-none [&::-webkit-details-marker]:hidden px-4 py-3 min-h-[44px] font-body-md text-body-md font-semibold text-on-surface flex items-center justify-between gap-3">' +
+          '<span class="min-w-0">' + esc(f[0]) + '</span>' + ic('expand_more', 'text-[20px] shrink-0 group-open:rotate-180 transition') + '</summary>' +
+          '<p class="px-4 pb-4 -mt-1 font-body-md text-body-md text-on-surface-variant leading-relaxed">' + f[1] + '</p></details>';
       }).join('') + '</div>', s);
   }
 
@@ -278,7 +297,10 @@
       ['1. Quiénes somos', p('Tumbo Market es un mercado en línea que conecta a compradores con comercios homologados en Venezuela. Tumbo no es el vendedor de los productos: cada comercio responde por lo que publica y vende.')],
       ['2. Tu cuenta', p('Para comprar o vender necesitas una cuenta con datos verdaderos. Eres responsable de lo que se haga con ella: protege tu contraseña y activa la verificación en dos pasos.')],
       ['3. Compras y pagos', p('El precio en bolívares queda fijado con la tasa al confirmar la compra. El pago se hace dentro de Tumbo con los métodos disponibles y lo verifica Finanzas. Tumbo custodia el dinero hasta que se cierra la ventana de reclamo.')],
-      ['4. Reclamos y reembolsos', p('Puedes reclamar dentro de ' + esc(n(P.reclamo, 'día')) + ' desde la entrega. Tumbo decide cada caso con la evidencia de las dos partes, según la ' + a('app/ayuda/devoluciones.html', 'política de devoluciones') + ' y la ' + a('app/ayuda/compra-protegida.html', 'Compra Protegida') + '.')],
+      /* (los dos enlaces en su propia fila: dentro de la frase caían uno encima del otro en el teléfono) */
+      ['4. Reclamos y reembolsos', p('Puedes reclamar dentro de ' + esc(n(P.reclamo, 'día')) + ' desde la entrega. Tumbo decide cada caso con la evidencia de las dos partes, según la política de devoluciones y la Compra Protegida.') +
+        '<p class="flex flex-wrap gap-x-6">' + UI.enlace('Política de devoluciones', href('app/ayuda/devoluciones.html'), 'assignment_return') +
+        UI.enlace('Compra Protegida', href('app/ayuda/compra-protegida.html'), 'verified_user') + '</p>'],
       ['5. Conducta', lista(['No publiques datos de contacto, enlaces ni números de cuenta en preguntas, reseñas o chats.',
         'No intentes llevar la compra por fuera de Tumbo.',
         'Las reseñas deben ser sobre tu experiencia real con el producto o el comercio, sin ofensas.',
@@ -344,12 +366,14 @@
     if (!C().remoto()) {
       cuerpo = C().avisoServidor('Los casos de soporte viven en el servidor: en la demo sin conexión no se pueden abrir.');
     } else if (equipo) {
-      cuerpo = C().aviso('azul', 'support_agent', 'Eres parte del equipo: los casos de los clientes están en ' + a('app/admin/soporte.html', 'Backoffice → Soporte') +
-        ' (Operaciones, o quien tenga el permiso «soporte»).');
+      cuerpo = C().aviso('azul', 'support_agent', 'Eres parte del equipo: los casos de los clientes se atienden en Backoffice → Soporte' +
+        ' (Operaciones, o quien tenga el permiso «soporte»).') +
+        boton('app/admin/soporte.html', 'Ir a Soporte del Backoffice', 'arrow_forward', true);
     } else if (!cliente) {
       /* (al volver, el formulario conserva la categoría y el pedido: p. ej. «Quiero vender») */
-      cuerpo = C().aviso('azul', 'login', 'Para abrir un caso, ' + a('index.html?volver=' + encodeURIComponent('app/ayuda/contacto.html' + vueltaContacto(q)), 'inicia sesión') +
-        '. Así te respondemos con tu historial de pedidos a la vista.');
+      var entrar = 'index.html?volver=' + encodeURIComponent('app/ayuda/contacto.html' + vueltaContacto(q));
+      cuerpo = C().aviso('azul', 'login', 'Para abrir un caso necesitas tu cuenta: así te respondemos con tu historial de pedidos a la vista.') +
+        boton(entrar, 'Inicia sesión', 'login');
     } else {
       cuerpo = TM.soporteCom ? TM.soporteCom.formulario({ pedido: q.get('pedido') || '', categoria: q.get('categoria') || '' }, s) : '';
     }
@@ -359,8 +383,8 @@
         ? 'Respondemos primero lo urgente: pagos y devoluciones en hasta ' + esc(n(P.sla.alta, 'hora')) + ', pedidos y cuentas en hasta ' +
           esc(n(P.sla.normal, 'hora')) + ' y el resto en hasta ' + esc(n(P.sla.baja, 'hora')) + '.'
         : 'Te mostramos la fecha de respuesta comprometida al abrir el caso.')]
-    ]) + '<section class="mb-6"><h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Abre un caso</h2>' + cuerpo +
-      (cliente && C().remoto() ? '<p class="mt-3 font-body-sm text-body-sm">' + a(s.rol === 'comprador' ? 'app/tienda/soporte.html' : 'app/seller/soporte.html', 'Ver mis casos') + '</p>' : '') +
+    ]) + '<section class="mb-6 scroll-mt-4" id="abre-un-caso"><h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Abre un caso</h2>' + cuerpo +
+      (cliente && C().remoto() ? '<p class="mt-3">' + UI.enlace('Ver mis casos', href(s.rol === 'comprador' ? 'app/tienda/soporte.html' : 'app/seller/soporte.html'), 'list_alt') + '</p>' : '') +
       '</section>', s);
   }
 
@@ -390,6 +414,4 @@
     vistas['ayuda/' + x[0]] = { armazon: 'tienda', publico: true, titulo: tema(x[0])[1], render: x[1] };
   });
   APP.registrar(vistas);
-
-  TM.ayudaCom = { temas: TEMAS, plazos: plazos };
 })();

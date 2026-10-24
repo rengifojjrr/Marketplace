@@ -71,8 +71,8 @@
     var puede = s.rol === 'ops' || s.rol === 'superadmin';
     var filas = lista.map(function (p) {
       var e = env[p.id];
-      return td((L.remoto() ? '<a class="font-data-mono text-data-mono text-secondary hover:underline" href="' + href('app/admin/pedido.html?id=' + p.id) + '">' + esc(p.id) + '</a>'
-          : '<span class="font-data-mono text-data-mono">' + esc(p.id) + '</span>') +
+      return td((L.remoto() ? '<a class="tm-id font-data-mono text-data-mono text-secondary hover:underline" href="' + href('app/admin/pedido.html?id=' + p.id) + '">' + esc(p.id) + '</a>'
+          : '<span class="tm-id font-data-mono text-data-mono">' + esc(p.id) + '</span>') +
           (e && e.incidencias_abiertas ? '<span class="block mt-1">' + L.chip(e.incidencias_abiertas + ' incidencia' + (e.incidencias_abiertas === 1 ? '' : 's'), 'ambar', 'report') + '</span>' : '') +
           (e && e.solicitud ? '<span class="block mt-1">' + L.chip('Pide cancelar', 'ambar', 'pending') + '</span>' : '')) +
         td(esc(TM.seller(p.sellerId).nombre)) +
@@ -81,26 +81,29 @@
         td('<span class="font-data-mono text-data-mono">' + esc(e ? (e.courier_nombre || p.envio.courier) : p.envio.courier) + (e && e.guia ? ' · ' + esc(e.guia) : (!e && p.guia ? ' · ' + esc(p.guia) : '')) + '</span>' +
           (e && p.estado === 'por_aceptar' ? '<span class="block">' + L.cuenta(e.aceptar_antes, 'acepta en', 'vencido hace') + '</span>' : '') +
           (e && (p.estado === 'preparando' || p.estado === 'listo') ? '<span class="block">' + L.cuenta(e.despachar_antes, 'despacha en', 'vencido hace') + '</span>' : '') +
-          (e && e.responsable ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + ic('person', 'text-[14px] align-middle') + ' ' + esc(e.responsable) + '</span>' : '')) +
+          (e && e.responsable ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + ic('person', 'text-[14px] align-middle') + ' ' + esc(e.responsable) + '</span>' : ''), 'sm:min-w-[11rem]') +
         td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtTotalPedido(p)) + '</span>', 'text-right') +
         td('<div class="flex flex-wrap gap-2 justify-end">' +
           (p.estado === 'despachado' && puede && !p.disputaId ? btn('Confirmar entrega', { icono: 'check_circle', attr: 'data-entregado="' + esc(p.id) + '" title="Con la prueba de entrega del courier"' }) : '') +
           (p.estado === 'devolucion' && puede && !L.remoto() ? btn('Devolución recibida', { icono: 'assignment_return', attr: 'data-devolucion="' + esc(p.id) + '" data-recibida="1"' }) +
             btn('No llegó', { icono: 'lock_open', attr: 'data-devolucion="' + esc(p.id) + '" data-recibida="0"' }) : '') +
-          (L.remoto() ? '<a class="inline-flex items-center gap-1 min-h-[40px] px-3 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary" href="' +
+          (L.remoto() ? '<a class="inline-flex items-center gap-1 min-h-[40px] px-3 rounded-btn border border-outline-variant font-label-md text-label-md whitespace-nowrap hover:border-secondary" href="' +
             href('app/admin/pedido.html?id=' + p.id) + '">' + ic('visibility', 'text-[16px]') + 'Detalle</a>' : '') + '</div>', 'text-right');
     });
     var estados = ['', 'pago_por_verificar', 'por_aceptar', 'preparando', 'listo', 'despachado', 'entregado', 'devolucion', 'cerrado', 'cancelado', 'reembolsado'];
-    return avisoRecorte() + titulo('Pedidos del marketplace', L.remoto() ? '<a class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline" href="' +
-        href('app/admin/operaciones.html') + '">' + ic('monitor_heart', 'text-[18px]') + 'Panel de Operaciones</a>' : '') +
-      '<form data-filtro class="mb-4 flex flex-wrap gap-2 max-w-2xl" role="search">' +
-        '<input name="q" value="' + esc(q.get('q') || '') + '" placeholder="Buscar por ID, seller, referencia o guía…" class="flex-1 min-w-[200px] h-10 px-3 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm focus:border-secondary outline-none"/>' +
-        '<select name="estado" aria-label="Estado" class="h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm">' + estados.map(function (x) {
+    return avisoRecorte() + titulo('Pedidos del marketplace', L.remoto() ? UI.enlace('Panel de Operaciones', href('app/admin/operaciones.html'), 'monitor_heart') : '') +
+      '<form data-filtro class="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end max-w-3xl" role="search">' +
+        '<div class="col-span-2 sm:flex-1 sm:min-w-[220px]"><label class="block font-label-md text-label-md text-on-surface mb-1" for="ped-q">Buscar</label>' +
+        '<input id="ped-q" name="q" type="search" enterkeyhint="search" autocomplete="off" value="' + esc(q.get('q') || '') + '" placeholder="ID, comercio, referencia o guía" class="w-full h-10 px-3 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm focus:border-secondary outline-none"/></div>' +
+        /* en el teléfono, el estado y el botón a lo ancho (en media fila el estado se cortaba) */
+        '<div class="col-span-2 sm:col-span-1 min-w-0"><label class="block font-label-md text-label-md text-on-surface mb-1" for="ped-estado">Estado</label>' +
+        '<select id="ped-estado" name="estado" class="w-full h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm">' + estados.map(function (x) {
           return '<option value="' + x + '"' + (x === estado ? ' selected' : '') + '>' + (x ? esc(UI.nombreEstado(x)) : 'Todos los estados') + '</option>';
-        }).join('') + '</select>' +
-        '<button class="h-10 px-3 rounded-btn bg-secondary text-on-secondary" aria-label="Buscar">' + ic('search') + '</button></form>' +
+        }).join('') + '</select></div>' +
+        '<button class="col-span-2 sm:col-span-1 self-end inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md">' + ic('search', 'text-[18px]') + 'Buscar</button></form>' +
+      /* siete columnas: en tarjetas también en la tableta */
       UI.tabla(['Pedido', 'Seller', 'Estado', 'Dinero', 'Logística', 'Total', ''], filas,
-        UI.vacio('search_off', 'Sin coincidencias', 'Ningún pedido coincide con la búsqueda.'));
+        UI.vacio('search_off', 'Sin coincidencias', 'Ningún pedido coincide con la búsqueda.'), { tarjetas: 'lg' });
   }
 
   function despuesPedidosAdmin(raiz) {
@@ -140,8 +143,7 @@
   function v360(q, s) {
     var L = TM.log;
     var id = q.get('id') || '';
-    var volver = '<a class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline mb-3" href="' + href('app/admin/operaciones.html') + '">' +
-      ic('arrow_back', 'text-[16px]') + 'Panel de Operaciones</a>';
+    var volver = '<p class="mb-1">' + UI.enlace('Panel de Operaciones', href('app/admin/operaciones.html'), 'arrow_back') + '</p>';
     var p = TM.pedido(id);
     if (!L.remoto()) {
       return volver + titulo('Pedido ' + id) + L.avisoServidor('El detalle 360 (notas internas, incidencias, SLA y acciones) vive en el servidor.') +
@@ -156,7 +158,12 @@
     var sla = '';
     if (ped.estado === 'por_aceptar') sla = L.cuenta(e.aceptar_antes, 'Acepta en', 'Aceptación vencida hace');
     if (ped.estado === 'preparando' || ped.estado === 'listo') sla = L.cuenta(e.despachar_antes, 'Despacha en', 'Despacho vencido hace');
-    var linea = (d.linea || []).slice().reverse().map(function (x) { return Object.assign({}, x, { fechaTexto: L.fechaHora(x.fecha) }); });
+    var linea = (d.linea || []).slice().reverse().map(function (x) { return Object.assign({}, x, { fechaTexto: UI.fechaHora(x.fecha) }); });
+    /* lo cobrado: productos y envío, menos los descuentos, más el IGTF (como en el resto del sitio) */
+    var nUsd = function (v) { var x = Number(v); return isFinite(x) ? x : 0; };
+    var descuentos = nUsd(ped.descuento_usd) + nUsd(ped.descuento_tumbo_usd), igtf = nUsd(ped.igtf_usd);
+    var totalCobrado = Math.round((ped.items.reduce(function (t, i) { return t + nUsd(i.precio_usd) * i.cant; }, 0) + nUsd(ped.costo_envio_usd) - descuentos + igtf) * 100) / 100;
+    var pLocal = TM.pedido(ped.id);
 
     var acciones = '' +
       (tiene('confirmar_entrega') ? btn('Confirmar entrega', { estilo: 'exito', icono: 'check_circle', attr: 'data-360="confirmar"', clase: 'w-full' }) : '') +
@@ -180,10 +187,18 @@
         '<a class="underline font-semibold" href="' + href('app/admin/disputas.html') + '">Disputas</a>.</span></p>' : '';
     return volver + titulo('Pedido ' + ped.id, '<span class="flex flex-wrap items-center gap-2">' + sla + UI.badge(ped.estado) +
         (ped.liquidacion ? UI.badge(ped.liquidacion) : '') + '</span>') + reclamo +
-      '<div class="grid lg:grid-cols-[1fr_340px] gap-6 items-start"><div class="space-y-4 min-w-0">' +
+      '<div class="grid lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-[auto_1fr] gap-4 lg:gap-x-6 items-start">' +
+      '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 space-y-2 lg:col-start-2 lg:row-start-1" data-acciones-360>' +
+        '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Acciones</h2>' +
+        (d.bloqueado
+          ? '<p class="flex items-start gap-1.5 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2" data-360-bloqueado>' +
+            ic('lock', 'text-[16px] mt-0.5 shrink-0') + 'Es el pedido de una persona o un comercio real: con una cuenta de prueba solo lo consultas (sin lo que escribió el equipo real). ' +
+            'Lo gestiona una cuenta real del equipo con verificación en dos pasos.</p>'
+          : (acciones || '<p class="font-body-sm text-body-sm text-on-surface-variant">No hay acciones pendientes en este estado.</p>')) + '</div>' +
+      '<div class="space-y-4 min-w-0 lg:col-start-1 lg:row-start-1 lg:row-span-2">' +
         '<div class="grid sm:grid-cols-2 gap-4">' +
-          L.tarjeta('Comercio y comprador', '<dl>' + L.fila('Comercio', esc(d.seller.nombre) + ' <span class="font-data-mono text-data-mono">' + esc(d.seller.id) + '</span>') +
-            L.fila('Comprador', esc(d.comprador.nombre)) + L.fila('Correo', esc(d.comprador.email)) +
+          L.tarjeta('Comercio y comprador', '<dl>' + L.fila('Comercio', esc(d.seller.nombre) + ' <span class="tm-id font-data-mono text-data-mono">' + esc(d.seller.id) + '</span>') +
+            L.fila('Comprador', esc(d.comprador.nombre)) + L.fila('Correo', '<span class="break-all">' + esc(d.comprador.email) + '</span>') +
             L.fila('Teléfono', d.comprador.telefono ? esc(d.comprador.telefono) : '—') +
             L.fila('Historial', d.comprador.pedidos + ' pedidos · ' + d.comprador.cancelados + ' cancelados · ' + d.comprador.reclamos + ' reclamos') + '</dl>') +
           L.tarjeta('Destinatario', L.destinatario(d.destinatario)) +
@@ -192,55 +207,56 @@
           L.fila('Referencia', e.referencia ? '<span class="font-data-mono text-data-mono">' + esc(e.referencia) + '</span>' : '—') +
           L.fila('Guía', e.guia ? '<span class="font-data-mono text-data-mono">' + esc(e.guia) + '</span> ' + L.rastreo(e) : '—') +
           L.fila('Prometido', e.fecha_prometida ? 'entre el ' + esc(L.fecha(e.fecha_minima)) + ' y el ' + esc(L.fecha(e.fecha_prometida)) + ' (' + e.dias_min + '–' + e.dias_max + ' días hábiles)' : '') +
-          L.fila('Despachó', e.despachado_por ? esc(e.despachado_por) + ' · ' + esc(L.fechaHora(e.despachado_en)) : '') +
-          L.fila('Autoconfirmación', e.autoconfirmar_el && ped.estado === 'despachado' ? esc(L.fechaHora(e.autoconfirmar_el)) : '') +
+          L.fila('Despachó', e.despachado_por ? esc(e.despachado_por) + ' · ' + esc(UI.fechaHora(e.despachado_en)) : '') +
+          L.fila('Autoconfirmación', e.autoconfirmar_el && ped.estado === 'despachado' ? esc(UI.fechaHora(e.autoconfirmar_el)) : '') +
           L.fila('Entrega', e.entrega_por ? esc(e.entrega_por) + (e.entrega_nota ? ' · ' + esc(e.entrega_nota) : '') : '') + '</dl>' +
           '<div class="flex flex-wrap gap-2 mt-2">' +
           (e.guia_foto ? btn('Ver foto del recibo', { icono: 'image', attr: 'data-ver-archivo="' + esc(e.guia_foto) + '"' }) : '') +
           (e.entrega_foto ? btn('Ver prueba de entrega', { icono: 'image', attr: 'data-ver-archivo="' + esc(e.entrega_foto) + '"' }) : '') + '</div>') +
-        (d.devolucion ? L.tarjeta('Devolución', '<dl>' + L.fila('Estado', esc(d.devolucion.estado)) +
+        (d.devolucion ? L.tarjeta('Devolución', '<dl>' + L.fila('Estado', esc({ instrucciones: 'Con instrucciones para el comprador', en_transito: 'En camino al comercio',
+            recibida: 'Recibida', cerrada: 'Cerrada' }[d.devolucion.estado] || d.devolucion.estado)) +
           L.fila('Paga el envío', esc({ seller: 'el comercio', comprador: 'el comprador', tumbo: 'Tumbo' }[d.devolucion.paga] || d.devolucion.paga)) +
           L.fila('Guía de vuelta', d.devolucion.guia ? esc(d.devolucion.courier + ' · ' + d.devolucion.guia) : '—') +
-          L.fila('Inspección', d.devolucion.inspeccion ? esc(d.devolucion.inspeccion + (d.devolucion.inspeccion_nota ? ' · ' + d.devolucion.inspeccion_nota : '')) : '—') + '</dl>' +
+          L.fila('Inspección', d.devolucion.inspeccion ? esc(({ apto: 'Apto para la venta', danado: 'Dañado', incompleto: 'Incompleto' }[d.devolucion.inspeccion] || d.devolucion.inspeccion) +
+            (d.devolucion.inspeccion_nota ? ' · ' + d.devolucion.inspeccion_nota : '')) : '—') + '</dl>' +
           '<p class="font-body-sm text-body-sm text-on-surface-variant mt-2">' + esc(d.devolucion.instrucciones || '') + '</p>') : '') +
         (d.incidencias.length ? L.tarjeta('Incidencias', '<ul class="space-y-2">' + d.incidencias.map(function (i) {
           return '<li class="flex flex-wrap items-start justify-between gap-2 font-body-sm text-body-sm border-b border-outline-variant pb-2 last:border-0">' +
-            '<span class="min-w-0"><strong>' + esc(i.nombre) + '</strong> · ' + esc(i.por || '') + ' · ' + esc(L.fechaHora(i.creado)) + ' ' +
-            (i.estado === 'abierta' ? L.chip('abierta', 'ambar') : L.chip('resuelta', 'verde')) +
+            '<span class="min-w-0"><strong>' + esc(i.nombre) + '</strong> · ' + esc(i.por || '') + ' · ' + esc(UI.fechaHora(i.creado)) + ' ' +
+            (i.estado === 'abierta' ? L.chip('Abierta', 'ambar') : L.chip('Resuelta', 'verde')) +
             '<span class="block text-on-surface-variant break-words">' + esc(i.detalle || '') + (i.resolucion ? ' → ' + esc(i.resolucion) : '') + '</span></span>' +
             (i.estado === 'abierta' && !d.bloqueado ? btn('Resolver', { attr: 'data-resolver-incidencia="' + i.id + '"' }) : '') + '</li>';
         }).join('') + '</ul>') : '') +
         L.tarjeta('Línea de tiempo', '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Une los eventos que ven el comprador y el comercio con lo interno del equipo (marcado «interno»).</p>' + L.linea(linea), ' data-linea-360') +
       '</div>' +
-      '<aside class="space-y-4">' +
-        '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 space-y-2" data-acciones-360>' +
-          '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Acciones</h2>' +
-          (d.bloqueado
-            ? '<p class="flex items-start gap-1.5 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2" data-360-bloqueado>' +
-              ic('lock', 'text-[16px] mt-0.5 shrink-0') + 'Es el pedido de una persona o un comercio real: con una cuenta de prueba solo lo consultas (sin lo que escribió el equipo real). ' +
-              'Lo gestiona una cuenta real del equipo con verificación en dos pasos.</p>'
-            : (acciones || '<p class="font-body-sm text-body-sm text-on-surface-variant">No hay acciones pendientes en este estado.</p>')) + '</div>' +
+      '<aside class="space-y-4 min-w-0 lg:col-start-2 lg:row-start-2">' +
         '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
-          '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Responsable</h2>' +
-          '<select data-responsable' + (d.bloqueado ? ' disabled' : '') + ' class="' + L.CLASE_SELECT + '"><option value="">Sin asignar</option>' + d.responsables.map(function (r) {
+          '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-2"><label for="resp-360">Responsable</label></h2>' +
+          '<select id="resp-360" data-responsable' + (d.bloqueado ? ' disabled' : '') + ' class="' + L.CLASE_SELECT + '"><option value="">Sin asignar</option>' + d.responsables.map(function (r) {
             return '<option value="' + esc(r.id) + '"' + (r.id === e.responsable_id ? ' selected' : '') + '>' + esc(r.nombre) + (r.id === s.uid ? ' (tú)' : '') + '</option>';
           }).join('') + '</select></div>' +
         '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
           '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Notas internas</h2>' +
           '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">No las ven el comprador ni el comercio' + (d.bloqueado ? ' ni las cuentas de prueba' : '') + '.</p>' +
-          (d.bloqueado ? '' : '<form data-nota class="mb-3"><textarea name="texto" rows="2" maxlength="1000" class="' + L.CLASE_AREA + '" placeholder="Ej.: llamé al courier, confirman entrega mañana"></textarea>' +
-          '<div class="mt-2">' + btn('Agregar nota', { estilo: 'primario', icono: 'sticky_note_2', tipo: 'submit' }) + '</div></form>') +
+          (d.bloqueado ? '' : '<form data-nota class="mb-3"><label class="sr-only" for="nota-360">Nota interna</label><textarea id="nota-360" aria-label="Nota interna" name="texto" rows="2" maxlength="1000" class="' + L.CLASE_AREA + '" placeholder="Ej.: llamé al courier, confirman entrega mañana"></textarea>' +
+          '<div class="mt-2">' + btn('Agregar nota', { estilo: 'primario', icono: 'sticky_note_2', tipo: 'submit', clase: 'w-full sm:w-auto' }) + '</div></form>') +
           (d.notas.length ? '<ul class="space-y-2" data-notas>' + d.notas.map(function (n) {
             return '<li class="font-body-sm text-body-sm border-b border-outline-variant pb-2 last:border-0"><span class="block break-words">' + esc(n.texto) + '</span>' +
-              '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(n.autor) + ' · ' + esc(L.fechaHora(n.creado)) + '</span></li>';
+              '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(n.autor) + ' · ' + esc(UI.fechaHora(n.creado)) + '</span></li>';
           }).join('') + '</ul>' : '') + '</div>' +
         '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
           '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Artículos</h2>' +
-          ped.items.map(function (i) {
-            return '<p class="font-body-sm text-body-sm">' + esc(i.nombre) + ' × ' + i.cant + '<span class="float-right">' + esc(TM.fmtUsd(i.precio_usd * i.cant)) + '</span></p>';
+          '<ul class="font-body-sm text-body-sm" data-articulos-360>' + ped.items.map(function (i) {
+            return '<li class="flex items-baseline justify-between gap-3 py-1"><span class="min-w-0 break-words">' + esc(i.nombre) + ' × ' + i.cant + '</span>' +
+              '<span class="shrink-0 tm-num text-right">' + esc(TM.fmtUsd(i.precio_usd * i.cant)) + '</span></li>';
           }).join('') +
-          '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Envío<span class="float-right">' + esc(TM.fmtUsd(ped.costo_envio_usd)) + '</span></p>' +
-          '<p class="font-body-sm text-body-sm mt-2">Pago: ' + esc(ped.metodo) + ' · ref. <span class="font-data-mono text-data-mono">' + esc(ped.ref) + '</span></p></div>' +
+          '<li class="flex items-baseline justify-between gap-3 py-1 text-on-surface-variant"><span>Envío</span><span class="shrink-0 tm-num">' + esc(TM.fmtUsd(ped.costo_envio_usd)) + '</span></li>' +
+          (descuentos ? '<li class="flex items-baseline justify-between gap-3 py-1 text-on-surface-variant"><span>Descuentos</span><span class="shrink-0 tm-num">−' + esc(TM.fmtUsd(descuentos)) + '</span></li>' : '') +
+          (igtf ? '<li class="flex items-baseline justify-between gap-3 py-1 text-on-surface-variant"><span>IGTF</span><span class="shrink-0 tm-num">' + esc(TM.fmtUsd(igtf)) + '</span></li>' : '') +
+          '<li class="flex items-baseline justify-between gap-3 pt-2 mt-1 border-t border-outline-variant font-bold text-on-surface"><span>Total cobrado</span><span class="shrink-0 tm-num">' +
+            esc(TM.fmtUsd(totalCobrado)) + '</span></li>' +
+          (pLocal ? '<li class="text-right text-on-surface-variant tm-num">' + esc(TM.fmtTotalPedido(pLocal)) + '</li>' : '') + '</ul>' +
+          '<p class="font-body-sm text-body-sm mt-2 break-words">Pago: ' + esc(ped.metodo) + ' · ref. <span class="tm-id font-data-mono text-data-mono">' + esc(ped.ref) + '</span></p></div>' +
         APP.ganchos('pedido.ops', { pedido: ped, detalle: d, sesion: s }) +
       '</aside></div>';
   }
@@ -389,10 +405,10 @@
     var orden = ['aceptar_vencido', 'aceptar_riesgo', 'despacho_vencido', 'listo_sin_despacho', 'sin_novedad', 'devolucion', 'incidencia', 'solicitud', 'no_llego'];
     var t = d.tarea_sla;
     return cab +
-      (t ? '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Última revisión de SLA: ' + esc(L.fechaHora(t.ultima)) +
+      (t ? '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Última revisión de SLA: ' + esc(UI.fechaHora(t.ultima)) +
         ' · ' + esc(String(t.resumen.cancelados || 0)) + ' cancelados, ' + esc(String(t.resumen.autoconfirmados || 0)) + ' autoconfirmados, ' +
         esc(String((t.resumen.escalados_aceptar || 0) + (t.resumen.escalados_despacho || 0))) + ' escalados.</p>'
-        : '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">La revisión de SLA aún no corrió (con pg_cron corre cada 15 minutos).</p>') +
+        : '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">La revisión de SLA aún no corrió: si las tareas programadas del servidor están activas, corre sola cada 15 minutos; si no, usa «Revisar SLA ahora».</p>') +
       '<section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5" data-semaforo>' + orden.map(function (k) {
         var b = L.BUCKETS[k], n = d.conteos[k] || 0, activo = f.bucket === k;
         var tono = n ? (b.tono === 'rojo' ? 'border-error' : 'border-warning') : 'border-outline-variant';
@@ -401,23 +417,27 @@
           '<span class="font-headline-md text-headline-md font-bold ' + (n ? 'text-primary-container' : 'text-outline') + '">' + n + '</span></span>' +
           '<span class="block font-body-sm text-body-sm text-on-surface mt-1">' + esc(b.t) + '</span></a>';
       }).join('') + '</section>' +
-      '<form data-filtros-ops class="flex flex-wrap gap-2 mb-4" role="search">' +
-        '<input name="q" value="' + esc(f.q || '') + '" placeholder="Pedido o guía…" class="h-10 px-3 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm min-w-[160px]"/>' +
-        '<select name="seller" aria-label="Comercio" class="h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm"><option value="">Todos los comercios</option>' +
-          d.sellers.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === f.seller ? ' selected' : '') + '>' + esc(x.nombre) + '</option>'; }).join('') + '</select>' +
-        '<select name="responsable" aria-label="Responsable" class="h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm">' +
-          [['', 'Cualquier responsable'], ['yo', 'Asignados a mí'], ['sin', 'Sin asignar']].concat(d.responsables.map(function (r) { return [r.id, r.nombre]; })).map(function (o) {
+      '<form data-filtros-ops class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end mb-4" role="search">' +
+        '<div class="col-span-2 sm:w-56"><label class="block font-label-md text-label-md text-on-surface mb-1" for="ops-q">Pedido o guía</label>' +
+        '<input id="ops-q" name="q" type="search" enterkeyhint="search" autocomplete="off" value="' + esc(f.q || '') + '" placeholder="Ej.: TM-2026-00434" class="w-full h-10 px-3 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm"/></div>' +
+        '<div class="min-w-0"><label class="block font-label-md text-label-md text-on-surface mb-1" for="ops-seller">Comercio</label>' +
+        '<select id="ops-seller" name="seller" class="w-full h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm"><option value="">Todos</option>' +
+          d.sellers.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === f.seller ? ' selected' : '') + '>' + esc(x.nombre) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="min-w-0"><label class="block font-label-md text-label-md text-on-surface mb-1" for="ops-resp">Responsable</label>' +
+        '<select id="ops-resp" name="responsable" class="w-full h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm">' +
+          [['', 'Cualquiera'], ['yo', 'Asignados a mí'], ['sin', 'Sin asignar']].concat(d.responsables.map(function (r) { return [r.id, r.nombre]; })).map(function (o) {
             return '<option value="' + esc(o[0]) + '"' + (o[0] === (f.responsable || '') ? ' selected' : '') + '>' + esc(o[1]) + '</option>';
-          }).join('') + '</select>' +
-        '<button class="h-10 px-4 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md">Filtrar</button>' +
-        (f.bucket || f.seller || f.responsable || f.q ? '<a class="h-10 inline-flex items-center px-3 font-label-md text-label-md text-secondary hover:underline" href="?">Quitar filtros</a>' : '') +
+          }).join('') + '</select></div>' +
+        '<button class="h-10 px-4 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md' + (f.bucket || f.seller || f.responsable || f.q ? '' : ' col-span-2 sm:col-span-1') + '">Filtrar</button>' +
+        (f.bucket || f.seller || f.responsable || f.q ? '<a class="h-10 inline-flex items-center justify-center px-3 rounded-btn border border-outline-variant font-label-md text-label-md text-secondary hover:border-secondary" href="?">Quitar filtros</a>' : '') +
       '</form>' +
-      UI.tabla(['', 'Pedido', 'Comercio', 'Estado', 'Casos', 'Plazo', 'Responsable'], d.casos.map(function (c) {
+      UI.tabla(['Nivel', 'Pedido', 'Comercio', 'Estado', 'Casos', 'Plazo', 'Responsable'], d.casos.map(function (c) {
         var limite = c.estado === 'por_aceptar' ? L.cuenta(c.aceptar_antes, 'acepta en', 'vencido hace')
           : (c.estado === 'preparando' || c.estado === 'listo') ? L.cuenta(c.despachar_antes, 'despacha en', 'vencido hace')
           : c.estado === 'despachado' ? '<span class="font-body-sm text-body-sm text-on-surface-variant">prometido hasta el ' + esc(L.fecha(c.fecha_prometida)) + '</span>' : '';
-        return td('<span class="inline-block w-3 h-3 rounded-full ' + (c.nivel === 'rojo' ? 'bg-error' : 'bg-warning') + '" title="' + (c.nivel === 'rojo' ? 'Urgente' : 'Atención') + '"></span>') +
-          td('<a class="font-data-mono text-data-mono text-secondary hover:underline" href="' + href('app/admin/pedido.html?id=' + c.pedido_id) + '">' + esc(c.pedido_id) + '</a>') +
+        return td('<span class="inline-flex items-center gap-1.5 whitespace-nowrap"><span class="inline-block w-3 h-3 rounded-full ' + (c.nivel === 'rojo' ? 'bg-error' : 'bg-warning') + '" aria-hidden="true"></span>' +
+            (c.nivel === 'rojo' ? 'Urgente' : 'Atención') + '</span>') +
+          td('<a class="tm-id font-data-mono text-data-mono text-secondary hover:underline" href="' + href('app/admin/pedido.html?id=' + c.pedido_id) + '">' + esc(c.pedido_id) + '</a>') +
           td(esc(c.seller)) + td(UI.badge(c.estado)) +
           td('<span class="flex flex-wrap gap-1">' + c.buckets.map(function (k) { var b = L.BUCKETS[k] || { t: k }; return L.chip(b.t, b.tono, b.i); }).join('') + '</span>') +
           td(limite) + td(c.responsable ? esc(c.responsable) : '<span class="text-on-surface-variant">—</span>');
@@ -462,51 +482,62 @@
     var html = '';
     if (tab === 'couriers') {
       html = UI.tabla(['Courier', 'Servicios', 'Rastreo', 'Estado', ''], d.couriers.map(function (c) {
-        return td('<strong>' + esc(c.nombre) + '</strong> <span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(c.codigo) + '</span>' +
-            (c.nota ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(c.nota) + '</span>' : '')) +
+        /* sin el código interno junto al nombre («MRW mrw») ni la nota que repite la columna Rastreo */
+        var nota = c.nota && !(c.tipo === 'courier' && !c.url_rastreo && /rastreo pendiente/i.test(c.nota)) ? c.nota : '';
+        return td('<strong>' + esc(c.nombre) + '</strong>' +
+            (nota ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(nota) + '</span>' : '')) +
           td(esc([c.agencia ? 'agencia' : '', c.domicilio ? 'domicilio' : '', c.cobro_destino ? 'cobro en destino' : ''].filter(Boolean).join(' · ') || '—')) +
           td(c.tipo !== 'courier' ? '<span class="text-on-surface-variant">no aplica</span>'
             : c.url_rastreo ? '<span class="font-data-mono text-data-mono break-all">' + esc(c.url_rastreo) + '</span>' : L.chip('pendiente de configurar', 'ambar')) +
-          td(c.activo ? L.chip('activo', 'verde') : L.chip('inactivo', 'gris')) +
+          td(c.activo ? L.chip('Activo', 'verde') : L.chip('Inactivo', 'gris')) +
           td(btn('Editar', { icono: 'edit', attr: 'data-editar-courier="' + esc(c.codigo) + '"' + dis }), 'text-right');
       })) + (ed ? '<div class="mt-3">' + btn('Agregar courier', { icono: 'add', attr: 'data-editar-courier=""' }) + '</div>' : '');
     } else if (tab === 'tarifas') {
       var cf = q.get('courier') || 'mrw', af = q.get('alcance') || 'local';
       var lista = d.tarifas.filter(function (t) { return t.courier === cf && t.alcance === af; });
-      html = '<form data-filtro-tarifas class="flex flex-wrap gap-2 mb-3">' +
-        '<select name="courier" aria-label="Courier" class="h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm">' +
+      /* en el teléfono, un campo por fila (en media fila el alcance se cortaba) */
+      html = '<form data-filtro-tarifas class="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap mb-3">' +
+        '<select name="courier" aria-label="Courier" class="w-full sm:w-auto h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm">' +
           d.couriers.filter(function (c) { return c.tipo === 'courier'; }).map(function (c) { return '<option value="' + esc(c.codigo) + '"' + (c.codigo === cf ? ' selected' : '') + '>' + esc(c.nombre) + '</option>'; }).join('') + '</select>' +
-        '<select name="alcance" aria-label="Alcance" class="h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm">' +
+        '<select name="alcance" aria-label="Alcance" class="w-full sm:w-auto h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm">' +
           Object.keys(L.ALCANCES).map(function (a) { return '<option value="' + a + '"' + (a === af ? ' selected' : '') + '>' + esc(L.ALCANCES[a]) + '</option>'; }).join('') + '</select>' +
-        '<button class="h-10 px-4 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md">Ver</button></form>' +
+        '<button class="h-10 px-4 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md">Ver las tarifas</button></form>' +
         '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Las tarifas marcadas como <strong>referencia</strong> son valores de partida, no la tarifa oficial del courier: edítalas con la vigente.</p>' +
         UI.tabla(['Servicio', 'Hasta', 'Costo', 'Días hábiles', '', ''], lista.map(function (t) {
           return td(esc(t.tipo === 'agencia' ? 'Retiro en agencia' : 'Domicilio')) + td(esc(String(t.peso_hasta_kg)) + ' kg') + td(esc(TM.fmtUsd(t.costo_usd))) +
-            td(t.dias_min + '–' + t.dias_max) + td((t.referencia ? L.chip('referencia', 'ambar') : L.chip('confirmada', 'verde')) + (t.activo ? '' : ' ' + L.chip('inactiva', 'gris'))) +
+            td(t.dias_min + '–' + t.dias_max) + td((t.referencia ? L.chip('referencia', 'ambar') : L.chip('confirmada', 'verde')) + (t.activo ? '' : '<span class="ml-1.5">' + L.chip('Inactiva', 'gris') + '</span>')) +
             td(btn('Editar', { icono: 'edit', attr: 'data-editar-tarifa="' + t.id + '"' + dis }), 'text-right');
         })) + (ed ? '<div class="mt-3">' + btn('Agregar tramo', { icono: 'add', attr: 'data-nueva-tarifa data-courier="' + esc(cf) + '" data-alcance="' + esc(af) + '"' }) + '</div>' : '');
     } else if (tab === 'regiones') {
       html = '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">La región de cada estado decide la zona tarifaria: mismo estado (local), misma región (regional), nacional o remota.</p>' +
+        /* en el teléfono, cada estado es una tarjeta con su región a lo ancho (en tres columnas el selector medía 62 px) */
         UI.tabla(['Estado', 'Capital', 'Región'], d.estados.map(function (e) {
-          return td(esc(e.estado)) + td(esc(e.capital)) + td('<select data-region="' + esc(e.estado) + '" class="h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm"' + dis + '>' +
-            d.zonas.map(function (z) { return '<option value="' + esc(z.codigo) + '"' + (z.codigo === e.zona ? ' selected' : '') + '>' + esc(z.nombre) + '</option>'; }).join('') + '</select>');
-        }));
+          /* (la región, en la tarjeta, a todo el ancho con su rótulo encima: «Centro occidental y llanos» no cabía en la columna de valores) */
+          return td(esc(e.estado)) + td(esc(e.capital)) + '<td data-th="" class="px-4 py-3"><label class="block w-full"><span class="sm:hidden block mb-1 font-label-md text-label-md text-on-surface-variant">Región</span>' +
+            '<select data-region="' + esc(e.estado) + '" aria-label="Región de ' + esc(e.estado) + '" class="w-full sm:w-auto sm:min-w-[14rem] max-w-full h-10 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm"' + dis + '>' +
+            d.zonas.map(function (z) { return '<option value="' + esc(z.codigo) + '"' + (z.codigo === e.zona ? ' selected' : '') + '>' + esc(z.nombre) + '</option>'; }).join('') + '</select></label></td>';
+        }), null, { tarjetas: true });
     } else if (tab === 'oficinas') {
       html = (d.oficinas.length ? UI.tabla(['Oficina', 'Courier', 'Ubicación', 'Contacto', ''], d.oficinas.map(function (o) {
-          return td('<strong>' + esc(o.nombre) + '</strong>' + (o.activa ? '' : ' ' + L.chip('inactiva', 'gris')) + '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(o.direccion) + '</span>') +
+          return td('<strong>' + esc(o.nombre) + '</strong>' + (o.activa ? '' : '<span class="ml-1.5">' + L.chip('Inactiva', 'gris') + '</span>') + '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(o.direccion) + '</span>') +
             td(esc(nombreCourier(o.courier))) + td(esc(o.ciudad + ', ' + o.estado)) + td(esc([o.telefono, o.horario].filter(Boolean).join(' · ') || '—')) +
             td(btn('Editar', { icono: 'edit', attr: 'data-editar-oficina="' + o.id + '"' + dis }), 'text-right');
         })) : UI.vacio('storefront', 'Aún no hay oficinas', 'Carga las agencias de cada courier con su dirección real: se usan para el retiro y las devoluciones.')) +
         (ed ? '<div class="mt-3">' + btn('Agregar oficina', { icono: 'add', attr: 'data-editar-oficina=""' }) + '</div>' : '');
     } else if (tab === 'feriados') {
       html = '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Los feriados no cuentan como días hábiles en las promesas de entrega ni en los plazos.</p>' +
-        UI.tabla(['Fecha', 'Feriado', 'Estado'], d.feriados.map(function (f) {
-          return td(esc(L.fecha(f.fecha, true))) + td(esc(f.nombre)) + td(f.activo ? L.chip('cuenta', 'verde') : L.chip('no cuenta', 'gris'));
-        })) +
-        (ed ? '<form data-nuevo-feriado class="flex flex-wrap gap-2 mt-3 items-end">' +
-          '<label><span class="block font-label-md text-label-md mb-1">Fecha</span><input name="fecha" type="date" class="' + L.CLASE_INPUT + '"/></label>' +
-          '<label class="flex-1 min-w-[200px]"><span class="block font-label-md text-label-md mb-1">Nombre</span><input name="nombre" maxlength="80" class="' + L.CLASE_INPUT + '"/></label>' +
-          '<label class="flex items-center gap-2 h-10 font-body-sm text-body-sm"><input type="checkbox" name="activo" checked class="rounded border-outline text-secondary"/>Cuenta</label>' +
+        (d.feriados.length ? '<ul data-feriados class="rounded-card border border-outline-variant bg-surface-container-lowest divide-y divide-outline-variant font-body-sm text-body-sm">' +
+          d.feriados.map(function (f) {
+            return '<li class="flex items-center gap-3 px-4 py-2.5"><span class="shrink-0 w-28 font-data-mono text-data-mono text-on-surface-variant">' + esc(L.fecha(f.fecha, true)) + '</span>' +
+              '<span class="flex-1 min-w-0 break-words text-on-surface">' + esc(f.nombre) + '</span>' +
+              /* (antes «Cuenta / No cuenta», que se leía como una cuenta de usuario) */
+              '<span class="shrink-0">' + (f.activo ? L.chip('No laborable', 'verde') : L.chip('Se ignora', 'gris')) + '</span></li>';
+          }).join('') + '</ul>'
+          : UI.vacio('event', 'Sin feriados cargados', 'Agrega los feriados nacionales y regionales del año.')) +
+        (ed ? '<form data-nuevo-feriado class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap mt-3 items-end">' +
+          '<label class="col-span-2 sm:col-span-1"><span class="block font-label-md text-label-md mb-1">Fecha</span><input name="fecha" type="date" class="' + L.CLASE_INPUT + '"/></label>' +
+          '<label class="col-span-2 sm:flex-1 sm:min-w-[200px]"><span class="block font-label-md text-label-md mb-1">Nombre</span><input name="nombre" maxlength="80" class="' + L.CLASE_INPUT + '"/></label>' +
+          '<label class="flex items-center gap-2 h-10 font-body-sm text-body-sm"><input type="checkbox" name="activo" checked class="rounded border-outline text-secondary"/>No laborable</label>' +
           btn('Guardar feriado', { estilo: 'primario', tipo: 'submit', icono: 'event' }) + '</form>' : '');
     } else {
       var a = d.ajustes || {}, rg = d.rangos || {};
@@ -531,12 +562,11 @@
           '<p data-err-plazos role="alert" class="hidden font-body-sm text-body-sm text-error"></p></div>' : '') + '</form>';
     }
     return cab +
-      (!ed ? '<p class="flex items-start gap-2 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-4" data-solo-lectura>' + ic('lock', 'text-[18px] shrink-0') +
-        'Con una cuenta de prueba solo puedes ver: cambiar couriers, tarifas, oficinas o plazos exige una cuenta real del equipo con verificación en dos pasos.</p>' : '') +
-      '<div class="flex flex-wrap gap-2 mb-4">' + PESTANAS.map(function (p) {
-        return '<a class="px-3 py-1.5 rounded-full font-label-md text-label-md border ' + (tab === p[0] ? 'bg-secondary text-on-secondary border-secondary' : 'border-outline-variant text-on-surface-variant hover:border-secondary') +
-          '" href="?tab=' + p[0] + '">' + p[1] + '</a>';
-      }).join('') + '</div>' + html;
+      (!ed ? UI.avisoPrueba('Con una cuenta de prueba solo puedes ver esta configuración.',
+        '<p>Cambiar couriers, tarifas, oficinas o plazos exige una cuenta real del equipo con verificación en dos pasos.</p>') : '') +
+      '<nav aria-label="Secciones de envíos" class="flex flex-wrap gap-2 mb-4 tm-tira-movil">' + PESTANAS.map(function (p) {
+        return UI.chip(p[1], '?tab=' + p[0], tab === p[0]);
+      }).join('') + '</nav>' + html;
   }
 
   function despuesEnviosAdmin(raiz, q) {

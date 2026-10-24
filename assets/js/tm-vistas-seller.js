@@ -46,12 +46,14 @@
     var pct = function (a, b) { return b ? Math.round(100 * a / b) + ' %' : '—'; };
     var salud = [{ n: 'Reclamos sobre entregas', v: tasaDisputas + ' %', ok: tasaDisputas <= 10, meta: '≤ 10 %' }];
     if (met) {
-      salud.push({ n: 'Pedidos aceptados dentro del SLA', v: pct(met.aceptados_a_tiempo, met.aceptados) + ' · ' + met.aceptados + ' en 30 días',
+      /* v: la cifra (en negrita, sin partir); d: su detalle, en una segunda línea */
+      salud.push({ n: 'Pedidos aceptados dentro del SLA', v: met.aceptados ? pct(met.aceptados_a_tiempo, met.aceptados) : 'Sin pedidos',
+                   d: met.aceptados ? met.aceptados + ' en 30 días' : 'aceptados en 30 días',
                    ok: !met.aceptados || met.aceptados_a_tiempo / met.aceptados >= 0.95, meta: '≥ 95 %' });
-      salud.push({ n: 'Cancelaciones del comercio', v: pct(met.cancelaciones_seller, met.pedidos) + ' · ' + met.cancelaciones_seller + ' de ' + met.pedidos,
+      salud.push({ n: 'Cancelaciones del comercio', v: pct(met.cancelaciones_seller, met.pedidos), d: met.cancelaciones_seller + ' de ' + met.pedidos,
                    ok: !met.pedidos || met.cancelaciones_seller / met.pedidos <= 0.025, meta: '≤ 2,5 % · 30 días' });
     } else {
-      salud.push({ n: 'Pedidos por aceptar', v: porAceptar.length ? 'pendientes: ' + porAceptar.length : 'al día', ok: !porAceptar.length, meta: 'acéptalos dentro de 24 h' });
+      salud.push({ n: 'Pedidos por aceptar', v: porAceptar.length ? porAceptar.length + ' pendiente' + (porAceptar.length === 1 ? '' : 's') : 'Al día', ok: !porAceptar.length, meta: 'acéptalos dentro de 24 h' });
     }
 
     var tareas = [];
@@ -60,7 +62,8 @@
     if (bajoStock.length) tareas.push({ i: 'inventory_2', tono: 'text-warning', t: bajoStock.length + ' producto' + (bajoStock.length === 1 ? '' : 's') + ' con stock bajo', d: 'Ajusta el inventario antes de quedarte sin ventas.', h: 'app/seller/catalogo.html' });
     if (!tareas.length) tareas.push({ i: 'task_alt', tono: 'text-tertiary', t: 'Sin tareas urgentes', d: 'Todo al día: revisa métricas o carga nuevos productos.', h: 'app/seller/catalogo.html' });
 
-    return titulo('Panel de ' + esc(TM.seller(s.sellerId).nombre)) +
+    var ganchos = APP.ganchos('panel.seller', { sesion: s, pedidos: pedidos, productos: productos, disputas: disputas });
+    return titulo('Panel de ' + TM.seller(s.sellerId).nombre) +
       '<section class="mb-6"><h2 class="font-label-caps text-label-caps uppercase tracking-[0.06em] text-on-surface-variant mb-2">Actúa ahora</h2>' +
       '<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">' +
       tareas.map(function (t) {
@@ -77,7 +80,9 @@
       UI.kpi('Publicaciones', productos.filter(function (p) { return p.estado === 'publicado'; }).length + ' / ' + productos.length, 'publicadas / totales', 'inventory_2') +
       '</section>' +
 
-      APP.ganchos('panel.seller', { sesion: s, pedidos: pedidos, productos: productos, disputas: disputas }) +
+      /* lo que suman los módulos (inventario, expediente, preguntas, nivel,
+         cumplimiento…): un solo bloque con el mismo espaciado entre tarjetas */
+      (ganchos ? '<div data-panel-ganchos class="flex flex-col gap-3 mb-6 [&>*]:!m-0">' + ganchos + '</div>' : '') +
 
       '<section class="grid lg:grid-cols-2 gap-4">' +
       '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
@@ -86,16 +91,20 @@
           return '<div class="flex items-center justify-between gap-2 py-2 border-b border-outline-variant last:border-0">' +
             '<span class="font-body-sm text-body-sm text-on-surface">' + esc(m.n) +
             '<span class="block text-on-surface-variant">meta ' + esc(m.meta) + '</span></span>' +
-            '<span class="inline-flex items-center gap-1 font-body-sm text-body-sm font-bold ' + (m.ok ? 'text-tertiary' : 'text-error') + '">' +
-            ic(m.ok ? 'check_circle' : 'warning', 'text-[16px]') + esc(m.v) + '</span></div>';
+            '<span class="shrink-0 text-right font-body-sm text-body-sm"><span class="inline-flex items-center gap-1 font-bold whitespace-nowrap ' + (m.ok ? 'text-tertiary' : 'text-error') + '">' +
+            ic(m.ok ? 'check_circle' : 'warning', 'text-[16px]') + esc(m.v) + '</span>' +
+            (m.d ? '<span class="block text-on-surface-variant whitespace-nowrap">' + esc(m.d) + '</span>' : '') + '</span></div>';
         }).join('') + '</div>' +
       '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
         '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-3">Últimos pedidos</h2>' +
+        /* cada pedido: ID y total a la izquierda, su estado a la derecha (una fila de 44 px o más) */
         (pedidos.slice(0, 5).map(function (p) {
-          return '<a class="flex items-center justify-between gap-2 py-2 border-b border-outline-variant last:border-0 hover:bg-surface-container-low px-1 rounded" href="' + href('app/seller/pedido.html?id=' + p.id) + '">' +
-            '<span class="font-data-mono text-data-mono">' + esc(p.id) + '</span>' + UI.badge(p.estado) +
-            '<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtTotalPedido(p)) + '</span></a>';
-        }).join('') || '<p class="font-body-sm text-body-sm text-on-surface-variant">Aún no hay pedidos.</p>') + '</div></section>';
+          return '<a class="flex items-center justify-between gap-3 min-h-[44px] py-2 border-b border-outline-variant last:border-0 hover:bg-surface-container-low px-1 rounded" href="' + href('app/seller/pedido.html?id=' + p.id) + '">' +
+            '<span class="min-w-0"><span class="block tm-id font-data-mono text-data-mono text-secondary">' + esc(p.id) + '</span>' +
+            '<span class="block tm-num font-body-sm text-body-sm font-bold text-on-surface">' + esc(TM.fmtTotalPedido(p)) + '</span></span>' +
+            UI.badge(p.estado) + '</a>';
+        }).join('') || '<p class="font-body-sm text-body-sm text-on-surface-variant">Aún no hay pedidos.</p>') +
+        (pedidos.length ? '<p class="mt-2">' + UI.enlace('Ver todos los pedidos', href('app/seller/pedidos.html?estado='), 'arrow_forward') + '</p>' : '') + '</div></section>';
   }
 
   /* Catálogo y ficha de producto: los registra el módulo de catálogo

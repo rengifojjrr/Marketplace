@@ -26,29 +26,6 @@
      (assets/js/tm-mod-logistica-ops.js, ola 1); despuesPedidosAdmin sigue
      aquí porque la usa también la auditoría. */
 
-  /* Con más de 500 pendientes en una cola, la caché trae los más antiguos
-     de esa cola: la vista que la muestra lo avisa. */
-  function avisoRecorte(colas) {
-    var recortadas = (TM.estado.colasRecortadas || []).filter(function (c) { return !colas || colas.indexOf(c) >= 0; });
-    if (!recortadas.length) return '';
-    return '<p class="flex items-center gap-1.5 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-4">' +
-      ic('info', 'text-[16px]') + 'Esta cola tiene más de 500 casos: se muestran los más antiguos primero. Atiéndelos y la lista se completará.</p>';
-  }
-
-  /* Cierre de una devolución: el producto volvió (reembolso y stock) o no
-     volvió (fondos al seller). Con el servidor, el reembolso pide antes la
-     inspección (Logística): se registra en el detalle 360 del pedido. */
-  function botonesDevolucion(id) {
-    return '<div class="flex flex-wrap items-center gap-2 justify-end">' +
-      (TM.modo === 'remoto'
-        ? '<a data-devolucion-360="' + esc(id) + '" class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline" href="' +
-          href('app/admin/pedido.html?id=' + encodeURIComponent(id)) + '">' + ic('fact_check', 'text-[16px]') +
-          'Inspeccionar en el detalle del pedido</a>'
-        : '') +
-      btn('Devolución recibida', { icono: 'assignment_return', attr: 'data-devolucion="' + esc(id) + '" data-recibida="1"' }) +
-      btn('No llegó', { estilo: 'borde', icono: 'lock_open', attr: 'data-devolucion="' + esc(id) + '" data-recibida="0"' }) + '</div>';
-  }
-
   function conectarDevoluciones(raiz) {
     raiz.querySelectorAll('[data-devolucion]').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -102,6 +79,23 @@
   /* Eventos traídos del historial (búsqueda o «anteriores»), por filtro. */
   var historial = { filtro: null, eventos: [], fin: false };
 
+
+  /* El detalle para leerlo: el resumen de una tarea ({"recordatorios": 0, …})
+     como «recordatorios 0 · …» y las claves («reembolso_parcial») con
+     espacios; un correo o un nombre de tabla («tumbo.cuotas_red») quedan
+     igual. La búsqueda del servidor sigue usando el texto original. */
+  function detalleLegible(t) {
+    var x = String(t == null ? '' : t).replace(/\{[^{}]*\}/g, function (m) {
+      try {
+        var o = JSON.parse(m);
+        return Object.keys(o).map(function (k) { return k + ' ' + (o[k] !== null && typeof o[k] === 'object' ? JSON.stringify(o[k]) : o[k]); }).join(' · ');
+      } catch (e) { return m; }
+    });
+    return x.replace(/[a-z0-9]+(?:_[a-z0-9]+)+/g, function (m, i, todo) {
+      return /[@.\w-]/.test(todo.charAt(i - 1)) || /[@\w-]/.test(todo.charAt(i + m.length)) ? m : m.replace(/_/g, ' ');
+    });
+  }
+
   function vAuditoria(q, s) {
     var texto = (q.get('q') || '').toLowerCase();
     if (historial.filtro !== texto) historial = { filtro: texto, eventos: [], fin: false };
@@ -109,19 +103,19 @@
     var lista = TM.estado.eventos.concat(historial.eventos).filter(function (ev) {
       if (ev.id != null) { if (vistos[ev.id]) return false; vistos[ev.id] = true; }
       if (!texto) return true;
-      return (ev.actor + ' ' + ev.accion + ' ' + ev.detalle).toLowerCase().indexOf(texto) >= 0;
+      return (ev.actor + ' ' + ev.accion + ' ' + ev.detalle + ' ' + detalleLegible(ev.detalle)).toLowerCase().indexOf(texto) >= 0;
     });
     if (lista.length && lista[0].id != null) lista.sort(function (a, b) { return b.id - a.id; });
     var remoto = TM.modo === 'remoto';
     return titulo('Auditoría', '<span class="font-body-sm text-body-sm text-on-surface-variant">' + lista.length + ' eventos</span>') +
-      '<form data-filtro class="mb-4 max-w-md flex" role="search">' +
-        '<input name="q" value="' + esc(q.get('q') || '') + '" placeholder="Filtrar por actor, acción o detalle…" class="flex-1 h-10 px-3 rounded-l-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm focus:border-secondary outline-none"/>' +
-        '<button class="h-10 px-3 rounded-r-btn bg-secondary text-on-secondary" aria-label="Filtrar">' + ic('search') + '</button></form>' +
-      UI.tabla(['Fecha', 'Actor', 'Acción', 'Detalle'],
+      '<form data-filtro class="mb-4 max-w-xl" role="search"><label class="block font-label-md text-label-md text-on-surface mb-1" for="aud-q">Filtrar</label>' +
+        '<div class="flex"><input id="aud-q" name="q" type="search" enterkeyhint="search" autocomplete="off" value="' + esc(q.get('q') || '') + '" placeholder="Persona, acción o detalle" class="flex-1 min-w-0 h-10 px-3 rounded-l-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm focus:border-secondary outline-none"/>' +
+        '<button class="inline-flex items-center gap-1.5 h-10 px-4 rounded-r-btn bg-secondary text-on-secondary font-label-md text-label-md">' + ic('search', 'text-[18px]') + 'Filtrar</button></div></form>' +
+      UI.tabla(['Fecha', 'Quién', 'Acción', 'Detalle'],
         lista.map(function (ev) {
           return td('<span class="font-data-mono text-data-mono whitespace-nowrap">' + esc(ev.fecha) + '</span>') +
-            td('<span class="font-bold">' + esc(ev.actor) + '</span>') + td(esc(ev.accion)) +
-            td('<span class="text-on-surface-variant">' + esc(ev.detalle) + '</span>');
+            td('<span class="font-bold break-words">' + esc(ev.actor) + '</span>') + td(esc(ev.accion)) +
+            td('<span class="text-on-surface-variant break-words">' + esc(detalleLegible(ev.detalle)) + '</span>');
         }),
         UI.vacio('history', 'Sin eventos', 'Toda acción de la plataforma deja rastro aquí; el registro no se puede editar.')) +
       (remoto && !historial.fin ? '<div class="mt-3">' + btn('Ver eventos anteriores', { icono: 'history', attr: 'data-anteriores' }) + '</div>' : '') +

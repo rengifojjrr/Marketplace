@@ -32,10 +32,15 @@
     <span class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-error-container text-on-error-container mb-4">
       <span class="material-symbols-outlined text-[30px]" aria-hidden="true">wifi_off</span></span>
     <h1 class="font-headline-md text-headline-md text-primary-container mb-2">Estás sin conexión</h1>
-    <p class="font-body-md text-body-md text-on-surface-variant mb-6">Esta página todavía no está guardada en tu dispositivo.
+    <p class="font-body-md text-body-md text-on-surface-variant mb-6" data-explica>Esta página todavía no está guardada en tu dispositivo.
       Cuando vuelva la señal, Tumbo sigue donde lo dejaste.</p>
-    <button type="button" data-reintentar class="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md">
-      <span class="material-symbols-outlined text-[18px]" aria-hidden="true">refresh</span>Reintentar</button>
+    <div class="flex flex-col sm:flex-row sm:items-center justify-center gap-2">
+      <button type="button" data-reintentar class="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-5 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md">
+        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">refresh</span>Reintentar</button>
+      <!-- (la portada de la tienda queda guardada al instalarse: abre aun sin señal) -->
+      <a href="app/tienda/inicio.html" class="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-5 rounded-btn border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md">
+        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">storefront</span>Ir a la tienda</a>
+    </div>
   </div>
   <div data-copia></div>
 </main>
@@ -66,30 +71,42 @@
   }
   var c = leer('tm.sinconexion.v1');
   if (!c || c.firma !== firma()) return;
+  /* el formato de fecha del sitio («24/10/2026 05:35 pm», hora de Caracas) */
   var guardado = '';
   try {
-    guardado = new Date(c.guardado).toLocaleString('es-VE', { timeZone: 'America/Caracas', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    var partes = {};
+    new Intl.DateTimeFormat('en-US', { timeZone: 'America/Caracas', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true })
+      .formatToParts(new Date(c.guardado)).forEach(function (x) { partes[x.type] = x.value; });
+    guardado = partes.day + '/' + partes.month + '/' + partes.year + ' a las ' + partes.hour + ':' + partes.minute + ' ' + String(partes.dayPeriod || '').toLowerCase();
   } catch (e) { }
-  var html = '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Copia guardada en este dispositivo el ' + esc(guardado) +
+  var html = '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Copia guardada en este dispositivo' + (guardado ? ' el ' + esc(guardado) : '') +
     ': los estados pueden haber cambiado desde entonces.</p>';
   if ((c.pedidos || []).length) {
     html += '<section class="tm-sin-conexion" data-copia-pedidos><h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Tus pedidos</h2><ul>' +
       c.pedidos.map(function (p) {
         return '<li class="py-3 border-b border-outline-variant last:border-0">' +
-          '<p class="flex flex-wrap justify-between gap-2 font-label-md text-label-md"><span class="font-data-mono">' + esc(p.id) + '</span><span>' + esc(p.estado) + '</span></p>' +
-          '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(p.comercio) + (p.creado ? ' · ' + esc(p.creado) : '') + (p.total ? ' · ' + esc(p.total) : '') + '</p>' +
-          '<p class="font-body-sm text-body-sm">' + (p.items || []).map(function (i) { return esc(i.cant + ' × ' + i.nombre); }).join(' · ') + '</p>' +
-          (p.ultimo ? '<p class="font-body-sm text-body-sm text-on-surface-variant">Último paso: ' + esc(p.ultimo.texto) + '</p>' : '') + '</li>';
+          '<p class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 font-label-md text-label-md"><span class="font-data-mono whitespace-nowrap">' + esc(p.id) + '</span>' +
+            '<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm">' + esc(p.estado) + '</span></p>' +
+          '<p class="mt-1 font-body-sm text-body-sm text-on-surface-variant break-words">' + esc(p.comercio) + (p.creado ? ' · ' + esc(p.creado) : '') +
+            (p.total ? ' · <span class="whitespace-nowrap">' + esc(p.total) + '</span>' : '') + '</p>' +
+          ((p.items || []).length ? '<ul class="mt-1 font-body-sm text-body-sm text-on-surface space-y-0.5">' + p.items.map(function (i) {
+            return '<li class="break-words">' + esc(i.cant + ' × ' + i.nombre) + '</li>';
+          }).join('') + '</ul>' : '') +
+          (p.ultimo ? '<p class="mt-1 font-body-sm text-body-sm text-on-surface-variant break-words">Último paso: ' + esc(p.ultimo.texto) + '</p>' : '') + '</li>';
       }).join('') + '</ul></section>';
   }
   if ((c.carrito || []).length) {
     html += '<section class="tm-sin-conexion" data-copia-carrito><h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Tu carrito</h2><ul>' +
       c.carrito.map(function (i) {
-        return '<li class="py-2 flex justify-between gap-3 border-b border-outline-variant last:border-0 font-body-sm text-body-sm"><span>' +
-          esc(i.cant + ' × ' + i.nombre) + '</span><span class="whitespace-nowrap">' + esc(i.total) + '</span></li>';
+        return '<li class="py-2 flex justify-between gap-3 border-b border-outline-variant last:border-0 font-body-sm text-body-sm"><span class="min-w-0 break-words">' +
+          esc(i.cant + ' × ' + i.nombre) + '</span><span class="shrink-0 whitespace-nowrap font-semibold">' + esc(i.total) + '</span></li>';
       }).join('') + '</ul><p class="mt-2 font-body-sm text-body-sm text-on-surface-variant">Los precios se confirman con la tasa del día al pagar.</p></section>';
   }
   document.querySelector('[data-copia]').innerHTML = html;
+  /* con copia, el texto de arriba no dice que no hay nada guardado */
+  if ((c.pedidos || []).length || (c.carrito || []).length) {
+    document.querySelector('[data-explica]').textContent = 'Lo que ves abajo es lo último que guardamos en este dispositivo. Cuando vuelva la señal, Tumbo sigue donde lo dejaste.';
+  }
 })();
 </script>
 </body>

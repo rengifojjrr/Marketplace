@@ -34,6 +34,34 @@
   var CANALES = { correo: ['Correo', 'mail'], whatsapp: ['WhatsApp', 'chat'], sms: ['SMS', 'sms'] };
   var ESTADOS_MSG = { pendiente: ['En cola', 'azul'], enviado: ['Enviado', 'verde'], fallido: ['Falló', 'rojo'], manual: ['Para enviar a mano', 'ambar'], descartado: ['Descartado', 'gris'] };
   var filtroMsg = { estado: 'pendiente', canal: '', texto: '' };
+  var AVISOS = { verificar_telefono: 'Código para verificar el teléfono', pago_confirmado: 'Pago confirmado', pedido_despachado: 'Pedido despachado',
+    pedido_listo_retiro: 'Pedido listo para retirar', pago_por_vencer: 'Pago por vencer', pedido_por_aceptar: 'Pedido por aceptar (al comercio)',
+    reclamo_actualizado: 'Reclamo actualizado', reclamo_comercio: 'Reclamo nuevo (al comercio)', reclamo_evidencia: 'Evidencia pedida en un reclamo',
+    reembolso_enviado: 'Reembolso enviado', liquidacion_pagada: 'Liquidación pagada', cuenta_liquidacion: 'Cuenta de liquidación',
+    alerta_stock: 'Volvió a haber existencias', alerta_precio: 'Bajó de precio', chat_mensaje: 'Mensaje nuevo en el chat', pregunta_nueva: 'Pregunta nueva (al comercio)',
+    pregunta_respondida: 'Pregunta respondida', resena_pendiente: 'Califica tu compra', ticket_actualizado: 'Caso de soporte actualizado',
+    acceso_nuevo: 'Acceso nuevo a la cuenta', bienvenida: 'Bienvenida', clave_cambiada: 'Contraseña cambiada', cuenta_desbloqueada: 'Cuenta desbloqueada',
+    invitacion: 'Invitación al equipo', legal_actualizado: 'Documento legal actualizado', recuperar_clave: 'Recuperar la contraseña', resena_nueva: 'Reseña nueva',
+    resena_respondida: 'Reseña respondida', segundo_factor_quitado: 'Verificación en dos pasos desactivada', ticket_creado: 'Caso de soporte creado',
+    verificar_correo: 'Verificar el correo' };
+  function nombreAviso(k) {
+    if (!k) return '';
+    if (AVISOS[k]) return AVISOS[k];
+    var t = String(k).replace(/_/g, ' ');
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+  /* (también la usa la bandeja sencilla de Cuentas) */
+  TM.nombreAviso = nombreAviso;
+  /* Quién ve los códigos y enlaces de seguridad (Mensajes y la bandeja
+     sencilla): para el superadministrador de prueba no dice «solo los ve el
+     superadministrador», que contradecía su propio rol. */
+  function avisoCodigosSeguridad(s) {
+    if (s.rol === 'superadmin' && !s.demo) return '';
+    return UI.avisoPrueba(s.demo ? 'Con una cuenta de prueba no ves los códigos ni los enlaces de seguridad.' : 'Los códigos y enlaces de seguridad solo los ve el superadministrador.',
+      '<p>Los mensajes con un código o un enlace de seguridad solo los ve y los envía el superadministrador con su cuenta real' +
+      (s.demo ? '; con una cuenta de prueba solo ves los mensajes de las cuentas de prueba.' : '.') + '</p>');
+  }
+  TM.avisoCodigosSeguridad = avisoCodigosSeguridad;
   var masMsg = { clave: null, mensajes: [], siguiente: null };
 
   function claveMsg() { return 'mensajes:' + JSON.stringify(filtroMsg); }
@@ -67,7 +95,7 @@
       '<div class="flex flex-wrap items-start justify-between gap-2 mb-2"><div class="min-w-0">' +
         '<p class="flex flex-wrap items-center gap-1 font-label-md text-label-md text-on-surface">' + ic(canal[1], 'text-[18px]') + esc(canal[0]) + ' · ' +
           '<span class="font-data-mono text-data-mono break-all">' + esc(m.destino) + '</span></p>' +
-        '<p class="font-body-sm text-body-sm text-on-surface-variant">#' + esc(m.id) + ' · ' + esc(m.usuario || 'Sin cuenta') + ' · ' + esc(m.tipo || m.plantilla) + ' · ' + esc(C().fecha(m.creado)) + '</p></div>' +
+        '<p class="font-body-sm text-body-sm text-on-surface-variant break-words">#' + esc(m.id) + ' · ' + esc(m.usuario || 'Sin cuenta') + ' · ' + esc(nombreAviso(m.tipo || m.plantilla)) + ' · ' + esc(C().fecha(m.creado)) + '</p></div>' +
         '<div class="flex flex-wrap items-center gap-1">' + C().chip(est[0], est[1]) +
           (m.automatico && m.estado === 'pendiente' ? C().chip('Envío automático', 'gris', 'bolt') : '') +
           (m.sensible ? C().chip('Seguridad', 'ambar', 'lock') : '') + '</div></div>' +
@@ -115,8 +143,9 @@
           '<p class="mt-1 text-on-surface-variant">En cola: ' + n('pendiente:whatsapp') + ' · fallidos: ' + n('fallido:whatsapp') + ' · a mano: ' + n('manual:whatsapp') + '</p></div>' +
         '<div class="rounded-btn bg-surface-container-low p-3"><p class="font-label-md text-label-md mb-1">Tarea programada</p>' +
           (auto ? C().chip('Cada minuto', 'verde', 'schedule') : C().chip('Sin programar', 'gris', 'schedule')) +
-          '<p class="mt-1 text-on-surface-variant">' + (auto ? 'pg_cron llama a la función con el secreto de la base.'
-            : 'Falta ' + [!t.pg_cron && 'pg_cron', !t.pg_net && 'pg_net', !t.funcion_url && 'el ajuste envios.funcion_url'].filter(Boolean).join(', ') + '.') + '</p></div>' +
+          '<p class="mt-1 text-on-surface-variant">' + (auto ? 'El servidor llama solo a la función de envío cada minuto.'
+            : 'El envío automático todavía no está configurado: falta ' + [!t.pg_cron && 'activar las tareas programadas del servidor', !t.pg_net && 'permitir las llamadas desde la base',
+              !t.funcion_url && 'la dirección de la función de envío (en Ajustes)'].filter(Boolean).join(', ') + '.') + '</p></div>' +
       '</div>' +
       '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">' + (p.ultima
         ? 'Última corrida de la función: ' + esc(C().fecha(p.ultima)) + (p.por ? ' (' + esc(p.por) + ')' : '') +
@@ -130,17 +159,17 @@
   function bloquePlantillas(e) {
     var lista = e.plantillas_whatsapp || [];
     if (!lista.length) return '';
-    return '<details class="mt-3"><summary class="cursor-pointer font-label-md text-label-md text-secondary">Plantillas de WhatsApp (' +
+    return '<details class="mt-3"><summary class="inline-flex items-center gap-1 cursor-pointer font-body-sm text-body-sm font-semibold text-secondary">' + ic('chat', 'text-[18px]') + 'Plantillas de WhatsApp (' +
       lista.filter(function (w) { return w.aprobada; }).length + ' de ' + lista.length + ' aprobadas por Meta)</summary>' +
       '<p class="mt-2 mb-2 font-body-sm text-body-sm text-on-surface-variant">WhatsApp solo admite plantillas aprobadas para escribir primero. Somete en Meta el texto de cada una (las variables van en este orden como {{1}}, {{2}}…) y anota aquí su nombre y si ya está aprobada.</p>' +
-      '<div class="overflow-x-auto"><table class="w-full font-body-sm text-body-sm"><thead><tr class="text-left text-on-surface-variant"><th class="py-1 pr-2">Aviso</th><th class="py-1 pr-2">Nombre en Meta</th><th class="py-1 pr-2">Variables</th><th class="py-1 pr-2">Estado</th><th></th></tr></thead><tbody>' +
+      '<table data-tarjetas class="w-full font-body-sm text-body-sm"><thead><tr class="text-left text-on-surface-variant"><th class="py-1 pr-2">Aviso</th><th class="py-1 pr-2">Nombre en Meta</th><th class="py-1 pr-2">Variables</th><th class="py-1 pr-2">Estado</th><th></th></tr></thead><tbody>' +
       lista.map(function (w) {
-        return '<tr class="border-t border-outline-variant" data-plantilla-wa="' + esc(w.clave) + '"><td class="py-1.5 pr-2">' + esc(w.clave) + '</td>' +
-          '<td class="py-1.5 pr-2 font-data-mono text-data-mono">' + esc(w.nombre_meta) + ' (' + esc(w.idioma) + ')</td>' +
-          '<td class="py-1.5 pr-2">' + esc((w.parametros || []).join(', ')) + '</td>' +
+        return '<tr class="border-t border-outline-variant" data-plantilla-wa="' + esc(w.clave) + '"><td class="py-1.5 pr-2 font-semibold">' + esc(nombreAviso(w.clave)) + '</td>' +
+          '<td class="py-1.5 pr-2"><code class="font-data-mono text-data-mono break-all">' + esc(w.nombre_meta) + '</code> <span class="text-on-surface-variant">(' + esc(w.idioma) + ')</span></td>' +
+          '<td class="py-1.5 pr-2 break-words">' + esc((w.parametros || []).join(', ')) + '</td>' +
           '<td class="py-1.5 pr-2">' + (w.aprobada ? C().chip('Aprobada', 'verde') : C().chip('Pendiente', 'ambar')) + '</td>' +
           '<td class="py-1.5 text-right">' + (e.puede_configurar ? btn('Editar', { clase: 'min-h-[32px] px-3', attr: 'data-editar-plantilla="' + esc(w.clave) + '"' }) : '') + '</td></tr>';
-      }).join('') + '</tbody></table></div></details>';
+      }).join('') + '</tbody></table></details>';
   }
 
   function vMensajes(q, s) {
@@ -149,23 +178,20 @@
     var e = leerEstadoEnvios();
     var r = leerMensajes();
     if (masMsg.clave !== claveMsg()) masMsg = { clave: claveMsg(), mensajes: [], siguiente: null };
-    var real = s.rol === 'superadmin' && !s.demo;
-    return titulo +
-      (real ? '' : C().aviso('ambar', 'lock', 'Los mensajes con un código o un enlace de seguridad solo los ve y los envía el superadministrador con su cuenta real' +
-        (s.demo ? '; con una cuenta de prueba solo ves los mensajes de las cuentas de prueba.' : '.'))) +
+    return titulo + avisoCodigosSeguridad(s) +
       (e.listo && e.dato && !e.dato.error ? bloqueEstado(e.dato, s) : e.error ? C().fallo(e.error, 'envios:estado') : '') +
-      '<form data-filtros-mensajes class="flex flex-wrap items-end gap-2 mb-4" role="search">' +
-        '<label class="block"><span class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Estado</span><select name="estado" class="' + C().CLASE_INPUT + ' w-auto">' +
+      '<form data-filtros-mensajes class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end mb-4" role="search">' +
+        '<label class="block min-w-0"><span class="block font-label-md text-label-md text-on-surface mb-1">Estado</span><select name="estado" class="' + C().CLASE_INPUT + ' pr-9 sm:w-auto">' +
           [['pendiente', 'En cola'], ['fallido', 'Fallidos'], ['manual', 'Para enviar a mano'], ['enviado', 'Enviados'], ['descartado', 'Descartados'], ['', 'Todos']].map(function (o) {
             return '<option value="' + o[0] + '"' + (filtroMsg.estado === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>';
           }).join('') + '</select></label>' +
-        '<label class="block"><span class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Canal</span><select name="canal" class="' + C().CLASE_INPUT + ' w-auto">' +
+        '<label class="block min-w-0"><span class="block font-label-md text-label-md text-on-surface mb-1">Canal</span><select name="canal" class="' + C().CLASE_INPUT + ' pr-9 sm:w-auto">' +
           [['', 'Todos'], ['correo', 'Correo'], ['whatsapp', 'WhatsApp']].map(function (o) {
             return '<option value="' + o[0] + '"' + (filtroMsg.canal === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>';
           }).join('') + '</select></label>' +
-        '<label class="block flex-1 min-w-[180px]"><span class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Destino o asunto</span>' +
-          '<input name="q" value="' + esc(filtroMsg.texto) + '" maxlength="80" class="' + C().CLASE_INPUT + '"/></label>' +
-        btn('Filtrar', { icono: 'filter_list', tipo: 'submit' }) + '</form>' +
+        '<label class="block col-span-2 sm:flex-1 sm:min-w-[180px]"><span class="block font-label-md text-label-md text-on-surface mb-1">Destino o asunto</span>' +
+          '<input name="q" type="search" enterkeyhint="search" autocomplete="off" value="' + esc(filtroMsg.texto) + '" maxlength="80" class="' + C().CLASE_INPUT + '"/></label>' +
+        btn('Filtrar', { icono: 'filter_list', tipo: 'submit', clase: 'col-span-2 sm:col-span-1' }) + '</form>' +
       C().seccion(r, claveMsg(), function (d) {
         var lista = (d.mensajes || []).concat(masMsg.mensajes);
         var siguiente = masMsg.mensajes.length ? masMsg.siguiente : d.siguiente;
@@ -306,7 +332,12 @@
     return C().chip('Responder ' + C().hace(t.sla_vence), 'ambar', 'schedule');
   }
 
+  function nombreRol(r) { return (APP.ROLES && APP.ROLES[r]) ? APP.ROLES[r].nombre : (r || ''); }
+
   function vSoporte(q, s) {
+    /* sin el permiso «soporte» (Finanzas): el 403, no un aviso ni un «Reintentar» */
+    var no = TM.crec && TM.crec.sinAcceso ? TM.crec.sinAcceso(s, 'soporte', 'Soporte') : '';
+    if (no) return no;
     var titulo = C().titulo('Soporte');
     if (!C().remoto()) return titulo + C().avisoServidor('Los casos de soporte viven en el servidor.');
     var id = q.get('id');
@@ -314,19 +345,18 @@
       var r1 = C().datos('tickets:uno:' + id, function () { return TM.api('tm_ticket', { p_id: id }); }, 15000);
       var l = leerTickets();
       if (r1.listo && r1.dato && r1.dato.error) return titulo + UI.vacio('search_off', 'Caso no encontrado', r1.dato.error);
-      return '<a class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline mb-3" href="' + href('app/admin/soporte.html') + '">' +
-        ic('arrow_back', 'text-[16px]') + 'Bandeja de soporte</a>' +
+      return '<p class="mb-2">' + UI.enlace('Bandeja de soporte', href('app/admin/soporte.html'), 'arrow_back') + '</p>' +
         C().seccion(r1, 'tickets:uno:' + id, function (t) { return detalleEquipo(t, (l.dato && l.dato) || {}, s); }, 'Cargando el caso…');
     }
     var r = leerTickets();
     return titulo + C().seccion(r, claveSop(), function (d) {
-      if (!d.soporte) return C().aviso('ambar', 'lock', 'Tu rol no tiene el permiso «soporte»: pídeselo al superadministrador para atender casos.');
+      if (!d.soporte) return APP.html403(s, 'Soporte');
       var ts = d.tickets || [];
       var vencidos = ts.filter(function (t) { return t.sla_vencido; }).length;
       return (s.demo ? C().aviso('gris', 'info', 'Con una cuenta de prueba ves y atiendes solo los casos de las cuentas de prueba.') : '') +
         C().pestanas([['todos', 'Todos'], ['sin_asignar', 'Sin asignar'], ['mios_asignados', 'Asignados a mí'], ['vencidos', 'SLA vencido']], filtroSop.vista, 'data-vista-soporte') +
         '<div class="flex flex-wrap items-center gap-2 mb-4"><label class="font-body-sm text-body-sm text-on-surface-variant" for="estado-sop">Estado</label>' +
-          '<select id="estado-sop" data-estado-soporte class="' + C().CLASE_INPUT + ' w-auto">' +
+          '<select id="estado-sop" data-estado-soporte class="' + C().CLASE_INPUT + ' pr-9 w-auto">' +
           [['activos', 'Activos'], ['abierto', 'Abiertos'], ['en_proceso', 'En proceso'], ['esperando', 'Esperando al cliente'], ['cerrado', 'Cerrados'], ['', 'Todos']].map(function (o) {
             return '<option value="' + o[0] + '"' + (filtroSop.estado === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>';
           }).join('') + '</select>' +
@@ -335,11 +365,11 @@
           var pr = PRIORIDAD[t.prioridad] || [t.prioridad, 'gris'];
           return '<a data-ticket="' + esc(t.id) + '" class="block rounded-card border ' + (t.sla_vencido ? 'border-error' : 'border-outline-variant') + ' bg-surface-container-lowest p-4 hover:border-secondary" href="' +
             href('app/admin/soporte.html?id=' + encodeURIComponent(t.id)) + '">' +
-            '<div class="flex flex-wrap items-center gap-2 mb-1"><span class="font-data-mono text-data-mono">' + esc(t.id) + '</span>' + S().chipEstado(t) +
+            '<div class="flex flex-wrap items-center gap-2 mb-1"><span class="tm-id font-data-mono text-data-mono">' + esc(t.id) + '</span>' + S().chipEstado(t) +
               C().chip(pr[0], pr[1]) + chipSla(t) + '</div>' +
-            '<p class="font-body-md text-body-md text-on-surface">' + esc(t.asunto) + '</p>' +
-            '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(S().nombreCategoria(t.categoria)) + (t.pedido ? ' · ' + esc(t.pedido) : '') +
-              ' · ' + esc(t.quien || '') + ' (' + esc(t.rol) + ')' + ' · ' + (t.asignado ? 'asignado a ' + esc(t.asignado) : 'sin asignar') +
+            '<p class="font-body-md text-body-md text-on-surface break-words">' + esc(t.asunto) + '</p>' +
+            '<p class="font-body-sm text-body-sm text-on-surface-variant break-words">' + esc(S().nombreCategoria(t.categoria)) + (t.pedido ? ' · <span class="tm-id">' + esc(t.pedido) + '</span>' : '') +
+              ' · ' + esc(t.quien || '') + ' (' + esc(nombreRol(t.rol)) + ')' + ' · ' + (t.asignado ? 'asignado a ' + esc(t.asignado) : 'sin asignar') +
               ' · actualizado ' + esc(C().hace(t.actualizado)) + '</p></a>';
         }).join('') + '</div>' : UI.vacio('support_agent', 'Sin casos', 'No hay casos con este filtro.')) +
         bloqueMacros(d.macros || [], s);
@@ -352,13 +382,13 @@
     var pr = PRIORIDAD[t.prioridad] || [t.prioridad, 'gris'];
     return '<section data-ticket-detalle="' + esc(t.id) + '" class="grid lg:grid-cols-[1fr_300px] gap-5 items-start">' +
       '<div class="min-w-0">' +
-        '<div class="flex flex-wrap items-center gap-2 mb-1"><h1 class="font-headline-md text-headline-md text-primary-container">' + esc(t.asunto) + '</h1>' + S().chipEstado(t) + chipSla(t) + '</div>' +
+        '<div class="flex flex-wrap items-center gap-2 mb-1"><h1 class="font-headline-md text-headline-md text-primary-container break-words min-w-0">' + esc(t.asunto) + '</h1>' + S().chipEstado(t) + chipSla(t) + '</div>' +
         '<p class="font-body-sm text-body-sm text-on-surface-variant mb-4"><span class="font-data-mono text-data-mono">' + esc(t.id) + '</span> · ' + esc(S().nombreCategoria(t.categoria)) +
           /* (Finanzas con el permiso «soporte» no abre el detalle 360 del pedido) */
           (t.pedido ? ' · pedido ' + (APP.puedeAbrir('admin/pedido', s, ['superadmin', 'ops'])
             ? '<a class="text-secondary hover:underline" href="' + href('app/admin/pedido.html?id=' + encodeURIComponent(t.pedido)) + '">' + esc(t.pedido) + '</a>'
             : '<span class="font-data-mono text-data-mono">' + esc(t.pedido) + '</span>') : '') +
-          ' · ' + esc(t.quien || '') + ' (' + esc(t.rol) + ') · abierto el ' + esc(C().fecha(t.creado)) + '</p>' +
+          ' · ' + esc(t.quien || '') + ' (' + esc(nombreRol(t.rol)) + ') · abierto el ' + esc(C().fecha(t.creado)) + '</p>' +
         S().mensajes(t, true) +
         '<form data-ticket-responder="' + esc(t.id) + '" class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
           (macros.length ? '<label class="sr-only" for="macro-' + esc(t.id) + '">Macro</label><select id="macro-' + esc(t.id) + '" data-macro class="' + C().CLASE_INPUT + ' mb-2">' +
@@ -479,10 +509,13 @@
   }
 
   function vContenido(q, s) {
+    /* sin el permiso «contenido» (Finanzas): el 403, no un aviso ni un «Reintentar» */
+    var no = TM.crec && TM.crec.sinAcceso ? TM.crec.sinAcceso(s, 'contenido', 'Contenido y denuncias') : '';
+    if (no) return no;
     var titulo = C().titulo('Contenido y denuncias');
     if (!C().remoto()) return titulo + C().avisoServidor('Las preguntas, reseñas y denuncias viven en el servidor.');
     var r = leerCola();
-    if (r.listo && r.dato && r.dato.sin_permiso) return titulo + C().aviso('ambar', 'lock', esc(r.dato.error)) + (s.rol === 'superadmin' ? bloqueLegal(s) : '');
+    if (r.listo && r.dato && r.dato.sin_permiso) return s.rol === 'superadmin' ? titulo + C().aviso('ambar', 'lock', esc(r.dato.error)) + bloqueLegal(s) : APP.html403(s, 'Contenido y denuncias');
     return titulo + C().seccion(r, 'contenido:' + filtroDen, function (d) {
       var rev = d.revision || [];
       var den = d.denuncias || [];
@@ -520,7 +553,7 @@
       '<div class="flex flex-wrap items-center gap-2 mb-1"><span class="font-data-mono text-data-mono">#' + esc(d.id) + '</span>' +
         C().chip(TIPOS_DEN[d.tipo] || d.tipo, 'azul') + C().chip(MOTIVOS[d.motivo] || d.motivo, 'ambar', 'flag') +
         (d.reportes > 1 && abierta ? C().chip(d.reportes + ' reportes abiertos', 'rojo') : '') +
-        (abierta ? '' : C().chip('Cerrada: ' + ({ procede: 'procede', no_procede: 'no procede', duplicada: 'repetida' }[d.resolucion] || d.resolucion), 'gris')) + '</div>' +
+        (abierta ? '' : C().chip('Cerrada: ' + ({ procede: 'procede', no_procede: 'no procede', duplicada: 'repetida' }[d.resolucion] || String(d.resolucion || '').replace(/_/g, ' ')), 'gris')) + '</div>' +
       '<p class="font-body-sm text-body-sm text-on-surface-variant">' + (url ? '<a class="text-secondary hover:underline" href="' + url + '">' + esc(d.producto || d.comercio || d.objeto) + '</a>' : esc(d.objeto)) +
         (d.comercio && d.tipo !== 'seller' ? ' · ' + esc(d.comercio) : '') + ' · ' + esc(C().hace(d.creado)) + '</p>' +
       (d.detalle ? '<p class="font-body-md text-body-md text-on-surface my-2 whitespace-pre-line">' + esc(d.detalle) + '</p>' : '') +
@@ -548,8 +581,9 @@
         'Desde entonces, a quien debe aceptarla se le pide hacerlo y le llega un aviso. ' +
         (s.demo ? 'Con una cuenta de prueba no se publica.' : 'Pide la verificación en dos pasos.') + '</p>' +
       (docs.length ? '<ul class="divide-y divide-outline-variant font-body-sm text-body-sm">' + docs.map(function (d) {
-        return '<li class="flex flex-wrap items-center justify-between gap-2 py-2"><span><a class="text-secondary hover:underline" href="' + href('app/ayuda/' + (C().LEGAL_PAGINA[d.clave] || 'inicio') + '.html') + '">' +
-          esc(d.titulo) + '</a> · <span class="font-data-mono text-data-mono">' + esc(d.version) + '</span> · desde el ' + esc(C().dia(d.vigente_desde)) + '</span>' +
+        return '<li class="flex flex-wrap items-center justify-between gap-x-3 py-1"><span class="min-w-0">' +
+          UI.enlace(d.titulo, href('app/ayuda/' + (C().LEGAL_PAGINA[d.clave] || 'inicio') + '.html')) +
+          '<span class="block text-on-surface-variant">Versión <span class="font-data-mono text-data-mono">' + esc(d.version) + '</span> · desde el ' + esc(C().dia(d.vigente_desde)) + '</span></span>' +
           (d.borrador ? C().chip('Borrador', 'ambar') : C().chip('Revisado', 'verde')) + '</li>';
       }).join('') + '</ul>' : C().cargando()) +
       (porPublicar.length ? '<h3 class="font-label-md text-label-md text-on-surface mt-4 mb-1">Versiones que esperan su texto</h3>' +

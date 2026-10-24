@@ -23,13 +23,14 @@
   function notas(lista, entidad, id) {
     return C().caja('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-2">Notas internas</h3>' +
       '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Solo las ve el equipo de Tumbo (nunca el comercio ni el comprador).</p>' +
-      '<form data-nota-form="' + esc(entidad) + '" data-id="' + esc(id) + '" class="flex flex-wrap gap-2 mb-3">' +
-        '<textarea name="texto" rows="2" maxlength="1000" placeholder="Escribe una nota…" class="' + C().AREA + ' flex-1 min-w-[220px]"></textarea>' +
-        btn('Agregar nota', { tipo: 'submit', icono: 'note_add' }) + '</form>' +
+      '<form data-nota-form="' + esc(entidad) + '" data-id="' + esc(id) + '" class="flex flex-wrap items-end gap-2 mb-3">' +
+        '<label class="sr-only" for="nota-' + esc(entidad) + '">Nota interna</label>' +
+        '<textarea id="nota-' + esc(entidad) + '" aria-label="Nota interna" name="texto" rows="2" maxlength="1000" placeholder="Escribe una nota…" class="' + C().AREA + ' flex-1 min-w-0 basis-full sm:basis-auto sm:min-w-[220px]"></textarea>' +
+        btn('Agregar nota', { tipo: 'submit', icono: 'note_add', clase: 'w-full sm:w-auto' }) + '</form>' +
       (lista.length ? '<ul class="divide-y divide-outline-variant">' + lista.map(function (n) {
         return '<li class="py-2 font-body-sm text-body-sm"><span class="block whitespace-pre-line">' + esc(n.texto) + '</span>' +
           '<span class="block text-on-surface-variant">' + esc(n.autor || '') + ' · ' + esc(C().fecha(n.creado)) + '</span></li>';
-      }).join('') + '</ul>' : '<p class="font-body-sm text-body-sm text-on-surface-variant">Sin notas.</p>'), 'data-notas');
+      }).join('') + '</ul>' : '<p class="font-body-sm text-body-sm text-on-surface-variant">Sin notas todavía.</p>'), 'data-notas');
   }
   function enlazarNotas(raiz) {
     raiz.querySelectorAll('[data-nota-form]').forEach(function (f) {
@@ -41,6 +42,14 @@
         }, function () { t.value = ''; t.defaultValue = ''; UI.toast('Nota agregada', '', 'note_add'); }, 'No se agregó la nota');
       });
     });
+  }
+  function filaPedido(conEnlace, p, insignias, detalle) {
+    return '<li class="py-2 font-body-sm text-body-sm">' +
+      '<div class="flex flex-wrap items-center gap-2">' + (conEnlace
+        ? '<a class="tm-tocable tm-id font-data-mono text-data-mono text-secondary hover:underline" href="' + href('app/admin/pedido.html?id=' + encodeURIComponent(p.id)) + '">' + esc(p.id) + '</a>'
+        : '<span class="tm-id font-data-mono text-data-mono">' + esc(p.id) + '</span>') + insignias + '</div>' +
+      '<div class="flex items-baseline justify-between gap-3 mt-0.5"><span class="min-w-0 text-on-surface-variant break-words">' + esc(detalle) + '</span>' +
+        '<span class="shrink-0 tm-num font-semibold text-on-surface">' + esc(C().usd(p.total_usd)) + '</span></div></li>';
   }
   function porEstado(obj) {
     var k = Object.keys(obj || {});
@@ -62,7 +71,7 @@
       UI.tabla(['Comercio', 'Ciudad', 'Estado', ''], lista.map(function (x) {
         return UI.td('<strong>' + esc(x.nombre) + '</strong><span class="block font-data-mono text-data-mono text-on-surface-variant">' + esc(x.id) + '</span>') +
           UI.td(esc(x.ciudad)) + UI.td(UI.badge(x.estado)) +
-          UI.td('<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href('app/admin/seller.html?id=' + encodeURIComponent(x.id)) + '">Ver ficha</a>', 'text-right');
+          UI.td(UI.enlace('Ver ficha', href('app/admin/seller.html?id=' + encodeURIComponent(x.id))), 'text-right');
       }));
   }
   function metricaKpi(t, v, sub, icono, mal) { return UI.kpi(t, esc(v), esc(sub || ''), icono, mal ? 'text-error' : ''); }
@@ -82,13 +91,16 @@
       var m = d.metricas || {};
       var niv = d.nivel_ahora || {};
       var puede = !!d.puede_sancionar;
-      return '<nav class="font-body-sm text-body-sm text-on-surface-variant mb-3"><a class="hover:text-secondary" href="' + href('app/admin/seller.html') + '">Comercios 360</a> › ' + esc(sel.id) + '</nav>' +
+      /* «Homologado» (puede vender) y la insignia «Verificado por Tumbo» (los
+         cuatro documentos aprobados) son cosas distintas: se dicen así */
+      return '<nav class="mb-1" aria-label="Ruta">' + UI.enlace('Comercios 360', href('app/admin/seller.html'), 'arrow_back') + '</nav>' +
         C().titulo(sel.nombre, '<div class="flex flex-wrap items-center gap-2">' + UI.badge(sel.estado) +
-          (sel.kyc_verificado ? C().chip('Verificado por Tumbo', 'verde', 'verified') : C().chip('KYC sin verificar', 'gris', 'pending')) +
-          (niv.nivel ? C().insigniaNivel(niv.nombre) : '') + (sel.real ? C().chip('comercio real', 'azul') : C().chip('comercio de prueba', 'gris')) + '</div>') +
-        '<p class="font-body-sm text-body-sm text-on-surface-variant -mt-3 mb-4">' + esc(sel.ciudad) + ' · en Tumbo desde ' + esc(C().dia(sel.desde)) +
-          ' · <a class="text-secondary hover:underline" href="' + href('app/tienda/seller.html?id=' + encodeURIComponent(sel.id)) + '">tienda pública</a>' +
-          ' · <a class="text-secondary hover:underline" href="' + href('app/admin/sellers.html') + '">expediente</a></p>' +
+          (sel.kyc_verificado ? C().chip('Verificado por Tumbo', 'verde', 'verified') : C().chip('Documentos por verificar', 'gris', 'pending')) +
+          (niv.nivel ? C().insigniaNivel(niv.nombre) : '') + (sel.real ? C().chip('Comercio real', 'azul') : C().chip('Comercio de prueba', 'gris')) + '</div>') +
+        '<p class="font-body-sm text-body-sm text-on-surface-variant -mt-3"><span class="tm-id font-data-mono text-data-mono">' + esc(sel.id) + '</span> · ' + esc(sel.ciudad) + ' · en Tumbo desde ' + esc(C().dia(sel.desde)) + '</p>' +
+        '<p class="flex flex-wrap gap-x-4 mb-3">' + UI.enlace('Tienda pública', href('app/tienda/seller.html?id=' + encodeURIComponent(sel.id)), 'storefront') +
+          /* el expediente (Sellers y KYC) es del superadministrador */
+          (APP.puedeAbrir('admin/sellers', s, ['superadmin']) ? UI.enlace('Expediente KYC', href('app/admin/sellers.html'), 'folder_open') : '') + '</p>' +
         (d.retencion ? '<p data-retencion class="flex items-start gap-1.5 rounded-btn bg-error-container text-on-error-container px-3 py-2 mb-4 font-body-sm text-body-sm">' +
           ic('lock', 'text-[16px] mt-0.5') + 'Fondos retenidos: ' + esc(d.retencion) + '.</p>' : '') +
         (d.lista_negra ? '<p data-lista-negra-seller class="flex items-start gap-1.5 rounded-btn bg-error-container text-on-error-container px-3 py-2 mb-4 font-body-sm text-body-sm">' +
@@ -106,47 +118,52 @@
         '</section>' +
         (niv.siguiente && (niv.faltan || []).length ? '<p data-progreso-nivel class="font-body-sm text-body-sm text-on-surface-variant mb-4">Para ' + esc(niv.siguiente) + ' falta: ' +
           niv.faltan.map(esc).join(' · ') + '.</p>' : '') +
-        '<div class="grid lg:grid-cols-2 gap-4">' +
+        '<div class="grid lg:grid-cols-2 gap-x-4">' +
           C().caja('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-2">Catálogo</h3><p class="font-body-sm text-body-sm mb-2">' + porEstado(d.catalogo.por_estado) + '</p>' +
-            '<ul class="divide-y divide-outline-variant max-h-72 overflow-y-auto">' + (d.catalogo.productos || []).map(function (p) {
-              return '<li class="flex flex-wrap items-center gap-2 py-1.5 font-body-sm text-body-sm"><span class="flex-1 min-w-[160px]">' + esc(p.nombre) +
-                ' <span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(p.sku) + '</span></span>' + UI.badge(p.estado) +
-                '<span class="tm-crec-num">' + esc(C().usd(p.precio_usd)) + '</span>' + (p.marcas ? C().chip(p.marcas + ' marcas', 'ambar', 'flag') : '') + '</li>';
-            }).join('') + '</ul>', 'data-catalogo-360') +
+            ((d.catalogo.productos || []).length ? '<ul class="divide-y divide-outline-variant sm:max-h-72 sm:overflow-y-auto">' + (d.catalogo.productos || []).map(function (p) {
+              return '<li class="py-2 font-body-sm text-body-sm"><div class="flex items-baseline justify-between gap-3"><span class="min-w-0 break-words">' + esc(p.nombre) + '</span>' +
+                '<span class="shrink-0 tm-num">' + esc(C().usd(p.precio_usd)) + '</span></div>' +
+                '<div class="flex flex-wrap items-center gap-2 mt-0.5"><span class="tm-id font-data-mono text-data-mono text-on-surface-variant">' + esc(p.sku) + '</span>' + UI.badge(p.estado) +
+                (p.marcas ? C().chip(p.marcas + ' marca' + (p.marcas === 1 ? '' : 's'), 'ambar', 'flag') : '') + '</div></li>';
+            }).join('') + '</ul>' : '<p class="font-body-sm text-body-sm text-on-surface-variant">Sin productos.</p>'), 'data-catalogo-360') +
           C().caja('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-2">Pedidos</h3><p class="font-body-sm text-body-sm mb-2">' + porEstado(d.pedidos.por_estado) + '</p>' +
-            '<ul class="divide-y divide-outline-variant max-h-72 overflow-y-auto">' + (d.pedidos.recientes || []).map(function (p) {
+            ((d.pedidos.recientes || []).length ? '<ul class="divide-y divide-outline-variant sm:max-h-72 sm:overflow-y-auto">' + (d.pedidos.recientes || []).map(function (p) {
               /* (el detalle 360 del pedido es de superadmin y Operaciones: a Finanzas, el número sin enlace) */
-              return '<li class="flex flex-wrap items-center gap-2 py-1.5 font-body-sm text-body-sm">' +
-                (APP.puedeAbrir('admin/pedido', s, ['superadmin', 'ops'])
-                  ? '<a class="font-data-mono text-data-mono text-secondary hover:underline" href="' + href('app/admin/pedido.html?id=' + encodeURIComponent(p.id)) + '">' + esc(p.id) + '</a>'
-                  : '<span class="font-data-mono text-data-mono">' + esc(p.id) + '</span>') + UI.badge(p.estado) +
-                (p.liquidacion ? UI.badge(p.liquidacion) : '') + '<span class="flex-1 text-right tm-crec-num">' + esc(C().usd(p.total_usd)) + '</span>' +
-                '<span class="w-full text-on-surface-variant">' + esc(C().fecha(p.creado)) + '</span></li>';
-            }).join('') + '</ul>', 'data-pedidos-360') +
+              return filaPedido(APP.puedeAbrir('admin/pedido', s, ['superadmin', 'ops']), p, UI.badge(p.estado) + (p.liquidacion ? UI.badge(p.liquidacion) : ''), C().fecha(p.creado));
+            }).join('') + '</ul>' : '<p class="font-body-sm text-body-sm text-on-surface-variant">Sin pedidos todavía.</p>'), 'data-pedidos-360') +
         '</div>' +
-        '<div class="grid lg:grid-cols-2 gap-4">' +
+        '<div class="grid lg:grid-cols-2 gap-x-4">' +
           C().caja('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-2">Liquidaciones</h3>' +
             ((d.liquidaciones || []).length ? '<ul class="divide-y divide-outline-variant">' + d.liquidaciones.map(function (l) {
-              return '<li class="flex flex-wrap items-center gap-2 py-1.5 font-body-sm text-body-sm"><span class="font-data-mono text-data-mono">' + esc(l.id) + '</span>' +
-                C().chip(l.ciclo, l.ciclo === 'pagada' ? 'verde' : l.ciclo === 'fallida' ? 'rojo' : 'azul') +
-                '<span class="flex-1 text-right tm-crec-num">' + esc(C().usd(l.neto_usd)) + '</span><span class="text-on-surface-variant">' + esc(C().dia(l.fecha)) + ' · ' + l.pedidos + ' pedidos</span></li>';
+              /* (una corrida vieja no trae ciclo: se toma su estado) */
+              var ciclo = l.ciclo || (l.estado === 'pagada' || l.estado === 'liquidado' ? 'pagada' : l.estado) || 'preparada';
+              return '<li class="py-2 font-body-sm text-body-sm"><div class="flex items-center justify-between gap-3"><span class="min-w-0 flex flex-wrap items-center gap-2"><span class="tm-id font-data-mono text-data-mono">' + esc(l.id) + '</span>' +
+                (TM.pagos && TM.pagos.insignia ? TM.pagos.insignia('ciclo', ciclo) : C().chip(ciclo, ciclo === 'pagada' ? 'verde' : ciclo === 'fallida' ? 'rojo' : 'azul')) + '</span>' +
+                '<span class="shrink-0 tm-num font-semibold">' + esc(C().usd(l.neto_usd)) + '</span></div>' +
+                '<p class="text-on-surface-variant">' + esc(C().dia(l.fecha)) + ' · ' + l.pedidos + ' pedido' + (l.pedidos === 1 ? '' : 's') + '</p></li>';
             }).join('') + '</ul>' : '<p class="font-body-sm text-body-sm text-on-surface-variant">Sin liquidaciones.</p>'), 'data-liquidaciones-360') +
           C().caja('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-2">Equipo</h3>' +
-            '<ul class="divide-y divide-outline-variant">' + (d.equipo || []).map(function (u) {
-              return '<li class="flex flex-wrap items-center gap-2 py-1.5 font-body-sm text-body-sm"><span class="flex-1">' + esc(u.nombre) + '</span>' +
-                C().chip(APP.ROLES[u.rol] ? APP.ROLES[u.rol].nombre : u.rol, 'gris') + (u.demo ? C().chip('de prueba', 'gris') : '') +
-                (!u.activo ? C().chip('inactiva', 'rojo') : u.bloqueado ? C().chip('bloqueada', 'rojo') : '') +
+            ((d.equipo || []).length ? '<ul class="divide-y divide-outline-variant">' + (d.equipo || []).map(function (u) {
+              return '<li class="flex flex-wrap items-center gap-2 py-2 font-body-sm text-body-sm"><span class="flex-1 min-w-0 break-words">' + esc(u.nombre) + '</span>' +
+                C().chip(APP.ROLES[u.rol] ? APP.ROLES[u.rol].nombre : u.rol, 'gris') + (u.demo ? C().chip('De prueba', 'gris') : '') +
+                (!u.activo ? C().chip('Inactiva', 'rojo') : u.bloqueado ? C().chip('Bloqueada', 'rojo') : '') +
                 (u.totp ? C().chip('2FA', 'verde', 'lock') : '') + '</li>';
-            }).join('') + '</ul>', 'data-equipo-360') +
+            }).join('') + '</ul>' : '<p class="font-body-sm text-body-sm text-on-surface-variant">Sin personas en el equipo de este comercio.</p>'), 'data-equipo-360') +
         '</div>' +
         (d.kyc ? C().caja('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-2">Expediente KYC</h3>' +
-          '<p class="font-body-sm text-body-sm mb-2">' + esc(d.kyc.razon_social || '—') + ' · RIF ' + esc(d.kyc.rif || '—') + ' · expediente ' + esc(d.kyc.expediente || 'incompleto') +
+          '<p class="font-body-sm text-body-sm mb-2 break-words">' + esc(d.kyc.razon_social || 'Sin razón social') + ' · RIF ' + esc(d.kyc.rif || '—') + ' · expediente ' +
+            esc({ incompleto: 'incompleto', en_revision: 'en revisión', observado: 'con observaciones', verificado: 'verificado' }[d.kyc.expediente || 'incompleto'] || d.kyc.expediente) +
             (d.kyc.enviado ? ' · enviado el ' + esc(C().fecha(d.kyc.enviado)) : '') + '</p>' +
-          '<div class="flex flex-wrap gap-x-4 gap-y-2 mb-3 font-body-sm text-body-sm">' + (d.kyc.documentos || []).map(function (x) {
-            return '<span class="inline-flex items-center gap-1">' + esc(x.nombre) + ' ' + UI.badge(x.estado) + '</span>'; }).join('') + '</div>' +
+          /* el estado de cada documento con el mismo criterio que Sellers y KYC:
+             sin archivo cargado, «Falta el archivo» (aunque figure aprobado) */
+          '<ul class="divide-y divide-outline-variant rounded-btn border border-outline-variant mb-3 font-body-sm text-body-sm">' + (d.kyc.documentos || []).map(function (x) {
+            var lista = ((TM.seller(sel.id) || {}).docs || []).find(function (k) { return k.orden === x.orden; });
+            var falta = lista && lista.archivoListo === false;
+            return '<li class="flex flex-wrap items-center justify-between gap-2 px-3 py-2"><span class="min-w-0 break-words">' + esc(x.nombre) + '</span>' +
+              (falta ? C().chip('Falta el archivo', 'gris') : UI.badge(x.estado)) + '</li>'; }).join('') + '</ul>' +
           '<p class="font-label-md text-label-md text-on-surface mb-1">Historial</p>' +
           ((d.kyc.historial || []).length ? '<ul class="font-body-sm text-body-sm space-y-1">' + d.kyc.historial.map(function (a) {
-            return '<li><span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(C().fecha(a.fecha)) + '</span> · ' + esc(a.accion) + ' · ' + esc(a.detalle) +
+            return '<li class="break-words"><span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(C().fecha(a.fecha)) + '</span> · ' + esc(a.accion) + ' · ' + esc(a.detalle) +
               ' <span class="text-on-surface-variant">(' + esc(a.actor) + ')</span></li>'; }).join('') + '</ul>'
             : '<p class="font-body-sm text-body-sm text-on-surface-variant">Sin movimientos recientes del expediente.</p>'), 'data-kyc-360')
           : C().caja('<p class="font-body-sm text-body-sm text-on-surface-variant">El expediente de este comercio no está a tu alcance.</p>')) +
@@ -207,15 +224,18 @@
   function listaCompradores() {
     var r = C().datos('compradores:' + busqueda, function () { return TM.api('tm_admin_usuarios', { p_texto: busqueda || null, p_rol: 'comprador' }); }, 20000);
     return C().titulo('Compradores 360') +
-      '<form data-buscar-comprador role="search" class="flex flex-wrap gap-2 mb-4"><input name="q" value="' + esc(busqueda) + '" placeholder="Correo, nombre, teléfono, cédula o identificador" class="' +
-        C().CAMPO + ' flex-1 min-w-[240px]"/>' + btn('Buscar', { tipo: 'submit', icono: 'search' }) + '</form>' +
+      '<form data-buscar-comprador role="search" class="mb-4 max-w-xl"><label class="' + C().ETIQUETA + '" for="buscar-comprador">Buscar un comprador</label>' +
+        '<div class="grid grid-cols-1 sm:flex gap-2"><input id="buscar-comprador" name="q" type="search" enterkeyhint="search" autocomplete="off" value="' + esc(busqueda) +
+        '" placeholder="Correo, nombre o cédula" class="' + C().CAMPO + ' sm:flex-1 min-w-0"/>' + btn('Buscar', { tipo: 'submit', icono: 'search', estilo: 'primario' }) + '</div>' +
+        '<p class="mt-1 font-body-sm text-body-sm text-on-surface-variant">También por teléfono o por su identificador.</p></form>' +
       C().seccion(r, 'compradores:' + busqueda, function (d) {
         var lista = Array.isArray(d) ? d : (d && (d.usuarios || d.lista)) || [];
+        /* en el teléfono, una tarjeta por comprador (en tres columnas el correo se partía y «Ver ficha» ocupaba dos líneas) */
         return UI.tabla(['Comprador', 'Estado', ''], lista.map(function (u) {
-          return UI.td('<strong>' + esc(u.nombre) + '</strong><span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(u.email || '') + '</span>') +
-            UI.td(u.bloqueado ? C().chip('bloqueada', 'rojo') : !u.activo ? C().chip('inactiva', 'gris') : C().chip('activa', 'verde')) +
-            UI.td('<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href('app/admin/comprador.html?id=' + encodeURIComponent(u.id)) + '">Ver ficha</a>', 'text-right');
-        }), UI.vacio('person_search', 'Sin resultados', 'Busca por correo, nombre, teléfono, cédula o identificador.'));
+          return UI.td('<strong class="break-words">' + esc(u.nombre) + '</strong><span class="block font-body-sm text-body-sm text-on-surface-variant [overflow-wrap:anywhere]">' + UI.correo(u.email || '') + '</span>') +
+            UI.td(u.bloqueado ? C().chip('Bloqueada', 'rojo') : !u.activo ? C().chip('Inactiva', 'gris') : C().chip('Activa', 'verde')) +
+            UI.td(UI.enlace('Ver ficha', href('app/admin/comprador.html?id=' + encodeURIComponent(u.id))), 'text-right');
+        }), UI.vacio('person_search', 'Sin resultados', 'Busca por correo, nombre, teléfono, cédula o identificador.'), { tarjetas: true });
       }, 'Buscando…');
   }
   function vComprador(q, s) {
@@ -227,19 +247,19 @@
       var u = d.usuario;
       var rg = d.riesgo || {};
       var chip = TM.crecRiesgo ? TM.crecRiesgo.chip : function () { return ''; };
-      return '<nav class="font-body-sm text-body-sm text-on-surface-variant mb-3"><a class="hover:text-secondary" href="' + href('app/admin/comprador.html') + '">Compradores 360</a> › ' + esc(u.nombre) + '</nav>' +
-        C().titulo(u.nombre, '<div class="flex flex-wrap gap-2">' + (u.bloqueado ? C().chip('bloqueada', 'rojo', 'block') : C().chip('activa', 'verde')) +
-          (rg.marcado ? C().chip('marcado como riesgoso', 'rojo', 'gpp_maybe') : '') + (u.demo ? C().chip('cuenta de prueba', 'gris') : '') + '</div>') +
+      return '<nav class="mb-1" aria-label="Ruta">' + UI.enlace('Compradores 360', href('app/admin/comprador.html'), 'arrow_back') + '</nav>' +
+        C().titulo(u.nombre, '<div class="flex flex-wrap gap-2">' + (u.bloqueado ? C().chip('Bloqueada', 'rojo', 'block') : C().chip('Activa', 'verde')) +
+          (rg.marcado ? C().chip('Marcado como riesgoso', 'rojo', 'gpp_maybe') : '') + (u.demo ? C().chip('Cuenta de prueba', 'gris') : '') + '</div>') +
         C().caja('<dl class="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1 font-body-sm text-body-sm">' +
-          '<div><dt class="inline text-on-surface-variant">Correo: </dt><dd class="inline">' + esc(u.email) + (u.correo_verificado ? ' ✓' : '') + '</dd></div>' +
+          '<div class="min-w-0"><dt class="inline text-on-surface-variant">Correo: </dt><dd class="inline [overflow-wrap:anywhere]">' + UI.correo(u.email) + (u.correo_verificado ? ' ✓' : '') + '</dd></div>' +
           '<div><dt class="inline text-on-surface-variant">Teléfono: </dt><dd class="inline">' + esc(u.telefono || '—') + (u.telefono_verificado ? ' ✓' : '') + '</dd></div>' +
           '<div><dt class="inline text-on-surface-variant">Cédula: </dt><dd class="inline">' + esc(u.cedula || '—') + '</dd></div>' +
           '<div><dt class="inline text-on-surface-variant">Cuenta desde: </dt><dd class="inline">' + esc(C().fecha(u.creado)) + '</dd></div>' +
           '<div><dt class="inline text-on-surface-variant">Último acceso: </dt><dd class="inline">' + esc(C().fecha(u.ultimo_acceso)) + '</dd></div>' +
           '<div><dt class="inline text-on-surface-variant">Crédito en Tumbo: </dt><dd class="inline">' + esc(C().usd(d.credito_usd)) + '</dd></div>' +
           (u.bloqueado ? '<div class="sm:col-span-3 text-error">Bloqueada: ' + esc(u.bloqueo_motivo || '') + '</div>' : '') + '</dl>' +
-          '<div class="flex flex-wrap gap-2 mt-3">' +
-            (d.puede_bloquear ? '<a class="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary" href="' +
+          '<div class="grid sm:flex sm:flex-wrap gap-2 mt-3">' +
+            (d.puede_bloquear ? '<a class="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary" href="' +
               href('app/admin/usuarios.html?id=' + encodeURIComponent(u.id)) + '">' + ic('manage_accounts', 'text-[18px]') + (u.bloqueado ? 'Desbloquear' : 'Bloquear') + ' en Usuarios</a>' : '') +
             btn(rg.marcado ? 'Quitar la marca de riesgo' : 'Marcar como riesgoso', { estilo: rg.marcado ? 'borde' : 'peligro', icono: 'gpp_maybe',
               attr: 'data-marcar-riesgo="' + (rg.marcado ? '0' : '1') + '" data-id="' + esc(u.id) + '"' }) + '</div>', 'data-perfil-360') +
@@ -247,33 +267,34 @@
           (rg.marcado ? '<p class="font-body-sm text-body-sm">Marcado: ' + esc(rg.marcado.motivo) + ' · ' + esc(C().fecha(rg.marcado.desde)) + (rg.marcado.por ? ' · ' + esc(rg.marcado.por) : '') + '</p>' : '') +
           ((rg.listas_negras || []).length ? '<p class="font-body-sm text-body-sm text-error">En la lista negra: ' + rg.listas_negras.map(function (l) { return esc(l.tipo + ' (' + l.motivo + ')'); }).join(', ') + '</p>' : '') +
           (rg.ultimo ? '<p class="font-body-sm text-body-sm mt-1">Último pago evaluado: ' + chip(rg.ultimo, true) + '</p>' : ''), 'data-riesgo-comprador') : '') +
-        '<div class="grid lg:grid-cols-2 gap-4">' +
+        '<div class="grid lg:grid-cols-2 gap-x-4">' +
           C().caja('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-2">Pedidos</h3>' +
-            ((d.pedidos || []).length ? '<ul class="divide-y divide-outline-variant max-h-80 overflow-y-auto">' + d.pedidos.map(function (p) {
-              return '<li class="flex flex-wrap items-center gap-2 py-1.5 font-body-sm text-body-sm"><a class="font-data-mono text-data-mono text-secondary hover:underline" href="' +
-                href('app/admin/pedido.html?id=' + encodeURIComponent(p.id)) + '">' + esc(p.id) + '</a>' + UI.badge(p.estado) +
-                '<span class="flex-1">' + esc(p.seller || p.seller_id) + '</span><span class="tm-crec-num">' + esc(C().usd(p.total_usd)) + '</span>' +
-                '<span class="w-full text-on-surface-variant">' + esc(C().fecha(p.creado)) + (p.disputa_id ? ' · reclamo ' + esc(p.disputa_id) : '') + '</span></li>';
+            ((d.pedidos || []).length ? '<ul class="divide-y divide-outline-variant sm:max-h-80 sm:overflow-y-auto">' + d.pedidos.map(function (p) {
+              return filaPedido(true, p, UI.badge(p.estado), (p.seller || p.seller_id) + ' · ' + C().fecha(p.creado) + (p.disputa_id ? ' · reclamo ' + p.disputa_id : ''));
             }).join('') + '</ul>' : '<p class="font-body-sm text-body-sm text-on-surface-variant">Sin pedidos.</p>'), 'data-pedidos-comprador') +
           C().caja('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-2">Pagos</h3>' +
-            ((d.pagos || []).length ? '<ul class="divide-y divide-outline-variant max-h-80 overflow-y-auto">' + d.pagos.map(function (g) {
-              return '<li class="py-1.5 font-body-sm text-body-sm"><span class="flex flex-wrap items-center gap-2"><span class="font-data-mono text-data-mono">' + esc(g.id) + '</span>' +
-                C().chip(g.estado, g.estado === 'verificado' ? 'verde' : g.estado === 'rechazado' || g.estado === 'vencido' ? 'rojo' : 'ambar') +
-                '<span class="flex-1 text-right tm-crec-num">' + esc(C().usd(g.total_usd)) + '</span></span>' +
-                '<span class="block text-on-surface-variant">' + esc(g.metodo) + (g.referencia ? ' · ref. ' + esc(g.referencia) : '') + ' · ' + esc(C().fecha(g.creado)) + '</span>' +
+            ((d.pagos || []).length ? '<ul class="divide-y divide-outline-variant sm:max-h-80 sm:overflow-y-auto">' + d.pagos.map(function (g) {
+              return '<li class="py-2 font-body-sm text-body-sm"><span class="flex items-center justify-between gap-3"><span class="min-w-0 flex flex-wrap items-center gap-2"><span class="tm-id font-data-mono text-data-mono">' + esc(g.id) + '</span>' +
+                (TM.pagos && TM.pagos.insignia ? TM.pagos.insignia('pago', g.estado) : C().chip(g.estado, g.estado === 'verificado' ? 'verde' : g.estado === 'rechazado' || g.estado === 'vencido' ? 'rojo' : 'ambar')) +
+                '</span><span class="shrink-0 tm-num font-semibold">' + esc(C().usd(g.total_usd)) + '</span></span>' +
+                '<span class="block text-on-surface-variant">' + esc(TM.pagos ? TM.pagos.nombreMetodo(g.metodo) : g.metodo) + (g.referencia ? ' · ref. ' + esc(g.referencia) : '') + ' · ' + esc(C().fecha(g.creado)) + '</span>' +
                 (g.riesgo ? '<span class="block mt-1">' + chip(g.riesgo) + '</span>' : '') + '</li>';
-            }).join('') + '</ul>' : '<p class="font-body-sm text-body-sm text-on-surface-variant">Sin pagos.</p>'), 'data-pagos-comprador') +
+            }).join('') + '</ul>' : '<p class="font-body-sm text-body-sm text-on-surface-variant">' + ((d.pedidos || []).length
+              ? 'Sin pagos registrados con el flujo de pagos guiados: los pedidos anteriores muestran su pago en su detalle.' : 'Sin pagos.') + '</p>'), 'data-pagos-comprador') +
         '</div>' +
-        '<div class="grid lg:grid-cols-2 gap-4">' +
+        '<div class="grid lg:grid-cols-2 gap-x-4">' +
           C().caja('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-2">Reclamos</h3>' +
             ((d.reclamos || []).length ? '<ul class="divide-y divide-outline-variant">' + d.reclamos.map(function (x) {
-              return '<li class="flex flex-wrap items-center gap-2 py-1.5 font-body-sm text-body-sm"><span class="font-data-mono text-data-mono">' + esc(x.id) + '</span>' + UI.badge(x.estado) +
-                '<span class="flex-1">' + esc(x.motivo) + ' · ' + esc(x.pedido_id) + '</span>' + (x.decision ? C().chip(x.decision, 'gris') : '') + '</li>';
+              return '<li class="py-2 font-body-sm text-body-sm"><div class="flex flex-wrap items-center gap-2"><span class="tm-id font-data-mono text-data-mono">' + esc(x.id) + '</span>' + UI.badge(x.estado) +
+                (x.decision ? C().chip({ reembolso: 'Reembolso total', reembolso_parcial: 'Reembolso parcial', devolucion: 'Devolución', liberar: 'A favor del comercio' }[x.decision] || String(x.decision).replace(/_/g, ' '), 'gris') : '') + '</div>' +
+                '<p class="text-on-surface-variant break-words">' + esc(x.motivo) + ' · <span class="tm-id">' + esc(x.pedido_id) + '</span></p></li>';
             }).join('') + '</ul>' : '<p class="font-body-sm text-body-sm text-on-surface-variant">Sin reclamos.</p>'), 'data-reclamos-comprador') +
           C().caja('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-2">Reembolsos</h3>' +
             ((d.reembolsos || []).length ? '<ul class="divide-y divide-outline-variant">' + d.reembolsos.map(function (x) {
-              return '<li class="flex flex-wrap items-center gap-2 py-1.5 font-body-sm text-body-sm">' + C().chip(x.estado, x.estado === 'enviado' ? 'verde' : 'ambar') +
-                '<span class="flex-1">' + esc(x.motivo || x.tipo) + (x.pedido_id ? ' · ' + esc(x.pedido_id) : '') + '</span><span class="tm-crec-num">' + esc(C().usd(x.monto_usd)) + '</span></li>';
+              return '<li class="py-2 font-body-sm text-body-sm"><div class="flex items-center justify-between gap-3"><span class="min-w-0">' +
+                (TM.pagos && TM.pagos.insignia ? TM.pagos.insignia('reembolso', x.estado) : C().chip(x.estado, x.estado === 'enviado' ? 'verde' : 'ambar')) + '</span>' +
+                '<span class="shrink-0 tm-num font-semibold">' + esc(C().usd(x.monto_usd)) + '</span></div>' +
+                '<p class="text-on-surface-variant break-words">' + esc(x.motivo || x.tipo) + (x.pedido_id ? ' · <span class="tm-id">' + esc(x.pedido_id) + '</span>' : '') + '</p></li>';
             }).join('') + '</ul>' : '<p class="font-body-sm text-body-sm text-on-surface-variant">Sin reembolsos.</p>'), 'data-reembolsos-comprador') +
         '</div>' +
         notas(d.notas || [], 'comprador', u.id);

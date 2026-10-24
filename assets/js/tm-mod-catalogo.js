@@ -221,15 +221,17 @@
     return (TM.estado.alertas || []).find(function (a) { return a.sku === sku && a.tipo === tipo; }) || null;
   }
 
-  /* Corazón de favoritos (con backend; para el comprador o el visitante). */
+  /* Corazón de favoritos (con backend; para el comprador o el visitante).
+     El botón mide 44 px (blanco táctil) y el círculo que se ve, 36 px. */
   function corazon(sku, clase) {
     var s = TM.sesion();
     if (!remoto() || (s && s.rol !== 'comprador')) return '';
     var activo = esFavorito(sku);
     return '<button type="button" data-fav="' + esc(sku) + '" aria-pressed="' + activo + '" class="tm-fav ' + (clase || '') +
-      ' inline-flex items-center justify-center w-9 h-9 rounded-full bg-surface-container-lowest/95 border border-outline-variant text-on-surface-variant hover:text-error shadow-sm"' +
+      ' inline-flex items-center justify-center w-11 h-11 rounded-full text-on-surface-variant hover:text-error"' +
       ' aria-label="' + (activo ? 'Quitar de favoritos' : 'Guardar en favoritos') + '" title="' + (activo ? 'Quitar de favoritos' : 'Guardar en favoritos') + '">' +
-      ic('favorite', 'text-[20px]') + '</button>';
+      '<span class="inline-flex items-center justify-center w-9 h-9 rounded-full bg-surface-container-lowest/95 border border-outline-variant shadow-sm">' +
+      ic('favorite', 'text-[20px]') + '</span></button>';
   }
 
   /* ---------------------------------------------------------------------
@@ -264,13 +266,22 @@
         '<span class="font-body-sm text-body-sm ' + (disp > 3 ? 'text-tertiary' : 'text-error') + '">' +
         /* sin fecha fija: el plazo real depende del destino (Logística, en la ficha) */
         (disp > 3 ? 'Envía desde ' + esc(TM.seller(p.sellerId).ciudad) : disp > 0 ? 'Solo quedan ' + disp : 'Agotado') + '</span></a>' +
-      corazon(p.sku, 'absolute top-4 right-4') +
+      corazon(p.sku, 'absolute top-3 right-3') +
       '</div>';
   }
   UI.tarjetaProducto = function (p) { return tarjeta(p); };
   function tarjetaFamilia(f) { return tarjeta(f.rep, { min: f.min, max: f.max, variantes: f.miembros.length }); }
   function grilla(htmlTarjetas, columnas) {
     return '<div class="grid grid-cols-2 sm:grid-cols-3 ' + (columnas || 'lg:grid-cols-4') + ' gap-3">' + htmlTarjetas.join('') + '</div>';
+  }
+  /* Alternativas para un producto o una colección que ya no están: los más
+     vendidos (o, sin ventas, los primeros del catálogo), una tarjeta por familia. */
+  function alternativas(n) {
+    var lista = masVendidos();
+    if (lista.length < n) lista = lista.concat(TM.catalogoPublico().filter(function (p) { return lista.indexOf(p) < 0; }));
+    var fams = agruparFamilias(lista).slice(0, n);
+    return fams.length ? '<section aria-label="Alternativas" class="mt-2"><h2 class="font-headline-sm text-headline-sm text-primary-container mb-3">Te puede interesar</h2>' +
+      grilla(fams.map(tarjetaFamilia)) + '</section>' : '';
   }
 
   /* El corazón y los avisos se enlazan tras cada pintado. */
@@ -530,16 +541,33 @@
       u.delete('pag');
       return '?' + u.toString();
     }
-    function chipOrden(id, nombre) {
-      return '<a class="px-3 py-1.5 rounded-full font-label-md text-label-md border ' +
-        (o.orden === id ? 'bg-secondary text-on-secondary border-secondary' : 'border-outline-variant text-on-surface-variant hover:border-secondary') +
-        '" href="' + url({ orden: id }) + '">' + nombre + '</a>';
-    }
+    function chipOrden(id, nombre) { return UI.chip(nombre, url({ orden: id }), o.orden === id); }
+    /* (min-h-[32px]: 44 px con el dedo, ver tm.css) */
     function opcion(activa, enlace, texto, n) {
-      return '<a class="flex items-center gap-2 py-1 font-body-sm text-body-sm ' + (activa ? 'text-secondary font-semibold' : 'text-on-surface hover:text-secondary') +
-        '" href="' + enlace + '">' + ic(activa ? 'check_box' : 'check_box_outline_blank', 'text-[18px]') + '<span class="flex-1">' + esc(texto) + '</span>' +
+      return '<a class="flex items-center gap-2 min-h-[32px] py-1 font-body-sm text-body-sm ' + (activa ? 'text-secondary font-semibold' : 'text-on-surface hover:text-secondary') +
+        '" href="' + enlace + '"' + (activa ? ' aria-current="true"' : '') + '>' + ic(activa ? 'check_box' : 'check_box_outline_blank', 'text-[18px]') + '<span class="flex-1 min-w-0">' + esc(texto) + '</span>' +
         (n != null ? '<span class="text-on-surface-variant">' + n + '</span>' : '') + '</a>';
     }
+    /* Los filtros elegidos, cada uno con el enlace que lo quita (chips bajo
+       el título y contador en «Filtros»); la búsqueda escrita no cuenta. */
+    var activos = [];
+    function activo(texto, enlace) { activos.push({ texto: texto, enlace: enlace }); }
+    if (o.filtros.categoria && !opciones.sinCategorias) activo(nombreCategoria(o.filtros.categoria), url({ cat: null }));
+    (o.filtros.marcas || []).forEach(function (v) { activo(v, alternar('marca', v)); });
+    (o.filtros.condiciones || []).forEach(function (v) { activo(CONDICION[v] || v, alternar('cond', v)); });
+    Object.keys(o.filtros.atributos || {}).forEach(function (k) {
+      o.filtros.atributos[k].forEach(function (v) { activo(v, alternar('at_' + k, v)); });
+    });
+    (o.filtros.ciudades || []).forEach(function (v) { activo(v, alternar('ciudad', v)); });
+    if (o.filtros.disponible) activo('Con stock', url({ disp: null }));
+    if (o.filtros.verificados) activo('Vendedores verificados', url({ verif: null }));
+    if (o.filtros.precio_min || o.filtros.precio_max) {
+      activo('Precio ' + (o.filtros.precio_min ? 'desde $' + o.filtros.precio_min : '') + (o.filtros.precio_min && o.filtros.precio_max ? ' ' : '') +
+        (o.filtros.precio_max ? 'hasta $' + o.filtros.precio_max : ''), url({ pmin: null, pmax: null }));
+    }
+    /* sin filtros: la misma búsqueda (y el mismo comercio) */
+    var conservar = ['q', 'id'].filter(function (k) { return q.get(k); }).map(function (k) { return k + '=' + encodeURIComponent(q.get(k)); });
+    var sinFiltros = base.split('?')[0] + (conservar.length ? '?' + conservar.join('&') : '');
     var fa = datos.facetas || {};
     var catActual = o.filtros.categoria || '';
     var catsN = {};
@@ -547,17 +575,18 @@
     var filtros = '';
     if (!opciones.sinCategorias) {
       var raizActual = catActual ? raizDe(catActual) : '';
+      var claseCat = 'flex items-center gap-1 min-h-[32px] py-1 font-body-sm text-body-sm ';
       filtros += '<div class="mb-4"><p class="font-label-caps text-label-caps uppercase text-on-surface-variant mb-1">Categoría</p>' +
-        (catActual ? '<a class="block py-1 font-body-sm text-body-sm text-secondary hover:underline" href="' + url({ cat: null }) + '">' + ic('arrow_back', 'text-[14px]') + ' Todas</a>' : '') +
+        (catActual ? '<a class="' + claseCat + 'text-secondary hover:underline" href="' + url({ cat: null }) + '">' + ic('arrow_back', 'text-[16px]') + 'Todas</a>' : '') +
         raices().filter(function (c) { return catsN[c.id] || c.id === raizActual; }).map(function (c) {
           var subs = c.id === raizActual ? hijas(c.id).filter(function (h) { return catsN[h.id] || h.id === catActual; }) : [];
-          return '<a class="block py-1 font-body-sm text-body-sm ' + (catActual === c.id ? 'text-secondary font-semibold' : 'text-on-surface hover:text-secondary') + '" href="' +
-            url({ cat: c.id }, Array.from(q.keys()).filter(function (k) { return /^at_/.test(k); })) + '">' + esc(c.nombre) +
-            ' <span class="text-on-surface-variant">' + (catsN[c.id] || 0) + '</span></a>' +
+          return '<a class="' + claseCat + (catActual === c.id ? 'text-secondary font-semibold' : 'text-on-surface hover:text-secondary') + '" href="' +
+            url({ cat: c.id }, Array.from(q.keys()).filter(function (k) { return /^at_/.test(k); })) + '"><span class="flex-1 min-w-0">' + esc(c.nombre) + '</span>' +
+            '<span class="text-on-surface-variant">' + (catsN[c.id] || 0) + '</span></a>' +
             subs.map(function (h) {
-              return '<a class="block py-1 pl-4 font-body-sm text-body-sm ' + (catActual === h.id ? 'text-secondary font-semibold' : 'text-on-surface hover:text-secondary') + '" href="' +
-                url({ cat: h.id }, Array.from(q.keys()).filter(function (k) { return /^at_/.test(k); })) + '">' + esc(h.nombre) +
-                ' <span class="text-on-surface-variant">' + (catsN[h.id] || 0) + '</span></a>';
+              return '<a class="' + claseCat + 'pl-4 ' + (catActual === h.id ? 'text-secondary font-semibold' : 'text-on-surface hover:text-secondary') + '" href="' +
+                url({ cat: h.id }, Array.from(q.keys()).filter(function (k) { return /^at_/.test(k); })) + '"><span class="flex-1 min-w-0">' + esc(h.nombre) + '</span>' +
+                '<span class="text-on-surface-variant">' + (catsN[h.id] || 0) + '</span></a>';
             }).join('');
         }).join('') + '</div>';
     }
@@ -572,8 +601,8 @@
     (fa.atributos || []).forEach(function (a) {
       filtros += '<div class="mb-4"><p class="font-label-caps text-label-caps uppercase text-on-surface-variant mb-1">' + esc(a.nombre) + '</p>' +
         (a.valores || []).slice(0, 12).map(function (v) {
-          var activos = (o.filtros.atributos || {})[a.clave] || [];
-          return opcion(activos.indexOf(v.valor) >= 0, alternar('at_' + a.clave, v.valor), v.valor + (a.unidad ? ' ' + a.unidad : ''), v.n);
+          var elegidos = (o.filtros.atributos || {})[a.clave] || [];
+          return opcion(elegidos.indexOf(v.valor) >= 0, alternar('at_' + a.clave, v.valor), v.valor + (a.unidad ? ' ' + a.unidad : ''), v.n);
         }).join('') + '</div>';
     });
     if (!opciones.fijos || !opciones.fijos.seller) {
@@ -585,35 +614,57 @@
     filtros += '<div class="mb-4"><p class="font-label-caps text-label-caps uppercase text-on-surface-variant mb-1">Disponibilidad</p>' +
       opcion(!!o.filtros.disponible, url({ disp: o.filtros.disponible ? null : '1' }), 'Con stock', fa.disponibles) +
       (remoto() && (!opciones.fijos || !opciones.fijos.seller) ? opcion(!!o.filtros.verificados, url({ verif: o.filtros.verificados ? null : '1' }), 'Vendedores verificados por Tumbo') : '') + '</div>';
+    /* (el bloque de filtros va dos veces —teléfono y escritorio—: etiquetas que envuelven el campo, sin id) */
     filtros += '<form data-precio-filtro class="mb-2"><p class="font-label-caps text-label-caps uppercase text-on-surface-variant mb-1">Precio (USD)</p>' +
-      '<div class="flex items-center gap-2"><input name="pmin" inputmode="decimal" value="' + esc(o.filtros.precio_min || '') + '" placeholder="' + esc(fa.precio && fa.precio.min != null ? Math.floor(fa.precio.min) : 'mín.') + '" aria-label="Precio mínimo" class="w-full min-w-0 h-9 px-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm"/>' +
-      '<span>–</span><input name="pmax" inputmode="decimal" value="' + esc(o.filtros.precio_max || '') + '" placeholder="' + esc(fa.precio && fa.precio.max != null ? Math.ceil(fa.precio.max) : 'máx.') + '" aria-label="Precio máximo" class="w-full min-w-0 h-9 px-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm"/>' +
-      '<button class="h-9 px-3 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md">Ir</button></div></form>';
+      '<div class="grid grid-cols-[1fr_1fr_auto] items-end gap-2">' +
+      '<label class="block min-w-0"><span class="block font-body-sm text-body-sm text-on-surface-variant mb-0.5">Desde</span>' +
+        '<input name="pmin" inputmode="decimal" value="' + esc(o.filtros.precio_min || '') + '" placeholder="' + esc(fa.precio && fa.precio.min != null ? Math.floor(fa.precio.min) : 'mín.') + '" class="w-full min-w-0 h-9 px-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm"/></label>' +
+      '<label class="block min-w-0"><span class="block font-body-sm text-body-sm text-on-surface-variant mb-0.5">Hasta</span>' +
+        '<input name="pmax" inputmode="decimal" value="' + esc(o.filtros.precio_max || '') + '" placeholder="' + esc(fa.precio && fa.precio.max != null ? Math.ceil(fa.precio.max) : 'máx.') + '" class="w-full min-w-0 h-9 px-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm"/></label>' +
+      '<button class="h-9 min-w-[44px] px-3 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md" aria-label="Filtrar por precio">Ir</button></div></form>';
 
     var tarjetas = datos.familias.map(function (f) {
       return tarjeta(f.rep, { min: f.min, max: f.max, variantes: f.miembros.length });
     });
     var paginacion = datos.paginas > 1 ? '<nav class="flex flex-wrap items-center justify-center gap-2 mt-6" aria-label="Páginas">' +
-      (datos.pagina > 1 ? '<a class="px-3 py-1.5 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary" href="' + url({ pag: String(datos.pagina - 1) }) + '">Anterior</a>' : '') +
+      (datos.pagina > 1 ? '<a class="inline-flex items-center min-h-[40px] px-4 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary" href="' + url({ pag: String(datos.pagina - 1) }) + '">Anterior</a>' : '') +
       '<span class="font-body-sm text-body-sm text-on-surface-variant">Página ' + datos.pagina + ' de ' + datos.paginas + '</span>' +
-      (datos.pagina < datos.paginas ? '<a class="px-3 py-1.5 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary" href="' + url({ pag: String(datos.pagina + 1) }) + '">Siguiente</a>' : '') +
+      (datos.pagina < datos.paginas ? '<a class="inline-flex items-center min-h-[40px] px-4 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary" href="' + url({ pag: String(datos.pagina + 1) }) + '">Siguiente</a>' : '') +
       '</nav>' : '';
+    var chipsActivos = activos.length ? '<div data-filtros-activos class="flex flex-wrap items-center gap-2 mb-4 tm-tira-movil" aria-label="Filtros aplicados">' +
+      activos.map(function (a) {
+        return '<a class="tm-chip border border-secondary bg-secondary-container text-on-secondary-container font-label-md text-label-md" href="' + esc(a.enlace) + '"' +
+          ' aria-label="Quitar el filtro ' + esc(a.texto) + '">' + esc(a.texto) + ic('close', 'text-[16px]') + '</a>';
+      }).join('') +
+      (activos.length > 1 ? UI.enlace('Quitar todos', href(sinFiltros)) : '') + '</div>' : '';
+    var vacio = activos.length
+      ? UI.enlace('Quitar los filtros', href(sinFiltros))
+      : opciones.fijos && opciones.fijos.seller
+        ? (q.get('q') ? UI.enlace('Ver todo su catálogo', href(base.split('?')[0] + '?id=' + encodeURIComponent(opciones.fijos.seller))) : '')
+        : UI.enlace(q.get('q') ? 'Ver todo el catálogo' : 'Volver al inicio', href(q.get('q') ? 'app/tienda/resultados.html' : 'app/tienda/inicio.html'));
     return '<div data-busqueda="' + (remoto() ? (buscando ? 'local' : 'servidor') : 'local') + '"' + (buscando ? ' data-buscando' : '') + '>' +
       (opciones.encabezado ? opciones.encabezado(datos) : '') +
       (buscando ? '<p class="flex items-center gap-2 font-body-sm text-body-sm text-on-surface-variant mb-3">' + ic('sync', 'text-[18px]') + 'Buscando en todo el catálogo…</p>' : '') +
       (aviso ? '<p class="font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-3">' + esc(aviso) + '</p>' : '') +
       (datos.aproximado ? '<p data-aproximado class="flex items-start gap-1.5 font-body-sm text-body-sm text-on-secondary-container bg-secondary-container rounded-btn px-3 py-2 mb-3">' +
         ic('info', 'text-[16px] mt-0.5') + 'No encontramos productos con todas las palabras: estos coinciden con parte de tu búsqueda.</p>' : '') +
-      '<div class="grid lg:grid-cols-[240px_1fr] gap-6 items-start">' +
-        '<aside><details class="lg:hidden rounded-card border border-outline-variant bg-surface-container-lowest p-3"><summary class="font-label-md text-label-md cursor-pointer">Filtros</summary><div class="mt-3">' + filtros + '</div></details>' +
+      chipsActivos +
+      '<div class="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4 lg:gap-6 items-start">' +
+        '<aside class="min-w-0"><details class="lg:hidden rounded-card border border-outline-variant bg-surface-container-lowest">' +
+          '<summary class="flex items-center gap-2 px-4 py-3 cursor-pointer list-none [&::-webkit-details-marker]:hidden font-label-md text-label-md text-on-surface">' +
+            ic('tune', 'text-[20px] text-secondary') + '<span class="flex-1">Filtros' + (activos.length ? ' (' + activos.length + ')' : '') + '</span>' +
+            ic('expand_more', 'text-[20px] text-on-surface-variant') + '</summary>' +
+          '<div class="px-4 pb-3">' + filtros + '</div></details>' +
         '<div class="hidden lg:block rounded-card border border-outline-variant bg-surface-container-lowest p-4">' + filtros + '</div></aside>' +
         '<div class="min-w-0">' +
-          '<div class="flex flex-wrap items-center gap-2 mb-4"><span class="font-body-sm text-body-sm text-on-surface-variant mr-1">Ordenar:</span>' +
+          '<div class="flex items-center gap-2 mb-4 min-w-0"><span class="shrink-0 font-body-sm text-body-sm text-on-surface-variant">Ordenar:</span>' +
+          '<div class="flex flex-wrap gap-2 min-w-0 tm-tira-movil">' +
           chipOrden('relevancia', 'Relevancia') + chipOrden('precio_asc', 'Menor precio') + chipOrden('precio_desc', 'Mayor precio') +
-          chipOrden('novedades', 'Novedades') + chipOrden('vendidos', 'Más vendidos') + '</div>' +
+          chipOrden('novedades', 'Novedades') + chipOrden('vendidos', 'Más vendidos') + '</div></div>' +
           (tarjetas.length ? grilla(tarjetas, 'xl:grid-cols-4') + paginacion
-            : UI.vacio('search_off', 'Sin resultados', opciones.vacio || 'Ningún producto publicado coincide con la búsqueda. Prueba con otra palabra o quita algún filtro.',
-                '<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href(base.split('?')[0] + (opciones.fijos && opciones.fijos.seller ? '?id=' + encodeURIComponent(opciones.fijos.seller) : '')) + '">Quitar los filtros</a>')) +
+            : UI.vacio('search_off', 'Sin resultados', opciones.vacio || (activos.length
+                ? 'Ningún producto publicado coincide con la búsqueda y los filtros. Prueba quitando algún filtro.'
+                : 'Ningún producto publicado coincide con la búsqueda. Prueba con otra palabra o revisa cómo se escribe.'), vacio)) +
         '</div></div></div>';
   }
 
@@ -638,6 +689,13 @@
   /* =====================================================================
      Inicio
      ===================================================================== */
+  function mosaicoCategoria(enlace, icono, nombre, detalle) {
+    return '<a class="flex flex-col items-center justify-center gap-2 text-center rounded-card border border-outline-variant bg-surface-container-lowest p-4 hover:border-secondary hover:shadow-nivel-2 transition" href="' +
+      enlace + '">' +
+      '<span class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-secondary-container text-on-secondary-container">' + ic(icono, 'text-[24px]') + '</span>' +
+      '<span class="font-label-md text-label-md text-on-surface">' + esc(nombre) + '</span>' +
+      '<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(detalle) + '</span></a>';
+  }
   function vInicio(q, s) {
     var cat = TM.catalogoPublico();
     var vendidos = agruparFamilias(masVendidos()).slice(0, 8);
@@ -654,23 +712,25 @@
       '<p class="font-body-md text-body-md text-white/80 mb-4">Precios en bolívares con referencia en dólares, seguimiento de cada pedido y tu dinero en custodia hasta que confirmes la entrega.</p>' +
       '<a class="inline-flex items-center gap-2 min-h-[44px] px-5 rounded-btn bg-warning text-on-warning font-label-md text-label-md" href="' + href('app/tienda/resultados.html') + '">' +
       ic('search', 'text-[18px]') + 'Explorar el catálogo</a></div>' +
-      ic('storefront', 'absolute -right-6 -bottom-8 text-[180px] text-white/5 hidden sm:block') + '</section>' +
+      /* (dentro de la sección: un icono que se sale lo recorta y la sección queda «cortada») */
+      ic('storefront', 'absolute right-6 top-1/2 -translate-y-1/2 text-[140px] leading-none text-white/5 hidden sm:block') + '</section>' +
 
     APP.ganchos('inicio.secciones', { sesion: s, catalogo: cat }) +
 
-    '<section class="mb-8"><div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">' +
+    /* solo las categorías con productos (una vacía lleva a resultados vacíos)
+       y, al final, «Todo el catálogo», que completa la fila */
+    '<section class="mb-8" aria-label="Categorías"><div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">' +
       raices().map(function (c) {
-        var n = cat.filter(function (p) { return enCategoria(p, c.id); }).length;
-        return '<a class="flex flex-col items-center gap-2 rounded-card border border-outline-variant bg-surface-container-lowest p-4 hover:border-secondary hover:shadow-nivel-2 transition" href="' +
-          href('app/tienda/resultados.html?cat=' + c.id) + '">' +
-          '<span class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-secondary-container text-on-secondary-container">' + ic(c.icono, 'text-[24px]') + '</span>' +
-          '<span class="font-label-md text-label-md text-on-surface">' + esc(c.nombre) + '</span>' +
-          '<span class="font-body-sm text-body-sm text-on-surface-variant">' + n + ' producto' + (n === 1 ? '' : 's') + '</span></a>';
-      }).join('') + '</div></section>' +
+        return { c: c, n: cat.filter(function (p) { return enCategoria(p, c.id); }).length };
+      }).filter(function (x) { return x.n > 0; }).map(function (x) {
+        return mosaicoCategoria(href('app/tienda/resultados.html?cat=' + x.c.id), x.c.icono, x.c.nombre, x.n + ' producto' + (x.n === 1 ? '' : 's'));
+      }).join('') +
+      mosaicoCategoria(href('app/tienda/resultados.html'), 'apps', 'Todo el catálogo', cat.length + ' producto' + (cat.length === 1 ? '' : 's')) +
+      '</div></section>' +
 
     (destacados.length ? '<section class="mb-8" data-destacados="' + (novedades ? 'novedades' : 'vendidos') + '">' +
       titulo(novedades ? 'Novedades' : 'Los más vendidos',
-        '<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href('app/tienda/resultados.html?orden=' + (novedades ? 'novedades' : 'vendidos')) + '">Ver todo</a>') +
+        UI.enlace('Ver todo', href('app/tienda/resultados.html?orden=' + (novedades ? 'novedades' : 'vendidos')))) +
       grilla(destacados.map(tarjetaFamilia)) + '</section>' : '') +
 
     (sellers.length ? '<section>' + titulo('Comercios en Tumbo') +
@@ -691,11 +751,15 @@
   function vResultados(q) {
     var texto = (q.get('q') || '').trim();
     var cat = q.get('cat') || '';
-    var titulo = cat ? nombreCategoria(cat) : (texto ? 'Resultados para «' + texto + '»' : 'Todo el catálogo');
+    var marcas = q.getAll('marca').filter(Boolean);
+    /* el título dice lo que se ve: «Bridgestone en Automotriz», «Bridgestone en todo el catálogo» */
+    var titulo = texto ? 'Resultados para «' + texto + '»'
+      : marcas.length ? marcas.join(', ') + ' en ' + (cat ? nombreCategoria(cat) : 'todo el catálogo')
+      : cat ? nombreCategoria(cat) : 'Todo el catálogo';
     return bloqueBusqueda(q, {
       encabezado: function (d) {
-        return '<div class="flex flex-wrap items-end justify-between gap-2 mb-4">' +
-          '<h1 class="font-headline-md text-headline-md text-primary-container">' + esc(titulo) + '</h1>' +
+        return '<div class="flex flex-wrap items-end justify-between gap-x-3 gap-y-1 mb-4">' +
+          '<h1 class="min-w-0 break-words font-headline-md text-headline-md text-primary-container">' + esc(titulo) + '</h1>' +
           '<span class="font-body-sm text-body-sm text-on-surface-variant">' + d.total + ' resultado' + (d.total === 1 ? '' : 's') + '</span></div>' +
           (cat && rutaCategoria(cat).length > 1 ? '<nav class="font-body-sm text-body-sm text-on-surface-variant -mt-2 mb-4"><a class="hover:text-secondary" href="' +
             href('app/tienda/resultados.html?cat=' + rutaCategoria(cat)[0].id) + '">' + esc(rutaCategoria(cat)[0].nombre) + '</a> › ' + esc(nombreCategoria(cat)) + '</nav>' : '');
@@ -766,13 +830,13 @@
     if (disp <= 0) {
       html += aStock
         ? '<p data-alerta-activa="stock" class="flex flex-wrap items-center gap-x-2 font-body-sm text-body-sm text-tertiary mb-2">' + ic('notifications_active', 'text-[18px]') +
-          'Te avisaremos cuando vuelva. <button type="button" data-quitar-alerta="stock" class="text-secondary hover:underline">Quitar aviso</button></p>'
+          'Te avisaremos cuando vuelva. <button type="button" data-quitar-alerta="stock" class="tm-tocable px-1 text-secondary hover:underline">Quitar aviso</button></p>'
         : btn('Avisarme cuando vuelva', { attr: 'data-avisar', clase: 'w-full mb-2', icono: 'notifications' });
     }
     if (remoto()) {
       html += aPrecio
         ? '<p data-alerta-activa="precio" class="flex flex-wrap items-center gap-x-2 font-body-sm text-body-sm text-tertiary">' + ic('trending_down', 'text-[18px]') +
-          'Te avisaremos si baja de ' + esc(TM.fmtUsd(aPrecio.precioRef)) + '. <button type="button" data-quitar-alerta="precio" class="text-secondary hover:underline">Quitar aviso</button></p>'
+          'Te avisaremos si baja de ' + esc(TM.fmtUsd(aPrecio.precioRef)) + '. <button type="button" data-quitar-alerta="precio" class="tm-tocable px-1 text-secondary hover:underline">Quitar aviso</button></p>'
         : '<button type="button" data-alerta-precio class="inline-flex items-center gap-1.5 font-label-md text-label-md text-secondary hover:underline">' +
           ic('trending_down', 'text-[18px]') + 'Avísame si baja de precio</button>';
     }
@@ -783,8 +847,8 @@
     var p = TM.producto(q.get('sku'));
     if (!p || !(p.estado === 'publicado')) {
       return UI.vacio('search_off', 'Producto no disponible',
-        'Este producto no existe o su publicación está pausada. Te dejamos alternativas del catálogo.',
-        '<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href('app/tienda/resultados.html') + '">Explorar el catálogo</a>');
+        'Este producto no existe o su publicación está pausada. Debajo tienes alternativas del catálogo.',
+        UI.enlace('Explorar el catálogo', href('app/tienda/resultados.html'), 'arrow_forward')) + alternativas(4);
     }
     var vend = TM.seller(p.sellerId);
     var disp = disponible(p);
@@ -796,51 +860,65 @@
     })).slice(0, 4);
     var ctx = { producto: p, seller: vend, sesion: s, disponible: disp };
     var galeria = APP.ganchos('producto.galeria', ctx);
+    var variantes = selectorVariantes(p);
 
     return '' +
-    '<nav class="font-body-sm text-body-sm text-on-surface-variant mb-3">' +
-      '<a class="hover:text-secondary" href="' + href('app/tienda/inicio.html') + '">Inicio</a>' +
-      ruta.map(function (c) { return ' › <a class="hover:text-secondary" href="' + href('app/tienda/resultados.html?cat=' + c.id) + '">' + esc(c.nombre) + '</a>'; }).join('') +
-      ' › <span class="text-on-surface">' + esc(p.nombre) + '</span></nav>' +
+    /* En el teléfono y la tableta, un solo enlace para volver a la categoría
+       (los de la ruta completa eran blancos de 17 px); desde lg, la ruta completa. */
+    (ruta.length ? '<p class="lg:hidden -mt-1 mb-1">' + UI.enlace(ruta[ruta.length - 1].nombre, href('app/tienda/resultados.html?cat=' + ruta[ruta.length - 1].id), 'arrow_back') + '</p>' : '') +
+    '<nav class="' + (ruta.length ? 'hidden lg:flex' : 'flex') + ' items-center gap-1 min-w-0 font-body-sm text-body-sm text-on-surface-variant mb-3" aria-label="Ruta">' +
+      '<a class="shrink-0 hover:text-secondary" href="' + href('app/tienda/inicio.html') + '">Inicio</a>' +
+      ruta.map(function (c) { return '<span class="shrink-0" aria-hidden="true">›</span><a class="shrink-0 hover:text-secondary" href="' + href('app/tienda/resultados.html?cat=' + c.id) + '">' + esc(c.nombre) + '</a>'; }).join('') +
+      '<span class="shrink-0" aria-hidden="true">›</span><span class="min-w-0 truncate text-on-surface">' + esc(p.nombre) + '</span></nav>' +
 
-    '<div class="grid lg:grid-cols-[1.1fr_1.3fr_360px] gap-6 items-start">' +
-      '<div class="relative min-w-0">' + (galeria || galeriaHtml(p)) + corazon(p.sku, 'absolute top-3 left-3') + '</div>' +
+    /* En el teléfono: galería, título, caja de compra y después la
+       descripción y la ficha (el precio y «Agregar al carrito» quedan a
+       la vista sin bajar dos pantallas). Desde md, galería a la izquierda;
+       en lg, las tres columnas de siempre. */
+    '<div class="grid grid-cols-1 gap-4 md:grid-cols-2 md:grid-rows-[auto_1fr] md:gap-6 lg:grid-cols-[1.1fr_1.3fr_360px] items-start">' +
+      '<div class="relative min-w-0 md:col-start-1 md:row-start-1 md:row-span-2">' + (galeria || galeriaHtml(p)) + corazon(p.sku, 'absolute top-2 left-2') + '</div>' +
 
-      '<div class="min-w-0">' +
-        '<h1 class="font-headline-md text-headline-md text-on-surface mb-1">' + esc(p.nombre) + '</h1>' +
+      '<div class="min-w-0 md:col-start-2 md:row-start-1">' +
+        '<h1 class="font-headline-md text-headline-md text-on-surface mb-1 break-words">' + esc(p.nombre) + '</h1>' +
         '<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">Marca: <strong>' + esc(p.marca) + '</strong> · ' +
-          '<span class="font-data-mono text-data-mono">' + esc(p.sku) + '</span>' +
+          '<span class="font-data-mono text-data-mono tm-id">' + esc(p.sku) + '</span>' +
           (p.condicion && p.condicion !== 'nuevo' ? ' · <strong class="text-on-surface">' + esc(CONDICION[p.condicion]) + '</strong>' : '') + '</p>' +
         (estrellasReales(p.rating, p.resenas) || '<p class="font-body-sm text-body-sm text-on-surface-variant">Sin reseñas todavía</p>') +
-        '<hr class="my-3 border-outline-variant"/>' +
-        selectorVariantes(p) +
-        '<p class="font-body-md text-body-md text-on-surface mb-4 whitespace-pre-line">' + esc(p.descripcion) + '</p>' +
-        '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Ficha técnica</h2>' +
-        fichaTecnica(p) + '</div>' +
+        (variantes ? '<hr class="my-3 border-outline-variant"/>' + variantes : '') + '</div>' +
 
-      '<aside class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
+      '<aside data-caja-compra class="min-w-0 rounded-card border border-outline-variant bg-surface-container-lowest p-4 md:col-start-2 md:row-start-2 lg:col-start-3 lg:row-start-1 lg:row-span-2">' +
         UI.precio(p.precioUsd, true) +
-        /* el plazo de entrega lo promete Logística en el gancho (sin fecha fija) */
-        APP.ganchos('producto.compra', ctx) +
+        /* ofertas y promesa de entrega (de los ganchos) suben aquí al pintar */
+        '<div data-compra-arriba></div>' +
         '<p class="mt-3 font-body-sm text-body-sm ' + (disp > 3 ? 'text-on-surface-variant' : 'text-error font-semibold') + ' mb-3">' +
           (disp > 3 ? 'Disponible' : disp > 0 ? 'Solo quedan ' + disp + ' unidades' : 'Agotado') + '</p>' +
         (disp > 0
-          ? '<label class="flex items-center gap-2 mb-3 font-body-sm text-body-sm">Cantidad' +
-            '<select data-cant class="h-10 w-16 px-2 rounded-btn border border-outline-variant bg-surface-container-low text-center">' +
+          ? '<label class="flex items-center gap-3 mb-3 font-body-sm text-body-sm">Cantidad' +
+            '<select data-cant class="h-10 w-20 pl-3 rounded-btn border border-outline-variant bg-surface-container-low">' +
             Array.from({ length: Math.min(disp, 5) }, function (_, i) { return '<option>' + (i + 1) + '</option>'; }).join('') +
             '</select></label>' +
             btn('Agregar al carrito', { estilo: 'primario', icono: 'shopping_cart', attr: 'data-agregar', clase: 'w-full mb-2' }) +
             btn('Comprar ahora', { estilo: 'marca', icono: 'arrow_forward', attr: 'data-comprar', clase: 'w-full mb-2' })
           : '') +
         avisosProducto(p, s, disp) +
+        /* Compra Protegida, tasa, compartir… (el plazo de entrega lo promete
+           Logística en el gancho, sin fecha fija) */
+        '<div data-compra-ganchos>' + APP.ganchos('producto.compra', ctx) + '</div>' +
         '<hr class="my-3 border-outline-variant"/>' +
         '<p class="font-body-sm text-body-sm text-on-surface-variant">Vendido por</p>' +
-        '<a data-vendido-por class="font-body-md text-body-md font-bold text-secondary hover:underline" href="' + href('app/tienda/seller.html?id=' + encodeURIComponent(vend.id)) + '">' + esc(vend.nombre) + '</a>' +
+        '<a data-vendido-por class="inline-flex items-center min-h-[32px] font-body-md text-body-md font-bold text-secondary hover:underline" href="' + href('app/tienda/seller.html?id=' + encodeURIComponent(vend.id)) + '">' + esc(vend.nombre) + '</a>' +
         '<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5 mb-2">Comercio homologado · ' + esc(vend.ciudad) + '</p>' +
         (insignia(vend) ? '<p class="mb-2">' + insignia(vend) + '</p>' : '') +
         '<p class="flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant">' +
           ic('undo', 'text-[16px] mt-0.5') + 'Devolución dentro de los ' + TM.estado.config.ventanaReclamoDias + ' días posteriores a la entrega.</p>' +
-      '</aside></div>' +
+      '</aside>' +
+
+      '<div class="min-w-0 md:col-span-2 md:row-start-3 lg:col-span-1 lg:col-start-2 lg:row-start-2">' +
+        '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Descripción</h2>' +
+        '<p class="font-body-md text-body-md text-on-surface mb-4 whitespace-pre-line break-words">' + esc(p.descripcion) + '</p>' +
+        '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Ficha técnica</h2>' +
+        fichaTecnica(p) + '</div>' +
+    '</div>' +
 
     APP.ganchos('producto.secciones', ctx) +
 
@@ -853,6 +931,15 @@
     var sku = q.get('sku');
     var p = TM.producto(sku);
     if (p) enlazarGaleria(raiz, p);
+    /* Lo que decide la compra va junto al precio (pausa de la categoría,
+       ofertas y la promesa de entrega); lo demás de los ganchos, después de
+       los botones. Se mueven los mismos nodos: quien los repinta los
+       sigue encontrando por su atributo. */
+    var arriba = raiz.querySelector('[data-compra-arriba]');
+    var ganchos = raiz.querySelector('[data-compra-ganchos]');
+    if (arriba && ganchos) {
+      ganchos.querySelectorAll('[data-categoria-pausa], [data-oferta], [data-tm-envio-promesa]').forEach(function (n) { arriba.appendChild(n); });
+    }
     function agregar(boton, cb) {
       var sel = raiz.querySelector('[data-cant]');
       var cant = sel ? parseInt(sel.value, 10) : 1;
@@ -860,7 +947,9 @@
     }
     var a = raiz.querySelector('[data-agregar]');
     if (a) a.addEventListener('click', function () {
-      agregar(a, function () { UI.toast('Agregado al carrito', TM.producto(sku).nombre, 'shopping_cart'); });
+      agregar(a, function () {
+        UI.toast('Agregado al carrito', TM.producto(sku).nombre, 'shopping_cart', { accion: { texto: 'Ver carrito', href: href('app/tienda/carrito.html') } });
+      });
     });
     var c = raiz.querySelector('[data-comprar]');
     if (c) c.addEventListener('click', function () {
@@ -879,7 +968,7 @@
     }
     var v = raiz.querySelector('[data-avisar]');
     if (v) v.addEventListener('click', function () {
-      alerta(v, 'stock', true, ['Te avisaremos', 'Cuando vuelva a haber stock te llega el aviso a la campana. El correo y WhatsApp quedan pendientes hasta que Tumbo conecte su proveedor de mensajes.']);
+      alerta(v, 'stock', true, ['Te avisaremos', 'Cuando vuelva a haber stock te llega el aviso a la campana (y por correo o WhatsApp, según tus preferencias de avisos).']);
     });
     var ap = raiz.querySelector('[data-alerta-precio]');
     if (ap) ap.addEventListener('click', function () {
@@ -895,6 +984,11 @@
   /* =====================================================================
      Favoritos y avisos del comprador
      ===================================================================== */
+  /* «2026-10-24 …» → «24/10/2026» */
+  function fechaCorta(v) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || ''));
+    return m ? m[3] + '/' + m[2] + '/' + m[1] : '';
+  }
   function vFavoritos(q, s) {
     var cab = '<div class="flex flex-wrap items-end justify-between gap-2 mb-4"><h1 class="font-headline-md text-headline-md text-primary-container">Favoritos y avisos</h1></div>';
     if (TM.requiereServidor()) return cab + avisoServidor('Los favoritos y los avisos de stock y de precio se guardan en tu cuenta del servidor.');
@@ -912,18 +1006,21 @@
           '<button type="button" data-fav="' + esc(f.sku) + '" aria-pressed="true" class="tm-fav mt-2 inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline">' +
           ic('favorite', 'text-[18px]') + 'Quitar</button></div>';
       }))
-        : UI.vacio('favorite', 'Aún no guardas productos', 'Toca el corazón de un producto para tenerlo a mano aquí.',
-          '<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href('app/tienda/resultados.html') + '">Explorar el catálogo</a>')) + '</section>' +
+        : '<div class="rounded-card border border-outline-variant bg-surface-container-lowest">' +
+          UI.vacio('favorite', 'Aún no guardas productos', 'Toca el corazón de un producto para tenerlo a mano aquí.',
+            UI.enlace('Explorar el catálogo', href('app/tienda/resultados.html')), { compacto: true }) + '</div>') + '</section>' +
       '<section><h2 class="font-headline-sm text-headline-sm text-primary-container mb-3">Avisos activos (' + alertas.length + ')</h2>' +
       (alertas.length ? '<div class="rounded-card border border-outline-variant bg-surface-container-lowest divide-y divide-outline-variant">' + alertas.map(function (a) {
         var p = TM.producto(a.sku);
         return '<div class="flex flex-wrap items-center gap-3 p-3">' + ic(a.tipo === 'stock' ? 'notifications_active' : 'trending_down', 'text-[20px] text-secondary') +
           '<span class="flex-1 min-w-0 font-body-sm text-body-sm"><a class="text-on-surface hover:text-secondary" href="' + href('app/tienda/producto.html?sku=' + encodeURIComponent(a.sku)) + '">' + esc(p ? p.nombre : a.sku) + '</a>' +
-          '<span class="block text-on-surface-variant">' + (a.tipo === 'stock' ? 'Cuando vuelva a haber stock' : 'Si baja de ' + esc(TM.fmtUsd(a.precioRef))) + ' · desde ' + esc(String(a.creado || '').split(' ')[0]) + '</span></span>' +
+          '<span class="block text-on-surface-variant">' + (a.tipo === 'stock' ? 'Cuando vuelva a haber stock' : 'Si baja de ' + esc(TM.fmtUsd(a.precioRef))) + (fechaCorta(a.creado) ? ' · desde el ' + esc(fechaCorta(a.creado)) : '') + '</span></span>' +
           '<button type="button" data-quitar-aviso="' + esc(a.sku) + '" data-tipo="' + a.tipo + '" class="font-label-md text-label-md text-secondary hover:underline">Quitar</button></div>';
       }).join('') + '</div>'
-        : '<p class="font-body-sm text-body-sm text-on-surface-variant">No tienes avisos. En un producto agotado toca «Avisarme cuando vuelva», o «Avísame si baja de precio» en cualquier producto.</p>') +
-      '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Los avisos llegan a tu campana al momento. El correo y WhatsApp quedan en la bandeja de salida hasta que Tumbo conecte su proveedor de mensajes.</p></section>';
+        : '<div class="rounded-card border border-outline-variant bg-surface-container-lowest">' +
+          UI.vacio('notifications', 'No tienes avisos', 'En un producto agotado toca «Avisarme cuando vuelva», o «Avísame si baja de precio» en cualquier producto.', '', { compacto: true }) + '</div>') +
+      '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Los avisos llegan a tu campana al momento; por correo o WhatsApp, según tus ' +
+        '<a class="text-secondary font-semibold hover:underline" href="' + href('app/tienda/notificaciones.html') + '">preferencias de avisos</a>.</p></section>';
   }
   function despuesFavoritos(raiz) {
     raiz.querySelectorAll('[data-quitar-aviso]').forEach(function (b) {
@@ -952,9 +1049,9 @@
       '<div class="p-4 sm:p-6 flex flex-wrap gap-4 items-start">' +
         '<div class="-mt-12 sm:-mt-14">' + logoSeller(x, 'w-20 h-20 sm:w-24 sm:h-24 border-4 border-surface-container-lowest') + '</div>' +
         '<div class="flex-1 min-w-[220px]">' +
-          '<h1 class="font-headline-md text-headline-md text-on-surface">' + esc(x.nombre) + '</h1>' +
+          '<h1 class="font-headline-md text-headline-md text-on-surface break-words">' + esc(x.nombre) + '</h1>' +
           '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">' + esc(x.ciudad) + ' · ' + esc(antiguedad(x)) + ' · ' + n + ' producto' + (n === 1 ? '' : 's') + '</p>' +
-          (insignia(x, true) || '<p class="font-body-sm text-body-sm text-on-surface-variant">Comercio homologado por Tumbo; sus documentos aún no están verificados.</p>') +
+          (insignia(x, true) || '<p class="font-body-sm text-body-sm text-on-surface-variant">Comercio aprobado por Tumbo · verificación de documentos en curso</p>') +
           (x.descripcion ? '<p class="font-body-md text-body-md text-on-surface mt-3 whitespace-pre-line">' + esc(x.descripcion) + '</p>' : '') +
         '</div>' +
         ((x.horario || x.politicas) ? '<div class="w-full lg:w-80 space-y-2">' +
@@ -964,7 +1061,7 @@
       '</div></section>' +
       '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-3">Catálogo de ' + esc(x.nombre) + '</h2>' +
       '<form data-buscar-tienda class="mb-4 max-w-md flex" role="search"><input name="q" value="' + esc(q.get('q') || '') + '" placeholder="Buscar en esta tienda…" aria-label="Buscar en esta tienda" class="flex-1 min-w-0 h-10 px-3 rounded-l-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm focus:border-secondary outline-none"/>' +
-      '<button class="h-10 px-3 rounded-r-btn bg-secondary text-on-secondary" aria-label="Buscar">' + ic('search') + '</button></form>' +
+      '<button class="inline-flex items-center justify-center h-10 w-11 shrink-0 rounded-r-btn bg-secondary text-on-secondary" aria-label="Buscar">' + ic('search') + '</button></form>' +
       bloqueBusqueda(q, { fijos: { seller: x.id }, base: 'app/tienda/seller.html', vacio: 'Este comercio no tiene productos que coincidan.' });
   }
   function despuesTiendaSeller(raiz, q) {
@@ -1019,7 +1116,9 @@
   CAT.avisoServidor = avisoServidor;
   CAT.api = api;
   CAT.abrirVisor = abrirVisor;
+  CAT.corazon = corazon;
   CAT.masVendidos = masVendidos;
+  CAT.alternativas = alternativas;
   CAT.norm = norm;
   /* Las cuentas de prueba (contraseña pública) son las de la semilla. */
   CAT.cuentaDemo = function (s) {

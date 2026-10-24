@@ -459,11 +459,10 @@ function psql(consulta) {
     if (!/cuentas de prueba/.test(await texto('.tm-toast'))) throw new Error('mensaje inesperado: ' + await texto('.tm-toast'));
     await como('finanzas');
     await abrir('admin/finanzas');
+    /* la cuenta de prueba no propone la tasa: el formulario se ve deshabilitado
+       (el servidor también lo rechaza: api-pagos.js) */
     await p.locator('summary', { hasText: 'Cargar la tasa a mano' }).click();
-    await p.fill('#ts-valor', '40.5');
-    await p.locator('[data-proponer-tasa]').click();
-    await p.locator('.tm-modal [data-ok]').click();
-    await aviso('No se propuso la tasa');
+    if (!(await p.locator('[data-proponer-tasa]').isDisabled()) || !(await p.locator('#ts-valor').isDisabled())) throw new Error('la cuenta de prueba puede proponer la tasa');
   }, /status of 4\d\d/);
 
   await pruebaSolo('remoto', 'el total del pedido es lo cobrado (con IGTF) en el detalle, en «Mis pedidos» y en la sección de pago', async () => {

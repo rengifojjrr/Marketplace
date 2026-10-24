@@ -76,6 +76,9 @@
       ic('hourglass_top', 'text-[18px]') + esc(texto || 'Cargando…') + '</p>';
   }
   function fallo(error, clave) {
+    /* sin el permiso fino: el 403 */
+    var negado = APP.html403Error(error);
+    if (negado) return negado;
     return '<div data-error-com class="flex flex-wrap items-center gap-2 rounded-btn bg-error-container text-on-error-container px-3 py-2 mb-3 font-body-sm text-body-sm">' +
       ic('error', 'text-[18px]') + '<span class="flex-1">' + esc(error) + '</span>' +
       (clave ? UI.btn('Reintentar', { icono: 'refresh', clase: 'min-h-[32px] px-3', attr: 'data-reintentar-com="' + esc(clave) + '"' }) : '') + '</div>';
@@ -90,7 +93,7 @@
   /* ---------------------------------------------------------------------
      Piezas de interfaz
      ------------------------------------------------------------------- */
-  var CLASE_INPUT = 'w-full h-10 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none';
+  var CLASE_INPUT = 'w-full h-11 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none';
   var CLASE_AREA = 'w-full px-3 py-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none';
   var TONOS = {
     verde: 'bg-success-container text-on-success-container', ambar: 'bg-warning-container text-on-warning-container',
@@ -121,10 +124,10 @@
   }
   /* Pestañas como enlaces (filtros en la URL): [[valor, texto, n?]] */
   function pestanas(lista, activa, atributo) {
-    return '<div class="flex flex-wrap gap-2 mb-4" role="tablist">' + lista.map(function (f) {
+    /* (el mismo chip que UI.chip en todo el sitio) */
+    return '<div class="flex flex-wrap gap-2 mb-4 tm-tira-movil" role="tablist">' + lista.map(function (f) {
       var on = f[0] === activa;
-      return '<button type="button" role="tab" aria-selected="' + on + '" ' + atributo + '="' + esc(f[0]) + '" class="min-h-[36px] px-3 rounded-full border font-label-md text-label-md ' +
-        (on ? 'bg-primary-container text-on-primary border-primary-container' : 'border-outline-variant text-on-surface hover:border-secondary') + '">' +
+      return '<button type="button" role="tab" aria-selected="' + on + '" ' + atributo + '="' + esc(f[0]) + '" class="' + UI.claseChip(on) + '">' +
         esc(f[1]) + (f[2] != null ? ' (' + f[2] + ')' : '') + '</button>';
     }).join('') + '</div>';
   }
@@ -176,8 +179,9 @@
   /* Selector de estrellas (radios accesibles). */
   function selectorEstrellas(nombre, etiqueta, valor) {
     return '<fieldset class="mb-2" data-estrellas="' + esc(nombre) + '"><legend class="font-label-md text-label-md text-on-surface mb-1">' + esc(etiqueta) + '</legend>' +
-      '<div class="flex items-center gap-1">' + [1, 2, 3, 4, 5].map(function (n) {
-        return '<label class="cursor-pointer" title="' + n + ' de 5"><input type="radio" class="sr-only" name="' + esc(nombre) + '" value="' + n + '"' +
+      /* cada estrella es un blanco táctil de 44 × 44 */
+      '<div class="flex items-center">' + [1, 2, 3, 4, 5].map(function (n) {
+        return '<label class="inline-flex shrink-0 items-center justify-center w-11 h-11 cursor-pointer has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-secondary/50 rounded-full" title="' + n + ' de 5"><input type="radio" class="sr-only" name="' + esc(nombre) + '" value="' + n + '"' +
           (valor === n ? ' checked' : '') + '/><span data-estrella="' + n + '" class="text-[28px] leading-none ' + (valor >= n ? 'text-warning' : 'text-outline') + '">' +
           ic('star', 'text-[28px]') + '</span></label>';
       }).join('') + '</div></fieldset>';
@@ -289,7 +293,7 @@
       (opciones.texto ? '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">' + opciones.texto + '</p>' : '') +
       '<form data-form-com class="space-y-3">' + camposHtml +
       '<p data-error-form class="hidden font-body-sm text-body-sm text-error"></p>' +
-      '<div class="flex justify-end gap-2 pt-1">' + UI.btn('Cancelar', { attr: 'data-cerrar' }) +
+      '<div class="tm-acciones pt-1">' + UI.btn(UI.textoCerrar(textoAccion), { attr: 'data-cerrar' }) +
       UI.btn(textoAccion || 'Guardar', { estilo: opciones.peligro ? 'peligro' : 'primario', tipo: 'submit', attr: 'data-ok' }) + '</div></form>',
       function (velo, cerrar) {
         var f = velo.querySelector('[data-form-com]');
@@ -317,6 +321,7 @@
      ------------------------------------------------------------------- */
   var LEGAL_PAGINA = { terminos: 'terminos', privacidad: 'privacidad', contrato_seller: 'contrato-seller',
     devoluciones: 'devoluciones', compra_protegida: 'compra-protegida' };
+  var ARTICULO = { terminos: 'los', privacidad: 'la', contrato_seller: 'el', devoluciones: 'la', compra_protegida: 'la' };
   /* Lo que falta aceptar se recuerda en la pestaña 10 minutos (así no se
      consulta en cada página); aceptar un documento lo olvida. */
   var CLAVE_LEGAL = 'tm.com.legales.v1';
@@ -354,14 +359,16 @@
     /* «Actualizamos» solo si la persona ya había aceptado otra versión de
        ese documento; si nunca lo aceptó, se le pide aceptarlo. */
     var nuevos = p.filter(function (d) { return d.previa; }), nunca = p.filter(function (d) { return !d.previa; });
-    var titulos = function (l) { return l.map(function (d) { return esc(d.titulo); }).join(' y '); };
-    return '<div data-legal-pendiente class="max-w-[1280px] mx-auto px-3 sm:px-4 pt-3">' +
+    /* con su artículo («la Política de privacidad y los Términos…») y en
+       número; cada documento, un enlace de 44 px en su propia línea */
+    var titulos = function (l) { return l.map(function (d) { return (ARTICULO[d.clave] ? ARTICULO[d.clave] + ' ' : '') + esc(d.titulo); }).join(' y '); };
+    return '<div data-legal-pendiente class="max-w-[1280px] mx-auto px-4 pt-3">' +
       aviso('ambar', 'gavel', (nuevos.length ? '<strong>Actualizamos ' + titulos(nuevos) + '.</strong> ' : '') +
         (nunca.length ? '<strong>Falta que aceptes ' + titulos(nunca) + '.</strong> ' : '') +
-        'Revísalo y acéptalo para seguir usando Tumbo con las condiciones vigentes. ' +
-        p.map(function (d) {
-          return '<a class="underline font-semibold" href="' + href('app/ayuda/' + (LEGAL_PAGINA[d.clave] || 'inicio') + '.html') + '">Leer ' + esc(d.titulo) + '</a>';
-        }).join(' · ')) + '</div>';
+        (p.length > 1 ? 'Revísalos y acéptalos' : 'Revísalo y acéptalo') + ' para seguir usando Tumbo con las condiciones vigentes.' +
+        '<span class="flex flex-col items-start mt-1">' + p.map(function (d) {
+          return '<a class="tm-tocable underline underline-offset-2 font-semibold" href="' + href('app/ayuda/' + (LEGAL_PAGINA[d.clave] || 'inicio') + '.html') + '">Leer ' + esc(d.titulo) + '</a>';
+        }).join('') + '</span>') + '</div>';
   }
 
   /* ---------------------------------------------------------------------
@@ -375,7 +382,7 @@
   APP.nav('pie', { texto: 'Privacidad', href: 'app/ayuda/privacidad.html', orden: 60 });
   APP.nav('pie', { texto: 'Contacto', href: 'app/ayuda/contacto.html', orden: 70 });
 
-  APP.nav('cuenta', { id: 'notificaciones', texto: 'Notificaciones', descripcion: 'Qué avisos recibir por correo y WhatsApp',
+  APP.nav('cuenta', { id: 'notificaciones', texto: 'Preferencias de avisos', descripcion: 'Qué avisos recibir por correo y WhatsApp',
     icono: 'notifications', href: 'app/tienda/notificaciones.html', roles: ['comprador'] });
   APP.nav('cuenta', { id: 'resenas', texto: 'Califica tus compras', descripcion: 'Reseñas verificadas de tus pedidos',
     icono: 'reviews', href: 'app/tienda/resenas.html', roles: ['comprador'] });
@@ -385,14 +392,14 @@
   APP.nav('seller', { vista: 'seller/preguntas', texto: 'Preguntas', icono: 'help', roles: ['seller', 'operador'], orden: 38 });
   APP.nav('seller', { vista: 'seller/resenas', texto: 'Reseñas', icono: 'reviews', roles: ['seller', 'operador'], orden: 42 });
   APP.nav('seller', { vista: 'seller/soporte', texto: 'Soporte', icono: 'support_agent', roles: ['seller', 'precios', 'operador'], orden: 880 });
-  APP.nav('seller', { vista: 'seller/notificaciones', texto: 'Avisos', icono: 'notifications', roles: ['seller', 'precios', 'operador'], orden: 890 });
+  APP.nav('seller', { vista: 'seller/notificaciones', texto: 'Notificaciones', icono: 'notifications', roles: ['seller', 'precios', 'operador'], orden: 890 });
 
   APP.nav('admin', { vista: 'admin/mensajes', texto: 'Mensajes salientes', icono: 'forward_to_inbox', roles: ['superadmin', 'ops'], orden: 87 });
   /* (con su permiso fino: el menú del Backoffice oculta lo que la sesión no
      tiene, ver POR_PERMISO en tm-mod-crecimiento.js) */
   APP.nav('admin', { vista: 'admin/soporte', texto: 'Soporte', icono: 'support_agent', roles: ['superadmin', 'ops', 'finanzas'], permiso: 'soporte', orden: 52 });
   APP.nav('admin', { vista: 'admin/contenido', texto: 'Contenido y denuncias', icono: 'flag', roles: ['superadmin', 'ops', 'finanzas'], permiso: 'contenido', orden: 25 });
-  APP.nav('admin', { vista: 'admin/notificaciones', texto: 'Avisos', icono: 'notifications', roles: ['superadmin', 'ops', 'finanzas'], orden: 890 });
+  APP.nav('admin', { vista: 'admin/notificaciones', texto: 'Notificaciones', icono: 'notifications', roles: ['superadmin', 'ops', 'finanzas'], orden: 890 });
 
   /* ---------------------------------------------------------------------
      Enlaces tras cada pintado: reintentos, estrellas, adjuntos y el aviso
@@ -454,5 +461,20 @@
   C.LEGAL_PAGINA = LEGAL_PAGINA;
   C.olvidarLegales = olvidarLegales;
   C.legales = legales;
+  /* Los plazos vigentes (reclamo, respuesta del comercio, evidencia,
+     apelación, reseña, SLA de soporte) que da el servidor con los legales;
+     sin servidor, los de la demo. Los citan el centro de ayuda y los reclamos. */
+  C.plazos = function (s) {
+    var cfg = (TM.estado && TM.estado.config) || {};
+    if (!remoto()) {
+      return { cargado: true, reclamo: cfg.ventanaReclamoDias || 3, respuesta: 72, evidencia: 48, apelacion: 5, resena: 90,
+        sla: { alta: 4, normal: 24, baja: 48 } };
+    }
+    var r = legales(s);
+    var p = r.listo && r.dato && r.dato.plazos;
+    if (!p) return { cargado: false, reclamo: cfg.ventanaReclamoDias || null, sla: {} };
+    return { cargado: true, reclamo: p.ventana_reclamo_dias, respuesta: p.horas_respuesta_reclamo, evidencia: p.horas_evidencia,
+      apelacion: p.dias_apelacion, resena: p.dias_resena, sla: p.sla_soporte || {} };
+  };
   window.TM.com = C;
 })();

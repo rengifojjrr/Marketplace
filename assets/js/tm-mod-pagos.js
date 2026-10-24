@@ -408,17 +408,22 @@
       ic('currency_exchange', 'text-[16px] mt-0.5 shrink-0') + '<span>' + esc(textoTasa()) + '</span></p>';
   });
 
-  function filaMonto(t, v, extra) {
-    return '<div class="flex justify-between gap-3 ' + (extra || '') + '"><dt class="text-on-surface-variant">' + t + '</dt><dd class="tm-num">' + v + '</dd></div>';
+  /* Una fila «concepto: importe» (el importe no se parte). {texto: true}:
+     el valor es una frase, que sí se parte (antes, sin cortes, ensanchaba
+     el recibo en el teléfono). */
+  function filaMonto(t, v, extra, opciones) {
+    var dd = opciones && opciones.texto ? 'min-w-0 text-right [overflow-wrap:anywhere]' : 'tm-num';
+    return '<div class="flex justify-between gap-3 ' + (extra || '') + '"><dt class="text-on-surface-variant">' + t + '</dt><dd class="' + dd + '">' + v + '</dd></div>';
   }
 
   APP.gancho('pedido.comprador', function (c) {
     var p = c.pedido;
     if (!p) return '';
     var enlaces = [];
-    if (p.pagoId && p.estado === 'pago_por_verificar') {
-      enlaces.push('<a class="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md" href="' +
-        href('app/tienda/pago.html?id=' + encodeURIComponent(p.pagoId)) + '">' + ic('payments', 'text-[18px]') + 'Pagar o ver el pago ' + esc(p.pagoId) + '</a>');
+    /* (sin reportar todavía, «Pagar ahora» va primero en las acciones del pedido) */
+    if (p.pagoId && p.estado === 'pago_por_verificar' && p.ref) {
+      enlaces.push('<a class="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary" href="' +
+        href('app/tienda/pago.html?id=' + encodeURIComponent(p.pagoId)) + '">' + ic('payments', 'text-[18px]') + 'Ver el pago <span class="tm-id">' + esc(p.pagoId) + '</span></a>');
     }
     if (p.pagoId && p.estado !== 'pago_por_verificar' && !(p.estado === 'cancelado' && p.slaHoras == null)) {
       enlaces.push('<a class="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary" href="' +
@@ -430,18 +435,16 @@
     }
     if (!p.pagoId) return '';
     var tasaP = p.tasa;
-    var lineas = filaMonto('Productos', esc(TM.fmtBs(productosPedido(p), tasaP)));
-    if (p.descuentoUsd || p.descuentoTumboUsd) lineas += filaMonto('Descuentos', '−' + esc(TM.fmtBs((p.descuentoUsd || 0) + (p.descuentoTumboUsd || 0), tasaP)));
-    lineas += filaMonto('Envío' + (p.envioDias ? ' (' + esc(p.envioDias) + ')' : ''), esc(TM.fmtBs(p.envio.costoUsd || 0, tasaP)));
-    if (p.igtfUsd) lineas += filaMonto('IGTF (pago en divisas)', esc(TM.fmtBs(p.igtfUsd, tasaP)));
-    lineas += filaMonto('<strong class="text-on-surface">Total del pedido</strong>',
-      '<strong>' + esc(p.montoBs != null ? bs(p.montoBs) : TM.fmtBs(pagadoPedido(p), tasaP)) + '</strong>', 'border-t border-outline-variant pt-1.5 mt-1.5');
+    /* el desglose (productos, envío, descuentos, IGTF) ya está en «Detalle»:
+       aquí, lo cobrado y cómo se pagó */
+    var lineas = filaMonto('<strong class="text-on-surface">Total del pedido</strong>',
+      '<strong>' + esc(p.montoBs != null ? bs(p.montoBs) : TM.fmtBs(pagadoPedido(p), tasaP)) + '</strong>');
     if (p.creditoUsd) lineas += filaMonto('Pagado con crédito en Tumbo', esc(usd(p.creditoUsd)));
     return '<section data-pago-pedido class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
       '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Pago</h2>' +
       '<dl class="space-y-1 font-body-sm text-body-sm max-w-md">' + lineas + '</dl>' +
-      '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant">' + esc(usd(pagadoPedido(p))) + ' ref. · tasa congelada al comprar: Bs. ' + esc(tasa(tasaP)) + ' por USD' +
-        (p.ivaUsd ? ' · IVA incluido: ' + esc(TM.fmtBs(p.ivaUsd, tasaP)) : '') + '.</p>' +
+      '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant"><span class="tm-num">' + esc(usd(pagadoPedido(p))) + ' ref.</span> · tasa congelada al comprar: <span class="tm-num">Bs. ' + esc(tasa(tasaP)) + '</span> por USD' +
+        (p.ivaUsd ? ' · IVA incluido: <span class="tm-num">' + esc(TM.fmtBs(p.ivaUsd, tasaP)) + '</span>' : '') + '.</p>' +
       (enlaces.length ? '<div class="mt-3 flex flex-wrap gap-2">' + enlaces.join('') + '</div>' : '') + '</section>';
   });
 
@@ -494,6 +497,10 @@
   P.csv = csv; P.descargar = descargar; P.exportar = exportar;
   P.botonCopiar = botonCopiar;
   P.metodos = metodos; P.tasaVigente = tasaVigente; P.textoTasa = textoTasa;
+  /* El nombre de un método de pago para personas («pago_movil» → «Pago Móvil»). */
+  var NOMBRE_METODO = { pago_movil: 'Pago Móvil', transferencia: 'Transferencia', zelle: 'Zelle', usdt: 'USDT (Binance Pay)',
+    efectivo: 'Efectivo en divisas', credito: 'Crédito en Tumbo' };
+  P.nombreMetodo = function (id) { return NOMBRE_METODO[id] || String(id || ''); };
   P.productosPedido = productosPedido; P.pagadoPedido = pagadoPedido; P.netoSeller = netoSeller;
   P.filaMonto = filaMonto;
   TM.pagos = P;

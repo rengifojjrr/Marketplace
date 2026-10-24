@@ -28,9 +28,9 @@
       return '<p data-aviso-elevada="real" class="flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant mb-4">' +
         ic('lock', 'text-[16px] mt-0.5') + 'Abrir un documento, revisarlo y decidir sobre un comercio piden sesión elevada (verificación en dos pasos). Cada documento que abres queda en la auditoría.</p>';
     }
-    return '<p data-aviso-elevada class="flex items-start gap-1.5 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-4">' +
-      ic('lock', 'text-[16px] mt-0.5') + 'Esta es una cuenta de prueba: solo ves los expedientes de los comercios de prueba (sus datos los carga cualquiera con la contraseña pública), nunca los de comercios reales. ' +
-      'Revisar documentos y decidir sobre un comercio exige una sesión elevada (una cuenta real del equipo con verificación en dos pasos): el servidor no aplicará tus revisiones ni decisiones.</p>';
+    return '<div data-aviso-elevada>' + UI.avisoPrueba('Cuenta de prueba: solo ves los comercios de prueba y no decides sobre ellos.',
+      '<p>Solo ves los expedientes de los comercios de prueba (sus datos los carga cualquiera con la contraseña pública), nunca los de comercios reales. ' +
+      'Revisar documentos y decidir sobre un comercio exige una sesión elevada (una cuenta real del equipo con verificación en dos pasos): el servidor no aplicará tus revisiones ni decisiones.</p>') + '</div>';
   }
 
   /* =====================================================================
@@ -45,14 +45,16 @@
       esc(d.nombre) + '</span>';
   }
 
-  function decisiones(x) {
+  /* dis: la cuenta de prueba con servidor no decide (los botones se ven
+     deshabilitados, como dice su aviso; antes abrían el diálogo y fallaban) */
+  function decisiones(x, dis) {
     var pendiente = x.estado === 'en_revision' || x.estado === 'observado';
     return '<div class="flex flex-wrap gap-2">' +
-      (pendiente ? btn('Aprobar homologación', { estilo: 'exito', icono: 'verified', attr: 'data-kyc="aprobado" data-sid="' + esc(x.id) + '"' }) : '') +
-      (x.estado !== 'observado' && x.estado !== 'aprobado' && x.estado !== 'suspendido' ? btn('Observar', { icono: 'warning', attr: 'data-kyc="observado" data-sid="' + esc(x.id) + '"' }) : '') +
-      (pendiente ? btn('Rechazar', { estilo: 'peligro', icono: 'cancel', attr: 'data-kyc="rechazado" data-sid="' + esc(x.id) + '"' }) : '') +
-      (x.estado === 'aprobado' ? btn('Suspender', { estilo: 'peligro', icono: 'block', attr: 'data-kyc="suspendido" data-sid="' + esc(x.id) + '"' }) : '') +
-      (x.estado === 'suspendido' || x.estado === 'rechazado' ? btn('Reactivar', { estilo: 'exito', icono: 'check_circle', attr: 'data-kyc="aprobado" data-sid="' + esc(x.id) + '"' }) : '') +
+      (pendiente ? btn('Aprobar homologación', { estilo: 'exito', icono: 'verified', attr: 'data-kyc="aprobado" data-sid="' + esc(x.id) + '"' + dis }) : '') +
+      (x.estado !== 'observado' && x.estado !== 'aprobado' && x.estado !== 'suspendido' ? btn('Observar', { icono: 'warning', attr: 'data-kyc="observado" data-sid="' + esc(x.id) + '"' + dis }) : '') +
+      (pendiente ? btn('Rechazar', { estilo: 'peligro', icono: 'cancel', attr: 'data-kyc="rechazado" data-sid="' + esc(x.id) + '"' + dis }) : '') +
+      (x.estado === 'aprobado' ? btn('Suspender', { estilo: 'peligro', icono: 'block', attr: 'data-kyc="suspendido" data-sid="' + esc(x.id) + '"' + dis }) : '') +
+      (x.estado === 'suspendido' || x.estado === 'rechazado' ? btn('Reactivar', { estilo: 'exito', icono: 'check_circle', attr: 'data-kyc="aprobado" data-sid="' + esc(x.id) + '"' + dis }) : '') +
       '</div>';
   }
 
@@ -63,14 +65,15 @@
     if (remoto) lista.sort(function (a, b) {
       return ((a.expediente === 'en_revision' ? -1 : 0) - (b.expediente === 'en_revision' ? -1 : 0)) || ((orden[a.estado] || 9) - (orden[b.estado] || 9));
     });
+    var dis = remoto && C().cuentaDemo(s) ? ' disabled title="Con una cuenta real del equipo y la verificación en dos pasos"' : '';
     return titulo('Sellers y homologación') + avisoElevada(s) +
       lista.map(function (x) {
         var docs = [1, 2, 3, 4].map(function (n) { return (x.docs || []).find(function (d) { return d.orden === n; }); }).filter(Boolean);
         if (!remoto) docs = x.docs || [];
         return '<article data-seller="' + esc(x.id) + '" class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-4">' +
           '<div class="flex flex-wrap items-center gap-2 mb-1">' +
-            '<span class="font-body-md text-body-md font-bold text-on-surface">' + esc(x.nombre) + '</span>' +
-            '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(x.id) + ' · ' + esc(x.rif) + '</span>' +
+            '<span class="font-body-md text-body-md font-bold text-on-surface break-words">' + esc(x.nombre) + '</span>' +
+            '<span class="font-data-mono text-data-mono text-on-surface-variant"><span class="tm-id">' + esc(x.id) + '</span> · <span class="tm-id">' + esc(x.rif) + '</span></span>' +
             UI.badge(x.estado) +
             (remoto ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm">' +
               ic(x.expedienteOculto ? 'lock' : 'folder_open', 'text-[14px]') + 'Expediente: ' +
@@ -79,28 +82,30 @@
           (x.observacion ? '<p class="font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-2">' + esc(x.observacion) + '</p>' : '') +
           (remoto && x.expedienteOculto ? ''
             : remoto
-            ? '<dl class="grid sm:grid-cols-2 gap-x-6 gap-y-1 font-body-sm text-body-sm mb-3">' +
+            ? (!x.razonSocial && !x.telefono && !x.direccionFiscal && !x.ciudadDespacho && !x.enviado
+              ? '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Todavía no cargó sus datos fiscales ni envió el expediente.</p>'
+              : '<dl class="grid sm:grid-cols-2 gap-x-6 gap-y-1 font-body-sm text-body-sm mb-3 break-words">' +
                 '<div><dt class="inline text-on-surface-variant">Razón social: </dt><dd class="inline">' + esc(x.razonSocial || '—') + '</dd></div>' +
                 '<div><dt class="inline text-on-surface-variant">Teléfono: </dt><dd class="inline">' + esc(x.telefono || '—') + '</dd></div>' +
                 '<div class="sm:col-span-2"><dt class="inline text-on-surface-variant">Dirección fiscal: </dt><dd class="inline">' + esc(x.direccionFiscal || '—') + '</dd></div>' +
                 '<div><dt class="inline text-on-surface-variant">Despacha desde: </dt><dd class="inline">' + esc(x.ciudadDespacho || '—') + '</dd></div>' +
-                '<div><dt class="inline text-on-surface-variant">Enviado a revisión: </dt><dd class="inline">' + esc(x.enviado || '—') + '</dd></div></dl>' +
+                '<div><dt class="inline text-on-surface-variant">Enviado a revisión: </dt><dd class="inline">' + esc(x.enviado || '—') + '</dd></div></dl>') +
               '<ul class="divide-y divide-outline-variant rounded-btn border border-outline-variant mb-3">' + docs.map(function (d) {
                 return '<li data-doc="' + d.orden + '" class="flex flex-wrap items-center gap-2 px-3 py-2">' +
-                  '<span class="flex-1 min-w-[180px] font-body-sm text-body-sm"><strong>' + esc(d.nombre) + '</strong>' +
-                  (d.archivoListo ? ' · <button type="button" data-ver-doc data-sid="' + esc(x.id) + '" data-orden="' + d.orden + '" class="text-secondary hover:underline">' + ic('visibility', 'text-[14px] align-middle') + ' Ver documento</button>'
-                                  : ' · <span class="text-on-surface-variant">sin archivo</span>') +
+                  '<span class="flex-1 min-w-[160px] font-body-sm text-body-sm"><strong>' + esc(d.nombre) + '</strong>' +
+                  (d.archivoListo ? ' · <button type="button" data-ver-doc data-sid="' + esc(x.id) + '" data-orden="' + d.orden + '" class="tm-tocable text-secondary hover:underline">' + ic('visibility', 'text-[16px]') + 'Ver documento</button>'
+                                  : '') +
                   (d.observacion ? '<span class="block text-on-warning-container">Observación: ' + esc(d.observacion) + '</span>' : '') +
                   (d.revisadoPor ? '<span class="block text-on-surface-variant">Revisó: ' + esc(d.revisadoPor) + '</span>' : '') + '</span>' +
                   (d.archivoListo ? UI.badge(d.estado) : '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm">Falta el archivo</span>') +
-                  (d.archivoListo && d.estado !== 'aprobado' ? btn('Aprobar', { estilo: 'exito', icono: 'check', attr: 'data-revisar="aprobado" data-sid="' + esc(x.id) + '" data-orden="' + d.orden + '"' }) : '') +
-                  (d.archivoListo && d.estado !== 'observado' ? btn('Observar', { icono: 'warning', attr: 'data-revisar="observado" data-sid="' + esc(x.id) + '" data-orden="' + d.orden + '"' }) : '') +
+                  (d.archivoListo && d.estado !== 'aprobado' ? btn('Aprobar', { estilo: 'exito', icono: 'check', attr: 'data-revisar="aprobado" data-sid="' + esc(x.id) + '" data-orden="' + d.orden + '"' + dis }) : '') +
+                  (d.archivoListo && d.estado !== 'observado' ? btn('Observar', { icono: 'warning', attr: 'data-revisar="observado" data-sid="' + esc(x.id) + '" data-orden="' + d.orden + '"' + dis }) : '') +
                   '</li>';
               }).join('') + '</ul>'
             : '<div class="flex flex-wrap gap-2 mb-3">' + docs.map(docChip).join('') + '</div>') +
           (x.expedienteOculto
             ? '<p class="font-body-sm text-body-sm text-on-surface-variant" data-decisiones-reservadas>Es un comercio real: su expediente y las decisiones sobre él son de una cuenta real del equipo con verificación en dos pasos.</p>'
-            : decisiones(x)) + '</article>';
+            : decisiones(x, dis)) + '</article>';
       }).join('') +
       '<p class="font-body-sm text-body-sm text-on-surface-variant">Suspender oculta el catálogo del seller en la tienda y bloquea ventas nuevas; no borra su historial. ' +
       (remoto ? 'La insignia «Verificado por Tumbo» se gana cuando los cuatro documentos están aprobados. ' : '') + 'Toda decisión queda en auditoría.</p>';
@@ -168,7 +173,7 @@
     var nSel = Object.keys(SEL).filter(function (k) { return SEL[k]; }).length;
     return titulo('Moderación de productos', '<span class="font-body-sm text-body-sm text-on-surface-variant">' + cola.length + ' en cola</span>') +
       (cola.length ? '<div data-lote class="flex flex-wrap items-center gap-2 rounded-card border border-outline-variant bg-surface-container-lowest p-3 mb-4">' +
-        '<label class="inline-flex items-center gap-2 font-body-sm text-body-sm mr-auto"><input type="checkbox" data-sel-todos class="w-4 h-4 rounded border-outline text-secondary"/>Seleccionar todo</label>' +
+        '<label class="inline-flex items-center gap-2 font-body-sm text-body-sm mr-auto cursor-pointer"><input type="checkbox" data-sel-todos class="w-5 h-5 rounded border-outline text-secondary"/>Seleccionar todo</label>' +
         '<span data-sel-n class="font-body-sm text-body-sm text-on-surface-variant">' + nSel + ' seleccionado(s)</span>' +
         btn('Aprobar seleccionados', { estilo: 'exito', icono: 'done_all', attr: 'data-aprobar-lote' }) +
         btn('Rechazar seleccionados', { estilo: 'peligro', icono: 'cancel', attr: 'data-rechazar-lote' }) + '</div>' : '') +
@@ -189,7 +194,8 @@
         var real = remoto && TM.seller(p.sellerId).bloqueado;
         return '<article data-moderar="' + esc(p.sku) + '" class="flex flex-wrap sm:flex-nowrap gap-4 rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-4">' +
           (real ? '<span class="w-4 shrink-0"></span>'
-            : '<input type="checkbox" data-sel="' + esc(p.sku) + '"' + (SEL[p.sku] ? ' checked' : '') + ' aria-label="Seleccionar ' + esc(p.sku) + '" class="w-4 h-4 mt-1 rounded border-outline text-secondary shrink-0"/>') +
+            : '<label class="inline-flex items-center justify-center w-11 h-11 -m-2.5 shrink-0 cursor-pointer"><input type="checkbox" data-sel="' + esc(p.sku) + '"' + (SEL[p.sku] ? ' checked' : '') +
+              ' aria-label="Seleccionar ' + esc(p.sku) + '" class="w-5 h-5 rounded border-outline text-secondary"/></label>') +
           '<div class="shrink-0">' + (fotos.length
             ? '<button type="button" data-fotos-moderacion="' + esc(p.sku) + '" class="block" aria-label="Ver las fotos de ' + esc(p.sku) + '">' +
               '<img src="' + esc(fotos[0].url) + '" alt="' + esc(p.nombre) + '" class="w-24 h-24 object-contain bg-white rounded-lg border border-outline-variant"/></button>' +
@@ -198,8 +204,8 @@
               }).join('') + (fotos.length > 4 ? '<span class="font-label-sm text-label-sm text-on-surface-variant self-center">+' + (fotos.length - 4) + '</span>' : '') + '</div>' : '')
             : UI.imgProducto(p, 'w-24 h-24 object-cover') + (remoto ? '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1 w-24">Sin fotos</p>' : '')) + '</div>' +
           '<div class="flex-1 min-w-0">' +
-            '<p class="font-body-md text-body-md font-bold text-on-surface">' + esc(p.nombre) + '</p>' +
-            '<p class="font-data-mono text-data-mono text-on-surface-variant mb-1">' + esc(p.sku) + ' · ' + esc(TM.seller(p.sellerId).nombre) + (ruta ? ' · ' + esc(ruta) : '') + '</p>' +
+            '<p class="font-body-md text-body-md font-bold text-on-surface break-words">' + esc(p.nombre) + '</p>' +
+            '<p class="font-body-sm text-body-sm text-on-surface-variant mb-1 break-words"><span class="tm-id font-data-mono text-data-mono">' + esc(p.sku) + '</span> · ' + esc(TM.seller(p.sellerId).nombre) + (ruta ? ' · ' + esc(ruta) : '') + '</p>' +
             (p.padreSku ? '<p class="font-body-sm text-body-sm text-secondary mb-1">Variante de ' + esc(p.padreSku) + '</p>' : '') +
             '<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">' + esc(p.descripcion) + '</p>' +
             '<p class="font-body-sm text-body-sm"><strong>' + esc(TM.fmtBs(p.precioUsd)) + '</strong> · stock ' + p.stockFis + (p.marca ? ' · ' + esc(p.marca) : '') + '</p>' +
@@ -302,16 +308,17 @@
     if (!C().remoto()) return '';
     var porRevisar = TM.estado.sellers.filter(function (x) { return x.expediente === 'en_revision'; }).length;
     return '<section data-panel-catalogo class="grid lg:grid-cols-2 gap-3 mb-6">' +
-      '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4"><h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Búsquedas sin resultado</h2>' +
+      '<div class="min-w-0 rounded-card border border-outline-variant bg-surface-container-lowest p-4"><h2 class="font-headline-sm text-headline-sm text-primary-container">Búsquedas sin resultado</h2>' +
+        '<p class="mb-2 font-body-sm text-body-sm text-on-surface-variant">Pistas de lo que falta en el catálogo (o de sinónimos por agregar).</p>' +
         '<div data-busquedas-vacias>' + (VACIAS ? (VACIAS.length ? '<ul class="divide-y divide-outline-variant font-body-sm text-body-sm">' + VACIAS.slice(0, 8).map(function (b) {
-          return '<li class="flex justify-between gap-2 py-1.5"><span>«' + esc(b.texto) + '»</span><span class="text-on-surface-variant">' + b.veces + ' vez' + (b.veces === 1 ? '' : 'es') + '</span></li>';
-        }).join('') + '</ul>' : '<p class="font-body-sm text-body-sm text-on-surface-variant">Todo lo que se buscó encontró algo.</p>')
-          : '<p class="font-body-sm text-body-sm text-on-surface-variant">Cargando…</p>') + '</div>' +
-        '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant">Pistas de lo que falta en el catálogo (o de sinónimos por agregar).</p></div>' +
-      '<a class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 hover:border-secondary" href="' + href('app/admin/sellers.html') + '">' +
-        '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Expedientes KYC por revisar</h2>' +
-        '<p class="font-headline-md text-headline-md font-bold ' + (porRevisar ? 'text-primary-container' : 'text-outline') + '">' + porRevisar + '</p>' +
-        '<p class="font-body-sm text-body-sm text-on-surface-variant">La insignia «Verificado por Tumbo» se gana con los cuatro documentos aprobados.</p></a>' +
+          return '<li class="flex justify-between gap-3 py-1.5"><span class="min-w-0 break-words">«' + esc(b.texto) + '»</span><span class="shrink-0 text-on-surface-variant">' + b.veces + ' vez' + (b.veces === 1 ? '' : 'es') + '</span></li>';
+        }).join('') + '</ul>' : '<p class="font-body-sm text-body-sm text-on-surface">Todo lo que se buscó encontró algo.</p>')
+          : '<p class="font-body-sm text-body-sm text-on-surface-variant">Cargando…</p>') + '</div></div>' +
+      /* (distinto de «Comercios por homologar»: estos son los expedientes que un comercio envió y esperan que se revisen sus documentos) */
+      '<a class="min-w-0 rounded-card border border-outline-variant bg-surface-container-lowest p-4 hover:border-secondary" href="' + href('app/admin/sellers.html') + '">' +
+        '<div class="flex items-start justify-between gap-3"><h2 class="font-headline-sm text-headline-sm text-primary-container">Expedientes enviados por revisar</h2>' +
+        '<span class="font-headline-md text-headline-md font-bold tm-num ' + (porRevisar ? 'text-primary-container' : 'text-outline') + '">' + porRevisar + '</span></div>' +
+        '<p class="font-body-sm text-body-sm text-on-surface-variant">Documentos que un comercio envió a revisión. La insignia «Verificado por Tumbo» se gana con los cuatro aprobados.</p></a>' +
       '</section>';
   });
   APP.trasPintar(function (raiz, vista, q, s) {

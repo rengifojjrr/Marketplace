@@ -25,10 +25,7 @@
      ------------------------------------------------------------------- */
   function fecha(iso) {
     if (!iso) return '—';
-    try {
-      return new Date(iso).toLocaleString('es-VE', { timeZone: 'America/Caracas', day: '2-digit', month: '2-digit',
-        year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    } catch (e) { return String(iso); }
+    return UI.fechaHora(iso);
   }
   function hace(iso) {
     if (!iso) return '';
@@ -53,6 +50,7 @@
     if (c.length !== 5) return h;
     var dias = ['domingos', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados'];
     var m;
+    if (c.join(' ') === '* * * * *') return 'cada minuto';
     if ((m = /^\*\/(\d+)$/.exec(c[0])) && c[1] === '*' && c.slice(2).join(' ') === '* * *') return 'cada ' + m[1] + ' minutos';
     if (/^\d+$/.test(c[0]) && c[1] === '*' && c.slice(2).join(' ') === '* * *') return 'cada hora (minuto ' + c[0] + ')';
     if (/^\d+$/.test(c[0]) && (m = /^\*\/(\d+)$/.exec(c[1])) && c.slice(2).join(' ') === '* * *') return 'cada ' + m[1] + ' horas (minuto ' + c[0] + ')';
@@ -69,7 +67,7 @@
     al_dia: ['Al día', 'verde', 'check_circle'],
     atrasada: ['Atrasada', 'ambar', 'schedule'],
     error: ['Falló', 'rojo', 'error'],
-    sin_pg_cron: ['Sin pg_cron', 'gris', 'pause_circle'],
+    sin_pg_cron: ['Solo a mano', 'gris', 'pause_circle'],
     sin_programar: ['Sin programar', 'ambar', 'event_busy'],
     sin_registro: ['Sin registro', 'ambar', 'visibility_off'],
     pausada: ['Pausada', 'gris', 'pause_circle'],
@@ -115,28 +113,42 @@
     var al = d.almacenamiento || {};
     var archivos = (al.archivos || []).filter(function (a) { return a.estado === 'listo'; }).reduce(function (s, a) { return s + Number(a.bytes || 0); }, 0);
     return '<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5" data-sistema-resumen>' +
-      UI.kpi('Tareas al día', alDia + ' de ' + programables.length, malas ? malas + ' con error' : (d.extensiones && d.extensiones.pg_cron ? 'con pg_cron' : 'sin pg_cron: corren a mano'), 'event_repeat', malas ? 'text-error' : '') +
-      UI.kpi('Errores (24 h)', n(e.distintos_24h), n(e.veces) + ' veces en total', 'bug_report', e.distintos_24h ? 'text-error' : '') +
-      UI.kpi('Bandeja por enviar', n(porEnviar), b.mas_antiguo ? 'la más antigua ' + hace(b.mas_antiguo) : 'nada pendiente', 'outbox') +
-      UI.kpi('Almacenamiento', mb(al.base_bytes), 'base de Tumbo · ' + mb(archivos) + ' en archivos', 'database') +
+      UI.kpi('Tareas al día', alDia + ' de ' + programables.length, malas ? malas + ' con error' : (d.extensiones && d.extensiones.pg_cron ? 'corren solas en su horario' : 'sin programar: corren a mano'), 'event_repeat', malas ? 'text-error' : '') +
+      UI.kpi('Errores 24\u00a0h', n(e.distintos_24h), n(e.veces) + ' veces en total', 'bug_report', e.distintos_24h ? 'text-error' : '') +
+      UI.kpi('Por enviar', n(porEnviar), b.mas_antiguo ? 'el más antiguo, ' + hace(b.mas_antiguo) : 'la bandeja está al día', 'outbox') +
+      UI.kpi('Base de datos', mb(al.base_bytes), mb(archivos) + ' en archivos', 'database') +
       '</div>';
   }
 
   function bloqueExtensiones(d) {
     var x = d.extensiones || {};
     function fila(nombre, si, bien, falta) {
-      return '<li class="flex items-start gap-2 py-1.5">' + ic(si ? 'check_circle' : 'cancel', 'text-[18px] ' + (si ? 'text-tertiary' : 'text-error')) +
-        '<span class="font-body-sm text-body-sm"><strong>' + esc(nombre) + '</strong>: ' + esc(si ? bien : falta) + '</span></li>';
+      return '<li class="flex items-start gap-2 py-1.5">' + ic(si ? 'check_circle' : 'cancel', 'shrink-0 text-[18px] ' + (si ? 'text-tertiary' : 'text-error')) +
+        '<span class="min-w-0 font-body-sm text-body-sm break-words [overflow-wrap:anywhere]"><strong>' + esc(nombre) + '</strong>: ' + esc(si ? bien : falta) + '</span></li>';
     }
     return '<ul class="mb-3">' +
-      fila('pg_cron', x.pg_cron, 'las tareas corren solas en su horario.',
+      fila('Tareas programadas (pg_cron)', x.pg_cron, 'las tareas corren solas en su horario.',
         'no está habilitado en el proyecto: las tareas solo corren a mano («Correr ahora»). Habilítalo en el panel de Supabase (Database → Extensions) y pulsa «Programar tareas».') +
-      fila('pg_net', x.pg_net, 'la tasa BCV y la limpieza de archivos piden a sus fuentes desde la base.',
+      fila('Llamadas desde la base (pg_net)', x.pg_net, 'la tasa BCV y la limpieza de archivos piden a sus fuentes desde la base.',
         'no está habilitado: la tasa BCV se carga a mano y la limpieza de archivos solo la hace la función al recibir subidas.') +
-      fila('Dirección de las funciones', x.funciones_url, 'la limpieza programada llama a la función tumbo-archivos.',
-        'falta el ajuste «funciones_url» (https://<proyecto>.supabase.co/functions/v1) para que la limpieza programada borre los archivos sobrantes.') +
+      fila('Dirección de las funciones', x.funciones_url, 'la limpieza programada llama a la función de archivos.',
+        'falta configurarla en Ajustes («Dirección de las funciones del servidor») para que la limpieza programada borre los archivos sobrantes.') +
       '</ul>' + (x.cron_error ? aviso('ambar', 'warning', 'No se pudo leer pg_cron: ' + esc(x.cron_error)) : '');
   }
+
+  /* El nombre de cada tarea para personas (la clave interna, «cierre_diario»,
+     queda como dato secundario en monoespaciado). */
+  var NOMBRE_TAREA = { almacenamiento: 'Limpieza de archivos', analitica: 'Purga de la analítica', archivos: 'Archivos sobrantes',
+    cierre_diario: 'Cierre contable diario', comunicacion: 'Plazos de reclamos y soporte', envios: 'Envío de correos y WhatsApp',
+    liquidaciones: 'Liquidaciones semanales', mantenimiento: 'Mantenimiento', niveles: 'Niveles de los comercios',
+    pagos: 'Vencimiento de pagos', sla: 'Plazos de logística', tasa: 'Tasa BCV', tasa_respuesta: 'Aplicar la tasa BCV' };
+  function nombreTarea(k) {
+    if (NOMBRE_TAREA[k]) return NOMBRE_TAREA[k];
+    var t = String(k || '').replace(/_/g, ' ');
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+  /* (sin el detalle técnico entre paréntesis: «(con pg_net)») */
+  function descripcionTarea(t) { return String(t || '').replace(/\s*\((?:con|y)\b[^)]*pg_net[^)]*\)/g, ''); }
 
   function bloqueTareas(d, s) {
     var puede = s && !s.demo;
@@ -149,14 +161,16 @@
                          : '<span class="block text-on-surface-variant">Terminó bien</span>')
               : '<span class="block text-error">' + esc(u.error || (detalle ? 'Falló' : 'Falló (el detalle lo ve el equipo)')) + '</span>')
         : '<span class="text-on-surface-variant">Nunca corrió</span>';
-      var cron = t.cron && t.cron.ultima ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">pg_cron: ' + esc(t.cron.ultima.estado) + ' ' + esc(hace(t.cron.ultima.inicio)) + '</span>' : '';
-      return td('<span class="block font-semibold">' + esc(t.tarea) + '</span><span class="block font-body-sm text-body-sm text-on-surface-variant max-w-[340px]">' + esc(t.descripcion) + '</span>' +
-          '<span class="block font-data-mono text-data-mono text-on-surface-variant">tumbo_privado.' + esc(t.funcion) + '()</span>') +
-        td(esc(t.dominio)) +
-        td(t.trabajo ? '<span class="block">' + esc(horarioLegible(t.horario)) + '</span><span class="block font-data-mono text-data-mono text-on-surface-variant">' + esc(t.trabajo) + ' · ' + esc(t.horario || '') + '</span>' : '—') +
+      var cron = t.cron && t.cron.ultima ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">Programada: ' + esc({ succeeded: 'terminó bien', failed: 'falló', running: 'corriendo' }[t.cron.ultima.estado] || t.cron.ultima.estado) + ' ' + esc(hace(t.cron.ultima.inicio)) + '</span>' : '';
+      /* cinco columnas (el dominio va con la tarea y las corridas de 24 h con la última): a 1280 px la tabla cabe */
+      var dominio = String(t.dominio || '');
+      return td('<span class="block font-semibold" title="' + esc('tumbo_privado.' + t.funcion + '()') + '">' + esc(nombreTarea(t.tarea)) + '</span>' +
+          '<span class="block font-body-sm text-body-sm text-on-surface-variant"><span class="font-data-mono text-[12px]">' + esc(t.tarea) + '</span>' +
+            (dominio ? ' · ' + esc(dominio.charAt(0).toUpperCase() + dominio.slice(1)) : '') + '</span>' +
+          '<span class="block mt-0.5 font-body-sm text-body-sm text-on-surface-variant break-words">' + esc(descripcionTarea(t.descripcion)) + '</span>', 'sm:min-w-[16rem]') +
+        td(t.trabajo ? '<span class="block" title="' + esc(t.trabajo + ' · ' + (t.horario || '')) + '">' + esc(horarioLegible(t.horario)) + '</span>' : '<span class="text-on-surface-variant">Sin horario</span>') +
         td(insignia(t.estado) + cron) +
-        td(ultima, 'min-w-[220px]') +
-        td(n(t.corridas_24h) + (t.errores_24h ? ' · <span class="text-error">' + n(t.errores_24h) + ' con error</span>' : '')) +
+        td(ultima + '<span class="block mt-0.5 text-on-surface-variant">En 24 h: ' + n(t.corridas_24h) + (t.errores_24h ? ' · <span class="text-error">' + n(t.errores_24h) + ' con error</span>' : '') + '</span>', 'sm:min-w-[200px]') +
         td(t.manual && t.existe ? btn('Correr ahora', { icono: 'play_arrow', clase: 'min-h-[32px] px-3', attr: 'data-correr="' + esc(t.tarea) + '"' + (puede ? '' : ' disabled title="Con una cuenta real del equipo y la verificación en dos pasos"') }) : '');
     });
     var extra = '';
@@ -168,18 +182,19 @@
       extra += aviso('ambar', 'help', 'Trabajos de pg_cron «tumbo-…» que no son de ninguna tarea del catálogo: ' +
         d.otros_trabajos.map(function (o) { return '<span class="font-data-mono">' + esc(o.trabajo) + '</span> (' + esc(o.horario || '') + ')'; }).join(', ') + '.');
     }
-    return extra + UI.tabla(['Tarea', 'Dominio', 'Horario', 'Estado', 'Última corrida', 'Últimas 24 h', ''], filas);
+    return extra + UI.tabla(['Tarea', 'Horario', 'Estado', 'Última corrida', ''], filas, null, { tarjetas: 'lg' });
   }
 
   function bloqueTasa(d) {
     var t = d.tasa;
     if (!t) return '<p class="font-body-sm text-body-sm text-on-surface-variant">No se pudo leer la tasa.</p>';
     return '<p class="font-headline-sm text-headline-sm text-on-surface">Bs. ' + esc(Number(t.valor).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })) + ' por USD</p>' +
-      '<p class="font-body-sm text-body-sm text-on-surface-variant">' + (t.fecha ? 'Tasa del ' + esc(t.fecha) + ' · ' : '') + esc(t.fuente || '') +
+      '<p class="font-body-sm text-body-sm text-on-surface-variant">' + (t.fecha ? 'Tasa del ' + esc(String(t.fecha).replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3/$2/$1')) + ' · ' : '') + esc(t.fuente || '') +
       (t.actualizada ? ' · consultada ' + esc(hace(t.actualizada)) : '') + '</p>' +
       (t.desactualizada ? aviso('ambar', 'warning', 'La tasa lleva más de ' + esc(t.horas_alerta || 24) + ' horas sin actualizarse' +
         (t.oficial ? '.' : ': todavía no hay una tasa oficial cargada (la demo usa una de referencia).') +
-        ' Finanzas la carga a mano desde <a class="underline" href="' + href('app/admin/finanzas.html') + '">Finanzas</a> si la fuente no responde.') : '');
+        ' Finanzas la carga a mano si la fuente no responde.') +
+        '<p>' + UI.enlace('Ir al Panel financiero', href('app/admin/finanzas.html'), 'account_balance') + '</p>' : '');
   }
 
   function bloqueBandeja(d) {
@@ -228,19 +243,40 @@
 
   function bloqueAlmacenamiento(d) {
     var al = d.almacenamiento || {};
-    var nombres = { listo: 'listos', pendiente: 'por confirmar', descartado: 'descartados (por borrar)' };
+    var nombres = { listo: 'Listos', pendiente: 'Por confirmar', descartado: 'Descartados (por borrar)' };
+    var PROPOSITOS = { kyc: 'Expedientes KYC', perfil: 'Perfil de las tiendas', producto: 'Fotos de productos', marketing: 'Marketing', comprobante: 'Comprobantes de pago',
+      guia: 'Guías de envío', entrega: 'Pruebas de entrega', evidencia: 'Evidencia de reclamos', chat: 'Mensajes', liquidacion: 'Comprobantes de liquidación', soporte: 'Soporte' };
+    var BUCKETS = { 'tumbo-publico': 'Públicos (fotos y logos)', 'tumbo-privado': 'Privados (documentos y comprobantes)' };
     var archivos = (al.archivos || []).map(function (a) {
-      return td(esc(a.proposito)) + td(esc(nombres[a.estado] || a.estado)) + td(n(a.archivos)) + td(mb(a.bytes));
+      return td(esc(PROPOSITOS[a.proposito] || a.proposito)) + td(esc(nombres[a.estado] || a.estado)) + td(n(a.archivos)) + td('<span class="tm-num">' + mb(a.bytes) + '</span>');
     });
-    var buckets = (al.storage || []).map(function (b) { return td(esc(b.bucket)) + td(n(b.objetos)) + td(mb(b.bytes)); });
-    var tablas = (al.tablas || []).map(function (t) { return td('<span class="font-data-mono text-data-mono">' + esc(t.tabla) + '</span>') + td(n(t.filas)) + td(mb(t.bytes)); });
+    function lista(filas, vacio) {
+      return filas.length ? '<ul class="rounded-card border border-outline-variant divide-y divide-outline-variant font-body-sm text-body-sm">' + filas.join('') + '</ul>'
+        : '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(vacio || 'Sin datos.') + '</p>';
+    }
+    function item(nombre, detalle, tam, titulo) {
+      return '<li' + (titulo ? ' title="' + esc(titulo) + '"' : '') + ' class="flex items-baseline justify-between gap-3 px-3 py-2"><span class="min-w-0"><span class="block break-words [overflow-wrap:anywhere]">' + nombre + '</span>' +
+        '<span class="block text-on-surface-variant">' + detalle + '</span></span><span class="shrink-0 tm-num font-semibold">' + tam + '</span></li>';
+    }
+    var buckets = (al.storage || []).map(function (b) { return item(esc(BUCKETS[b.bucket] || b.bucket), n(b.objetos) + ' objetos', mb(b.bytes)); });
+    /* el nombre para personas («Intentos de acceso»; el de la tabla, en su title) */
+    var TABLAS = { pedidos: 'Pedidos', productos: 'Productos', tarifas: 'Tarifas de envío', usuarios: 'Cuentas', auditoria: 'Auditoría', disputas: 'Reclamos',
+      pagos: 'Pagos', plantillas: 'Plantillas de mensajes', ajustes: 'Ajustes', tareas_programadas: 'Tareas programadas', productos_nombres: 'Nombres de productos',
+      resenas: 'Reseñas', intentos_acceso: 'Intentos de acceso', asiento_lineas: 'Líneas de los asientos contables', asientos: 'Asientos contables', mensajes: 'Mensajes salientes', archivos: 'Archivos', eventos: 'Analítica',
+      pedido_eventos: 'Historial de los pedidos', notificaciones: 'Notificaciones', sesiones: 'Sesiones', cuotas_red: 'Topes de uso' };
+    var tablas = (al.tablas || []).map(function (t) {
+      var nombre = TABLAS[t.tabla] || (String(t.tabla).charAt(0).toUpperCase() + String(t.tabla).slice(1)).replace(/_/g, ' ');
+      return item(esc(nombre), '≈ ' + n(t.filas) + ' filas', mb(t.bytes), 'Tabla ' + t.tabla);
+    });
     var c = al.cuotas || {};
     return '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Base de datos de Tumbo: <strong>' + mb(al.base_bytes) + '</strong>' +
       (c.mb_por_seller ? ' · cuotas: ' + n(c.mb_por_seller) + ' MB por comercio, ' + n(c.mb_por_usuario) + ' MB por cuenta sin comercio y ' + n(c.archivos_por_dia) + ' archivos por día' : '') + '.</p>' +
-      '<div class="grid lg:grid-cols-2 gap-4">' +
-        '<div><h3 class="font-label-md text-label-md text-on-surface mb-2">Archivos por propósito</h3>' + UI.tabla(['Propósito', 'Estado', 'Archivos', 'Tamaño'], archivos) +
-        (al.storage ? '<h3 class="font-label-md text-label-md text-on-surface mt-4 mb-2">Storage (objetos en los buckets de Tumbo)</h3>' + UI.tabla(['Bucket', 'Objetos', 'Tamaño'], buckets) : '') + '</div>' +
-        '<div><h3 class="font-label-md text-label-md text-on-surface mb-2">Tablas más grandes</h3>' + UI.tabla(['Tabla', 'Filas (aprox.)', 'Tamaño'], tablas) + '</div>' +
+      /* una columna en el teléfono (sin grid-cols-1, los hijos crecían con sus tablas y la página se alejaba) */
+      '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">' +
+        '<div class="min-w-0"><h3 class="font-label-md text-label-md text-on-surface mb-2">Archivos por propósito</h3>' + UI.tabla(['Propósito', 'Estado', 'Archivos', 'Tamaño'], archivos,
+          '<p class="font-body-sm text-body-sm text-on-surface-variant">Todavía no hay archivos subidos.</p>') +
+        (al.storage ? '<h3 class="font-label-md text-label-md text-on-surface mt-4 mb-2">Archivos guardados (Storage)</h3>' + lista(buckets, 'Todavía no hay objetos guardados.') : '') + '</div>' +
+        '<div class="min-w-0"><h3 class="font-label-md text-label-md text-on-surface mb-2">Tablas más grandes de la base</h3>' + lista(tablas, 'No se pudo leer el tamaño de las tablas.') + '</div>' +
       '</div>';
   }
 
@@ -255,18 +291,17 @@
     if (!d) return '<p class="font-body-sm text-body-sm text-on-surface-variant" role="status">Leyendo el estado del sistema…</p>';
     var puede = s && !s.demo;
     return bloqueResumen(d) +
-      (puede ? '' : aviso('azul', 'lock', 'Con una cuenta de prueba ves el estado del sistema, sin el detalle de las corridas ni de los errores; ' +
-        'correr o programar tareas pide una cuenta real del equipo con la verificación en dos pasos.')) +
+      (puede ? '' : UI.avisoPrueba('Con una cuenta de prueba ves el estado, sin el detalle.',
+        '<p>No ves el detalle de las corridas ni de los errores; correr o programar tareas pide una cuenta real del equipo con la verificación en dos pasos.</p>')) +
       seccion('Tareas programadas', 'event_repeat', bloqueExtensiones(d) + bloqueTareas(d, s),
         btn('Programar tareas', { icono: 'schedule_send', attr: 'data-programar' + (puede ? '' : ' disabled') })) +
-      '<div class="grid lg:grid-cols-2 gap-5">' +
+      '<div class="grid grid-cols-1 lg:grid-cols-2 gap-x-5">' +
         seccion('Tasa BCV', 'currency_exchange', bloqueTasa(d)) +
-        seccion('Bandeja de salida', 'outbox', bloqueBandeja(d),
-          '<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href('app/admin/mensajes.html') + '">Abrir los mensajes salientes</a>') +
+        seccion('Bandeja de salida', 'outbox', bloqueBandeja(d), UI.enlace('Abrir los mensajes salientes', href('app/admin/mensajes.html'), 'forward_to_inbox')) +
       '</div>' +
       seccion('Errores recientes', 'bug_report', bloqueErrores(d)) +
       seccion('Almacenamiento', 'database', bloqueAlmacenamiento(d)) +
-      '<p class="font-body-sm text-body-sm text-on-surface-variant">Leído el ' + esc(fecha(d.hora)) + '. Para un monitor externo, la API tiene <span class="font-data-mono">tm_salud()</span> (pública y sin datos).</p>';
+      '<p class="font-body-sm text-body-sm text-on-surface-variant">Leído el ' + esc(fecha(d.hora)) + '. Para vigilar el sitio desde fuera hay una consulta pública de salud, sin datos de nadie (<span class="font-data-mono">tm_salud</span>).</p>';
   }
 
   function vSistema(q, s) {
@@ -325,5 +360,5 @@
   APP.registrar({
     'admin/sistema': { roles: ['superadmin'], titulo: 'Sistema', render: vSistema, despues: despuesSistema }
   });
-  APP.nav('admin', { vista: 'admin/sistema', texto: 'Sistema', icono: 'monitor_heart', roles: ['superadmin'], orden: 95 });
+  APP.nav('admin', { vista: 'admin/sistema', texto: 'Sistema', icono: 'dns', roles: ['superadmin'], orden: 95 });
 })();

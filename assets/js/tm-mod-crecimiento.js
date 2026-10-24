@@ -88,6 +88,9 @@
       ic('hourglass_top', 'text-[18px]') + esc(texto || 'Cargando…') + '</div>';
   }
   function fallo(error, clave) {
+    /* sin el permiso fino: el 403 */
+    var negado = APP.html403Error(error);
+    if (negado) return negado;
     return '<div data-error-datos class="flex flex-wrap items-center gap-2 rounded-card border border-error bg-error-container/40 p-4 font-body-sm text-body-sm text-on-error-container">' +
       ic('error', 'text-[18px]') + '<span class="flex-1">' + esc(error) + '</span>' +
       (clave ? UI.btn('Reintentar', { icono: 'refresh', attr: 'data-crec-reintentar="' + esc(clave) + '"' }) : '') + '</div>';
@@ -240,12 +243,13 @@
           : '<input id="' + id + '" name="' + esc(c.k) + '" type="' + (c.tipo || 'text') + '" value="' + esc(c.v == null ? '' : c.v) + '" class="' + CAMPO + '" ' + (c.attr || '') + '/>';
         return campo(id, c.t, control, c.ayuda);
       }).join('') +
-      '<div class="flex justify-end gap-2 mt-1">' + UI.btn('Cancelar', { attr: 'data-cerrar' }) +
+      '<div class="tm-acciones mt-1">' + UI.btn(UI.textoCerrar(accionTexto), { attr: 'data-cerrar' }) +
       UI.btn(accionTexto || 'Guardar', { estilo: peligro ? 'peligro' : 'primario', tipo: 'submit', attr: 'data-ok' }) + '</div></form>',
       function (velo, cerrar) {
         var f = velo.querySelector('[data-crec-form]');
+        /* con el dedo, el teclado no se abre solo al abrir el diálogo */
         var primero = f.querySelector('input,textarea,select');
-        if (primero) primero.focus();
+        if (primero && !UI.tactil()) primero.focus();
         f.addEventListener('submit', function (ev) {
           ev.preventDefault();
           var v = {};
@@ -377,8 +381,22 @@
     if (s.rol !== 'superadmin' && remoto()) permisosDe(s, function () { aplicarPermisos(document.getElementById('raiz'), s); });
     aplicarPermisos(raiz, s);
   });
-  APP.nav('seller', { vista: 'seller/promociones', texto: 'Promociones', icono: 'sell', roles: ['seller', 'precios'], orden: 22 });
+  APP.nav('seller', { vista: 'seller/promociones', texto: 'Promociones', icono: 'campaign', roles: ['seller', 'precios'], orden: 23 });
   APP.nav('seller', { vista: 'seller/estadisticas', texto: 'Estadísticas', icono: 'insights', roles: ['seller'], orden: 12 });
+
+  /* ¿Tiene la sesión este permiso fino? true, false o null mientras no se
+     sabe (sin servidor, los implícitos del rol). Para no pintar enlaces a
+     una sección que el rol no puede abrir. */
+  C.tienePermiso = function (s, permiso) {
+    if (!s) return false;
+    if (s.rol === 'superadmin') return true;
+    var lista = remoto() ? permisosDe(s) : (IMPLICITOS[s.rol] || []);
+    return lista ? lista.indexOf(permiso) >= 0 : null;
+  };
+  /* La vista que el rol no puede usar: el 403 de siempre, sin pedir datos. */
+  C.sinAcceso = function (s, permiso, tituloVista) {
+    return s && C.tienePermiso(s, permiso) === false ? APP.html403(s, tituloVista) : '';
+  };
 
   C.remoto = remoto;
   C.datos = datos; C.invalidar = invalidar; C.accion = accion;

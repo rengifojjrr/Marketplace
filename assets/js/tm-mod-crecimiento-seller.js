@@ -55,15 +55,15 @@
         '<input id="of-precio" name="precio_oferta_usd" type="number" min="0.01" step="0.01" inputmode="decimal" class="' + C().CAMPO + '"/>',
         'Menor que el precio actual; el actual se muestra tachado.') + '</div>' +
       '<div data-oferta-campo="relampago" hidden>' + C().campo('of-stock', 'Unidades en oferta',
-        '<input id="of-stock" name="stock_oferta" type="number" min="1" step="1" class="' + C().CAMPO + '"/>', 'Al venderse, la oferta termina sola.') + '</div>' +
+        '<input id="of-stock" name="stock_oferta" type="number" inputmode="numeric" min="1" step="1" class="' + C().CAMPO + '"/>', 'Al venderse, la oferta termina sola.') + '</div>' +
       '<div data-oferta-campo="cantidad" hidden>' + C().campo('of-min', 'Desde cuántas unidades',
-        '<input id="of-min" name="cantidad_min" type="number" min="2" max="10" step="1" value="2" class="' + C().CAMPO + '"/>') + '</div>' +
+        '<input id="of-min" name="cantidad_min" type="number" inputmode="numeric" min="2" max="10" step="1" value="2" class="' + C().CAMPO + '"/>') + '</div>' +
       '<div data-oferta-campo="cantidad" hidden>' + C().campo('of-pct', 'Descuento (%)',
-        '<input id="of-pct" name="descuento_pct" type="number" min="1" max="' + esc(C().n((d.topes || {}).descuento_max_pct) || 70) + '" step="0.5" class="' + C().CAMPO + '"/>') + '</div>' +
+        '<input id="of-pct" name="descuento_pct" type="number" inputmode="decimal" min="1" max="' + esc(C().n((d.topes || {}).descuento_max_pct) || 70) + '" step="0.5" class="' + C().CAMPO + '"/>') + '</div>' +
       C().campo('of-desde', 'Empieza', '<input id="of-desde" name="desde" type="datetime-local" value="' + esc(ahora) + '" class="' + C().CAMPO + '"/>', 'Hora de Caracas.') +
       C().campo('of-hasta', 'Termina', '<input id="of-hasta" name="hasta" type="datetime-local" value="' + esc(fin) + '" class="' + C().CAMPO + '"/>') +
       '<p data-oferta-producto class="sm:col-span-2 lg:col-span-3 font-body-sm text-body-sm text-on-surface-variant"></p>' +
-      '<div class="sm:col-span-2 lg:col-span-3 flex justify-end">' + btn('Crear la oferta', { estilo: 'primario', tipo: 'submit', icono: 'sell' }) + '</div>' +
+      '<div class="sm:col-span-2 lg:col-span-3 flex justify-end">' + btn('Crear la oferta', { estilo: 'primario', tipo: 'submit', icono: 'sell', clase: 'w-full sm:w-auto' }) + '</div>' +
       '</form>';
   }
   function tablaOfertas(lista) {
@@ -72,7 +72,7 @@
         ? esc(C().pct(o.descuento_pct)) + ' desde ' + o.cantidad_min + ' unidades'
         : '<span class="tm-crec-tachado text-on-surface-variant">' + esc(C().usd(o.precio_referencia_usd)) + '</span> ' + esc(C().usd(o.precio_oferta_usd));
       var vivo = o.activa && Date.parse(o.hasta) > Date.now();
-      return UI.td('<strong>' + esc(o.nombre || o.sku) + '</strong><span class="block font-data-mono text-data-mono text-on-surface-variant">' + esc(o.sku) + '</span>') +
+      return '<td data-th="" class="px-4 py-3"><span class="block w-full"><strong>' + esc(o.nombre || o.sku) + '</strong><span class="block tm-id font-data-mono text-data-mono text-on-surface-variant">' + esc(o.sku) + '</span></span></td>' +
         UI.td(esc(TIPOS_OFERTA[o.tipo] || o.tipo) + '<span class="block tm-crec-num">' + detalle + '</span>') +
         UI.td('<span class="font-body-sm text-body-sm">' + vigencia(o.desde, o.hasta) + '</span>' +
           (o.tipo === 'relampago' && vivo && Date.parse(o.desde) <= Date.now() ? '<span class="block">quedan ' + C().regresiva(o.hasta) + '</span>' : '')) +
@@ -80,35 +80,35 @@
         UI.td(estadoVigencia(o.activa, o.desde, o.hasta, o.activa && o.vigente === false && Date.parse(o.desde) <= Date.now() && Date.parse(o.hasta) > Date.now()) +
           (o.financia === 'tumbo' ? ' ' + C().chip('la financia Tumbo', 'azul') : '')) +
         UI.td(o.financia === 'seller' && Date.parse(o.hasta) > Date.now()
-          ? btn(o.activa ? 'Desactivar' : 'Activar', { estilo: o.activa ? 'peligro' : 'borde', attr: 'data-promo-estado="oferta" data-id="' + o.id + '" data-activo="' + (o.activa ? '0' : '1') + '"' })
+          ? btn(o.activa ? 'Desactivar' : 'Activar', { estilo: o.activa ? 'peligro' : 'borde', clase: 'max-sm:w-full', attr: 'data-promo-estado="oferta" data-id="' + o.id + '" data-activo="' + (o.activa ? '0' : '1') + '"' })
           : '', 'text-right');
-    }), UI.vacio('sell', 'Sin ofertas', 'Crea tu primera oferta: el precio de lista se muestra tachado en la ficha, la búsqueda y el carrito.'));
+    }), '<div class="rounded-card border border-outline-variant bg-surface-container-lowest">' + UI.vacio('sell', 'Sin ofertas', 'Crea tu primera oferta: el precio de lista se muestra tachado en la ficha, la búsqueda y el carrito.', '', { compacto: true }) + '</div>');
   }
   function formCupon() {
     var ahora = C().localCaracas(new Date().toISOString());
     var fin = C().localCaracas(new Date(Date.now() + 30 * 86400000).toISOString());
     return '<form data-cupon-form class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">' +
-      C().campo('cu-codigo', 'Código', '<input id="cu-codigo" name="codigo" maxlength="24" autocomplete="off" placeholder="p. ej. TECH10" class="' + C().CAMPO + ' uppercase"/>',
+      C().campo('cu-codigo', 'Código', '<input id="cu-codigo" name="codigo" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Ej.: TECH10" class="' + C().CAMPO + ' uppercase placeholder:normal-case"/>',
         'De 3 a 24 letras sin tilde, números, «-» o «_».') +
       C().campo('cu-tipo', 'Descuenta', '<select id="cu-tipo" name="tipo" class="' + C().CAMPO + '"><option value="porcentaje">Un porcentaje</option><option value="monto">Un monto en USD</option></select>') +
-      C().campo('cu-valor', 'Valor', '<input id="cu-valor" name="valor" type="number" min="0.01" step="0.01" class="' + C().CAMPO + '"/>', '% o USD según lo elegido.') +
-      C().campo('cu-minimo', 'Compra mínima en tus productos (USD)', '<input id="cu-minimo" name="minimo_usd" type="number" min="0" step="0.01" value="0" class="' + C().CAMPO + '"/>') +
-      C().campo('cu-tope', 'Tope de descuento (USD, opcional)', '<input id="cu-tope" name="tope_descuento_usd" type="number" min="0.01" step="0.01" class="' + C().CAMPO + '"/>', 'Solo para porcentajes.') +
-      C().campo('cu-usos', 'Usos en total (vacío: sin tope)', '<input id="cu-usos" name="usos_max" type="number" min="1" step="1" class="' + C().CAMPO + '"/>') +
-      C().campo('cu-persona', 'Usos por persona', '<input id="cu-persona" name="usos_por_usuario" type="number" min="1" max="100" step="1" value="1" class="' + C().CAMPO + '"/>') +
-      C().campo('cu-presupuesto', 'Presupuesto (USD, opcional)', '<input id="cu-presupuesto" name="presupuesto_usd" type="number" min="0.01" step="0.01" class="' + C().CAMPO + '"/>',
+      C().campo('cu-valor', 'Valor', '<input id="cu-valor" name="valor" type="number" inputmode="decimal" min="0.01" step="0.01" class="' + C().CAMPO + '"/>', '% o USD según lo elegido.') +
+      C().campo('cu-minimo', 'Compra mínima en tus productos (USD)', '<input id="cu-minimo" name="minimo_usd" type="number" inputmode="decimal" min="0" step="0.01" value="0" class="' + C().CAMPO + '"/>') +
+      C().campo('cu-tope', 'Tope de descuento (USD, opcional)', '<input id="cu-tope" name="tope_descuento_usd" type="number" inputmode="decimal" min="0.01" step="0.01" class="' + C().CAMPO + '"/>', 'Solo para porcentajes.') +
+      C().campo('cu-usos', 'Usos en total (vacío: sin tope)', '<input id="cu-usos" name="usos_max" type="number" inputmode="numeric" min="1" step="1" class="' + C().CAMPO + '"/>') +
+      C().campo('cu-persona', 'Usos por persona', '<input id="cu-persona" name="usos_por_usuario" type="number" inputmode="numeric" min="1" max="100" step="1" value="1" class="' + C().CAMPO + '"/>') +
+      C().campo('cu-presupuesto', 'Presupuesto (USD, opcional)', '<input id="cu-presupuesto" name="presupuesto_usd" type="number" inputmode="decimal" min="0.01" step="0.01" class="' + C().CAMPO + '"/>',
         'Al gastarse, el cupón deja de aplicarse.') +
       C().campo('cu-desc', 'Descripción (opcional)', '<input id="cu-desc" name="descripcion" maxlength="160" class="' + C().CAMPO + '"/>') +
       C().campo('cu-desde', 'Empieza', '<input id="cu-desde" name="desde" type="datetime-local" value="' + esc(ahora) + '" class="' + C().CAMPO + '"/>', 'Hora de Caracas.') +
       C().campo('cu-hasta', 'Termina', '<input id="cu-hasta" name="hasta" type="datetime-local" value="' + esc(fin) + '" class="' + C().CAMPO + '"/>') +
-      '<div class="flex items-end justify-end">' + btn('Crear el cupón', { estilo: 'primario', tipo: 'submit', icono: 'confirmation_number' }) + '</div>' +
+      '<div class="flex items-end justify-end">' + btn('Crear el cupón', { estilo: 'primario', tipo: 'submit', icono: 'confirmation_number', clase: 'w-full sm:w-auto' }) + '</div>' +
       '</form>';
   }
   function tablaCupones(lista) {
     return UI.tabla(['Código', 'Descuento', 'Vigencia', 'Usos', 'Estado', ''], lista.map(function (c) {
       var valor = c.tipo === 'porcentaje' ? C().pct(c.valor) + (c.tope_descuento_usd ? ' (hasta ' + C().usd(c.tope_descuento_usd) + ')' : '') : C().usd(c.valor);
-      return UI.td('<strong class="font-data-mono text-data-mono">' + esc(c.codigo) + '</strong>' + (c.descripcion ? '<span class="block text-on-surface-variant">' + esc(c.descripcion) + '</span>' : '') +
-          (c.demo ? '<span class="block">' + C().chip('de la demo', 'gris') + '</span>' : '')) +
+      return '<td data-th="" class="px-4 py-3"><span class="block w-full"><strong class="tm-id font-data-mono text-data-mono">' + esc(c.codigo) + '</strong>' + (c.demo ? ' ' + C().chip('de la demo', 'gris') : '') +
+          (c.descripcion ? '<span class="block text-on-surface-variant">' + esc(c.descripcion) + '</span>' : '') + '</span></td>' +
         UI.td(esc(valor) + '<span class="block text-on-surface-variant">mínimo ' + esc(C().usd(c.minimo_usd)) + '</span>') +
         UI.td('<span class="font-body-sm text-body-sm">' + vigencia(c.desde, c.hasta) + '</span>') +
         UI.td('<span class="tm-crec-num">' + C().entero(c.usos) + (c.usos_max ? ' / ' + C().entero(c.usos_max) : '') + '</span>' +
@@ -116,9 +116,9 @@
           (c.presupuesto_usd ? ' de ' + esc(C().usd(c.presupuesto_usd)) : '') + '</span>') +
         UI.td(estadoVigencia(c.activo, c.desde, c.hasta)) +
         UI.td(Date.parse(c.hasta) > Date.now()
-          ? btn(c.activo ? 'Desactivar' : 'Activar', { estilo: c.activo ? 'peligro' : 'borde', attr: 'data-promo-estado="cupon" data-id="' + c.id + '" data-activo="' + (c.activo ? '0' : '1') + '"' })
+          ? btn(c.activo ? 'Desactivar' : 'Activar', { estilo: c.activo ? 'peligro' : 'borde', clase: 'max-sm:w-full', attr: 'data-promo-estado="cupon" data-id="' + c.id + '" data-activo="' + (c.activo ? '0' : '1') + '"' })
           : '', 'text-right');
-    }), UI.vacio('confirmation_number', 'Sin cupones', 'Un cupón da un descuento en tus productos a quien escriba el código en el checkout.'));
+    }), '<div class="rounded-card border border-outline-variant bg-surface-container-lowest">' + UI.vacio('confirmation_number', 'Sin cupones', 'Un cupón da un descuento en tus productos a quien escriba el código en el checkout.', '', { compacto: true }) + '</div>');
   }
 
   function vPromociones(q, s) {
@@ -131,15 +131,21 @@
       return '<p class="font-body-sm text-body-sm text-on-surface-variant mb-4">Las financias tú: el descuento sale de tu venta y se calcula sobre el precio con descuento. ' +
           'Para tachar un precio anterior, el precio no debe haber subido en los últimos ' + C().entero(topes.referencia_dias || 7) + ' días; si lo subes con la oferta activa, la oferta deja de aplicarse. ' +
           'Descuento máximo: ' + esc(C().pct(topes.descuento_max_pct || 70)) + '.</p>' +
-        C().caja('<h2 class="font-headline-sm text-headline-sm text-primary-container mb-3">Nueva oferta</h2>' +
-          ((d.productos || []).length ? formOferta(d) : '<p class="font-body-sm text-body-sm text-on-surface-variant">No tienes productos publicados, pausados o en revisión para ofertar.</p>'),
-          'data-nueva-oferta') +
-        C().subtitulo('Tus ofertas', '<span class="font-body-sm text-body-sm text-on-surface-variant">' + activas + ' de ' + C().entero(topes.ofertas_activas_seller || 50) + ' activas o programadas</span>') +
-        '<div data-ofertas>' + tablaOfertas(d.ofertas || []) + '</div>' +
+        /* en el teléfono, primero lo que ya tienes y debajo el formulario para crear (desde sm, el orden de siempre) */
+        '<div class="flex flex-col">' +
+          '<div class="order-2 sm:order-1">' + C().caja('<h2 class="font-headline-sm text-headline-sm text-primary-container mb-3">Nueva oferta</h2>' +
+            ((d.productos || []).length ? formOferta(d) : '<p class="font-body-sm text-body-sm text-on-surface-variant">No tienes productos publicados, pausados o en revisión para ofertar.</p>'),
+            'data-nueva-oferta') + '</div>' +
+          '<div class="order-1 sm:order-2 mb-4">' +
+            C().subtitulo('Tus ofertas', '<span class="font-body-sm text-body-sm text-on-surface-variant">' + activas + ' de ' + C().entero(topes.ofertas_activas_seller || 50) + ' activas o programadas</span>') +
+            '<div data-ofertas>' + tablaOfertas(d.ofertas || []) + '</div></div>' +
+        '</div>' +
         (d.puede_cupones
-          ? C().subtitulo('Tus cupones', '<span class="font-body-sm text-body-sm text-on-surface-variant">hasta ' + C().entero(topes.cupones_activos_seller || 20) + ' activos o programados</span>') +
-            C().caja('<h2 class="font-headline-sm text-headline-sm text-primary-container mb-3">Nuevo cupón</h2>' + formCupon(), 'data-nuevo-cupon') +
-            '<div data-cupones>' + tablaCupones(d.cupones || []) + '</div>'
+          ? '<div class="flex flex-col">' +
+              '<div class="order-1">' + C().subtitulo('Tus cupones', '<span class="font-body-sm text-body-sm text-on-surface-variant">hasta ' + C().entero(topes.cupones_activos_seller || 20) + ' activos o programados</span>') + '</div>' +
+              '<div class="order-3 sm:order-2">' + C().caja('<h2 class="font-headline-sm text-headline-sm text-primary-container mb-3">Nuevo cupón</h2>' + formCupon(), 'data-nuevo-cupon') + '</div>' +
+              '<div class="order-2 sm:order-3 mb-4 sm:mb-0" data-cupones>' + tablaCupones(d.cupones || []) + '</div>' +
+            '</div>'
           : C().subtitulo('Cupones') + '<p class="font-body-sm text-body-sm text-on-surface-variant">Los cupones del comercio los crea su titular.</p>');
     }, 'Cargando tus promociones…');
   }
@@ -259,8 +265,8 @@
         (n.nivel ? C().insigniaNivel(n.nombre) : C().chip('sin nivel todavía', 'gris')) +
         (n.descuento_comision_pts ? C().chip('comisión −' + C().pct(n.descuento_comision_pts).replace(' %', ' pts'), 'verde', 'percent') : '') + '</div>' +
       '<p class="font-body-sm text-body-sm mb-2">Comisión que rige hoy: <strong>' + esc(C().pct(d.comision_pct)) + '</strong>. ' +
-        'Últimos 90 días: ' + C().entero(m.ventas) + ' ventas · ' + esc(C().usd(m.gmv_usd)) + ' · cancelación ' + esc(C().pct(m.cancelacion_pct)) +
-        ' · despacho a tiempo ' + esc(C().pct(m.a_tiempo_pct)) + ' · reclamos perdidos ' + esc(C().pct(m.disputas_perdidas_pct)) + '.</p>' +
+        'Últimos 90 días: ' + C().entero(m.ventas) + ' ventas · ' + esc(C().usd(m.gmv_usd)) + ' · cancelación ' + esc(m.cancelacion_pct == null ? 'sin pedidos' : C().pct(m.cancelacion_pct)) +
+        ' · despacho a tiempo ' + esc(m.a_tiempo_pct == null ? 'sin despachos todavía' : C().pct(m.a_tiempo_pct)) + ' · reclamos perdidos ' + esc(m.disputas_perdidas_pct == null ? 'ninguno' : C().pct(m.disputas_perdidas_pct)) + '.</p>' +
       (n.siguiente ? '<p data-progreso-nivel class="font-body-sm text-body-sm text-on-surface-variant">Para ' + esc(n.siguiente) +
         ((n.faltan || []).length ? ' te falta: ' + n.faltan.map(esc).join(' · ') + '.' : ': lo alcanzas en el próximo cálculo diario.') + '</p>'
         : (n.nivel ? '<p class="font-body-sm text-body-sm text-on-surface-variant">Estás en el nivel más alto.</p>' : '')) +
@@ -283,13 +289,15 @@
     var r = leerEstad(f);
     function op(v, tx, sel) { return '<option value="' + esc(v) + '"' + (sel ? ' selected' : '') + '>' + esc(tx) + '</option>'; }
     return t +
-      '<form data-estad-filtros class="flex flex-wrap items-end gap-2 mb-4">' +
+      '<form data-estad-filtros class="grid grid-cols-[1.4fr_1fr] sm:flex sm:flex-wrap sm:items-end gap-2 mb-4">' +
         C().campo('es-preset', 'Período', '<select id="es-preset" name="preset" class="' + C().CAMPO + '">' +
           op('7', 'Últimos 7 días', f.preset === '7') + op('30', 'Últimos 30 días', f.preset === '30') + op('90', 'Últimos 90 días', f.preset === '90') +
           op('mes', 'Este mes', f.preset === 'mes') + '</select>') +
         C().campo('es-agrupar', 'Agrupar', '<select id="es-agrupar" name="agrupar" class="' + C().CAMPO + '">' +
           op('dia', 'Por día', f.agrupar === 'dia') + op('semana', 'Por semana', f.agrupar === 'semana') + op('mes', 'Por mes', f.agrupar === 'mes') + '</select>') +
-        btn('Aplicar', { tipo: 'submit', icono: 'filter_alt' }) + btn('Exportar CSV', { icono: 'download', attr: 'data-estad-csv' }) +
+        /* los dos botones en su propia fila, del mismo ancho, en el teléfono */
+        '<div class="col-span-2 grid grid-cols-2 gap-2 sm:flex">' + btn('Aplicar', { tipo: 'submit', icono: 'filter_alt', estilo: 'primario' }) +
+          btn('Exportar CSV', { icono: 'download', attr: 'data-estad-csv', clase: 'whitespace-nowrap' }) + '</div>' +
       '</form>' +
       C().seccion(r, claveEstad(f), function (d) {
         var k = d.kpis || {}, v = d.visitas || {};
@@ -300,19 +308,25 @@
             UI.kpi('Ventas', esc(C().usd(k.gmv_usd)), C().entero(k.ventas) + ' pedidos · ' + C().entero(k.unidades) + ' unidades', 'trending_up') +
             UI.kpi('Ticket promedio', esc(C().usd(k.ticket_usd)), C().entero(k.cancelados) + ' cancelados', 'receipt_long') +
             UI.kpi('Visitas a tus fichas', esc(C().entero(v.vistas)), C().entero(v.visitantes) + ' visitantes · ' + C().entero(v.agregados) + ' al carrito', 'visibility') +
-            UI.kpi('Conversión', esc(conv == null ? '—' : C().pct(conv)), 'unidades vendidas por visitante', 'filter_alt') +
+            UI.kpi('Conversión', esc(conv == null ? '—' : C().pct(conv)), conv == null ? 'sin visitas en el período' : 'unidades vendidas por visitante', 'filter_alt') +
           '</section>' +
-          '<div class="grid lg:grid-cols-2 gap-4">' +
+          '<div class="grid lg:grid-cols-2 gap-4 mb-4 [&>section]:!mb-0">' +
             C().caja('<h3 class="font-label-md text-label-md text-on-surface mb-3">Ventas (USD)</h3>' + barras(d.serie || [], 'gmv_usd', agr, C().usd), 'data-estad-ventas') +
             C().caja('<h3 class="font-label-md text-label-md text-on-surface mb-3">Visitas</h3>' + barras(d.serie || [], 'vistas', agr, C().entero, '#0f8f6f'), 'data-estad-visitas') +
           '</div>' +
           bloqueNivel(d) +
           C().subtitulo('Por ficha') +
+          /* en el teléfono, una tarjeta por ficha con sus cifras en una línea (en la tabla, una columna cada una) */
           '<div data-estad-fichas>' + UI.tabla(['Producto', 'Vistas', 'Visitantes', 'Al carrito', 'Vendidas', 'Conversión'], (d.por_producto || []).map(function (p) {
-            return UI.td('<a class="text-secondary hover:underline" href="' + href('app/tienda/producto.html?sku=' + encodeURIComponent(p.sku)) + '">' + esc(p.nombre) + '</a>' +
-                '<span class="block font-data-mono text-data-mono text-on-surface-variant">' + esc(p.sku) + '</span>') +
-              UI.td(C().entero(p.vistas), 'tm-crec-num') + UI.td(C().entero(p.visitantes), 'tm-crec-num') + UI.td(C().entero(p.agregados), 'tm-crec-num') +
-              UI.td(C().entero(p.unidades), 'tm-crec-num') + UI.td(esc(C().pct(p.conversion_pct)), 'tm-crec-num');
+            var cifras = [[p.vistas, 'vista', 'vistas'], [p.visitantes, 'visitante', 'visitantes'], [p.agregados, 'al carrito', 'al carrito'], [p.unidades, 'vendida', 'vendidas']];
+            var resumen = cifras.some(function (c) { return C().n(c[0]) > 0; })
+              ? cifras.map(function (c) { return C().entero(c[0]) + ' ' + (C().n(c[0]) === 1 ? c[1] : c[2]); }).join(' · ') + ' · conversión ' + C().pct(p.conversion_pct)
+              : 'Sin visitas en el período';
+            return '<td data-th="" class="px-4 py-3"><span class="block w-full"><a class="text-secondary hover:underline" href="' + href('app/tienda/producto.html?sku=' + encodeURIComponent(p.sku)) + '">' + esc(p.nombre) + '</a>' +
+                '<span class="block tm-id font-data-mono text-data-mono text-on-surface-variant">' + esc(p.sku) + '</span>' +
+                '<span class="block mt-1 font-body-sm text-body-sm text-on-surface-variant sm:hidden">' + esc(resumen) + '</span></span></td>' +
+              UI.td(C().entero(p.vistas), 'hidden sm:table-cell tm-crec-num') + UI.td(C().entero(p.visitantes), 'hidden sm:table-cell tm-crec-num') + UI.td(C().entero(p.agregados), 'hidden sm:table-cell tm-crec-num') +
+              UI.td(C().entero(p.unidades), 'hidden sm:table-cell tm-crec-num') + UI.td(esc(C().pct(p.conversion_pct)), 'hidden sm:table-cell tm-crec-num');
           }), UI.vacio('inventory_2', 'Sin productos publicados', 'Cuando publiques, verás aquí sus visitas y su conversión.')) + '</div>' +
           C().subtitulo('Búsquedas que te traen visitas') +
           '<div data-estad-busquedas>' + UI.tabla(['Búsqueda', 'Visitas a tus fichas'], (d.busquedas || []).map(function (b) {
@@ -357,10 +371,13 @@
     if (!r.listo || !r.dato) return '';
     var d = r.dato, n = d.nivel_ahora || {};
     return bloqueSanciones(d.sanciones) +
-      '<section data-nivel-panel class="flex flex-wrap items-center gap-2 rounded-card border border-outline-variant bg-surface-container-lowest p-3 mb-4 font-body-sm text-body-sm">' +
-        ic('workspace_premium', 'text-[20px] text-secondary') + (n.nivel ? C().insigniaNivel(n.nombre) : '<span>Aún sin nivel</span>') +
-        '<span class="text-on-surface-variant">comisión ' + esc(C().pct(d.comision_pct)) + (n.siguiente ? ' · próximo nivel: ' + esc(n.siguiente) : '') + '</span>' +
-        '<a class="ml-auto font-label-md text-label-md text-secondary hover:underline" href="' + href('app/seller/estadisticas.html') + '">Ver estadísticas</a></section>';
+      /* la misma composición que las demás tarjetas del panel: icono, título, detalle y enlace */
+      '<section data-nivel-panel class="flex items-start gap-3 rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-4">' +
+        ic('workspace_premium', 'shrink-0 text-[24px] text-secondary') +
+        '<div class="flex-1 min-w-0"><p class="flex flex-wrap items-center gap-2 font-body-md text-body-md font-semibold text-on-surface">' +
+          (n.nivel ? 'Tu nivel ' + C().insigniaNivel(n.nombre) : 'Aún sin nivel') + '</p>' +
+        '<p class="font-body-sm text-body-sm text-on-surface-variant">Comisión de ' + esc(C().pct(d.comision_pct)) + (n.siguiente ? ' · próximo nivel: ' + esc(n.siguiente) : '') + '</p>' +
+        '<p class="mt-1">' + UI.enlace('Ver estadísticas', href('app/seller/estadisticas.html'), 'arrow_forward') + '</p></div></section>';
   });
 
   TM.crecSeller = { enlazarEstados: enlazarEstados, TIPOS_OFERTA: TIPOS_OFERTA, estadoVigencia: estadoVigencia, vigencia: vigencia };

@@ -376,7 +376,7 @@ async function sesionApi(email) {
       await abrir('tienda/inicio');
       await p.waitForSelector('[data-legal-pendiente]', { timeout: 15000 });
       const aviso0 = await p.locator('[data-legal-pendiente]').innerText();
-      if (!/Falta que aceptes Política de privacidad/.test(aviso0) || /Actualizamos/.test(aviso0)) throw new Error('aviso: ' + aviso0);
+      if (!/Falta que aceptes la Política de privacidad/.test(aviso0) || /Actualizamos/.test(aviso0)) throw new Error('aviso: ' + aviso0);
       await p.locator('[data-legal-pendiente] a', { hasText: 'Leer' }).first().click();
       await p.waitForSelector('[data-aceptar-legal="privacidad"]');
       await p.locator('[data-aceptar-legal="privacidad"]').click();
@@ -399,7 +399,7 @@ async function sesionApi(email) {
       await p.evaluate(() => { try { sessionStorage.clear(); } catch (e) { } });
       await abrir('tienda/inicio');
       await p.waitForSelector('[data-legal-pendiente]', { timeout: 15000 });
-      if (!/Actualizamos Política de privacidad/.test(await p.locator('[data-legal-pendiente]').innerText())) throw new Error('sin «Actualizamos»');
+      if (!/Actualizamos la Política de privacidad/.test(await p.locator('[data-legal-pendiente]').innerText())) throw new Error('sin «Actualizamos»');
       await abrir('ayuda/privacidad');
       await p.waitForSelector('[data-legal-estado="privacidad"] [data-legal-desfase]');
       if (await p.locator('[data-aceptar-legal]').count()) throw new Error('se ofrece aceptar un texto que la página no muestra');

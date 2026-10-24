@@ -36,10 +36,11 @@
     return titulo + C().seccion(r, 'preguntas:seller:' + filtroPreguntas, function (d) {
       var m = d.metricas || {};
       var rapidas = d.rapidas || [];
-      return '<section class="grid sm:grid-cols-3 gap-3 mb-5">' +
+      return '<section class="grid sm:grid-cols-3 gap-3 mb-5 max-sm:[&>:last-child:nth-child(odd)]:col-span-2">' +
           UI.kpi('Por responder', String(m.pendientes || 0), 'preguntas publicadas', 'help') +
           UI.kpi('Respondidas (90 días)', String(m.respondidas_90 || 0), 'en la ficha de tus productos', 'forum') +
-          UI.kpi('Tiempo de respuesta', esc(C().horas(m.mediana_horas)), 'mediana · se muestra en la ficha', 'schedule') +
+          UI.kpi('Tiempo de respuesta', esc(C().horas(m.mediana_horas)),
+            m.mediana_horas == null ? 'aparece cuando respondas tu primera pregunta' : 'mediana · se muestra en la ficha', 'schedule') +
         '</section>' +
         C().pestanas([['pendientes', 'Por responder'], ['respondidas', 'Respondidas'], ['todas', 'Todas']], filtroPreguntas, 'data-filtro-preguntas') +
         ((d.preguntas || []).length
@@ -67,7 +68,7 @@
                   '<option value="">Usar una respuesta rápida…</option>' + rapidas.map(function (r) { return '<option value="' + esc(r.id) + '">' + esc(r.titulo) + '</option>'; }).join('') + '</select>' : '') +
                 '<label class="sr-only" for="resp-' + esc(x.id) + '">Tu respuesta</label>' +
                 '<textarea id="resp-' + esc(x.id) + '" name="texto" rows="2" maxlength="1000" placeholder="Tu respuesta es pública en la ficha del producto." class="' + C().CLASE_AREA + '"></textarea>' +
-                '<div class="flex justify-end mt-2">' + btn('Responder', { estilo: 'primario', icono: 'send', tipo: 'submit', attr: 'data-enviar-respuesta' }) + '</div></form>'
+                '<div class="flex justify-end mt-2">' + btn('Responder', { estilo: 'primario', icono: 'send', tipo: 'submit', attr: 'data-enviar-respuesta', clase: 'w-full sm:w-auto' }) + '</div></form>'
             : '<div class="mt-2 rounded-btn bg-surface-container-low px-3 py-2 font-body-sm text-body-sm"><strong>Tu respuesta</strong> (' + esc(C().hace(x.respondida_en)) + ', en ' +
                 esc(C().horas(x.espera_horas)) + ')' + (x.respuesta_estado === 'revision' ? ' · ' + C().chip('En revisión', 'ambar', 'flag') : x.respuesta_estado === 'oculta' ? ' · ' + C().chip('Oculta por moderación', 'rojo') : '') +
                 '<p class="mt-1 whitespace-pre-line">' + esc(x.respuesta) + '</p></div>') +
@@ -77,7 +78,7 @@
   function bloqueRapidas(rapidas, s) {
     return '<section data-rapidas class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mt-6">' +
       '<div class="flex flex-wrap items-center justify-between gap-2 mb-2"><h2 class="font-headline-sm text-headline-sm text-primary-container">Respuestas rápidas</h2>' +
-        btn('Nueva respuesta rápida', { icono: 'add', attr: 'data-rapida-nueva' }) + '</div>' +
+        btn('Nueva respuesta rápida', { icono: 'add', attr: 'data-rapida-nueva', clase: 'w-full sm:w-auto' }) + '</div>' +
       '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Textos que tu equipo reutiliza (hasta 30): envíos, garantía, tallas… También son públicos al responder.</p>' +
       (rapidas.length ? '<ul class="divide-y divide-outline-variant">' + rapidas.map(function (r) {
         return '<li class="flex flex-wrap items-start justify-between gap-2 py-2" data-rapida-item="' + esc(r.id) + '"><div class="min-w-0 flex-1"><p class="font-body-sm text-body-sm font-semibold">' + esc(r.titulo) + '</p>' +
@@ -160,12 +161,13 @@
     if (!rep) return '';
     return '<section data-reputacion-seller class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-5">' +
       '<div class="flex flex-wrap items-center justify-between gap-2 mb-3"><h2 class="font-headline-sm text-headline-sm text-primary-container">Tu reputación</h2>' + C().nivel(rep) + '</div>' +
-      '<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">' + INDICADORES.map(function (k) {
-        return '<div class="rounded-btn bg-surface-container-low p-3"><p class="flex items-center gap-1 font-label-sm text-label-sm text-on-surface-variant">' + ic(k[3], 'text-[16px]') + esc(k[1]) + '</p>' +
+      '<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 max-sm:[&>:last-child:nth-child(odd)]:col-span-2">' + INDICADORES.map(function (k) {
+        return '<div class="rounded-btn bg-surface-container-low p-3"><p class="flex items-start gap-1 font-label-md text-label-md text-on-surface-variant">' + ic(k[3], 'text-[16px] shrink-0') + '<span class="min-w-0">' + esc(k[1]) + '</span></p>' +
           '<p class="font-body-md text-body-md font-bold text-on-surface">' + esc(k[2](rep[k[0]], rep)) + '</p></div>';
       }).join('') + '</div>' +
       '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Últimos 90 días, con datos reales de tu comercio. Con menos de 5 ventas entregadas figuras como «Comercio nuevo». ' +
-        'El nivel se ve en tus productos y en tu tienda. <a class="text-secondary hover:underline" href="' + href('app/ayuda/vendedores.html') + '">Cómo se calcula</a></p></section>';
+        'El nivel se ve en tus productos y en tu tienda.</p>' +
+      '<p class="mt-1">' + UI.enlace('Cómo se calcula la reputación', href('app/ayuda/vendedores.html'), 'help') + '</p></section>';
   }
 
   function vResenas(q, s) {
@@ -185,7 +187,7 @@
     return '<article data-resena="' + esc(x.id) + '" class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
       '<div class="flex flex-wrap items-center gap-2 mb-1">' + C().estrellas(x.estrellas) +
         '<span class="font-body-sm text-body-sm text-on-surface">' + esc(x.producto ? x.producto : 'Sobre tu comercio') + '</span>' +
-        '<span class="font-body-sm text-body-sm text-on-surface-variant">· ' + esc(x.autor) + ' · pedido ' + esc(x.pedido) + ' · ' + esc(C().dia(x.creado)) + '</span>' +
+        '<span class="font-body-sm text-body-sm text-on-surface-variant">· ' + esc(x.autor) + ' · pedido <span class="tm-id">' + esc(x.pedido) + '</span> · ' + esc(C().dia(x.creado)) + '</span>' +
         (x.estado === 'revision' ? C().chip('En revisión', 'ambar', 'flag') : '') + '</div>' +
       (aspectos.length ? '<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">' + aspectos.map(function (k) { return esc(k[1]) + ': ' + x[k[0]] + '/5'; }).join(' · ') + '</p>' : '') +
       (x.texto ? '<p class="font-body-md text-body-md text-on-surface whitespace-pre-line">' + esc(x.texto) + '</p>' : '') +
@@ -196,7 +198,7 @@
         : (puede && x.estado === 'publicada'
           ? '<form data-responder-resena="' + esc(x.id) + '" class="mt-2"><label class="sr-only" for="rr-' + esc(x.id) + '">Responder en público</label>' +
               '<textarea id="rr-' + esc(x.id) + '" name="texto" rows="2" maxlength="1000" placeholder="Responde en público: agradece o explica qué harás (una sola respuesta)." class="' + C().CLASE_AREA + '"></textarea>' +
-              '<div class="flex justify-end mt-2">' + btn('Responder en público', { icono: 'reply', tipo: 'submit', attr: 'data-enviar-respuesta' }) + '</div></form>'
+              '<div class="flex justify-end mt-2">' + btn('Responder en público', { icono: 'reply', tipo: 'submit', attr: 'data-enviar-respuesta', clase: 'w-full sm:w-auto' }) + '</div></form>'
           : '')) +
       '</article>';
   }
@@ -233,12 +235,13 @@
       '<a class="flex gap-3 rounded-card border border-outline-variant bg-surface-container-lowest p-4 hover:border-secondary" href="' + href('app/seller/preguntas.html') + '">' +
         ic('help', 'text-[24px] ' + (pend ? 'text-warning' : 'text-tertiary') + ' shrink-0') +
         '<span><span class="block font-body-md text-body-md font-bold">' + (pend == null ? 'Preguntas' : pend ? pend + ' pregunta' + (pend === 1 ? '' : 's') + ' por responder' : 'Preguntas al día') + '</span>' +
-        '<span class="font-body-sm text-body-sm text-on-surface-variant">Tu tiempo de respuesta: ' + esc(C().horas(med)) + ' (se muestra en tus productos).</span></span></a>' +
+        '<span class="font-body-sm text-body-sm text-on-surface-variant">' + (med == null ? 'Tu tiempo de respuesta aparecerá en tus productos cuando respondas la primera pregunta.'
+          : 'Tu tiempo de respuesta: ' + esc(C().horas(med)) + ' (se muestra en tus productos).') + '</span></span></a>' +
       '<a class="flex gap-3 rounded-card border border-outline-variant bg-surface-container-lowest p-4 hover:border-secondary" href="' + href('app/seller/resenas.html') + '">' +
         ic('workspace_premium', 'text-[24px] text-secondary shrink-0') +
         '<span><span class="block font-body-md text-body-md font-bold mb-1">' + (nivel ? C().nivel(nivel) : 'Reputación') + '</span>' +
-        '<span class="font-body-sm text-body-sm text-on-surface-variant">' + (nivel && nivel.rating != null ? Number(nivel.rating).toFixed(1) + ' ★ en ' + nivel.resenas + ' reseña' + (nivel.resenas === 1 ? '' : 's') + ' verificada' + (nivel.resenas === 1 ? '' : 's') : 'Sin reseñas todavía') +
-        ' · ver el desglose</span></span></a>' +
+        '<span class="font-body-sm text-body-sm text-on-surface-variant">' + (nivel && nivel.rating != null ? Number(nivel.rating).toFixed(1) + ' ★ en ' + nivel.resenas + ' reseña' + (nivel.resenas === 1 ? '' : 's') + ' verificada' + (nivel.resenas === 1 ? '' : 's') + ' · ver el desglose'
+          : 'Aún sin reseñas verificadas: mira cómo se calcula tu reputación.') + '</span></span></a>' +
       '</section>';
   });
 

@@ -54,27 +54,35 @@
 
   function tarjeta(d) {
     var c = campos(d);
-    var lugar = [c.parroquia, c.municipio, c.ciudad, c.estado].filter(Boolean).join(', ') + (c.codigo ? ' · ' + c.codigo : '');
+    /* sin partes repetidas («Chacao, Chacao, Caracas») */
+    var vistos = {};
+    var lugar = [c.parroquia, c.municipio, c.ciudad, c.estado].filter(function (x) {
+      var k = String(x || '').trim().toLowerCase();
+      if (!k || vistos[k]) return false;
+      return (vistos[k] = true);
+    }).join(', ') + (c.codigo ? ' · ' + c.codigo : '');
     return '<article data-direccion="' + esc(c.id) + '" class="rounded-card border ' + (c.predeterminada ? 'border-secondary' : 'border-outline-variant') +
       ' bg-surface-container-lowest p-4 flex flex-col">' +
-      '<p class="flex flex-wrap items-center gap-2 font-body-md text-body-md font-bold text-on-surface mb-1">' + ic('place', 'text-[18px] text-secondary') + esc(c.nombre) +
-        (c.predeterminada ? '<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm">Predeterminada</span>' : '') + '</p>' +
+      '<p class="flex flex-wrap items-center gap-2 font-body-md text-body-md font-bold text-on-surface mb-1">' + ic('place', 'text-[18px] text-secondary') + '<span class="min-w-0 break-words">' + esc(c.nombre) + '</span>' +
+        (c.predeterminada ? '<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm whitespace-nowrap">Predeterminada</span>' : '') + '</p>' +
       (c.destinatario ? '<p class="font-body-sm text-body-sm text-on-surface">Recibe: ' + esc(c.destinatario) + (c.cedula ? ' · ' + esc(c.cedula) : '') + '</p>' : '') +
-      (c.telefono ? '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(legible(c.telefono)) + '</p>' : '') +
-      '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">' + esc(c.linea) + '</p>' +
+      (c.telefono ? '<p class="font-body-sm text-body-sm text-on-surface-variant tm-num">' + esc(legible(c.telefono)) + '</p>' : '') +
+      '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1 break-words">' + esc(c.linea) + '</p>' +
       (c.referencia ? '<p class="font-body-sm text-body-sm text-on-surface-variant">Referencia: ' + esc(c.referencia) + '</p>' : '') +
       '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(lugar) + '</p>' +
-      '<div class="flex flex-wrap gap-3 mt-3 pt-2 border-t border-outline-variant">' +
-        '<button data-editar-dir="' + esc(c.id) + '" class="font-label-md text-label-md text-secondary hover:underline">Editar</button>' +
-        (c.predeterminada ? '' : '<button data-predeterminar-dir="' + esc(c.id) + '" class="font-label-md text-label-md text-secondary hover:underline">Usar como predeterminada</button>') +
-        '<button data-quitar-dir="' + esc(c.id) + '" class="font-label-md text-label-md text-error hover:underline">Eliminar</button>' +
-      '</div></article>';
+      /* (botones de texto con 44 px de blanco táctil: tm-tocable) */
+      /* (el separador: aire de 12 px sobre los botones aunque la tarjeta no se estire) */
+      '<div class="grow min-h-[12px]" aria-hidden="true"></div><div class="pt-2 border-t border-outline-variant"><div class="flex flex-wrap gap-x-2">' +
+        '<button data-editar-dir="' + esc(c.id) + '" class="tm-tocable px-2 font-label-md text-label-md text-secondary hover:underline">' + ic('edit', 'text-[18px]') + 'Editar</button>' +
+        (c.predeterminada ? '' : '<button data-predeterminar-dir="' + esc(c.id) + '" class="tm-tocable px-2 font-label-md text-label-md text-secondary hover:underline">Usar como predeterminada</button>') +
+        '<button data-quitar-dir="' + esc(c.id) + '" class="tm-tocable px-2 font-label-md text-label-md text-error hover:underline">' + ic('delete', 'text-[18px]') + 'Eliminar</button>' +
+      '</div></div></article>';
   }
 
   function vDirecciones(q, s) {
     var dirs = (TM.estado.direcciones[s.email] || []).slice().sort(function (a, b) { return (b.predeterminada ? 1 : 0) - (a.predeterminada ? 1 : 0); });
     return TM.cuentas.titulo('Mis direcciones', btn('Agregar dirección', { estilo: 'primario', icono: 'add', attr: 'data-nueva' })) +
-      (dirs.length ? '<div class="grid sm:grid-cols-2 gap-3 max-w-4xl">' + dirs.map(tarjeta).join('') + '</div>'
+      (dirs.length ? '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-4xl">' + dirs.map(tarjeta).join('') + '</div>'
         : UI.vacio('place', 'Sin direcciones guardadas', 'Agrega tu primera dirección para agilizar el checkout.')) +
       '<p class="mt-4 max-w-4xl font-body-sm text-body-sm text-on-surface-variant">Hasta 20 direcciones. Quien recibe el pedido debe mostrar su cédula al courier; el pedido guarda una copia de la dirección al crearse, así que editarla después no cambia los pedidos en curso.</p>';
   }
@@ -86,7 +94,7 @@
       '<form data-form-dir novalidate class="grid sm:grid-cols-2 gap-3 max-h-[70vh] overflow-y-auto pr-1">' +
       E({ nombre: 'nombre', etiqueta: 'Nombre de la dirección', valor: c.nombre, placeholder: 'Casa, Oficina…', clase: 'sm:col-span-2' }) +
       E({ nombre: 'destinatario', etiqueta: 'Quién recibe', valor: c.destinatario, auto: 'name', placeholder: 'Nombre y apellido' }) +
-      E({ nombre: 'cedula_destinatario', etiqueta: 'Cédula de quien recibe', valor: c.cedula, placeholder: 'V-12345678', opcional: true }) +
+      E({ nombre: 'cedula_destinatario', etiqueta: 'Cédula de quien recibe', valor: c.cedula, placeholder: 'V-12345678', opcional: true, attr: 'autocapitalize="characters" spellcheck="false"' }) +
       E({ nombre: 'telefono_destinatario', etiqueta: 'Teléfono de quien recibe', tipo: 'tel', valor: c.telefono, auto: 'tel', placeholder: '+58 412 1234567' }) +
       '<div><label class="block font-label-md text-label-md text-on-surface mb-1" for="dir-estado">Estado</label>' +
       '<select id="dir-estado" name="estado" class="' + TM.cuentas.CAMPO + '"><option value="">Elige el estado…</option>' +
@@ -95,21 +103,23 @@
       E({ nombre: 'municipio', etiqueta: 'Municipio', valor: c.municipio }) +
       E({ nombre: 'parroquia', etiqueta: 'Parroquia', valor: c.parroquia, opcional: true }) +
       E({ nombre: 'codigo', etiqueta: 'Código postal', valor: c.codigo, attr: 'inputmode="numeric" maxlength="6"', opcional: true }) +
-      E({ nombre: 'linea', etiqueta: 'Dirección', valor: c.linea, auto: 'street-address', placeholder: 'Avenida o calle, edificio o casa, piso y apartamento', clase: 'sm:col-span-2' }) +
+      E({ nombre: 'linea', etiqueta: 'Dirección', valor: c.linea, auto: 'street-address', placeholder: 'Av. o calle, edificio, piso…', clase: 'sm:col-span-2',
+        ayuda: 'Avenida o calle, edificio o casa, piso y apartamento.' }) +
       E({ nombre: 'referencia', etiqueta: 'Punto de referencia', valor: c.referencia, placeholder: 'Frente a…, al lado de…', opcional: true, clase: 'sm:col-span-2' }) +
       '<label class="sm:col-span-2 flex items-center gap-2 cursor-pointer font-body-sm text-body-sm"><input type="checkbox" name="predeterminada"' +
       (c.predeterminada ? ' checked disabled' : '') + ' class="w-4 h-4 rounded border-outline text-secondary focus:ring-secondary/40"/>' +
       (c.predeterminada ? 'Es tu dirección predeterminada' : 'Usar como dirección predeterminada') + '</label>' +
       '<p data-err class="hidden sm:col-span-2 font-body-sm text-body-sm text-error"></p></form>' +
-      '<div class="flex justify-end gap-2 mt-4">' + btn('Cancelar', { attr: 'data-cerrar' }) + btn('Guardar', { estilo: 'primario', attr: 'data-ok', icono: 'save' }) + '</div>';
+      '<div class="tm-acciones mt-4">' + btn('Cancelar', { attr: 'data-cerrar' }) + btn('Guardar', { estilo: 'primario', attr: 'data-ok', icono: 'save' }) + '</div>';
   }
 
   function abrirFormulario(d) {
     UI.modal(formulario(d), function (velo, cerrar) {
       var form = velo.querySelector('[data-form-dir]');
       var err = velo.querySelector('[data-err]');
+      /* en el teléfono no se abre el teclado sin que lo pidan */
       var primero = form.querySelector('input');
-      if (primero) primero.focus();
+      if (primero && !UI.tactil()) primero.focus();
       velo.querySelector('[data-ok]').addEventListener('click', function () {
         var v = {};
         form.querySelectorAll('input[name], select[name]').forEach(function (i) {

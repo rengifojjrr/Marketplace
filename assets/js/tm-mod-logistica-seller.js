@@ -39,22 +39,39 @@
       { t: 'Cancelaciones del comercio', v: porcentaje(m.cancelaciones_seller, m.pedidos), ok: !m.pedidos || m.cancelaciones_seller / m.pedidos <= 0.025, d: m.cancelaciones_seller + ' de ' + m.pedidos + (m.pedidos === 1 ? ' pedido' : ' pedidos') },
       { t: 'Incidencias abiertas', v: String(m.incidencias_abiertas), ok: !m.incidencias_abiertas, d: 'esperando a Operaciones' }
     ];
-    return '<section class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5" data-metricas-logistica>' + items.map(function (i) {
-      return '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-3">' +
-        '<p class="font-label-caps text-label-caps uppercase text-on-surface-variant">' + esc(i.t) + '</p>' +
-        '<p class="flex items-center gap-1 font-headline-sm text-headline-sm ' + (i.ok ? 'text-tertiary' : 'text-error') + '">' +
-        ic(i.ok ? 'check_circle' : 'warning', 'text-[18px]') + esc(i.v) + '</p>' +
-        '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(i.d) + ' · 30 días</p></div>';
-    }).join('') + '</section>';
+    /* el período va una vez en el título (antes, «· 30 días» en cada tarjeta) */
+    return '<section class="mb-5" data-metricas-logistica>' +
+      '<h2 class="font-label-caps text-label-caps uppercase tracking-[0.06em] text-on-surface-variant mb-2">Cumplimiento · últimos 30 días</h2>' +
+      '<div class="grid grid-cols-2 lg:grid-cols-4 gap-3">' + items.map(function (i) {
+        return '<div class="min-w-0 rounded-card border border-outline-variant bg-surface-container-lowest p-3">' +
+          '<p class="font-label-caps text-label-caps uppercase text-on-surface-variant break-words">' + esc(i.t) + '</p>' +
+          '<p class="flex items-center gap-1 font-headline-sm text-headline-sm ' + (i.ok ? 'text-tertiary' : 'text-error') + '">' +
+          ic(i.ok ? 'check_circle' : 'warning', 'text-[18px]') + esc(i.v) + '</p>' +
+          '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(i.d) + '</p></div>';
+      }).join('') + '</div></section>';
+  }
+
+  /* La referencia de Tumbo (TM-GUIA-…) no es la guía del courier: en la
+     línea de tiempo se llama como en la tarjeta de entrega y en la etiqueta. */
+  function textoLinea(t) {
+    return String(t || '').replace(/\b(?:guía|etiqueta) (TM-GUIA-\d+)/i, 'referencia Tumbo $1');
   }
 
   /* El plazo que corre para un pedido en la cola. */
+  /* Un pedido sin plazo vigente dice qué fecha es (antes, la de creación sin
+     contexto bajo el título «Plazo»). */
+  function sinPlazo(p) {
+    var dia = function (f) { return esc(String(f || '').split(' ')[0]); };
+    var t = p.entregadoEl && ['entregado', 'cerrado', 'reembolsado', 'devolucion'].indexOf(p.estado) >= 0 ? 'Entregado el ' + dia(p.entregadoEl)
+      : 'Pedido del ' + dia(p.creado);
+    return '<span class="font-body-sm text-body-sm text-on-surface-variant">' + t + '</span>';
+  }
   function plazo(p, e) {
     var L = TM.log;
     if (!e) {
       return p.estado === 'por_aceptar'
         ? '<span class="inline-flex items-center gap-1 font-body-sm text-body-sm text-warning font-bold">' + ic('schedule', 'text-[16px]') + 'enviar antes de mañana</span>'
-        : '<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(p.creado.split(' ')[0]) + '</span>';
+        : sinPlazo(p);
     }
     if (p.estado === 'por_aceptar') return L.cuenta(e.aceptar_antes, 'Acepta en', 'Aceptación vencida hace');
     if (p.estado === 'preparando' || p.estado === 'listo') {
@@ -64,7 +81,7 @@
     if (p.estado === 'despachado') {
       return '<span class="font-body-sm text-body-sm text-on-surface-variant">Llega hasta el ' + esc(L.fecha(e.fecha_prometida)) + '</span>';
     }
-    return '<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(p.creado.split(' ')[0]) + '</span>';
+    return sinPlazo(p);
   }
 
   /* =====================================================================
@@ -84,47 +101,59 @@
     var lote = L.remoto() && (activa === 'preparando' || activa === 'listo');
     var solicitudes = todos.filter(function (p) { return env[p.id] && env[p.id].solicitud; });
 
+    /* En el teléfono cada pedido es una tarjeta (UI.tabla): arriba el ID
+       (con su casilla del lote) y el estado, luego artículos, plazo, envío y
+       total, y «Gestionar» a lo ancho. En la tabla de escritorio, el estado
+       sigue en su columna. */
     var filas = lista.map(function (p) {
       var e = env[p.id];
-      return (lote ? td('<input type="checkbox" data-sel="' + esc(p.id) + '" aria-label="Elegir ' + esc(p.id) + '" class="w-5 h-5 rounded border-outline text-secondary focus:ring-secondary/40"/>') : '') +
-        td('<a class="font-data-mono text-data-mono text-secondary hover:underline" href="' + href('app/seller/pedido.html?id=' + p.id) + '">' + esc(p.id) + '</a>' +
+      return '<td data-th="" class="px-4 py-3"><div class="w-full min-w-0">' +
+          '<div class="flex flex-wrap items-center gap-x-2 gap-y-1">' +
+            (lote ? '<label class="inline-flex items-center justify-center w-11 h-11 -my-2.5 shrink-0 cursor-pointer">' +
+              '<input type="checkbox" data-sel="' + esc(p.id) + '" aria-label="Elegir ' + esc(p.id) + '" class="w-5 h-5 rounded border-outline text-secondary focus:ring-secondary/40"/></label>' : '') +
+            '<a class="tm-id font-data-mono text-data-mono font-bold text-secondary hover:underline" href="' + href('app/seller/pedido.html?id=' + p.id) + '">' + esc(p.id) + '</a>' +
+            '<span class="ml-auto sm:ml-0 sm:basis-full lg:hidden">' + UI.badge(p.estado) + '</span></div>' +
           (e && e.solicitud ? '<span class="block mt-1">' + L.chip('Pide cancelar', 'ambar', 'pending') + '</span>' : '') +
-          (e && e.incidencias_abiertas ? '<span class="block mt-1">' + L.chip(e.incidencias_abiertas + ' incidencia' + (e.incidencias_abiertas === 1 ? '' : 's'), 'ambar', 'report') + '</span>' : '')) +
+          (e && e.incidencias_abiertas ? '<span class="block mt-1">' + L.chip(e.incidencias_abiertas + ' incidencia' + (e.incidencias_abiertas === 1 ? '' : 's'), 'ambar', 'report') + '</span>' : '') +
+        '</div></td>' +
         td(p.items.map(function (i) { var pr = TM.producto(i.sku); return esc((pr ? pr.nombre : i.sku)) + ' × ' + i.cant; }).join('<br/>')) +
-        td(UI.badge(p.estado)) +
+        td(UI.badge(p.estado), 'hidden lg:table-cell') +
         td(plazo(p, e)) +
-        td('<span class="font-body-sm text-body-sm">' + esc(e ? (e.courier_nombre || '') + ' · ' + (e.servicio || '') : p.envio.courier) + '</span>' +
+        td('<span class="font-body-sm text-body-sm">' + esc(e ? [e.courier_nombre, e.servicio].filter(Boolean).join(' · ') : p.envio.courier) + '</span>' +
           (e && e.guia ? '<span class="block font-data-mono text-data-mono text-on-surface-variant">' + esc(e.guia) + '</span>' : '') +
           (e && e.destino_estado ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">→ ' + esc(e.destino_estado) + '</span>' : '')) +
-        td('<span class="font-body-sm text-body-sm font-bold">' + esc(TM.fmtTotalPedido(p)) + '</span>') +
-        td('<a class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline" href="' + href('app/seller/pedido.html?id=' + p.id) + '">Gestionar' + ic('arrow_forward', 'text-[16px]') + '</a>', 'text-right');
+        td('<span class="tm-num font-body-sm text-body-sm font-bold">' + esc(TM.fmtTotalPedido(p)) + '</span>') +
+        td('<a class="inline-flex items-center justify-center gap-1 font-label-md text-label-md text-secondary hover:underline max-sm:w-full max-sm:min-h-[44px] max-sm:rounded-btn max-sm:border max-sm:border-outline-variant max-sm:hover:no-underline max-sm:hover:border-secondary" href="' +
+          href('app/seller/pedido.html?id=' + p.id) + '">Gestionar' + ic('arrow_forward', 'text-[16px]') + '</a>', 'text-right sm:hidden lg:table-cell');
     });
 
-    var cabeceras = (lote ? [''] : []).concat(['Pedido', 'Artículos', 'Estado', 'Plazo', 'Envío', 'Total', '']);
-    return titulo('Pedidos', L.remoto() ? '<a class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline" href="' +
-        href('app/seller/envios.html') + '">' + ic('local_shipping', 'text-[18px]') + 'Configurar envíos</a>' : '') +
+    var cabeceras = ['Pedido', 'Artículos', 'Estado', 'Plazo', 'Envío', 'Total', ''];
+    return titulo('Pedidos', L.remoto() ? UI.enlace('Configurar envíos', href('app/seller/envios.html'), 'local_shipping') : '') +
       (L.remoto() && s.rol === 'seller' && c ? metricasHtml(c.metricas) : '') +
       (solicitudes.length ? '<p class="flex items-center gap-2 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2 mb-4" data-aviso-solicitudes>' +
         ic('pending', 'text-[18px]') + solicitudes.length + ' comprador' + (solicitudes.length === 1 ? ' pidió' : 'es pidieron') +
         ' cancelar: respóndeles antes de despachar (' + solicitudes.map(function (p) {
           return '<a class="font-data-mono underline" href="' + href('app/seller/pedido.html?id=' + p.id) + '">' + esc(p.id) + '</a>';
         }).join(', ') + ').</p>' : '') +
-      '<div class="flex flex-wrap gap-2 mb-4">' + pestanas.map(function (t) {
+      /* pestañas de estado: en el teléfono, una tira que se desliza con la activa a la vista */
+      '<div class="flex flex-wrap gap-2 mb-4 tm-tira-movil">' + pestanas.map(function (t) {
         var n = t.id ? todos.filter(function (p) { return p.estado === t.id; }).length : todos.length;
         var u = new URLSearchParams(); u.set('estado', t.id);
-        return '<a class="px-3 py-1.5 rounded-full font-label-md text-label-md border ' +
-          (activa === t.id ? 'bg-secondary text-on-secondary border-secondary' : 'border-outline-variant text-on-surface-variant hover:border-secondary') +
-          '" href="?' + u.toString() + '">' + t.t + ' (' + n + ')</a>';
+        return UI.chip(t.t + ' (' + n + ')', '?' + u.toString(), activa === t.id);
       }).join('') + '</div>' +
-      (lote && lista.length ? '<div class="flex flex-wrap items-center gap-2 mb-3" data-lote>' +
-        '<label class="inline-flex items-center gap-2 font-body-sm text-body-sm mr-2"><input type="checkbox" data-sel-todos class="w-5 h-5 rounded border-outline text-secondary"/>Todos</label>' +
-        btn('Hoja de picking', { icono: 'checklist', attr: 'data-lote-picking disabled' }) +
-        btn('Etiquetas', { icono: 'print', attr: 'data-lote-etiquetas disabled' }) +
-        (activa === 'listo' ? btn('Despachar seleccionados', { estilo: 'exito', icono: 'local_shipping', attr: 'data-lote-despachar disabled' }) : '') +
-        '<span data-lote-n class="font-body-sm text-body-sm text-on-surface-variant">Ningún pedido elegido</span></div>' : '') +
+      /* lote: elegir y contar arriba; las acciones debajo (en el teléfono, a lo ancho) */
+      (lote && lista.length ? '<div class="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3 rounded-card border border-outline-variant bg-surface-container-lowest p-3" data-lote>' +
+        '<label class="inline-flex items-center gap-2 font-body-sm text-body-sm min-h-[44px] cursor-pointer"><input type="checkbox" data-sel-todos class="w-5 h-5 rounded border-outline text-secondary"/>Elegir todos</label>' +
+        '<span data-lote-n class="font-body-sm text-body-sm text-on-surface-variant sm:order-last">Ningún pedido elegido</span>' +
+        '<div class="w-full sm:w-auto grid grid-cols-2 sm:flex sm:flex-wrap gap-2">' +
+          btn('Hoja de picking', { icono: 'checklist', attr: 'data-lote-picking disabled', clase: '!px-2 sm:!px-4' }) +
+          btn('Etiquetas', { icono: 'print', attr: 'data-lote-etiquetas disabled', clase: '!px-2 sm:!px-4' }) +
+          (activa === 'listo' ? btn('Despachar seleccionados', { estilo: 'exito', icono: 'local_shipping', attr: 'data-lote-despachar disabled', clase: 'col-span-2' }) : '') +
+        '</div></div>' : '') +
       (!L.remoto() && (activa === 'preparando' || activa === 'listo') && lista.length
         ? '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">La hoja de picking, las etiquetas y el despacho por lotes necesitan el servidor de Tumbo.</p>' : '') +
-      UI.tabla(cabeceras, filas, UI.vacio('package_2', 'Nada en esta pestaña', 'Cuando lleguen pedidos con este estado aparecerán aquí.'));
+      /* en la tableta, el estado va bajo el ID y «Gestionar» es el propio ID (un enlace): la tabla cabe sin deslizar */
+      UI.tabla(cabeceras, filas, UI.vacio('package_2', 'Nada en esta pestaña', 'Cuando lleguen pedidos con este estado aparecerán aquí.'), { desdeLg: [2, 6] });
   }
 
   function despuesPedidosSeller(raiz, q, s) {
@@ -161,8 +190,8 @@
         var e = env[id] || {};
         return '<div class="grid grid-cols-[auto_1fr] sm:grid-cols-[110px_1fr_1fr] gap-2 items-center border-b border-outline-variant pb-2" data-lote-fila="' + esc(id) + '">' +
           '<span class="font-data-mono text-data-mono">' + esc(id) + '</span>' +
-          L.selectCourier('', e.courier || null, { attr: 'data-lote-courier aria-label="Courier de ' + esc(id) + '"' }) +
-          '<input data-lote-guia maxlength="40" placeholder="Guía del courier" aria-label="Guía de ' + esc(id) + '" class="' + L.CLASE_INPUT + ' font-data-mono col-span-2 sm:col-span-1"/></div>';
+          L.selectCourier('', e.courier || null, { attr: 'data-lote-courier aria-label="Courier de ' + esc(id) + '"' }).replace(' h-10 ', ' h-11 ') +
+          '<input data-lote-guia maxlength="40" autocomplete="off" placeholder="Guía del courier" aria-label="Guía de ' + esc(id) + '" class="' + L.CLASE_INPUT + ' h-11 font-data-mono col-span-2 sm:col-span-1"/></div>';
       }).join('') + '</div>' +
       TM.archivos.selector({ proposito: 'guia', entidad: ids[0], texto: 'Foto del recibo del lote', nombre: 'foto', ayuda: 'Opcional.' });
     L.modalFormulario('Despachar ' + ids.length + ' pedido' + (ids.length === 1 ? '' : 's'), cuerpo, 'Despachar', function (velo) {
@@ -197,6 +226,12 @@
         '<div class="flex flex-wrap gap-2">' + btn('Aprobar cancelación', { estilo: 'peligro', icono: 'check', attr: 'data-solicitud="1"' }) +
         btn('No aprobar', { icono: 'block', attr: 'data-solicitud="0"' }) + '</div></div>';
     }
+    /* en el orden del trabajo: la etiqueta se imprime antes de entregar el
+       paquete; «Cancelar el pedido» va siempre al final */
+    if (['preparando', 'listo', 'despachado'].indexOf(p.estado) >= 0) {
+      html += '<a class="inline-flex w-full items-center justify-center gap-1.5 min-h-[40px] px-4 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary" href="' +
+        href('app/seller/imprimir.html?tipo=etiquetas&ids=' + p.id) + '" data-imprimir-etiqueta>' + ic('print', 'text-[18px]') + 'Imprimir etiqueta</a>';
+    }
     if (p.estado === 'listo') {
       var cour = L.courier(e.courier);
       var tienda = e.courier === 'tienda';
@@ -230,10 +265,6 @@
       html += btn('Cancelar el pedido', { estilo: 'peligro', icono: 'cancel', attr: 'data-cancelar-seller', clase: 'w-full' }) +
         '<p class="font-body-sm text-body-sm text-on-surface-variant">Cancelar por falta de stock reembolsa al comprador y cuenta en tus métricas.</p>';
     }
-    if (['preparando', 'listo', 'despachado'].indexOf(p.estado) >= 0) {
-      html += '<a class="inline-flex w-full items-center justify-center gap-1.5 min-h-[40px] px-4 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary" href="' +
-        href('app/seller/imprimir.html?tipo=etiquetas&ids=' + p.id) + '" data-imprimir-etiqueta>' + ic('print', 'text-[18px]') + 'Imprimir etiqueta</a>';
-    }
     return html;
   }
 
@@ -254,13 +285,28 @@
     if (e && pasoAceptar) sla = L.cuenta(e.aceptar_antes, 'Acepta en', 'Aceptación vencida hace');
     if (e && (pasoPreparar || pasoDespachar)) sla = L.cuenta(e.despachar_antes, 'Despacha en', 'Despacho vencido hace');
 
-    return '<a class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline mb-3" href="' + href('app/seller/pedidos.html') + '">' +
-      ic('arrow_back', 'text-[16px]') + 'Volver a pedidos</a>' +
+    var acciones =
+      (pasoAceptar ? btn('Aceptar pedido', { estilo: 'primario', icono: 'check_circle', attr: 'data-aceptar', clase: 'w-full' }) +
+        '<p class="font-body-sm text-body-sm text-on-surface-variant">Aceptar inicia la preparación y detiene el plazo de aceptación.</p>' : '') +
+      (pasoPreparar ? '<label class="block font-label-md text-label-md text-on-surface">Peso del paquete (kg)' +
+        '<input data-peso type="number" inputmode="decimal" min="0.1" step="0.1" value="' + esc(String((e && e.peso_kg) || 1)) + '" class="mt-1 w-full h-11 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md focus:border-secondary outline-none"/></label>' +
+        btn(L.remoto() ? 'Marcar listo y generar etiqueta' : 'Generar guía (demo)', { estilo: 'primario', icono: 'package_2', attr: 'data-guia', clase: 'w-full' }) +
+        '<p data-err-pick class="hidden font-body-sm text-body-sm text-error"></p>' : '') +
+      (pasoDespachar && !L.remoto() ? btn('Confirmar entrega al courier', { estilo: 'exito', icono: 'local_shipping', attr: 'data-despachar', clase: 'w-full' }) +
+        '<p class="font-body-sm text-body-sm text-on-surface-variant">El comprador verá el tracking en su pedido.</p>' : '') +
+      (L.remoto() ? (d ? accionesRemotas(p, d, s) : L.error(clave) ? '' : L.cargandoHtml(pasoDespachar ? 'Preparando el despacho…' : 'Cargando las acciones…')) : '');
+    var ganchos = APP.ganchos('pedido.seller', { pedido: p, sesion: s, envio: d || null });
+
+    /* En el teléfono las tarjetas van en el orden del trabajo: artículos
+       (picking), acciones, entrega, incidencias, línea de tiempo y el resto
+       (chat, lo que recibes). Desde lg, dos columnas como siempre: las
+       columnas son «contents» en el teléfono y cada tarjeta lleva su orden. */
+    return '<p class="mb-1">' + UI.enlace('Volver a pedidos', href('app/seller/pedidos.html'), 'arrow_back') + '</p>' +
       titulo('Pedido ' + p.id, '<span class="flex flex-wrap items-center gap-3">' + sla + UI.badge(p.estado) + '</span>') +
       (L.remoto() && L.error(clave) ? L.errorHtml(L.error(clave)) : '') +
-      '<div class="grid lg:grid-cols-[1fr_340px] gap-6 items-start"><div class="space-y-4 min-w-0">' +
+      '<div class="grid lg:grid-cols-[1fr_340px] gap-4 lg:gap-6 items-start"><div class="max-lg:contents lg:space-y-4 min-w-0">' +
 
-      '<section class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
+      '<section class="order-1 lg:order-none min-w-0 rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
         '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-3">Artículos (picking)</h2>' +
         p.items.map(function (i, idx) {
           var pr = TM.producto(i.sku);
@@ -271,36 +317,42 @@
             '<span class="block font-data-mono text-data-mono text-on-surface-variant">' + esc(i.sku) + ' · cant. ' + i.cant + '</span></span></label>';
         }).join('') + '</section>' +
 
-      (d && d.incidencias && d.incidencias.length ? L.tarjeta('Incidencias', '<ul class="space-y-2">' + d.incidencias.map(function (i) {
+      (d && d.incidencias && d.incidencias.length ? '<div class="order-4 lg:order-none min-w-0">' + L.tarjeta('Incidencias', '<ul class="space-y-2">' + d.incidencias.map(function (i) {
         return '<li class="flex flex-wrap items-start justify-between gap-2 font-body-sm text-body-sm border-b border-outline-variant pb-2 last:border-0">' +
           '<span class="min-w-0"><strong>' + esc(i.nombre) + '</strong> · ' + esc(L.fechaHora(i.creado)) + ' · ' + (i.estado === 'abierta' ? L.chip('abierta', 'ambar') : L.chip('resuelta', 'verde')) +
           '<span class="block text-on-surface-variant break-words">' + esc(i.detalle || '') + (i.resolucion ? ' → ' + esc(i.resolucion) : '') + '</span></span>' +
           (i.estado === 'abierta' && i.origen === 'seller' ? btn('Resolver', { attr: 'data-resolver-incidencia="' + i.id + '"' }) : '') + '</li>';
-      }).join('') + '</ul>', ' data-incidencias') : '') +
+      }).join('') + '</ul>', ' data-incidencias') + '</div>' : '') +
 
-      (d && d.devolucion ? L.tarjeta('Devolución', '<p class="font-body-sm text-body-sm mb-1">' + esc(d.devolucion.instrucciones) + '</p>' +
+      (d && d.devolucion ? '<div class="order-4 lg:order-none min-w-0">' + L.tarjeta('Devolución', '<p class="font-body-sm text-body-sm mb-1">' + esc(d.devolucion.instrucciones) + '</p>' +
         (d.devolucion.guia ? '<p class="font-body-sm text-body-sm">El comprador la envió con ' + esc(d.devolucion.courier_nombre || d.devolucion.courier) +
           ' · guía <span class="font-data-mono text-data-mono">' + esc(d.devolucion.guia) + '</span></p>' : '<p class="font-body-sm text-body-sm text-on-surface-variant">El comprador aún no registra la guía de vuelta.</p>') +
         (d.devolucion.inspeccion ? '<p class="font-body-sm text-body-sm mt-1">Inspección: <strong>' + esc(d.devolucion.inspeccion) + '</strong>' +
-          (d.devolucion.inspeccion_nota ? ' · ' + esc(d.devolucion.inspeccion_nota) : '') + '</p>' : ''), ' data-devolucion-seller') : '') +
+          (d.devolucion.inspeccion_nota ? ' · ' + esc(d.devolucion.inspeccion_nota) : '') + '</p>' : ''), ' data-devolucion-seller') + '</div>' : '') +
 
-      '<section class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
+      '<section class="order-5 lg:order-none min-w-0 rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
         '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-3">Línea de tiempo</h2>' +
         '<ol class="space-y-3">' + p.timeline.slice().reverse().map(function (t) {
           return '<li class="flex gap-3"><span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container shrink-0">' + ic(t.icono || 'info', 'text-[16px]') + '</span>' +
-            '<span class="min-w-0"><span class="block font-body-sm text-body-sm break-words">' + esc(t.texto) + '</span>' +
+            '<span class="min-w-0"><span class="block font-body-sm text-body-sm break-words">' + esc(textoLinea(t.texto)) + '</span>' +
             '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(t.fecha) + '</span></span></li>';
         }).join('') + '</ol></section>' +
-        APP.ganchos('pedido.seller', { pedido: p, sesion: s, envio: d || null }) +
+        (ganchos ? '<div class="order-6 lg:order-none min-w-0 space-y-4">' + ganchos + '</div>' : '') +
       '</div>' +
 
-      '<aside class="space-y-4">' +
-        '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
+      '<div class="max-lg:contents lg:space-y-4">' +
+        '<section class="order-3 lg:order-none min-w-0 rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
           '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Entrega</h2>' +
-          (e ? '<dl class="mb-2">' + L.fila('Envío', esc((e.courier_nombre || p.envio.courier) + ' · ' + (e.servicio || ''))) +
+          (e ? '<dl class="mb-2">' + L.fila('Envío', esc([e.courier_nombre || p.envio.courier, e.servicio].filter(Boolean).join(' · '))) +
               (e.cobro_destino ? L.fila('Pago del envío', 'cobro en destino') : '') +
-              L.fila('Referencia', e.referencia ? '<span class="font-data-mono text-data-mono">' + esc(e.referencia) + '</span>' : 'al marcar listo') +
-              L.fila('Guía', e.guia ? '<span class="font-data-mono text-data-mono">' + esc(e.guia) + '</span>' : '—') +
+              /* la referencia es de Tumbo (va en la etiqueta); la guía la da el courier al recibir el paquete */
+              L.fila('Referencia', e.referencia ? '<span class="font-data-mono text-data-mono">' + esc(e.referencia) + '</span>' +
+                  '<span class="block font-body-sm text-body-sm text-on-surface-variant">de Tumbo · va en la etiqueta</span>'
+                : '<span class="text-on-surface-variant">Se genera al marcar listo</span>') +
+              L.fila('Guía', e.guia ? '<span class="font-data-mono text-data-mono">' + esc(e.guia) + '</span>'
+                : e.courier === 'tienda' ? '<span class="text-on-surface-variant">No aplica: retiro en tu tienda</span>'
+                : ['por_aceptar', 'preparando', 'listo'].indexOf(p.estado) >= 0 ? '<span class="text-on-surface-variant">Pendiente: la registras al entregar el paquete al courier</span>'
+                : '—') +
               L.fila('Entrega prometida', e.fecha_prometida ? 'hasta el ' + esc(L.fecha(e.fecha_prometida)) : '') + '</dl>' +
               (e.guia ? '<p class="mb-2">' + L.rastreo(e) + '</p>' : '') +
               '<h3 class="font-label-caps text-label-caps uppercase text-on-surface-variant mt-3 mb-1">Destinatario</h3>' + L.destinatario(d.destinatario)
@@ -310,21 +362,12 @@
               '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(p.envio.dir) + '</p>' +
               '<p class="font-body-sm text-body-sm mt-1"><strong>Courier:</strong> ' + esc(p.envio.courier) + '</p>' +
               (p.guia ? '<p class="font-body-sm text-body-sm"><strong>Guía:</strong> <span class="font-data-mono text-data-mono">' + esc(p.guia) + '</span></p>' : '')) +
-          '<p class="font-body-sm text-body-sm mt-2 text-on-surface-variant">Los datos del destinatario solo se muestran mientras el pedido está activo.</p></div>' +
-        '<div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 space-y-2" data-acciones-seller>' +
+          '<p class="font-body-sm text-body-sm mt-2 text-on-surface-variant">Los datos del destinatario solo se muestran mientras el pedido está activo.</p></section>' +
+        '<section class="order-2 lg:order-none min-w-0 rounded-card border border-outline-variant bg-surface-container-lowest p-4 space-y-2" data-acciones-seller>' +
           '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Acciones</h2>' +
-          (pasoAceptar ? btn('Aceptar pedido', { estilo: 'primario', icono: 'check_circle', attr: 'data-aceptar', clase: 'w-full' }) +
-            '<p class="font-body-sm text-body-sm text-on-surface-variant">Aceptar inicia la preparación y detiene el plazo de aceptación.</p>' : '') +
-          (pasoPreparar ? '<label class="block font-label-md text-label-md text-on-surface">Peso del paquete (kg)' +
-            '<input data-peso type="number" min="0.1" step="0.1" value="' + esc(String((e && e.peso_kg) || 1)) + '" class="mt-1 w-full h-10 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-data-mono text-data-mono focus:border-secondary outline-none"/></label>' +
-            btn(L.remoto() ? 'Marcar listo y generar etiqueta' : 'Generar guía (demo)', { estilo: 'primario', icono: 'package_2', attr: 'data-guia', clase: 'w-full' }) +
-            '<p data-err-pick class="hidden font-body-sm text-body-sm text-error"></p>' : '') +
-          (pasoDespachar && !L.remoto() ? btn('Confirmar entrega al courier', { estilo: 'exito', icono: 'local_shipping', attr: 'data-despachar', clase: 'w-full' }) +
-            '<p class="font-body-sm text-body-sm text-on-surface-variant">El comprador verá el tracking en su pedido.</p>' : '') +
-          (L.remoto() ? (d ? accionesRemotas(p, d, s) : (pasoDespachar ? L.cargandoHtml('Preparando el despacho…') : '')) : '') +
-          (!pasoAceptar && !pasoPreparar && !pasoDespachar && !L.remoto() ? '<p class="font-body-sm text-body-sm text-on-surface-variant">No hay acciones pendientes en este estado.</p>' : '') +
+          (acciones || '<p class="font-body-sm text-body-sm text-on-surface-variant">No hay acciones pendientes en este estado.</p>') +
           (!L.remoto() ? '<p class="font-body-sm text-body-sm text-on-surface-variant">Incidencias, guía real con foto, etiquetas y cancelación por falta de stock necesitan el servidor de Tumbo.</p>' : '') +
-        '</div></aside></div>';
+        '</section></div></div>';
   }
 
   function despuesPedidoSeller(raiz, q, s) {
@@ -472,13 +515,20 @@
     x = x || {};
     var dis = editable ? '' : ' disabled';
     var estado = x.estado || origen || '';
-    return '<div class="grid grid-cols-2 sm:grid-cols-[1.4fr_1.2fr_.8fr_.6fr_auto] gap-2 items-end mb-2" data-delivery-fila>' +
-      '<label class="block col-span-2 sm:col-span-1"><span class="block font-label-sm text-label-sm mb-1">Municipio</span><input data-d="municipio" maxlength="60" value="' + esc(x.municipio || '') + '" class="' + L.CLASE_INPUT + '"' + dis + '/></label>' +
-      '<label class="block"><span class="block font-label-sm text-label-sm mb-1">Estado</span><select data-d="estado" class="' + L.CLASE_SELECT + '"' + dis + '>' +
+    /* Según el ancho de su tarjeta (consulta de contenedor, @xl = 36rem):
+       angosta (el teléfono, o media columna en el escritorio), cada municipio
+       es una sub-tarjeta (municipio y estado a lo ancho, tarifa y días lado a
+       lado, «Quitar» con su icono); ancha, una fila de tabla. Antes la fila
+       se activaba por el ancho de la pantalla y a 1280 cortaba el estado. */
+    var etq = 'block font-label-md text-label-md text-on-surface mb-1 whitespace-nowrap';
+    return '<div class="grid grid-cols-2 @xl:grid-cols-[1.4fr_1.4fr_.8fr_.6fr_auto] gap-x-3 gap-y-2 items-end mb-3 @xl:mb-2 rounded-btn border border-outline-variant bg-surface-container-lowest p-3 @xl:p-0 @xl:border-0 @xl:bg-transparent" data-delivery-fila>' +
+      '<label class="block col-span-2 @xl:col-span-1"><span class="' + etq + '">Municipio</span><input data-d="municipio" maxlength="60" value="' + esc(x.municipio || '') + '" class="' + L.CLASE_INPUT + '"' + dis + '/></label>' +
+      '<label class="block col-span-2 @xl:col-span-1"><span class="' + etq + '">Estado</span><select data-d="estado" class="' + L.CLASE_SELECT + '"' + dis + '>' +
         L.estados().map(function (e) { return '<option' + (e.estado === estado ? ' selected' : '') + '>' + esc(e.estado) + '</option>'; }).join('') + '</select></label>' +
-      '<label class="block"><span class="block font-label-sm text-label-sm mb-1">Tarifa (USD)</span><input data-d="costo_usd" type="number" min="0" max="100" step="0.5" value="' + esc(x.costo_usd != null ? String(x.costo_usd) : '') + '" class="' + L.CLASE_INPUT + '"' + dis + '/></label>' +
-      '<label class="block"><span class="block font-label-sm text-label-sm mb-1">Días</span><input data-d="dias" type="number" min="0" max="5" value="' + esc(x.dias != null ? String(x.dias) : '1') + '" class="' + L.CLASE_INPUT + '"' + dis + '/></label>' +
-      (editable ? '<button type="button" data-quitar-delivery class="h-10 px-2 text-error hover:underline font-label-md text-label-md">Quitar</button>' : '<span></span>') + '</div>';
+      '<label class="block"><span class="' + etq + '">Tarifa (USD)</span><input data-d="costo_usd" type="number" inputmode="decimal" min="0" max="100" step="0.5" value="' + esc(x.costo_usd != null ? String(x.costo_usd) : '') + '" class="' + L.CLASE_INPUT + '"' + dis + '/></label>' +
+      '<label class="block"><span class="' + etq + '">Días</span><input data-d="dias" type="number" inputmode="numeric" min="0" max="5" value="' + esc(x.dias != null ? String(x.dias) : '1') + '" class="' + L.CLASE_INPUT + '"' + dis + '/></label>' +
+      (editable ? '<button type="button" data-quitar-delivery aria-label="Quitar ' + esc(x.municipio || 'este municipio') + '" class="col-span-2 @xl:col-span-1 inline-flex items-center justify-center gap-1 h-10 px-3 rounded-btn text-error hover:bg-error-container font-label-md text-label-md border border-outline-variant @xl:border-0">' +
+          ic('delete', 'text-[18px]') + 'Quitar</button>' : '<span class="hidden @xl:block"></span>') + '</div>';
   }
 
   function vEnvios(q, s) {
@@ -507,31 +557,31 @@
           return '<option' + (e.estado === c.origen_estado ? ' selected' : '') + '>' + esc(e.estado) + '</option>';
         }).join('') + '</select>') +
         L.campo('Ciudad', '<input name="origen_ciudad" maxlength="60" value="' + esc(c.origen_ciudad || '') + '" class="' + L.CLASE_INPUT + '"' + dis + '/>') +
-        L.campo('Días hábiles de preparación', '<input name="dias_preparacion" type="number" min="1" max="10" value="' + esc(String(c.dias_preparacion || 1)) + '" class="' + L.CLASE_INPUT + '"' + dis + '/>',
+        L.campo('Días hábiles de preparación', '<input name="dias_preparacion" type="number" inputmode="numeric" min="1" max="10" value="' + esc(String(c.dias_preparacion || 1)) + '" class="' + L.CLASE_INPUT + '"' + dis + '/>',
           'Desde que se confirma el pago hasta que entregas el paquete. Cuenta para tu plazo de despacho y para la promesa al comprador.') +
-        L.campo('Envío gratis desde (USD)', '<input name="gratis_desde_usd" type="number" min="1" step="1" value="' + esc(c.gratis_desde_usd != null ? String(c.gratis_desde_usd) : '') +
+        L.campo('Envío gratis desde (USD)', '<input name="gratis_desde_usd" type="number" inputmode="decimal" min="1" step="1" value="' + esc(c.gratis_desde_usd != null ? String(c.gratis_desde_usd) : '') +
           '" placeholder="Sin envío gratis" class="' + L.CLASE_INPUT + '"' + dis + '/>', 'Tú asumes el costo del envío cuando el pedido llega a ese monto.')) +
       L.tarjeta('Couriers que aceptas',
         '<div class="grid sm:grid-cols-2 gap-2 mb-3">' + curs.map(function (x) {
           return '<label class="flex items-center gap-2 p-2 rounded-btn border border-outline-variant font-body-sm text-body-sm"><input type="checkbox" name="couriers" value="' + esc(x.codigo) + '"' +
-            ((c.couriers || []).indexOf(x.codigo) >= 0 ? ' checked' : '') + dis + ' class="rounded border-outline text-secondary"/>' + esc(x.nombre) +
+            ((c.couriers || []).indexOf(x.codigo) >= 0 ? ' checked' : '') + dis + ' class="w-5 h-5 rounded border-outline text-secondary"/>' + esc(x.nombre) +
             '<span class="ml-auto text-on-surface-variant">' + [x.agencia ? 'agencia' : '', x.domicilio ? 'domicilio' : ''].filter(Boolean).join(' · ') + '</span></label>';
         }).join('') + '</div>' +
-        '<label class="flex items-start gap-2 font-body-sm text-body-sm mb-1"><input type="checkbox" name="cobro_destino"' + (c.cobro_destino ? ' checked' : '') + dis + ' class="mt-0.5 rounded border-outline text-secondary"/>' +
+        '<label class="flex items-start gap-2 font-body-sm text-body-sm mb-1"><input type="checkbox" name="cobro_destino"' + (c.cobro_destino ? ' checked' : '') + dis + ' class="mt-0.5 w-5 h-5 shrink-0 rounded border-outline text-secondary"/>' +
         '<span>Ofrecer <strong>cobro en destino</strong>: el comprador paga el envío al retirar en la agencia' + (conCobro.length ? ' (' + esc(conCobro.join(', ')) + ')' : '') + '.</span></label>') +
       L.tarjeta('Delivery propio',
         '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Los municipios a los que llevas con tu propio repartidor, con su tarifa.</p>' +
-        '<div data-delivery>' + (c.delivery || []).map(function (x) { return filaDelivery(x, ed, c.origen_estado); }).join('') + '</div>' +
-        (ed ? btn('Agregar municipio', { icono: 'add', attr: 'data-agregar-delivery' }) : '')) +
+        '<div data-delivery class="@container">' + (c.delivery || []).map(function (x) { return filaDelivery(x, ed, c.origen_estado); }).join('') + '</div>' +
+        (ed ? btn('Agregar municipio', { icono: 'add', attr: 'data-agregar-delivery', clase: 'w-full sm:w-auto' }) : '')) +
       L.tarjeta('Retiro en tienda',
-        '<label class="flex items-center gap-2 font-body-sm text-body-sm mb-3"><input type="checkbox" name="retiro_tienda"' + (c.retiro_tienda ? ' checked' : '') + dis + ' class="rounded border-outline text-secondary"/>El comprador puede retirar en mi local</label>' +
+        '<label class="flex items-center gap-2 font-body-sm text-body-sm mb-3"><input type="checkbox" name="retiro_tienda"' + (c.retiro_tienda ? ' checked' : '') + dis + ' class="w-5 h-5 rounded border-outline text-secondary"/>El comprador puede retirar en mi local</label>' +
         L.campo('Dirección del local', '<input name="retiro_direccion" maxlength="300" value="' + esc(c.retiro_direccion || '') + '" class="' + L.CLASE_INPUT + '"' + dis + '/>') +
         L.campo('Horario', '<input name="retiro_horario" maxlength="120" value="' + esc(c.retiro_horario || '') + '" placeholder="Lun a vie, 9 am a 5 pm" class="' + L.CLASE_INPUT + '"' + dis + '/>')) +
       L.tarjeta('Modo vacaciones',
-        '<label class="flex items-center gap-2 font-body-sm text-body-sm mb-3"><input type="checkbox" name="vacaciones"' + (d.vacaciones_activas ? ' checked' : '') + dis + ' class="rounded border-outline text-secondary"/>Pausar las ventas (los compradores ven el aviso)</label>' +
+        '<label class="flex items-center gap-2 font-body-sm text-body-sm mb-3"><input type="checkbox" name="vacaciones"' + (d.vacaciones_activas ? ' checked' : '') + dis + ' class="w-5 h-5 rounded border-outline text-secondary"/>Pausar las ventas (los compradores ven el aviso)</label>' +
         L.campo('De vacaciones hasta el', '<input name="vacaciones_hasta" type="date" value="' + esc(d.vacaciones_activas ? c.vacaciones_hasta || '' : '') + '" class="' + L.CLASE_INPUT + '"' + dis + '/>', 'Opcional: al día siguiente vuelves a recibir pedidos sin hacer nada.') +
         L.campo('Mensaje para los compradores', '<input name="vacaciones_mensaje" maxlength="200" value="' + esc(c.vacaciones_mensaje || '') + '" class="' + L.CLASE_INPUT + '"' + dis + '/>')) +
-      (ed ? '<div class="lg:col-span-2 flex items-center gap-3">' + btn('Guardar configuración', { estilo: 'primario', icono: 'save', tipo: 'submit', attr: 'data-guardar-envios' }) +
+      (ed ? '<div class="lg:col-span-2 flex flex-col sm:flex-row sm:items-center gap-3">' + btn('Guardar configuración', { estilo: 'primario', icono: 'save', tipo: 'submit', attr: 'data-guardar-envios', clase: 'w-full sm:w-auto' }) +
         '<p data-err-envios role="alert" class="hidden font-body-sm text-body-sm text-error"></p></div>' : '') +
       '</form>';
   }
@@ -582,8 +632,8 @@
   }
 
   APP.registrar({
-    'seller/pedidos': { titulo: 'Pedidos del seller', roles: ['seller', 'operador'], render: vPedidosSeller, despues: despuesPedidosSeller },
-    'seller/pedido':  { titulo: 'Preparación', roles: ['seller', 'operador'], render: vPedidoSeller, despues: despuesPedidoSeller },
+    'seller/pedidos': { titulo: 'Pedidos', roles: ['seller', 'operador'], render: vPedidosSeller, despues: despuesPedidosSeller },
+    'seller/pedido':  { titulo: 'Pedido', roles: ['seller', 'operador'], render: vPedidoSeller, despues: despuesPedidoSeller },
     'seller/envios':  { titulo: 'Envíos', roles: ['seller', 'operador'], render: vEnvios, despues: despuesEnvios }
   });
 })();

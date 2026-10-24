@@ -43,7 +43,7 @@
           <label class="block font-label-md text-label-md text-on-surface mb-1" for="ac-correo">Correo</label>
           <input class="w-full h-11 px-3 rounded-btn border border-outline-variant bg-surface-container-low
                         font-body-md text-body-md placeholder:text-outline
-                        focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"
+                        focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none aria-[invalid=true]:border-error aria-[invalid=true]:ring-1 aria-[invalid=true]:ring-error/40"
                  id="ac-correo" type="email" autocomplete="username" placeholder="usuario@demo.ve"
                  aria-describedby="ac-correo-err"/>
           <p class="hidden items-center gap-1 mt-1 font-body-sm text-body-sm text-error" id="ac-correo-err" role="alert">
@@ -52,24 +52,24 @@
         <div class="mb-5">
           <label class="block font-label-md text-label-md text-on-surface mb-1" for="ac-clave">Contraseña</label>
           <input class="w-full h-11 px-3 rounded-btn border border-outline-variant bg-surface-container-low
-                        font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"
+                        font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none aria-[invalid=true]:border-error aria-[invalid=true]:ring-1 aria-[invalid=true]:ring-error/40"
                  id="ac-clave" type="password" autocomplete="current-password" aria-describedby="ac-clave-err"/>
           <p class="hidden items-center gap-1 mt-1 font-body-sm text-body-sm text-error" id="ac-clave-err" role="alert">
             <span class="material-symbols-outlined text-[16px]" aria-hidden="true">error</span><span data-texto></span></p>
-          <button class="mt-1.5 min-h-[24px] font-label-md text-label-md text-secondary hover:underline" data-ir="recuperar" type="button">¿Olvidaste tu contraseña?</button>
+          <button class="mt-1 inline-flex items-center min-h-[44px] pr-3 font-label-md text-label-md text-secondary hover:underline" data-ir="recuperar" type="button">¿Olvidaste tu contraseña?</button>
         </div>
         <button class="w-full h-12 rounded-btn bg-primary-container text-on-primary font-label-md text-label-md
                        flex items-center justify-center gap-2 hover:opacity-90 transition-opacity" type="submit">
           Ingresar<span class="material-symbols-outlined text-[18px]" aria-hidden="true">login</span></button>
-        <div class="flex flex-col items-center gap-1.5 mt-4">
-          <button class="min-h-[24px] font-label-md text-label-md text-secondary hover:underline" data-ir="registro" type="button">¿No tienes cuenta? Regístrate</button>
-          <button class="min-h-[24px] font-label-md text-label-md text-secondary hover:underline" data-invitado type="button">Entrar como invitado</button>
+        <div class="flex flex-col items-center gap-1 mt-3">
+          <button class="inline-flex items-center min-h-[44px] px-3 font-label-md text-label-md text-secondary hover:underline" data-ir="registro" type="button">¿No tienes cuenta? Regístrate</button>
+          <button class="inline-flex items-center min-h-[44px] px-3 font-label-md text-label-md text-secondary hover:underline" data-invitado type="button">Entrar como invitado</button>
         </div>
       </form>
 
       <!-- Paso 2: MFA -->
       <form class="hidden" data-paso="mfa" novalidate>
-        <button class="inline-flex items-center gap-1 font-label-md text-label-md text-on-surface-variant hover:text-on-surface mb-4" data-ir="credenciales" type="button">
+        <button class="inline-flex items-center gap-1 min-h-[44px] pr-3 mb-2 font-label-md text-label-md text-on-surface-variant hover:text-on-surface" data-ir="credenciales" type="button">
           <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>Volver</button>
         <div class="flex items-start gap-2 p-3 rounded-btn bg-secondary-container mb-5">
           <span class="material-symbols-outlined text-[20px] text-on-secondary-container" aria-hidden="true">lock</span>
@@ -78,7 +78,7 @@
         <label class="block font-label-md text-label-md text-on-surface mb-1" for="ac-codigo">Código de verificación</label>
         <input class="w-full h-12 px-3 rounded-btn border border-outline-variant bg-surface-container-low
                       font-data-mono text-[20px] leading-6 tracking-[0.4em] text-center
-                      focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"
+                      focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none aria-[invalid=true]:border-error aria-[invalid=true]:ring-1 aria-[invalid=true]:ring-error/40"
                id="ac-codigo" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-describedby="ac-codigo-err"/>
         <p class="hidden items-center gap-1 mt-1 font-body-sm text-body-sm text-error" id="ac-codigo-err" role="alert">
           <span class="material-symbols-outlined text-[16px]" aria-hidden="true">error</span><span data-texto></span></p>
@@ -89,7 +89,7 @@
 
       <!-- Recuperar la contraseña -->
       <form class="hidden" data-paso="recuperar" novalidate>
-        <button class="inline-flex items-center gap-1 font-label-md text-label-md text-on-surface-variant hover:text-on-surface mb-4" data-ir="credenciales" type="button">
+        <button class="inline-flex items-center gap-1 min-h-[44px] pr-3 mb-2 font-label-md text-label-md text-on-surface-variant hover:text-on-surface" data-ir="credenciales" type="button">
           <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>Volver al acceso</button>
         <h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Recupera tu contraseña</h2>
         <p class="font-body-sm text-body-sm text-on-surface-variant mb-4">Escribe el correo de tu cuenta y te enviaremos un enlace para crear una contraseña nueva (vence en 30 minutos).</p>
@@ -105,24 +105,50 @@
 
       <!-- Paso 3: registro de comprador -->
       <form class="hidden" data-paso="registro" novalidate>
-        <button class="inline-flex items-center gap-1 font-label-md text-label-md text-on-surface-variant hover:text-on-surface mb-4" data-ir="credenciales" type="button">
+        <button class="inline-flex items-center gap-1 min-h-[44px] pr-3 mb-2 font-label-md text-label-md text-on-surface-variant hover:text-on-surface" data-ir="credenciales" type="button">
           <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>Volver al acceso</button>
         <h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Crear cuenta de comprador</h2>
         <p class="font-body-sm text-body-sm text-on-surface-variant mb-4">Los comercios no se registran aquí: el marketplace es curado y los sellers entran por invitación.</p>
-        <label class="block font-label-md text-label-md text-on-surface mb-1" for="rg-nombre">Nombre y apellido</label>
-        <input id="rg-nombre" autocomplete="name" placeholder="Ej.: Ana Pérez" class="w-full h-11 px-3 mb-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>
-        <label class="block font-label-md text-label-md text-on-surface mb-1" for="rg-correo">Correo</label>
-        <input id="rg-correo" type="email" autocomplete="email" placeholder="usuario@correo.com" class="w-full h-11 px-3 mb-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>
-        <label class="block font-label-md text-label-md text-on-surface mb-1" for="rg-clave">Contraseña</label>
-        <input id="rg-clave" type="password" autocomplete="new-password" class="w-full h-11 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>
-        <p class="font-body-sm text-body-sm text-on-surface-variant mt-1 mb-3">Mínimo 8 caracteres.</p>
-        <label class="block font-label-md text-label-md text-on-surface mb-1" for="rg-telefono">Teléfono <span class="font-body-sm text-body-sm text-on-surface-variant">(opcional)</span></label>
-        <input id="rg-telefono" type="tel" autocomplete="tel" placeholder="+58 412 1234567" class="w-full h-11 px-3 mb-1 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>
-        <p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Para avisarte de tus pedidos. Un número de Venezuela (móvil o fijo).</p>
-        <label class="flex items-start gap-2 mb-4 cursor-pointer">
-          <input id="rg-terminos" type="checkbox" class="mt-1 w-4 h-4 rounded border-outline text-secondary focus:ring-secondary/40"/>
-          <span class="font-body-sm text-body-sm text-on-surface-variant">Acepto los <a class="text-secondary underline" href="app/ayuda/terminos.html" target="_blank" rel="noopener">términos</a>
-            y las <a class="text-secondary underline" href="app/ayuda/privacidad.html" target="_blank" rel="noopener">políticas de privacidad</a> de la beta<span data-terminos-version></span>.</span></label>
+        <div class="mb-3">
+          <label class="block font-label-md text-label-md text-on-surface mb-1" for="rg-nombre">Nombre y apellido</label>
+          <input id="rg-nombre" autocomplete="name" autocapitalize="words" placeholder="Ej.: Ana Pérez" class="w-full h-11 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none aria-[invalid=true]:border-error aria-[invalid=true]:ring-1 aria-[invalid=true]:ring-error/40"/>
+          <p class="hidden items-start gap-1 mt-1 font-body-sm text-body-sm text-error" id="rg-nombre-err" role="alert">
+            <span class="material-symbols-outlined text-[16px] mt-0.5" aria-hidden="true">error</span><span data-texto></span></p>
+        </div>
+        <div class="mb-3">
+          <label class="block font-label-md text-label-md text-on-surface mb-1" for="rg-correo">Correo</label>
+          <input id="rg-correo" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="usuario@correo.com" class="w-full h-11 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none aria-[invalid=true]:border-error aria-[invalid=true]:ring-1 aria-[invalid=true]:ring-error/40"/>
+          <p class="hidden items-start gap-1 mt-1 font-body-sm text-body-sm text-error" id="rg-correo-err" role="alert">
+            <span class="material-symbols-outlined text-[16px] mt-0.5" aria-hidden="true">error</span><span data-texto></span></p>
+        </div>
+        <div class="mb-3">
+          <label class="block font-label-md text-label-md text-on-surface mb-1" for="rg-clave">Contraseña</label>
+          <input id="rg-clave" type="password" autocomplete="new-password" aria-describedby="rg-clave-ayuda" class="w-full h-11 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none aria-[invalid=true]:border-error aria-[invalid=true]:ring-1 aria-[invalid=true]:ring-error/40"/>
+          <p class="hidden items-start gap-1 mt-1 font-body-sm text-body-sm text-error" id="rg-clave-err" role="alert">
+            <span class="material-symbols-outlined text-[16px] mt-0.5" aria-hidden="true">error</span><span data-texto></span></p>
+          <p class="font-body-sm text-body-sm text-on-surface-variant mt-1" id="rg-clave-ayuda">Mínimo 8 caracteres.</p>
+        </div>
+        <div class="mb-3">
+          <label class="block font-label-md text-label-md text-on-surface mb-1" for="rg-telefono">Teléfono <span class="font-body-sm text-body-sm text-on-surface-variant">(opcional)</span></label>
+          <input id="rg-telefono" type="tel" inputmode="tel" autocomplete="tel" placeholder="+58 412 1234567" aria-describedby="rg-telefono-ayuda" class="w-full h-11 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none aria-[invalid=true]:border-error aria-[invalid=true]:ring-1 aria-[invalid=true]:ring-error/40"/>
+          <p class="hidden items-start gap-1 mt-1 font-body-sm text-body-sm text-error" id="rg-telefono-err" role="alert">
+            <span class="material-symbols-outlined text-[16px] mt-0.5" aria-hidden="true">error</span><span data-texto></span></p>
+          <p class="font-body-sm text-body-sm text-on-surface-variant mt-1" id="rg-telefono-ayuda">Para avisarte de tus pedidos. Un número de Venezuela (móvil o fijo).</p>
+        </div>
+        <!-- la casilla y su texto corto son un blanco de 44 px; los documentos van en
+             su propia línea (un toque cerca de la casilla no los abre) -->
+        <div class="mb-4">
+          <label class="flex items-start gap-3 min-h-[44px] py-1 cursor-pointer">
+            <input id="rg-terminos" type="checkbox" class="mt-0.5 w-5 h-5 shrink-0 rounded border-outline text-secondary focus:ring-secondary/40"/>
+            <span class="min-w-0 font-body-md text-body-md text-on-surface">
+              <span class="block">Acepto los términos y la política de privacidad de la beta<span class="text-on-surface-variant" data-terminos-version></span>.</span>
+              <span class="flex flex-wrap gap-x-4 font-body-sm text-body-sm">
+                <a class="tm-tocable text-secondary underline underline-offset-2" href="app/ayuda/terminos.html" target="_blank" rel="noopener">Leer los términos<span class="material-symbols-outlined text-[16px]" aria-hidden="true">open_in_new</span></a>
+                <a class="tm-tocable text-secondary underline underline-offset-2" href="app/ayuda/privacidad.html" target="_blank" rel="noopener">Leer la privacidad<span class="material-symbols-outlined text-[16px]" aria-hidden="true">open_in_new</span></a>
+              </span></span></label>
+          <p class="hidden items-start gap-1 mt-1 font-body-sm text-body-sm text-error" id="rg-terminos-err" role="alert">
+            <span class="material-symbols-outlined text-[16px] mt-0.5" aria-hidden="true">error</span><span data-texto></span></p>
+        </div>
         <p class="hidden items-center gap-1 mb-3 font-body-sm text-body-sm text-error" id="rg-err" role="alert">
           <span class="material-symbols-outlined text-[16px]" aria-hidden="true">error</span><span data-texto></span></p>
         <button class="w-full h-12 rounded-btn bg-primary-container text-on-primary font-label-md text-label-md
@@ -140,9 +166,10 @@
       </div>
     </div>
 
-    <p class="text-center mt-5 font-body-sm text-body-sm text-on-surface-variant" data-solo-demo>
-      Versión beta · datos de prueba · sin cobros reales ·
-      <a class="text-secondary underline" href="prototipo/index.html">prototipo de referencia</a></p>
+    <!-- (el enlace en su propia línea: antes la segunda línea empezaba con «·») -->
+    <div class="text-center mt-5 font-body-sm text-body-sm text-on-surface-variant" data-solo-demo>
+      <p>Versión beta · datos de prueba · sin cobros reales</p>
+      <a class="tm-tocable text-secondary underline underline-offset-2" href="prototipo/index.html">Prototipo de referencia</a></div>
   </div>
 </main>
 
@@ -181,13 +208,27 @@
     var primero = pasos[n].querySelector('input');
     if (primero) primero.focus();
   }
+  /* El error de un campo va debajo de él (id «<campo>-err»): el campo queda
+     marcado (aria-invalid), lo anuncia (aria-describedby) y recibe el foco. */
   function error(id, txt) {
     var p = document.getElementById(id);
     if (!p) return;
+    var campo = document.getElementById(id.replace(/-err$/, ''));
     if (txt) { p.querySelector('[data-texto]').textContent = txt; p.classList.remove('hidden'); p.classList.add('flex'); }
     else { p.classList.add('hidden'); p.classList.remove('flex'); }
+    if (!campo || campo === p) return;
+    var desc = (campo.getAttribute('aria-describedby') || '').split(/\s+/).filter(function (x) { return x && x !== id; });
+    if (txt) {
+      campo.setAttribute('aria-invalid', 'true');
+      desc.unshift(id);
+      if (document.activeElement !== campo) campo.focus();
+    } else campo.removeAttribute('aria-invalid');
+    if (desc.length) campo.setAttribute('aria-describedby', desc.join(' ')); else campo.removeAttribute('aria-describedby');
   }
-  function limpiar() { ['ac-correo-err', 'ac-clave-err', 'ac-codigo-err', 'rg-err', 'rc-err'].forEach(function (i) { error(i, ''); }); }
+  function limpiar() {
+    ['ac-correo-err', 'ac-clave-err', 'ac-codigo-err', 'rg-err', 'rc-err', 'rg-nombre-err', 'rg-correo-err', 'rg-clave-err', 'rg-telefono-err', 'rg-terminos-err']
+      .forEach(function (i) { error(i, ''); });
+  }
 
   /* Solo se vuelve a páginas propias de la app y del área del rol. */
   function destino(rol) {
@@ -220,7 +261,7 @@
       if (!u) return;
       var b = document.createElement('button');
       b.type = 'button';
-      b.className = 'inline-flex items-center gap-1.5 min-h-[42px] px-3.5 rounded-btn border border-outline-variant ' +
+      b.className = 'inline-flex items-center gap-1.5 min-h-[44px] px-3.5 rounded-btn border border-outline-variant ' +
         'bg-surface-container-lowest font-body-sm text-body-sm hover:border-secondary hover:bg-surface-container-low transition-colors';
       b.innerHTML = NOMBRES[rol] + (u.mfa ? '<span class="px-1.5 py-0.5 rounded bg-secondary-container text-on-secondary-container font-label-sm text-label-sm">MFA</span>' : '');
       b.addEventListener('click', function () {
@@ -312,9 +353,23 @@
     TM.apiPublica('tm_clave_recuperar', { p_email: correo }).then(function (r) {
       ocupar(form, false);
       if (r && r.error) { error('rc-err', r.error); return; }
-      ok.textContent = ((r && r.mensaje) || 'Si ese correo tiene una cuenta, te enviamos un enlace.') +
-        ' Mientras Tumbo no tenga conectado el envío automático por correo, el enlace queda en su bandeja de salida y el equipo lo envía a mano: puede tardar. ' +
-        'Si no te llega, escríbele a soporte.';
+      /* corto y sin la operación interna: en la beta el equipo envía a mano
+         lo que queda en la bandeja de salida, así que puede tardar */
+      ok.textContent = '';
+      var linea = document.createElement('p');
+      linea.className = 'font-semibold';
+      /* (el servidor ya dice cuánto dura el enlace) */
+      linea.textContent = (r && r.mensaje) || 'Si ese correo tiene una cuenta, te enviamos un enlace.';
+      var detalle = document.createElement('p');
+      detalle.className = 'mt-1';
+      detalle.textContent = 'En la beta estos correos salen a mano desde nuestra bandeja de salida, así que pueden tardar un poco. Revisa también la carpeta de spam.';
+      var ayuda = document.createElement('a');
+      ayuda.className = 'tm-tocable mt-1 underline underline-offset-2 font-semibold';
+      ayuda.href = 'app/ayuda/contacto.html';
+      ayuda.textContent = '¿No te llega? Escríbenos';
+      ok.appendChild(linea);
+      ok.appendChild(detalle);
+      ok.appendChild(ayuda);
       ok.classList.remove('hidden');
     }, function (e) {
       ocupar(form, false);
@@ -328,13 +383,14 @@
     var nombre = document.getElementById('rg-nombre').value.trim();
     var correo = document.getElementById('rg-correo').value.trim().toLowerCase();
     var clave = document.getElementById('rg-clave').value;
-    if (nombre.length < 2) { error('rg-err', 'Escribe tu nombre y apellido.'); return; }
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(correo)) { error('rg-err', 'Escribe un correo válido.'); return; }
-    if (clave.length < 8) { error('rg-err', 'La contraseña necesita al menos 8 caracteres.'); return; }
-    if (!document.getElementById('rg-terminos').checked) { error('rg-err', 'Debes aceptar los términos para continuar.'); return; }
-    if (TM.modo === 'remoto' && ajustes.registro_activo === false) { error('rg-err', 'El registro de cuentas nuevas está pausado en este momento.'); return; }
     var telefono = document.getElementById('rg-telefono').value.trim();
-    if (telefono && !/^[+\d][\d\s().-]{6,}$/.test(telefono)) { error('rg-err', 'Escribe un teléfono de Venezuela (por ejemplo +58 412 1234567) o déjalo vacío.'); return; }
+    /* cada error bajo su campo, en el orden del formulario */
+    if (nombre.length < 2) { error('rg-nombre-err', 'Escribe tu nombre y apellido.'); return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(correo)) { error('rg-correo-err', 'Escribe un correo válido.'); return; }
+    if (clave.length < 8) { error('rg-clave-err', 'La contraseña necesita al menos 8 caracteres.'); return; }
+    if (telefono && !/^[+\d][\d\s().-]{6,}$/.test(telefono)) { error('rg-telefono-err', 'Escribe un teléfono de Venezuela (por ejemplo +58 412 1234567) o déjalo vacío.'); return; }
+    if (!document.getElementById('rg-terminos').checked) { error('rg-terminos-err', 'Debes aceptar los términos para continuar.'); return; }
+    if (TM.modo === 'remoto' && ajustes.registro_activo === false) { error('rg-err', 'El registro de cuentas nuevas está pausado en este momento.'); return; }
     ocupar(form, true);
     terminos().then(function (version) {
       return TM.registrar(nombre, correo, clave, { telefono: telefono, terminos: version });
@@ -391,6 +447,28 @@
 
   /* ?recuperar=1: viene de un enlace de recuperación vencido. */
   if (new URLSearchParams(location.search).get('recuperar') === '1') mostrar('recuperar');
+  /* ?registro=1: «Crear cuenta» del menú de la tienda abre el registro. */
+  if (new URLSearchParams(location.search).get('registro') === '1') mostrar('registro');
+
+  /* ?volver=: quien llega aquí desde una página que pide sesión sabe por qué
+     (y, si venía del carrito, que su carrito se conserva). */
+  (function () {
+    var q = new URLSearchParams(location.search);
+    var v = q.get('volver') || '';
+    if (!v || q.get('mfa') === '1' || q.get('listo')) return;
+    var texto = /^app\/tienda\/(checkout|carrito)\.html/.test(v) ? 'Inicia sesión o crea tu cuenta para terminar tu compra: tu carrito se conserva.'
+      : /^app\/tienda\/pedidos?\.html/.test(v) ? 'Inicia sesión para ver tus pedidos.'
+      : /^app\/seller\//.test(v) ? 'Inicia sesión para entrar al Seller Center.'
+      : /^app\/admin\//.test(v) ? 'Inicia sesión para entrar al Backoffice.'
+      : 'Inicia sesión para continuar: al entrar vuelves a la página donde estabas.';
+    var aviso = document.createElement('p');
+    aviso.className = 'flex items-start gap-2 mb-4 p-3 rounded-btn bg-secondary-container text-on-secondary-container font-body-sm text-body-sm';
+    aviso.setAttribute('role', 'status');
+    aviso.setAttribute('data-aviso-volver', '');
+    aviso.innerHTML = '<span class="material-symbols-outlined shrink-0 text-[18px]" aria-hidden="true">info</span><span></span>';
+    aviso.lastChild.textContent = texto;
+    pasos.credenciales.insertAdjacentElement('afterbegin', aviso);
+  })();
 
   /* Volver desde una página protegida con el segundo factor pendiente. */
   if (new URLSearchParams(location.search).get('mfa') === '1') {

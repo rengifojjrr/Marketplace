@@ -26,12 +26,12 @@
   /* ---------------------------------------------------------------------
      Utilidades compartidas
      ------------------------------------------------------------------- */
-  var FECHA = new Intl.DateTimeFormat('es-VE', { timeZone: 'America/Caracas', day: '2-digit', month: '2-digit',
-    year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
   K.fecha = function (iso) {
     if (!iso) return '—';
     var d = new Date(iso);
-    return isNaN(d) ? '—' : FECHA.format(d);
+    if (isNaN(d)) return '—';
+    /* el formato del sitio («24/10/2026 07:43 am», hora de Caracas), el mismo de pagos y pedidos */
+    return UI.fechaHora(d);
   };
   K.ROLES = ['comprador', 'seller', 'precios', 'operador', 'superadmin', 'ops', 'finanzas'];
   var NOMBRES = { comprador: 'Comprador', seller: 'Seller principal', precios: 'Gestor de precios', operador: 'Operador',
@@ -76,10 +76,12 @@
     return K.aviso('gris', 'cloud_off', '<strong>Esta función necesita el servidor de Tumbo.</strong> ' + esc(que || '') +
       ' En el modo sin conexión (datos en este navegador) solo funcionan los recorridos de la demo.');
   };
+  /* En una línea con el detalle plegado («Más»): no empuja el perfil
+     debajo del pliegue en el teléfono. */
   K.avisoDemo = function (que) {
-    return K.aviso('ambar', 'group', '<strong>Estás en una cuenta de prueba compartida.</strong> ' + esc(que ||
-      'Su contraseña es pública, así que su perfil, su contraseña y su verificación en dos pasos no se cambian.') +
-      ' Para probarlo, <a class="underline" href="' + UI.href('index.html') + '">crea tu propia cuenta</a>.');
+    var detalle = '<p>' + esc(que || 'Su contraseña es pública, así que su perfil, su contraseña y su verificación en dos pasos no se cambian.') +
+      ' Para probarlo, crea tu propia cuenta.</p><a class="tm-tocable underline underline-offset-2 font-semibold" href="' + UI.href('index.html?registro=1') + '">Crear mi cuenta</a>';
+    return UI.avisoPrueba('Estás en una cuenta de prueba compartida.', detalle, 'group');
   };
   K.remoto = function () { return !TM.requiereServidor(); };
   /* La sesión vigente (la que recibe la vista puede ser la del montaje). */
@@ -234,7 +236,7 @@
     if (!p) return '';
     if (p.demo) {
       return '<p class="font-body-sm text-body-sm text-on-surface-variant">En las cuentas de prueba el segundo paso es el código público ' +
-        '<strong class="font-data-mono">123456</strong> (lo comprueba el servidor, pero no protege nada). La verificación real, con una app de autenticación, es para las cuentas propias.</p>';
+        '<strong class="font-data-mono">123456</strong>: como todos lo conocen, no protege la cuenta. La verificación real, con una app de autenticación, es para las cuentas propias.</p>';
     }
     var e = estado2fa[yo.uid];
     if (e && e.fase === 'respaldo') {
@@ -282,10 +284,10 @@
     if (!lista) return '<p class="font-body-sm text-body-sm text-on-surface-variant" data-cargando>Cargando tus sesiones…</p>';
     var filas = lista.map(function (x) {
       return UI.td('<span class="font-semibold">' + esc(x.dispositivo) + '</span>' +
-          (x.actual ? ' <span class="ml-1 px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm">Esta sesión</span>' : '')) +
+          (x.actual ? ' <span class="ml-1 px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm whitespace-nowrap">Esta sesión</span>' : '')) +
         UI.td('<span class="font-data-mono text-data-mono">' + esc(x.red) + '</span>') +
         UI.td(esc(K.fecha(x.creada))) + UI.td(esc(K.fecha(x.ultimoUso))) +
-        UI.td(btn(x.actual ? 'Cerrar esta (salir)' : 'Cerrar', { estilo: x.actual ? 'borde' : 'peligro', clase: 'min-h-[32px] px-3',
+        UI.td(btn(x.actual ? 'Cerrar sesión' : 'Cerrar', { estilo: x.actual ? 'borde' : 'peligro', clase: 'min-h-[32px] px-3',
           attr: 'data-accion="cerrar-sesion" data-id="' + esc(x.id) + '"' + (x.actual ? ' data-actual="1"' : '') }), 'text-right');
     });
     return UI.tabla(['Dispositivo', 'Conexión', 'Inicio', 'Último uso', ''], filas) +
@@ -555,7 +557,7 @@
       '<input data-codigo-modal maxlength="9" autocomplete="one-time-code" placeholder="000000" aria-label="Código" ' +
       'class="w-full h-12 px-4 mb-1 rounded-btn border border-outline-variant bg-surface-container-low font-data-mono text-data-mono tracking-[0.3em] text-center focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"/>' +
       '<p data-error class="hidden font-body-sm text-body-sm text-error mb-2"></p>' +
-      '<div class="flex justify-end gap-2 mt-3">' + btn('Cancelar', { attr: 'data-cerrar' }) + btn('Confirmar', { estilo: 'primario', attr: 'data-ok' }) + '</div>',
+      '<div class="tm-acciones mt-3">' + btn('Cancelar', { attr: 'data-cerrar' }) + btn('Confirmar', { estilo: 'primario', attr: 'data-ok' }) + '</div>',
       function (velo, cerrar) {
         var campo = velo.querySelector('[data-codigo-modal]');
         var ok = velo.querySelector('[data-ok]');

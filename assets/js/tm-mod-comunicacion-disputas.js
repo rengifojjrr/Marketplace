@@ -54,7 +54,7 @@
 
   /* El plazo del comercio para responder (ajuste del servidor). */
   function horasRespuesta(s) {
-    var p = TM.ayudaCom ? TM.ayudaCom.plazos(s) : null;
+    var p = C().plazos(s);
     return p && p.respuesta ? p.respuesta + ' horas' : 'el plazo vigente';
   }
 
@@ -85,10 +85,11 @@
   function formMensaje(d) {
     if (!d.acciones || !d.acciones.mensaje) return '';
     return '<form data-mensaje-expediente="' + esc(d.id) + '" class="mt-3">' +
-      '<label class="block font-label-md text-label-md mb-1" for="msg-' + esc(d.id) + '">Escribe en el expediente (lo leen el comprador, el comercio y Operaciones)</label>' +
+      '<label class="block font-label-md text-label-md mb-1" for="msg-' + esc(d.id) + '">' + (d.lado === 'comprador' ? 'Escribe en el expediente (lo leen el comercio y el equipo de Tumbo)'
+        : 'Escribe en el expediente (lo leen el comprador, el comercio y Operaciones)') + '</label>' +
       '<textarea id="msg-' + esc(d.id) + '" name="texto" rows="3" maxlength="2000" class="' + C().CLASE_AREA + '" placeholder="Cuenta lo que pasó y adjunta tus fotos, videos o documentos…"></textarea>' +
       C().adjuntos('disp:' + d.id, { proposito: 'evidencia', entidad: d.id, max: 10, texto: 'Adjuntar evidencia' }) +
-      '<div class="flex justify-end mt-2">' + btn('Enviar al expediente', { estilo: 'primario', icono: 'send', tipo: 'submit', attr: 'data-enviar-expediente' }) + '</div></form>';
+      '<div class="tm-acciones mt-2">' + btn('Enviar al expediente', { estilo: 'primario', icono: 'send', tipo: 'submit', attr: 'data-enviar-expediente' }) + '</div></form>';
   }
 
   function solicitudesHtml(d) {
@@ -111,7 +112,8 @@
     var vencido = new Date(d.plazo_seller).getTime() < Date.now();
     var txt = d.lado === 'comercio'
       ? '<strong>Responde antes del ' + esc(C().fecha(d.plazo_seller)) + '</strong> (' + esc(C().hace(d.plazo_seller)) + '). Si no respondes, el reclamo se resuelve a favor del comprador con el reembolso total.'
-      : 'El comercio tiene hasta el ' + esc(C().fecha(d.plazo_seller)) + ' para responder con su evidencia; si no responde, el reclamo se resuelve a favor del comprador con el reembolso total.';
+      : 'El comercio tiene hasta el ' + esc(C().fecha(d.plazo_seller)) + ' para responder con su evidencia; si no responde, el reclamo se resuelve ' +
+        (d.lado === 'comprador' ? 'a tu favor' : 'a favor del comprador') + ' con el reembolso total.';
     return C().aviso(vencido ? 'rojo' : 'ambar', 'timer', txt, ' data-plazo-seller');
   }
 
@@ -123,7 +125,8 @@
       '<p class="font-body-sm text-body-sm text-on-surface"><strong>' + esc(textoDecision(r)) + '</strong>' +
       (r.decision === 'reembolso_parcial' || r.decision === 'reembolso' ? ' ' + esc(C().usd(r.reembolso_usd)) + '.' : '') +
       (r.nota ? ' ' + esc(r.nota) : '') + '</p>' +
-      (r.automatica ? '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">El comercio no respondió a tiempo: el reclamo se resolvió solo a favor del comprador.</p>' : '') +
+      (r.automatica ? '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">El comercio no respondió a tiempo: el reclamo se resolvió solo ' +
+        (d.lado === 'comprador' ? 'a tu favor' : 'a favor del comprador') + '.</p>' : '') +
       (r.por ? '<p class="font-label-sm text-label-sm text-on-surface-variant mt-1">Decidió: ' + esc(r.por) + '</p>' : '') + '</div>';
   }
 
@@ -225,10 +228,13 @@
         C().tarjeta('El reclamo', '<p class="font-body-sm text-body-sm text-on-surface"><strong>' + esc(d.motivo) + '.</strong> ' + esc(d.descripcion) + '</p>' +
           C().listaArchivos(d.evidencia) +
           ((d.evidencia_nombres || []).length ? '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Adjuntos: ' + d.evidencia_nombres.map(esc).join(', ') + '</p>' : '') +
-          '<p class="font-body-sm text-body-sm text-on-surface-variant mt-2">Pedido <a class="text-secondary hover:underline" href="' +
-          href('app/' + (d.lado === 'comercio' ? 'seller' : d.lado === 'tumbo' ? 'admin' : 'tienda') + '/pedido.html?id=' + encodeURIComponent(d.pedido)) + '">' + esc(d.pedido) + '</a> · ' +
-          esc(d.comercio || '') + ' · pagó ' + esc(C().usd(d.pagado_usd != null ? d.pagado_usd : d.total_usd)) +
-          (d.congelado ? ' · fondos del comercio congelados' + (d.retenido_hasta ? ' hasta el ' + esc(C().dia(d.retenido_hasta)) : '') : '') + '</p>') +
+          /* un dato por línea (antes una frase con «·» que se partía y dejaba separadores sueltos) */
+          '<ul class="mt-2 space-y-0.5 font-body-sm text-body-sm text-on-surface-variant">' +
+          '<li>Pedido <a class="text-secondary hover:underline tm-id" href="' +
+          href('app/' + (d.lado === 'comercio' ? 'seller' : d.lado === 'tumbo' ? 'admin' : 'tienda') + '/pedido.html?id=' + encodeURIComponent(d.pedido)) + '">' + esc(d.pedido) + '</a>' +
+          (d.comercio ? ' de ' + esc(d.comercio) : '') + '</li>' +
+          '<li>Pagado: <span class="tm-num">' + esc(C().usd(d.pagado_usd != null ? d.pagado_usd : d.total_usd)) + '</span></li>' +
+          (d.congelado ? '<li>Fondos del comercio congelados' + (d.retenido_hasta ? ' hasta el ' + esc(C().dia(d.retenido_hasta)) : '') + '</li>' : '') + '</ul>') +
         (d.respuesta ? C().tarjeta('Respuesta del comercio', '<p class="font-body-sm text-body-sm text-on-surface whitespace-pre-line">' + esc(d.respuesta.texto) + '</p>' +
           C().listaArchivos(d.respuesta.evidencia) + '<p class="font-label-sm text-label-sm text-on-surface-variant mt-1">' + esc(C().fecha(d.respuesta.fecha)) + '</p>') : '') +
         accionesTumbo(d) +
@@ -466,7 +472,9 @@
     if (!C().remoto()) return volverHtml + C().avisoServidor('El expediente con mensajes, plazos y apelación vive en el servidor.');
     var r = leerDisputa(id);
     return volverHtml + C().seccion(r, claveDisputa(id), function (d) {
-      return C().titulo('Reclamo ' + d.id, UI.badge(d.estado) + ' ' + (d.apelacion && d.apelacion.estado === 'pedida' ? C().chip('Apelación en revisión', 'ambar', 'gavel') : '')) +
+      /* para el comprador es «el reclamo»: «Abierto», «Resuelto» */
+      var insignia = UI.badge(d.estado, { masculino: d.lado === 'comprador' });
+      return C().titulo('Reclamo ' + d.id, insignia + ' ' + (d.apelacion && d.apelacion.estado === 'pedida' ? C().chip('Apelación en revisión', 'ambar', 'gavel') : '')) +
         expediente(d, s);
     }, 'Cargando el expediente…');
   }
@@ -494,7 +502,7 @@
         '<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href('app/tienda/pedido.html?id=' + p.id) + '">Ver el pedido</a>');
     }
     return volver +
-      '<div class="flex flex-wrap items-end justify-between gap-2 mb-4"><h1 class="font-headline-md text-headline-md text-primary-container">Reclamo sobre ' + esc(p.id) + '</h1></div>' +
+      '<div class="flex flex-wrap items-end justify-between gap-2 mb-4"><h1 class="font-headline-md text-headline-md text-primary-container">Reclamo sobre <span class="tm-id">' + esc(p.id) + '</span></h1></div>' +
       '<div class="max-w-2xl"><ol data-pasos class="space-y-4">' +
 
       '<li data-paso="1" class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
@@ -524,7 +532,7 @@
           '<input type="radio" name="pref" value="reembolso" checked class="text-secondary focus:ring-secondary/40"/><span class="font-body-sm text-body-sm">Reembolso total</span></label>' +
         '<label class="flex items-center gap-2 p-2.5 rounded-btn border border-outline-variant cursor-pointer has-[:checked]:border-secondary has-[:checked]:bg-secondary-container/30">' +
           '<input type="radio" name="pref" value="reemplazo" class="text-secondary focus:ring-secondary/40"/><span class="font-body-sm text-body-sm">Reemplazo del producto</span></label>' +
-        '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Al enviar, la liquidación del seller queda <strong>congelada</strong> hasta la decisión de Operaciones. ' +
+        '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Al enviar, el dinero del comercio queda <strong>congelado</strong> hasta que el equipo de Tumbo decida. ' +
         (TM.modo === 'remoto' ? 'El comercio tiene <strong>' + esc(horasRespuesta(s)) + '</strong> para responder; si no responde, el reclamo se resuelve a tu favor con el reembolso total. ' : '') +
         'Tu preferencia orienta el caso, pero la decisión final la toma el equipo. ' +
         '<a class="text-secondary hover:underline" href="' + href('app/ayuda/compra-protegida.html') + '">Cómo funciona la Compra Protegida</a></p>' +
@@ -620,8 +628,8 @@
         var x = res && res.listo && res.dato ? res.dato[d.id] : null;
         return '<article class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-4" data-disputa-seller="' + esc(d.id) + '">' +
           '<div class="flex flex-wrap items-center gap-2 mb-2">' +
-            '<span class="font-data-mono text-data-mono text-on-surface">' + esc(d.id) + '</span>' + UI.badge(d.estado) +
-            '<span class="font-body-sm text-body-sm text-on-surface-variant">sobre ' + esc(d.pedidoId) + ' · ' + esc(TM.fmtBs(d.montoUsd, (TM.pedido(d.pedidoId) || {}).tasa)) + '</span>' +
+            '<span class="tm-id font-data-mono text-data-mono text-on-surface">' + esc(d.id) + '</span>' + UI.badge(d.estado) +
+            '<span class="font-body-sm text-body-sm text-on-surface-variant">sobre <span class="tm-id">' + esc(d.pedidoId) + '</span> · <span class="tm-num">' + esc(TM.fmtBs(d.montoUsd, (TM.pedido(d.pedidoId) || {}).tasa)) + '</span></span>' +
             (x && d.estado === 'abierta' && !x.respondida_en ? C().chip('Responde ' + C().hace(x.plazo_seller), new Date(x.plazo_seller) < Date.now() + 24 * 3600000 ? 'rojo' : 'ambar', 'timer') : '') +
             (x && x.solicitudes ? C().chip('Evidencia pedida', 'ambar', 'photo_camera') : '') +
             (x && x.apelacion ? C().chip('Apelación ' + x.apelacion, 'gris', 'gavel') : '') + '</div>' +
@@ -634,9 +642,11 @@
             ? '<p class="flex items-start gap-2 mt-2 p-3 rounded-btn bg-warning-container text-on-warning-container font-body-sm text-body-sm" data-disputa-bloqueada>' +
               ic('lock', 'text-[18px] shrink-0') + BLOQUEADO_COMERCIO + '</p>'
             : (d.estado === 'abierta'
-              ? '<div class="mt-2"><textarea data-resp="' + esc(d.id) + '" rows="2" placeholder="Explica tu versión y describe tu evidencia de empaque…" class="w-full px-3 py-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm focus:border-secondary outline-none"></textarea>' +
-                C().adjuntos('resp:' + d.id, { proposito: 'evidencia', entidad: d.id, max: 10, texto: 'Adjuntar evidencia (fotos del empaque, guía…)' }) +
-                '<div class="mt-2 flex gap-2">' + btn('Enviar mi respuesta', { estilo: 'primario', icono: 'forum', attr: 'data-responder="' + esc(d.id) + '"' }) + '</div></div>'
+              ? '<div class="mt-2"><label class="block font-label-md text-label-md text-on-surface mb-1" for="resp-' + esc(d.id) + '">Tu versión</label>' +
+                '<textarea id="resp-' + esc(d.id) + '" data-resp="' + esc(d.id) + '" rows="4" placeholder="Qué enviaste y cómo lo empacaste" class="w-full px-3 py-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm focus:border-secondary outline-none"></textarea>' +
+                '<p class="mt-1 mb-2 font-body-sm text-body-sm text-on-surface-variant">Cuenta qué pasó y adjunta tu evidencia: fotos del empaque, la guía o la nota de entrega.</p>' +
+                C().adjuntos('resp:' + d.id, { proposito: 'evidencia', entidad: d.id, max: 10, texto: 'Adjuntar evidencia' }) +
+                '<div class="mt-2 flex gap-2">' + btn('Enviar mi respuesta', { estilo: 'primario', icono: 'forum', attr: 'data-responder="' + esc(d.id) + '"', clase: 'w-full sm:w-auto' }) + '</div></div>'
               : '')) +
           (d.resolucion ? '<p class="mt-2 font-body-sm text-body-sm"><strong>Resolución de Operaciones:</strong> ' +
             (x && x.decision === 'reembolso_parcial' ? 'reembolso parcial de ' + esc(C().usd(x.reembolso_usd)) + ' a cargo de tu comercio.'
@@ -699,8 +709,7 @@
 
   function vDisputasAdmin(q, s) {
     if (q.get('id')) {
-      return vistaExpediente(q.get('id'), s, '<a class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline mb-3" href="' +
-        href('app/admin/disputas.html') + '">' + ic('arrow_back', 'text-[16px]') + 'Todas las disputas</a>');
+      return vistaExpediente(q.get('id'), s, '<p class="mb-2">' + UI.enlace('Todas las disputas', href('app/admin/disputas.html'), 'arrow_back') + '</p>');
     }
     var lista = TM.estado.disputas;
     var res = C().remoto() ? resumen() : null;
@@ -712,9 +721,9 @@
         var reembolso = p ? TM.fmtTotalPedido(p) : null;
         return '<article class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-4" data-disputa="' + esc(d.id) + '">' +
           '<div class="flex flex-wrap items-center gap-2 mb-2">' +
-            '<span class="font-data-mono text-data-mono">' + esc(d.id) + '</span>' + UI.badge(d.estado) +
-            '<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(d.pedidoId) + ' · ' + esc((TM.seller(d.sellerId) || {}).nombre || d.sellerId) + ' · productos ' +
-              esc(TM.fmtBs(d.montoUsd, p && p.tasa)) + (reembolso ? ' · reembolso total ' + esc(reembolso) + ' (con el envío)' : '') + '</span>' +
+            '<span class="tm-id font-data-mono text-data-mono">' + esc(d.id) + '</span>' + UI.badge(d.estado) +
+            '<span class="font-body-sm text-body-sm text-on-surface-variant"><span class="tm-id">' + esc(d.pedidoId) + '</span> · ' + esc((TM.seller(d.sellerId) || {}).nombre || d.sellerId) + ' · productos <span class="tm-num">' +
+              esc(TM.fmtBs(d.montoUsd, p && p.tasa)) + '</span>' + (reembolso ? ' · reembolso total <span class="tm-num">' + esc(reembolso) + '</span> (con el envío)' : '') + '</span>' +
             (x && d.estado === 'abierta' && !x.respondida_en ? C().chip('Plazo del comercio: ' + C().hace(x.plazo_seller), 'ambar', 'timer') : '') +
             (x && x.solicitudes ? C().chip('Evidencia pedida', 'azul', 'photo_camera') : '') +
             (x && x.apelacion === 'pedida' ? C().chip('Apelación por revisar', 'rojo', 'gavel') : '') +
@@ -800,7 +809,7 @@
       '<label class="block"><span class="block font-label-md text-label-md mb-1">Nota de la resolución (opcional)</span>' +
       '<textarea data-motivo rows="2" class="' + C().CLASE_AREA + '"></textarea></label>' +
       '<p data-error-decision class="hidden font-body-sm text-body-sm text-error"></p></div>' +
-      '<div class="flex justify-end gap-2">' + btn('Cancelar', { attr: 'data-cerrar' }) +
+      '<div class="tm-acciones">' + btn('Cancelar', { attr: 'data-cerrar' }) +
       btn('Resolver', { estilo: decision === 'reembolso' ? 'peligro' : 'primario', attr: 'data-ok' }) + '</div>',
       function (velo, cerrar) {
         var pl = velo.querySelector('[data-plantilla]');

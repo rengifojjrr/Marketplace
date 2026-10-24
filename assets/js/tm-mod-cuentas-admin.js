@@ -40,6 +40,8 @@
       : '<span class="font-body-sm text-body-sm text-on-surface-variant">No</span>';
   }
 
+  function fechaHora(v) { return v ? UI.fechaHora(v) : '—'; }
+
   /* Pide el texto de un motivo y llama a fn(motivo). */
   function conMotivo(titulo, texto, accion, peligro, fn) {
     UI.confirmar(titulo, texto, { accion: accion, peligro: peligro, motivo: 'Motivo (queda en la auditoría)' }, fn);
@@ -51,8 +53,8 @@
   function tablaInvitaciones(lista, revocables) {
     if (!lista) return '<p class="font-body-sm text-body-sm text-on-surface-variant">Cargando invitaciones…</p>';
     return UI.tabla(['Correo', 'Rol', 'Comercio', 'Invitó', 'Vence', 'Estado', ''], lista.map(function (i) {
-      return UI.td('<span class="font-data-mono text-data-mono">' + esc(i.email) + '</span>') + UI.td(esc(K().nombreRol(i.rol))) +
-        UI.td(esc(i.comercio || '—')) + UI.td(esc(i.por)) + UI.td(esc(K().fecha(i.vence))) + UI.td(etiquetaInvitacion(i.estado)) +
+      return UI.td('<span class="font-data-mono text-data-mono [overflow-wrap:anywhere]">' + UI.correo(i.email) + '</span>') + UI.td(esc(K().nombreRol(i.rol))) +
+        UI.td(esc(i.comercio || '—')) + UI.td(esc(i.por)) + UI.td(esc(fechaHora(i.vence))) + UI.td(etiquetaInvitacion(i.estado)) +
         UI.td(revocables && i.estado === 'pendiente' ? btn('Revocar', { estilo: 'peligro', clase: 'min-h-[32px] px-3', attr: 'data-revocar="' + esc(i.id) + '"' }) : '', 'text-right');
     }), UI.vacio('mail', 'Sin invitaciones', 'Las invitaciones que envíes aparecerán aquí con su estado.'));
   }
@@ -60,10 +62,10 @@
   function tablaUsuarios(lista) {
     if (!lista) return '<p class="font-body-sm text-body-sm text-on-surface-variant">Buscando…</p>';
     return UI.tabla(['Persona', 'Rol', 'Estado', 'Último acceso', '2FA', ''], lista.map(function (u) {
-      return UI.td('<span class="block font-semibold">' + esc(u.nombre) + (u.demo ? ' <span class="font-label-sm text-label-sm text-on-surface-variant">· prueba</span>' : '') + '</span>' +
-          '<span class="block font-data-mono text-data-mono text-on-surface-variant">' + esc(u.email) + '</span>') +
+      return UI.td('<span class="block font-semibold break-words">' + esc(u.nombre) + (u.demo ? ' <span class="font-label-sm text-label-sm text-on-surface-variant whitespace-nowrap">· de prueba</span>' : '') + '</span>' +
+          '<span class="block font-data-mono text-data-mono text-on-surface-variant [overflow-wrap:anywhere]">' + UI.correo(u.email) + '</span>') +
         UI.td(esc(K().nombreRol(u.rol)) + (u.comercio ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(u.comercio) + '</span>' : '')) +
-        UI.td(etiquetaEstado(u)) + UI.td(esc(K().fecha(u.ultimoAcceso))) + UI.td(dosPasos(u.totp)) +
+        UI.td(etiquetaEstado(u)) + UI.td(esc(fechaHora(u.ultimoAcceso))) + UI.td(dosPasos(u.totp)) +
         UI.td(btn('Ver', { icono: 'visibility', clase: 'min-h-[32px] px-3', attr: 'data-ver-usuario="' + esc(u.id) + '"' }), 'text-right');
     }), UI.vacio('person_search', 'Nadie coincide', 'Prueba con otra parte del correo, del nombre, del teléfono o de la cédula.'));
   }
@@ -74,16 +76,17 @@
     var yo = C.yo();
     var superadmin = yo.rol === 'superadmin';
     return C.titulo('Usuarios', superadmin && !yo.demo ? btn('Invitar', { estilo: 'primario', icono: 'person_add', attr: 'data-invitar' }) : '') +
-      (yo.demo ? C.aviso('ambar', 'group', '<strong>Cuenta de prueba:</strong> solo ves las cuentas de prueba y no puedes cambiar nada. ' +
-        'La administración de cuentas pide una cuenta real del equipo con verificación en dos pasos.') : '') +
-      (yo.rol === 'ops' ? C.aviso('info', 'visibility', 'Operaciones consulta las cuentas de los compradores. Con el permiso «usuarios» también las bloquea, cierra sus sesiones y deja un enlace de recuperación en su bandeja (lo envía el superadministrador); el personal interno y los comercios los gestiona solo la superadministración.') : '') +
-      '<form data-buscar-usuarios novalidate class="flex flex-wrap items-end gap-2 mb-4">' +
-      '<div class="flex-1 min-w-[220px]"><label class="block font-label-md text-label-md text-on-surface mb-1" for="us-texto">Buscar</label>' +
-      '<input id="us-texto" name="texto" value="' + esc(estadoUsuarios.texto) + '" placeholder="Correo, nombre, teléfono o cédula" class="' + C.CAMPO + '"/></div>' +
-      '<div><label class="block font-label-md text-label-md text-on-surface mb-1" for="us-rol">Rol</label>' +
-      '<select id="us-rol" name="rol" class="' + C.CAMPO + '"><option value="">Todos</option>' +
+      (yo.demo ? UI.avisoPrueba('Cuenta de prueba: solo ves las cuentas de prueba y no cambias nada.',
+        '<p>La administración de cuentas pide una cuenta real del equipo con verificación en dos pasos.</p>') : '') +
+      (yo.rol === 'ops' ? UI.avisoPrueba('Operaciones consulta las cuentas de los compradores.',
+        '<p>Con el permiso «usuarios» también las bloquea, cierra sus sesiones y deja un enlace de recuperación en su bandeja (lo envía el superadministrador); el personal interno y los comercios los gestiona solo la superadministración.</p>', 'visibility') : '') +
+      '<form data-buscar-usuarios novalidate role="search" class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end mb-4">' +
+      '<div class="col-span-2 sm:flex-1 sm:min-w-[220px]"><label class="block font-label-md text-label-md text-on-surface mb-1" for="us-texto">Buscar</label>' +
+      '<input id="us-texto" name="texto" type="search" enterkeyhint="search" autocomplete="off" value="' + esc(estadoUsuarios.texto) + '" placeholder="Correo, nombre o cédula" class="' + C.CAMPO + '"/></div>' +
+      '<div class="min-w-0"><label class="block font-label-md text-label-md text-on-surface mb-1" for="us-rol">Rol</label>' +
+      '<select id="us-rol" name="rol" class="' + C.CAMPO + ' pr-9"><option value="">Todos</option>' +
       C.ROLES.map(function (r) { return '<option value="' + r + '"' + (estadoUsuarios.rol === r ? ' selected' : '') + '>' + esc(C.nombreRol(r)) + '</option>'; }).join('') +
-      '</select></div>' + btn('Buscar', { estilo: 'primario', tipo: 'submit', icono: 'search' }) + '</form>' +
+      '</select></div>' + btn('Buscar', { estilo: 'primario', tipo: 'submit', icono: 'search', clase: 'self-end' }) + '</form>' +
       '<div data-resultados>' + tablaUsuarios(estadoUsuarios.lista) + '</div>' +
       (superadmin ? '<h2 class="font-headline-sm text-headline-sm text-primary-container mt-8 mb-3">Invitaciones</h2>' +
         '<div data-invitaciones>' + tablaInvitaciones(estadoUsuarios.invitaciones, !yo.demo) + '</div>' : '');
@@ -358,8 +361,8 @@
     if (!d) return '<p class="font-body-sm text-body-sm text-on-surface-variant">Cargando tu equipo…</p>';
     return UI.tabla(['Persona', 'Rol', 'Último acceso', '2FA', 'Permisos', ''], d.miembros.map(function (m) {
       var gestionable = !m.yo && (m.rol === 'precios' || m.rol === 'operador');
-      return UI.td('<span class="block font-semibold">' + esc(m.nombre) + (m.yo ? ' <span class="font-label-sm text-label-sm text-on-surface-variant">· tú</span>' : '') + '</span>' +
-          '<span class="block font-data-mono text-data-mono text-on-surface-variant">' + esc(m.email) + '</span>') +
+      return '<td data-th="" class="px-4 py-3"><span class="block w-full min-w-0"><span class="block font-semibold">' + esc(m.nombre) + (m.yo ? ' <span class="font-label-sm text-label-sm text-on-surface-variant">· tú</span>' : '') + '</span>' +
+          '<span class="block font-data-mono text-data-mono text-on-surface-variant [overflow-wrap:anywhere]">' + UI.correo(m.email) + '</span></span></td>' +
         UI.td(esc(K().nombreRol(m.rol))) + UI.td(esc(K().fecha(m.ultimoAcceso))) + UI.td(dosPasos(m.totp)) +
         UI.td(m.rol === 'operador' ? '<label class="inline-flex items-center gap-2 font-body-sm text-body-sm cursor-pointer"><input type="checkbox" data-precios-operador="' + esc(m.id) + '"' +
           (m.permisos.indexOf('precios_operador') >= 0 ? ' checked' : '') + (yo.demo ? ' disabled' : '') + ' class="w-4 h-4 rounded border-outline text-secondary"/>También cambia precios</label>'
@@ -468,9 +471,11 @@
     var envio = abierto && !seguro ? enlaceEnvio(m, texto) : '';
     return '<article class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-3" data-mensaje="' + esc(m.id) + '">' +
       '<div class="flex flex-wrap items-start justify-between gap-2 mb-2">' +
-        '<div><p class="flex items-center gap-1 font-label-md text-label-md text-on-surface">' + ic(canal[1], 'text-[18px]') + esc(canal[0]) + ' · ' +
-          '<span class="font-data-mono text-data-mono">' + esc(m.destino) + '</span></p>' +
-        '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(m.usuario || 'Sin cuenta (invitación)') + ' · ' + esc(m.plantilla) + ' · ' + esc(K().fecha(m.creado)) + '</p></div>' +
+        '<div class="min-w-0"><p class="flex flex-wrap items-center gap-1 font-label-md text-label-md text-on-surface">' + ic(canal[1], 'text-[18px]') + esc(canal[0]) + ' · ' +
+          '<span class="font-data-mono text-data-mono break-all">' + esc(m.destino) + '</span></p>' +
+        '<p class="font-body-sm text-body-sm text-on-surface-variant break-words">' + esc(m.usuario || 'Sin cuenta (invitación)') + ' · ' + esc(TM.nombreAviso ? TM.nombreAviso(m.plantilla) : m.plantilla) +
+          /* (la clave de la plantilla, oculta: el nombre que se ve es para personas; la clave sigue en el texto para buscarla) */
+          '<span hidden data-plantilla-clave>' + esc(m.plantilla) + '</span> · ' + esc(fechaHora(m.creado)) + '</p></div>' +
         '<span class="inline-flex px-2 py-0.5 rounded-full font-label-sm text-label-sm bg-surface-container-high text-on-surface-variant">' +
           esc({ pendiente: 'Por enviar', manual: 'Para enviar a mano', enviado: 'Enviado', descartado: 'Descartado', fallido: 'Falló' }[m.estado] || m.estado) + '</span>' +
       '</div>' +
@@ -499,15 +504,18 @@
     if (!C.remoto()) return C.titulo('Bandeja de salida') + C.avisoServidor('Los mensajes salientes (códigos, enlaces y avisos) viven en el servidor.');
     var yo = C.yo();
     return C.titulo('Bandeja de salida') +
-      C.aviso('info', 'outbox', '<strong>Esta es la vista sencilla de la bandeja.</strong> El estado del envío automático por correo y WhatsApp, los filtros por canal y el reenvío están en ' +
-        '<a class="underline" href="' + UI.href('app/admin/mensajes.html') + '">Mensajes salientes</a>. Aquí puedes enviar a mano lo que espera ' +
-        '(copia el texto o ábrelo en el correo o en WhatsApp) y marcarlo como enviado. Los códigos vencen a los 15 minutos y los enlaces de recuperación a los 30.') +
-      (yo.rol === 'superadmin' && !yo.demo ? '' : C.aviso('ambar', 'lock', 'Los mensajes con un código o un enlace de seguridad solo los ve y los envía el superadministrador con su cuenta real' +
-        (yo.demo ? '; con una cuenta de prueba solo ves los mensajes de las cuentas de prueba.' : '.'))) +
-      '<div class="flex flex-wrap gap-2 mb-4" role="tablist">' + FILTROS_BANDEJA.map(function (f) {
+      '<div class="mb-3 rounded-btn bg-secondary-container text-on-secondary-container font-body-sm text-body-sm px-3 py-2">' +
+        '<p class="flex items-start gap-2">' + ic('outbox', 'shrink-0 text-[18px] mt-0.5') + '<span>Vista sencilla para enviar a mano: copia el texto o ábrelo en el correo o en WhatsApp y márcalo como enviado.</span></p>' +
+        '<div class="pl-7 flex flex-wrap items-center gap-x-4"><a class="tm-tocable font-semibold underline" href="' + UI.href('app/admin/mensajes.html') + '">Mensajes salientes</a>' +
+        /* el mismo «Más» plegable que el de los avisos de prueba */
+        '<details class="group"><summary class="inline-flex items-center gap-0.5 min-h-[40px] cursor-pointer list-none [&::-webkit-details-marker]:hidden px-1 font-semibold">' +
+          '<span class="underline underline-offset-2">Más</span>' + ic('expand_more', 'text-[18px] group-open:rotate-180 transition') + '</summary>' +
+        '<p class="pb-1">Allí están el estado del envío automático, los filtros por canal y el reenvío. ' +
+        'Los códigos vencen a los 15 minutos y los enlaces de recuperación a los 30.</p></details></div></div>' +
+      (TM.avisoCodigosSeguridad ? TM.avisoCodigosSeguridad(yo) : '') +
+      '<div class="flex flex-wrap gap-2 mb-4 tm-tira-movil" role="tablist">' + FILTROS_BANDEJA.map(function (f) {
         var activo = estadoBandeja.filtro === f[0];
-        return '<button type="button" role="tab" aria-selected="' + activo + '" data-filtro-bandeja="' + esc(f[0]) + '" class="min-h-[36px] px-3 rounded-full border font-label-md text-label-md ' +
-          (activo ? 'bg-primary-container text-on-primary border-primary-container' : 'border-outline-variant text-on-surface') + '">' + esc(f[1]) + '</button>';
+        return '<button type="button" role="tab" aria-selected="' + activo + '" data-filtro-bandeja="' + esc(f[0]) + '" class="' + UI.claseChip(activo) + '">' + esc(f[1]) + '</button>';
       }).join('') + '</div>' +
       '<div data-bandeja>' + listaBandeja() + '</div>';
   }

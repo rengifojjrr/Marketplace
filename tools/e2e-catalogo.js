@@ -330,8 +330,10 @@ const CUOTAS = (n) => `update tumbo.ajustes set valor = jsonb_set(valor, '{archi
       art.locator('[data-ver-doc]').first().click()]);
     if (!/tumbo-privado\/kyc\//.test(firmada.url())) throw new Error('no pidió el documento firmado: ' + firmada.url());
     for (const pg of ctx.pages()) if (pg !== p) await pg.close();
-    await art.locator('[data-revisar="aprobado"]').first().click();
-    await aviso('No se aplicó la revisión');
+    /* la cuenta de prueba no revisa ni decide: los botones se ven deshabilitados
+       (el servidor también lo rechaza: api-catalogo.js, tm_kyc_revisar con la sesión de prueba) */
+    if (!(await art.locator('[data-revisar="aprobado"]').first().isDisabled())) throw new Error('la cuenta de prueba puede pulsar «Aprobar» un documento');
+    if (!(await art.locator('[data-kyc]').first().isDisabled())) throw new Error('la cuenta de prueba puede pulsar una decisión sobre el comercio');
   }, /status of 40[013]/);
 
   await pruebaSolo('remoto', 'la tienda pública muestra lo que edita el seller', async () => {

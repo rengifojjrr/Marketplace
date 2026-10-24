@@ -46,11 +46,9 @@
   var revisando = false;
 
   function tabs(actual) {
-    return '<nav class="flex flex-wrap gap-2 mb-4" role="tablist">' + TABS.map(function (t) {
-      var on = t[0] === actual;
-      return '<a role="tab" aria-selected="' + on + '" class="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-btn font-label-md text-label-md ' +
-        (on ? 'bg-secondary-container text-on-secondary-container' : 'border border-outline-variant hover:border-secondary') + '" href="' +
-        href('app/admin/reglas.html?tab=' + t[0]) + '">' + ic(t[2], 'text-[18px]') + esc(t[1]) + '</a>';
+    /* chips como las demás pestañas del Backoffice (antes, rectángulos con icono que a 360 px no cabían en una fila) */
+    return '<nav class="flex flex-wrap gap-2 mb-4 tm-tira-movil" aria-label="Secciones">' + TABS.map(function (t) {
+      return UI.chip(t[1], href('app/admin/reglas.html?tab=' + t[0]), t[0] === actual);
     }).join('') + '</nav>';
   }
 
@@ -69,14 +67,14 @@
       (skus.length ? skus.map(function (sku) {
         var ms = porSku[sku], p = ms[0];
         return '<article data-marcas-sku="' + esc(sku) + '" class="flex flex-wrap sm:flex-nowrap gap-3 rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-3">' +
-          (p.bloqueado ? '<span class="w-4 shrink-0"></span>' : '<input type="checkbox" data-sel-marca="' + esc(sku) + '"' + (SEL[sku] ? ' checked' : '') +
-            ' aria-label="Seleccionar ' + esc(sku) + '" class="w-4 h-4 mt-1 rounded border-outline text-secondary shrink-0"/>') +
+          (p.bloqueado ? '<span class="w-4 shrink-0"></span>' : '<label class="inline-flex items-center justify-center w-11 h-11 -m-2.5 shrink-0 cursor-pointer"><input type="checkbox" data-sel-marca="' + esc(sku) + '"' + (SEL[sku] ? ' checked' : '') +
+            ' aria-label="Seleccionar ' + esc(sku) + '" class="w-5 h-5 rounded border-outline text-secondary"/></label>') +
           '<div class="flex-1 min-w-0">' +
-            '<div class="flex flex-wrap items-center gap-2 mb-1"><span class="font-body-md text-body-md font-bold text-on-surface">' + esc(p.nombre) + '</span>' +
-              '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(sku) + '</span>' + UI.badge(p.estado_producto) + '</div>' +
-            '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">' + esc(p.seller || p.seller_id) + ' · ' + esc(C().usd(p.precio_usd)) + ' · ' + esc(p.categoria) +
-              ' · <a class="text-secondary hover:underline" href="' + href('app/admin/seller.html?id=' + encodeURIComponent(p.seller_id)) + '">ficha del comercio</a>' +
-              (p.estado_producto === 'en_revision' ? ' · <a class="text-secondary hover:underline" href="' + href('app/admin/moderacion.html') + '">ir a moderación</a>' : '') + '</p>' +
+            '<div class="flex flex-wrap items-center gap-2 mb-1"><span class="font-body-md text-body-md font-bold text-on-surface break-words">' + esc(p.nombre) + '</span>' +
+              '<span class="tm-id font-data-mono text-data-mono text-on-surface-variant">' + esc(sku) + '</span>' + UI.badge(p.estado_producto) + '</div>' +
+            '<p class="font-body-sm text-body-sm text-on-surface-variant break-words">' + esc(p.seller || p.seller_id) + ' · <span class="tm-num">' + esc(C().usd(p.precio_usd)) + '</span> · ' + esc(p.categoria) + '</p>' +
+            '<p class="flex flex-wrap gap-x-4 mb-2">' + UI.enlace('Ficha del comercio', href('app/admin/seller.html?id=' + encodeURIComponent(p.seller_id)), 'storefront') +
+              (p.estado_producto === 'en_revision' && APP.puedeAbrir('admin/moderacion', TM.sesion(), ['superadmin']) ? UI.enlace('Ir a moderación', href('app/admin/moderacion.html'), 'category') : '') + '</p>' +
             '<ul class="space-y-1">' + ms.map(function (m) {
               return '<li data-marca="' + m.id + '" class="flex flex-wrap items-center gap-2 font-body-sm text-body-sm">' + chipTipo(m.tipo) +
                 '<span class="flex-1 min-w-[200px]">' + esc(m.detalle) + '</span>' +
@@ -98,17 +96,17 @@
       }).join('') + '</div>' +
       (lista.length ? lista.map(function (x) {
         var abierta = x.estado === 'abierta';
-        var objeto = x.producto ? esc(x.producto.nombre) + ' <span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(x.producto.sku) + '</span> ' + UI.badge(x.producto.estado)
-          : x.seller ? esc(x.seller.nombre) : esc(x.tipo + ' ' + x.objeto);
+        var objeto = x.producto ? esc(x.producto.nombre) + ' <span class="tm-id font-data-mono text-data-mono text-on-surface-variant">' + esc(x.producto.sku) + '</span> ' + UI.badge(x.producto.estado)
+          : x.seller ? esc(x.seller.nombre) : esc(({ producto: 'Producto', seller: 'Comercio', pregunta: 'Pregunta', resena: 'Reseña' }[x.tipo] || x.tipo) + ' ' + x.objeto);
         return '<article data-denuncia="' + x.id + '" class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-3">' +
-          '<div class="flex flex-wrap items-center gap-2 mb-1">' + C().chip(abierta ? 'abierta' : 'cerrada' + (x.resolucion ? ' · ' + (RESOLUCION[x.resolucion] || x.resolucion) : ''),
+          '<div class="flex flex-wrap items-center gap-2 mb-1">' + C().chip(abierta ? 'Abierta' : 'Cerrada' + (x.resolucion ? ' · ' + (RESOLUCION[x.resolucion] || x.resolucion) : ''),
             abierta ? 'rojo' : 'gris', 'report') +
-            '<span class="font-body-md text-body-md text-on-surface">' + objeto + '</span>' +
+            '<span class="min-w-0 font-body-md text-body-md text-on-surface break-words">' + objeto + '</span>' +
             (x.repetidas > 1 ? C().chip(x.repetidas + ' denuncias abiertas', 'ambar') : '') + '</div>' +
           '<p class="font-body-sm text-body-sm"><strong>' + esc(MOTIVOS[x.motivo] || x.motivo) + '</strong>' + (x.detalle ? ' · ' + esc(x.detalle) : '') + '</p>' +
           '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(C().fecha(x.creado)) + (x.denunciante ? ' · ' + esc(x.denunciante) : '') +
-            (x.seller ? ' · <a class="text-secondary hover:underline" href="' + href('app/admin/seller.html?id=' + encodeURIComponent(x.seller.id)) + '">ficha del comercio</a>' : '') +
             (x.nota ? ' · ' + esc(x.nota) : '') + (x.cerrada_por ? ' · ' + esc(x.cerrada_por) : '') + '</p>' +
+          (x.seller ? '<p>' + UI.enlace('Ficha del comercio', href('app/admin/seller.html?id=' + encodeURIComponent(x.seller.id)), 'storefront') + '</p>' : '') +
           (abierta ? '<div class="flex flex-wrap justify-end gap-2 mt-2">' + (x.bloqueado ? C().soloReal('Comercio o persona real: la atiende una cuenta real.')
             : btn('No procede', { attr: 'data-denuncia-accion="descartar" data-id="' + x.id + '"' }) +
               btn('Repetida', { attr: 'data-denuncia-accion="duplicada" data-id="' + x.id + '"' }) +
@@ -123,15 +121,16 @@
   function vistaReglas(d) {
     var porGrupo = {};
     (d.reglas || []).forEach(function (g) { (porGrupo[g.grupo] = porGrupo[g.grupo] || []).push(g); });
-    return (d.editable ? '' : C().avisoDemo('Con una cuenta de prueba ves las reglas, pero cambiarlas exige una cuenta real del equipo con verificación en dos pasos.')) +
+    return (d.editable ? '' : '<div data-aviso-demo>' + UI.avisoPrueba('Cuenta de prueba: ves las reglas, pero no las cambias.',
+        '<p>Cambiarlas exige una cuenta real del equipo con verificación en dos pasos.</p>') + '</div>') +
       Object.keys(porGrupo).sort().map(function (gr) {
         return '<details class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-3" data-grupo-regla="' + esc(gr) + '">' +
           '<summary class="cursor-pointer font-headline-sm text-headline-sm text-primary-container">' + esc(GRUPOS[gr] || gr) + ' (' + porGrupo[gr].length + ' reglas)</summary>' +
           '<ul class="divide-y divide-outline-variant mt-2">' + porGrupo[gr].map(function (g) {
             return '<li data-regla="' + g.id + '" class="flex flex-wrap items-center gap-2 py-2 font-body-sm text-body-sm">' + chipTipo(g.tipo) +
-              '<span class="font-data-mono text-data-mono">«' + esc(g.patron) + '»</span><span class="flex-1 min-w-[160px] text-on-surface-variant">' + esc(g.descripcion || '') +
+              '<span class="font-data-mono text-data-mono break-all">«' + esc(g.patron) + '»</span><span class="flex-1 min-w-[160px] text-on-surface-variant">' + esc(g.descripcion || '') +
               (g.categoria ? ' · solo en ' + esc(g.categoria) : '') + '</span>' +
-              (g.activa ? C().chip('activa', 'verde') : C().chip('inactiva', 'gris')) +
+              (g.activa ? C().chip('Activa', 'verde') : C().chip('Inactiva', 'gris')) +
               (d.editable ? btn(g.activa ? 'Desactivar' : 'Activar', { attr: 'data-regla-activa="' + (g.activa ? '0' : '1') + '" data-id="' + g.id + '"' }) : '') + '</li>';
           }).join('') + '</ul></details>';
       }).join('') +
@@ -146,6 +145,9 @@
   }
 
   function vReglas(q, s) {
+    /* sin el permiso «moderar» (Operaciones): el 403, no un error con «Reintentar» */
+    var no = C().sinAcceso(s, 'moderar', 'Reglas y denuncias');
+    if (no) return no;
     if (!C().remoto()) return C().titulo('Reglas y denuncias') + C().avisoServidor('Las reglas de moderación, las marcas automáticas y las denuncias viven en el servidor.');
     var tab = q.get('tab') || 'marcas';
     if (!TABS.some(function (t) { return t[0] === tab; })) tab = 'marcas';
@@ -156,8 +158,8 @@
     } else {
       cuerpo = C().seccion(leerPanel(), 'moderacion', tab === 'reglas' ? vistaReglas : vistaMarcas, 'Cargando la moderación…');
     }
-    return C().titulo('Reglas y denuncias', '<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href('app/admin/moderacion.html') +
-      '">Cola de moderación</a>') + tabs(tab) + cuerpo;
+    /* la cola de moderación es del superadministrador: a Operaciones no se le ofrece */
+    return C().titulo('Reglas y denuncias', APP.puedeAbrir('admin/moderacion', s, ['superadmin']) ? UI.enlace('Cola de moderación', href('app/admin/moderacion.html'), 'category') : '') + tabs(tab) + cuerpo;
   }
 
   function despuesReglas(raiz) {
@@ -256,7 +258,7 @@
       var cuerpo = a.querySelector('.flex-1') || a;
       cuerpo.insertAdjacentHTML('afterbegin', '<div data-marcas-moderacion class="flex flex-wrap items-center gap-1.5 mb-2">' +
         ms.map(function (m) { return '<span title="' + esc(m.detalle) + '">' + chipTipo(m.tipo) + '</span>'; }).join('') +
-        '<a class="font-body-sm text-body-sm text-secondary hover:underline" href="' + href('app/admin/reglas.html') + '">ver las marcas</a></div>');
+        UI.enlace('Ver las marcas', href('app/admin/reglas.html')) + '</div>');
     });
   });
 

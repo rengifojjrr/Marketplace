@@ -14,14 +14,33 @@
   var esc = UI.esc, ic = UI.ic, btn = UI.btn;
   function C() { return TM.com; }
 
+  /* Respuestas rápidas según el momento del pedido (antes eran las mismas
+     siempre: «¿Cuándo despachas?» en un pedido entregado y con reclamo). */
   var RAPIDAS = {
-    comprador: ['¿Cuándo despachas mi pedido?', '¿Me confirmas la guía del envío?', 'Ya recibí el pedido, ¡gracias!',
-      'Tengo una duda con el producto antes de recibirlo.'],
-    comercio: ['¡Gracias por tu compra! Ya estamos preparando tu pedido.', 'Tu pedido sale hoy; la guía queda en el seguimiento.',
-      'Ya lo despachamos: la guía está en el detalle del pedido.', '¿Nos confirmas que todo llegó bien?'],
+    comprador: {
+      antes: ['¿Cuándo despachas mi pedido?', 'Tengo una duda con el producto antes de recibirlo.'],
+      camino: ['¿Me confirmas la guía del envío?', '¿Cuándo llega mi pedido?'],
+      despues: ['Ya recibí el pedido, ¡gracias!', 'Llegó con un problema: te envío fotos.'],
+      reclamo: ['Llegó con un problema: te envío fotos.', 'Quedo atento a tu respuesta en el reclamo.']
+    },
+    comercio: {
+      antes: ['¡Gracias por tu compra! Ya estamos preparando tu pedido.', 'Tu pedido sale hoy; la guía queda en el seguimiento.'],
+      camino: ['Ya lo despachamos: la guía está en el detalle del pedido.'],
+      despues: ['¿Nos confirmas que todo llegó bien?', '¡Gracias por tu compra!'],
+      reclamo: ['Lamentamos el inconveniente: respondemos en el reclamo con nuestra evidencia.']
+    },
     tumbo: ['Estamos revisando el caso con las dos partes.', 'Por favor, envíen sus fotos o documentos en el expediente del reclamo.',
       'Gracias: con esto decidimos el reclamo.']
   };
+  function rapidas(lado, pedidoId) {
+    var r = RAPIDAS[lado];
+    if (!r || Array.isArray(r)) return r || [];
+    var p = TM.pedido(pedidoId) || {};
+    var momento = p.disputaId ? 'reclamo'
+      : ['listo', 'despachado'].indexOf(p.estado) >= 0 ? 'camino'
+      : ['entregado', 'cerrado', 'reembolsado', 'devolucion'].indexOf(p.estado) >= 0 ? 'despues' : 'antes';
+    return r[momento] || [];
+  }
   var TITULOS = { comprador: 'Mensajes con el comercio', comercio: 'Mensajes con el comprador', tumbo: 'Chat del pedido (con reclamo)' };
 
   function clave(id) { return 'chat:' + id; }
@@ -72,13 +91,16 @@
         C().avisoAntiestafa(true) +
         (d.puede_escribir
           ? '<form data-chat-form="' + esc(pedidoId) + '" class="mt-2">' +
-            '<div class="flex flex-wrap gap-1.5 mb-2">' + (RAPIDAS[lado] || []).map(function (t) {
-              return '<button type="button" data-chat-rapida class="px-2.5 py-1 rounded-full border border-outline-variant font-label-sm text-label-sm text-on-surface hover:border-secondary">' + esc(t) + '</button>';
-            }).join('') + '</div>' +
-            '<label class="sr-only" for="chat-' + esc(pedidoId) + '">Mensaje</label>' +
+            /* respuestas rápidas, con su título: en el teléfono una debajo de otra y
+               enteras (en una tira que se deslizaba ninguna frase se leía completa) */
+            (rapidas(lado, pedidoId).length ? '<p class="font-label-md text-label-md text-on-surface mb-1" id="rapidas-' + esc(pedidoId) + '">Respuestas rápidas</p>' +
+            '<div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 mb-3" role="group" aria-labelledby="rapidas-' + esc(pedidoId) + '">' + rapidas(lado, pedidoId).map(function (t) {
+              return '<button type="button" data-chat-rapida class="inline-flex items-center min-h-[40px] px-3 py-2 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm text-left text-on-surface hover:border-secondary">' + esc(t) + '</button>';
+            }).join('') + '</div>' : '') +
+            '<label class="block font-label-md text-label-md text-on-surface mb-1" for="chat-' + esc(pedidoId) + '">Tu mensaje</label>' +
             '<textarea id="chat-' + esc(pedidoId) + '" name="texto" rows="2" maxlength="1000" placeholder="Escribe tu mensaje…" class="' + C().CLASE_AREA + '"></textarea>' +
             C().adjuntos('chat:' + pedidoId, { proposito: 'chat', entidad: pedidoId, max: 4, texto: 'Adjuntar foto o PDF' }) +
-            '<div class="flex justify-end mt-2">' + btn('Enviar', { estilo: 'primario', icono: 'send', tipo: 'submit', attr: 'data-chat-enviar' }) + '</div></form>'
+            '<div class="tm-acciones mt-2">' + btn('Enviar', { estilo: 'primario', icono: 'send', tipo: 'submit', attr: 'data-chat-enviar' }) + '</div></form>'
           : '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(d.motivo || 'Este chat ya no admite mensajes.') + '</p>');
     }
     var lado2 = r.listo && r.dato ? r.dato.lado : null;

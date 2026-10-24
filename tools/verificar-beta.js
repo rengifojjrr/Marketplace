@@ -189,7 +189,9 @@ const PAGINAS = {
     await abrir('tienda/pedido?id=' + pedidoNuevo);
     const t = await p.locator('#raiz').innerText();
     if (!/en tránsito|En camino/.test(t)) throw new Error('el comprador no ve el tracking');
+    /* confirmar la recepción no se deshace: lo pregunta antes */
     await p.locator('[data-recibir]').click();
+    await p.locator('.tm-modal [data-ok]').click();
     await aviso('¡Gracias!');
     if (!/Entregado/.test(await p.locator('#raiz').innerText())) throw new Error('la entrega no se registró');
   });
@@ -303,6 +305,7 @@ const PAGINAS = {
     await login('Comprador');
     await abrir('tienda/pedido?id=TM-2026-00431');
     await p.locator('[data-recibir]').click();
+    await p.locator('.tm-modal [data-ok]').click();
     await aviso('¡Gracias!');
     await abrir('tienda/reclamo?id=TM-2026-00431');
     await p.locator('[name=motivo][value="Producto incorrecto"]').check();

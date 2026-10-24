@@ -25,21 +25,20 @@
       ' <span class="tm-crec-tachado font-body-sm text-body-sm text-on-surface-variant">' + esc(TM.fmtBs(base)) + '</span>' +
       '<span class="block font-data-mono text-data-mono text-on-surface-variant">' + esc(TM.fmtUsd(oferta)) + ' ref. · antes ' + esc(TM.fmtUsd(base)) + '</span></span>';
   }
-  function imagen(p, clases) {
-    var foto = p.imagenes && p.imagenes[0] && p.imagenes[0].url;
-    return foto ? '<img src="' + esc(foto) + '" alt="' + esc(p.nombre) + '" loading="lazy" class="' + clases + ' object-contain bg-white rounded-lg"/>'
-      : UI.imgProducto(p, clases + ' object-cover');
-  }
+  /* La misma tarjeta del catálogo (imagen, colores y corazón de favoritos),
+     con la oferta y el origen de la visita. */
   function tarjeta(p, oferta, origen) {
     var disp = p.stockFis - p.stockRes;
-    return '<a data-crec-tarjeta="' + esc(p.sku) + '" class="group flex flex-col gap-2 rounded-card border border-outline-variant bg-surface-container-lowest p-3 hover:border-secondary hover:shadow-nivel-2 transition min-w-0" href="' +
+    return '<div class="relative min-w-0">' +
+      '<a data-crec-tarjeta="' + esc(p.sku) + '" class="group flex flex-col gap-2 h-full rounded-card border border-outline-variant bg-surface-container-lowest p-3 hover:border-secondary hover:shadow-nivel-2 transition min-w-0" href="' +
       href('app/tienda/producto.html?sku=' + encodeURIComponent(p.sku) + '&origen=' + encodeURIComponent(origen || 'coleccion')) + '">' +
-      imagen(p, 'w-full h-36') +
+      UI.imgProducto(p) +
       '<span class="font-body-sm text-body-sm text-on-surface leading-snug line-clamp-2 group-hover:text-secondary">' + esc(p.nombre) + '</span>' +
-      (oferta ? C().chip(oferta.tipo === 'relampago' ? 'Relámpago' : 'Oferta', 'rojo', 'local_offer') + precioOferta(oferta.precio_usd, oferta.precio_oferta_usd)
+      (oferta ? '<span>' + C().chip(oferta.tipo === 'relampago' ? 'Relámpago' : 'Oferta', 'rojo', 'local_offer') + '</span>' + precioOferta(oferta.precio_usd, oferta.precio_oferta_usd)
               : UI.precio(p.precioUsd)) +
-      '<span class="font-body-sm text-body-sm ' + (disp > 3 ? 'text-on-surface-variant' : 'text-error') + '">' +
-        (disp > 3 ? 'Envía desde ' + esc((TM.seller(p.sellerId) || {}).ciudad || '') : disp > 0 ? 'Solo quedan ' + disp : 'Agotado') + '</span></a>';
+      '<span class="font-body-sm text-body-sm ' + (disp > 3 ? 'text-tertiary' : 'text-error') + '">' +
+        (disp > 3 ? 'Envía desde ' + esc((TM.seller(p.sellerId) || {}).ciudad || '') : disp > 0 ? 'Solo quedan ' + disp : 'Agotado') + '</span></a>' +
+      (TM.cat && TM.cat.corazon ? TM.cat.corazon(p.sku, 'absolute top-3 right-3') : '') + '</div>';
   }
   function ofertasDe(skus) {
     var lista = (skus || []).slice().sort();
@@ -77,9 +76,9 @@
     if (!prods.length) return '';
     var of = ofertasDe(prods.map(function (p) { return p.sku; }));
     return '<section class="mb-8" data-coleccion="' + esc(k.slug) + '">' +
-      '<div class="flex flex-wrap items-end justify-between gap-2 mb-4"><h2 class="font-headline-md text-headline-md text-primary-container">' + esc(k.titulo) + '</h2>' +
-      '<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href('app/tienda/coleccion.html?id=' + encodeURIComponent(k.slug)) + '">Ver la colección</a></div>' +
-      (k.descripcion ? '<p class="font-body-sm text-body-sm text-on-surface-variant -mt-2 mb-3">' + esc(k.descripcion) + '</p>' : '') +
+      '<div class="flex flex-wrap items-end justify-between gap-x-3 gap-y-1 mb-3"><h2 class="min-w-0 font-headline-md text-headline-md text-primary-container">' + esc(k.titulo) + '</h2>' +
+      UI.enlace('Ver la colección', href('app/tienda/coleccion.html?id=' + encodeURIComponent(k.slug))) + '</div>' +
+      (k.descripcion ? '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">' + esc(k.descripcion) + '</p>' : '') +
       '<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">' + prods.map(function (p) { return tarjeta(p, of[p.sku], 'coleccion'); }).join('') + '</div></section>';
   }
   APP.gancho('inicio.secciones', function () {
@@ -101,18 +100,18 @@
     var r = C().datos('coleccion:' + slug, function () { return TM.apiPublica('tm_coleccion', { p_slug: slug }); }, 60000);
     return C().seccion(r, 'coleccion:' + slug, function (k) {
       if (!k) {
-        return UI.vacio('collections', 'Colección no disponible', 'Esta colección ya terminó o no existe. Te dejamos el catálogo completo.',
-          '<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href('app/tienda/resultados.html') + '">Explorar el catálogo</a>');
+        return UI.vacio('collections', 'Colección no disponible', 'Esta colección ya terminó o no existe. Debajo tienes otros productos del catálogo.',
+          UI.enlace('Explorar el catálogo', href('app/tienda/resultados.html'), 'arrow_forward')) + (TM.cat ? TM.cat.alternativas(4) : '');
       }
       var prods = (k.skus || []).map(function (sku) { return TM.producto(sku); }).filter(function (p) { return p && p.estado === 'publicado'; });
       var of = ofertasDe(prods.map(function (p) { return p.sku; }));
-      return '<nav class="font-body-sm text-body-sm text-on-surface-variant mb-3"><a class="hover:text-secondary" href="' + href('app/tienda/inicio.html') + '">Inicio</a> › ' +
-          '<span class="text-on-surface">' + esc(k.titulo) + '</span></nav>' +
+      return '<p class="-mt-1 mb-1">' + UI.enlace('Inicio', href('app/tienda/inicio.html'), 'arrow_back') + '</p>' +
         C().titulo(k.titulo, k.hasta ? '<span class="font-body-sm text-body-sm text-on-surface-variant">Hasta el ' + esc(C().dia(k.hasta)) + '</span>' : '') +
         (k.descripcion ? '<p class="font-body-md text-body-md text-on-surface-variant -mt-3 mb-4">' + esc(k.descripcion) + '</p>' : '') +
         (prods.length ? '<div data-coleccion-productos class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">' +
           prods.map(function (p) { return tarjeta(p, of[p.sku], 'coleccion'); }).join('') + '</div>'
-          : UI.vacio('inventory_2', 'Sin productos disponibles', 'Los productos de esta colección no están a la venta en este momento.'));
+          : UI.vacio('inventory_2', 'Sin productos disponibles', 'Los productos de esta colección no están a la venta en este momento. Debajo tienes otros del catálogo.', '', { compacto: true }) +
+            (TM.cat ? TM.cat.alternativas(4) : ''));
     }, 'Cargando la colección…');
   }
 

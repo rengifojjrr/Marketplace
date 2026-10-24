@@ -92,9 +92,9 @@
       var form = d.puede_preguntar
         ? '<form data-preguntar="' + esc(p.sku) + '" class="mb-4"><label class="block font-label-md text-label-md mb-1" for="preg-' + esc(p.sku) + '">Pregúntale al comercio</label>' +
           '<textarea id="preg-' + esc(p.sku) + '" name="texto" rows="2" maxlength="500" placeholder="Por ejemplo: ¿tiene garantía de fábrica?" class="' + C().CLASE_AREA + '"></textarea>' +
-          '<div class="flex flex-wrap items-center justify-between gap-2 mt-2"><span class="font-body-sm text-body-sm text-on-surface-variant">Es público: no incluyas teléfonos, correos ni enlaces.</span>' +
-          btn('Preguntar', { estilo: 'primario', icono: 'help', tipo: 'submit', attr: 'data-enviar-pregunta' }) + '</div></form>'
-        : (s ? '' : '<p class="mb-3 font-body-sm text-body-sm"><button type="button" data-preguntar-acceso class="text-secondary font-semibold hover:underline">Inicia sesión</button> para preguntarle al comercio.</p>');
+          '<p class="mt-1 font-body-sm text-body-sm text-on-surface-variant">Es público: no incluyas teléfonos, correos ni enlaces.</p>' +
+          '<div class="tm-acciones mt-2">' + btn('Preguntar', { estilo: 'primario', icono: 'help', tipo: 'submit', attr: 'data-enviar-pregunta' }) + '</div></form>'
+        : (s ? '' : '<p class="mb-3 font-body-sm text-body-sm"><button type="button" data-preguntar-acceso class="inline-flex items-center min-h-[40px] text-secondary font-semibold hover:underline">Inicia sesión</button> para preguntarle al comercio.</p>');
       return form +
         (d.respuesta_horas != null ? '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">' + ic('schedule', 'text-[16px] align-middle') + ' El comercio suele responder en ' + esc(C().horas(d.respuesta_horas)) + '.</p>' : '') +
         (lista.length ? '<ul class="divide-y divide-outline-variant">' + lista.map(function (q) {
@@ -190,9 +190,10 @@
     var p = ctx.producto, s = ctx.sesion;
     return '<section data-confianza="' + esc(p.sku) + '" class="mt-8 grid lg:grid-cols-2 gap-4 items-start">' +
       bloquePreguntas(p, s) + bloqueResenas('producto', p.sku, s, 'Reseñas verificadas') + '</section>' +
-      '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">' +
-      '<button type="button" data-denunciar="producto" data-objeto="' + esc(p.sku) + '" class="inline-flex items-center gap-1 hover:underline">' + ic('flag', 'text-[16px]') + 'Reportar esta publicación</button>' +
-      ' · <a class="hover:underline" href="' + href('app/ayuda/devoluciones.html') + '">Devoluciones y reembolsos</a></p>';
+      /* dos acciones en una fila que se parte sin un «·» colgando; la de ayuda, con estilo de enlace */
+      '<p class="mt-3 flex flex-wrap items-center gap-x-6 font-body-sm text-body-sm">' +
+      '<button type="button" data-denunciar="producto" data-objeto="' + esc(p.sku) + '" class="inline-flex items-center gap-1 min-h-[40px] text-on-surface-variant hover:underline">' + ic('flag', 'text-[16px]') + 'Reportar esta publicación</button>' +
+      UI.enlace('Devoluciones y reembolsos', href('app/ayuda/devoluciones.html'), 'assignment_return') + '</p>';
   });
 
   /* ---------------------------------------------------------------------
@@ -222,19 +223,20 @@
      ------------------------------------------------------------------- */
   function bloqueTienda(sellerId, s) {
     var rep = C().remoto() ? reputacion(sellerId) : null;
+    /* «Reportar este comercio» al final de la reputación (antes era su primera línea) */
     return '<section data-reputacion-tienda="' + esc(sellerId) + '" class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-6">' +
-      '<div class="flex flex-wrap items-center justify-between gap-2"><h2 class="font-headline-sm text-headline-sm text-primary-container">Reputación del comercio</h2>' +
-      '<button type="button" data-denunciar="seller" data-objeto="' + esc(sellerId) + '" class="inline-flex items-center gap-1 font-body-sm text-body-sm text-on-surface-variant hover:underline">' +
-      ic('flag', 'text-[16px]') + 'Reportar seller</button></div>' +
+      '<h2 class="font-headline-sm text-headline-sm text-primary-container">Reputación del comercio</h2>' +
       (!C().remoto() ? C().avisoServidor('La reputación calculada y las reseñas viven en el servidor.')
         : rep.listo && rep.dato && !rep.dato.error ? '<div class="mt-2">' + lineaReputacion(rep.dato) + '</div>' + detalleReputacion(rep.dato)
         : rep.error ? C().fallo(rep.error, 'rep:' + sellerId) : C().cargando('Calculando la reputación…')) +
+      '<p class="mt-2"><button type="button" data-denunciar="seller" data-objeto="' + esc(sellerId) + '" class="inline-flex items-center gap-1 min-h-[40px] font-body-sm text-body-sm text-on-surface-variant hover:underline">' +
+      ic('flag', 'text-[16px]') + 'Reportar este comercio</button></p>' +
       '</section>' + (C().remoto() ? '<div class="mb-6">' + bloqueResenas('seller', sellerId, s, 'Reseñas del comercio') + '</div>' : '');
   }
 
   /* Enlaces del checkout a lo que se acepta al comprar. */
   function enlacesCheckout() {
-    return '<p data-legal-checkout class="mt-6 font-body-sm text-body-sm text-on-surface-variant">' + ic('gavel', 'text-[16px] align-middle') +
+    return '<p data-legal-checkout class="mt-3 font-body-sm text-body-sm text-on-surface-variant">' + ic('gavel', 'text-[16px] align-middle') +
       ' Al confirmar tu compra aceptas los <a class="text-secondary underline" href="' + href('app/ayuda/terminos.html') + '">Términos y condiciones</a>' +
       ' y la <a class="text-secondary underline" href="' + href('app/ayuda/devoluciones.html') + '">Política de devoluciones</a>. Tu compra está cubierta por la ' +
       '<a class="text-secondary underline" href="' + href('app/ayuda/compra-protegida.html') + '">Compra Protegida</a>' +
@@ -252,9 +254,10 @@
         if (TM.archivos) TM.archivos.enlazar(raiz);
       }
     }
+    /* justo debajo de «Confirmar pedido» (con el carrito vacío no hay nada que aceptar) */
     if (vista === 'tienda/checkout') {
-      var main = raiz.querySelector('main');
-      if (main && !main.querySelector('[data-legal-checkout]')) main.insertAdjacentHTML('beforeend', enlacesCheckout());
+      var accion = raiz.querySelector('[data-rail-accion]');
+      if (accion && !raiz.querySelector('[data-legal-checkout]')) accion.insertAdjacentHTML('afterend', enlacesCheckout());
     }
     raiz.querySelectorAll('[data-denunciar]:not([data-denunciar-ok])').forEach(function (b) {
       b.setAttribute('data-denunciar-ok', '1');

@@ -20,13 +20,19 @@
 
   function chipRiesgo(r, conMotivos) {
     if (!r) return '';
-    if (r.bloqueado) return C().chip('riesgo reservado (persona real)', 'gris', 'lock');
+    if (r.bloqueado) return C().chip('Riesgo reservado (persona real)', 'gris', 'lock');
     return '<span data-riesgo="' + esc(r.nivel) + '" class="inline-flex flex-col gap-0.5">' +
       C().chip('Riesgo ' + r.nivel + (r.puntaje != null ? ' · ' + r.puntaje : ''), TONO[r.nivel], r.nivel === 'bajo' ? 'verified_user' : 'gpp_maybe') +
       (r.resumen && conMotivos ? '<span class="font-body-sm text-body-sm text-on-surface-variant">El puntaje y los motivos los ve quien tiene el permiso «riesgo».</span>' : '') +
       (r.retenido ? '<span class="font-body-sm text-body-sm text-error">Retenido: sus pedidos no se liquidan hasta liberarlo.</span>' : '') +
       (conMotivos && (r.motivos || []).length ? '<span class="font-body-sm text-body-sm text-on-surface-variant">' +
         r.motivos.map(function (m) { return esc(m.texto) + ' (+' + m.puntos + ')'; }).join(' · ') + '</span>' : '') + '</span>';
+  }
+
+  var explicacion = UI.explicacion;
+  function estadoPago(e) {
+    if (TM.pagos && TM.pagos.insignia) return TM.pagos.insignia('pago', e);
+    return C().chip({ reportado: 'Reportado', por_verificar: 'Por verificar', verificado: 'Verificado', rechazado: 'Rechazado', vencido: 'Vencido' }[e] || e, 'gris');
   }
 
   function leerPanel() { return C().datos('riesgo', function () { return TM.api('tm_riesgo_panel', {}); }, 20000); }
@@ -36,8 +42,12 @@
   }
 
   function vRiesgo(q, s) {
+    /* sin el permiso «riesgo»: el 403, no un error con «Reintentar» */
+    var no = C().sinAcceso(s, 'riesgo', 'Riesgo y listas negras');
+    if (no) return no;
     if (!C().remoto()) return C().titulo('Riesgo y listas negras') + C().avisoServidor('El puntaje de riesgo, la retención preventiva y las listas negras viven en el servidor.');
-    return C().titulo('Riesgo y listas negras', '<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href('app/admin/ajustes.html') + '">Umbrales y reglas en Ajustes</a>') +
+    /* el enlace a Ajustes solo a quien puede abrirlos (Operaciones y Finanzas, con su permiso) */
+    return C().titulo('Riesgo y listas negras', C().tienePermiso(s, 'ajustes') === true ? UI.enlace('Umbrales y reglas en Ajustes', href('app/admin/ajustes.html'), 'tune') : '') +
       C().seccion(leerPanel(), 'riesgo', function (d) {
         var u = d.umbrales || {};
         var retenidos = (d.pagos || []).filter(function (x) { return x.retenido; });
@@ -46,8 +56,9 @@
         var otros = (d.pagos || []).filter(function (x) { return !x.retenido; });
         function tarjeta(x) {
           return '<article data-pago-riesgo="' + esc(x.pago) + '" class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-3">' +
-            '<div class="flex flex-wrap items-center gap-2 mb-1"><span class="font-data-mono text-data-mono">' + esc(x.pago) + '</span>' + chipRiesgo(x) +
-              C().chip(x.estado_pago, 'gris') + '<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(C().usd(x.total_usd)) + ' · ' + esc(C().fecha(x.creado)) + '</span></div>' +
+            '<div class="flex items-start justify-between gap-3 mb-1"><div class="min-w-0 flex flex-wrap items-center gap-2"><span class="tm-id font-data-mono text-data-mono">' + esc(x.pago) + '</span>' + chipRiesgo(x) +
+              estadoPago(x.estado_pago) + '</div><span class="shrink-0 font-body-md text-body-md font-bold tm-num">' + esc(C().usd(x.total_usd)) + '</span></div>' +
+            '<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">' + esc(C().fecha(x.creado)) + '</p>' +
             (x.bloqueado ? '' : '<ul class="list-disc pl-5 font-body-sm text-body-sm">' + (x.motivos || []).map(function (m) {
               return '<li>' + esc(m.texto) + ' <span class="text-on-surface-variant">(+' + m.puntos + ')</span></li>'; }).join('') + '</ul>') +
             '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Pedidos: ' + (x.pedidos || []).map(function (p) {
@@ -59,12 +70,15 @@
             '</article>';
         }
         var cotejo = d.cotejo || {};
-        return (d.editable ? '' : C().avisoDemo('Con una cuenta de prueba ves solo los pagos y las listas de la demo (sin los umbrales); agregar a la lista negra pide una cuenta real con verificación en dos pasos.')) +
-          '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Cada pago suma puntos por regla (cuenta nueva con monto alto, datos compartidos con otras cuentas, referencia usada por otra cuenta, rechazos, compras seguidas, picos o reclamos del comercio, listas negras y compradores marcados). ' +
+        return (d.editable ? '' : '<div data-aviso-demo>' + UI.avisoPrueba('Cuenta de prueba: ves solo los pagos y las listas de la demo.',
+            '<p>Sin los umbrales; agregar a la lista negra pide una cuenta real con verificación en dos pasos.</p>') + '</div>') +
+          '<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">Un pago retenido se concilia, pero sus pedidos no se liquidan hasta que alguien lo revisa y lo libera.</p>' +
+          explicacion('Cada pago suma puntos por regla (cuenta nueva con monto alto, datos compartidos con otras cuentas, referencia usada por otra cuenta, rechazos, compras seguidas, picos o reclamos del comercio, listas negras y compradores marcados). ' +
           (d.umbrales ? 'Alerta desde <strong>' + esc(String(u.umbral_alerta)) + '</strong>; desde <strong>' + esc(String(u.umbral_retencion)) + '</strong> el pago' : 'Desde el umbral de retención el pago') +
-          ' queda retenido: Finanzas lo concilia, pero sus pedidos no entran en una liquidación hasta que alguien lo revisa y lo libera.</p>' +
+          ' queda retenido: Finanzas lo concilia, pero sus pedidos no entran en una liquidación hasta que alguien lo revisa y lo libera.', '¿Cómo se calcula el riesgo?') +
           C().subtitulo('Retenidos (' + retenidos.length + ')') +
-          (retenidos.length ? retenidos.map(tarjeta).join('') : UI.vacio('verified_user', 'Nada retenido', 'Ningún pago pasó el umbral de retención.')) +
+          (retenidos.length ? retenidos.map(tarjeta).join('') : '<div class="rounded-card border border-outline-variant bg-surface-container-lowest">' +
+            UI.vacio('verified_user', 'Nada retenido', 'Ningún pago pasó el umbral de retención.', '', { compacto: true }) + '</div>') +
           C().subtitulo('Riesgo medio o alto recientes') +
           (otros.length ? otros.map(tarjeta).join('') : '<p class="font-body-sm text-body-sm text-on-surface-variant">Sin pagos de riesgo recientes.</p>') +
           ((d.comercios || []).length ? C().subtitulo('Comercios con datos de cobro en la lista negra') +
@@ -74,14 +88,17 @@
                 esc(x.nombre + ' · ' + x.id) + '</a><span>coincide: ' + esc(x.coincide) + '. Sus liquidaciones quedan retenidas hasta revisarlo.</span></p>';
             }).join('') + '</div>' : '') +
           C().subtitulo('Listas negras') +
-          '<ul data-cotejo class="mb-3 space-y-0.5 font-body-sm text-body-sm text-on-surface-variant">' + Object.keys(TIPOS).map(function (k) {
+          '<details class="mb-3" data-explicacion><summary class="inline-flex items-center gap-1 cursor-pointer font-label-md text-label-md text-secondary">' +
+            ic('help', 'text-[18px]') + '¿Qué revisa cada lista?</summary>' +
+          '<ul data-cotejo class="mt-1 space-y-0.5 font-body-sm text-body-sm text-on-surface-variant">' + Object.keys(TIPOS).map(function (k) {
             return cotejo[k] ? '<li><strong class="text-on-surface">' + esc(TIPOS[k]) + ':</strong> ' + esc(cotejo[k]) + '</li>' : '';
-          }).join('') + '</ul>' +
+          }).join('') + '</ul></details>' +
           UI.tabla(['Tipo', 'Dato', 'Motivo', 'Agregó', ''], (d.listas || []).map(function (l) {
-            return UI.td(esc(TIPOS[l.tipo] || l.tipo)) + UI.td('<span class="font-data-mono text-data-mono">' + esc(l.valor) + '</span>' + (l.demo ? ' ' + C().chip('ejemplo de la demo', 'gris') : '')) +
-              UI.td(esc(l.motivo)) + UI.td(esc(l.por || '') + '<span class="block text-on-surface-variant">' + esc(C().fecha(l.creado)) + '</span>') +
+            return UI.td(esc(TIPOS[l.tipo] || l.tipo)) + UI.td('<span class="font-data-mono text-data-mono break-all">' + esc(l.valor) + '</span>' + (l.demo ? '<span class="ml-1.5">' + C().chip('Ejemplo de la demo', 'gris') + '</span>' : '')) +
+              UI.td(esc(l.motivo)) + UI.td(esc(l.por || '') + '<span class="block text-on-surface-variant tm-num">' + esc(C().fecha(l.creado)) + '</span>') +
               UI.td(d.editable ? btn('Quitar', { attr: 'data-quitar-lista="' + l.id + '"' }) : '', 'text-right');
-          }), UI.vacio('playlist_remove', 'Lista vacía', 'Agrega datos que no deben comprar (con motivo).')) +
+          }), '<p class="mb-3 font-body-sm text-body-sm text-on-surface-variant">La lista está vacía.' +
+            (d.editable ? ' Agrega abajo los datos que no deben comprar, con su motivo.' : '') + '</p>') +
           (d.editable ? C().caja('<form data-lista-form class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">' +
             C().campo('ln-tipo', 'Tipo', '<select id="ln-tipo" name="tipo" class="' + C().CAMPO + '">' + Object.keys(TIPOS).map(function (k) {
               return '<option value="' + k + '">' + esc(TIPOS[k]) + '</option>'; }).join('') + '</select>') +
@@ -155,7 +172,9 @@
     if (!r) return '';
     return '<section data-riesgo-360 class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-4">' +
       '<h2 class="font-label-caps text-label-caps uppercase tracking-[0.06em] text-on-surface-variant mb-2">Riesgo del pago ' + esc(pago) + '</h2>' +
-      chipRiesgo(r, true) + '<a class="block mt-1 font-body-sm text-body-sm text-secondary hover:underline" href="' + href('app/admin/riesgo.html') + '">Ver el panel de riesgo</a></section>';
+      chipRiesgo(r, true) +
+      /* (el panel de riesgo pide el permiso «riesgo»: a quien no lo tiene no se le ofrece) */
+      (C().tienePermiso(TM.sesion(), 'riesgo') === true ? '<p class="mt-1">' + UI.enlace('Ver el panel de riesgo', href('app/admin/riesgo.html'), 'gpp_maybe') + '</p>' : '') + '</section>';
   });
 
   TM.crecRiesgo = { chip: chipRiesgo };

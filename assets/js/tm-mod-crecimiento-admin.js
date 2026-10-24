@@ -29,31 +29,35 @@
     var porConciliar = e.pedidos.filter(function (p) { return p.estado === 'pago_por_verificar'; }).length;
     var kycPend = e.sellers.filter(function (x) { return x.estado === 'en_revision' || x.estado === 'observado'; }).length;
     var moderar = e.productos.filter(function (p) { return p.estado === 'en_revision'; }).length;
+    /* («por homologar» cuenta los comercios cuya solicitud espera una
+       decisión; los expedientes enviados por revisar los cuenta Catálogo) */
     var lista = [
-      { t: 'Sellers por revisar (KYC)', n: kycPend, i: 'verified_user', h: 'app/admin/sellers.html' },
+      { t: 'Comercios por homologar', n: kycPend, i: 'verified_user', h: 'app/admin/sellers.html' },
       { t: 'Productos por moderar', n: moderar, i: 'category', h: 'app/admin/moderacion.html' },
       { t: 'Pagos por conciliar', n: porConciliar, i: 'fact_check', h: 'app/admin/conciliacion.html' },
       { t: 'Disputas abiertas', n: abiertas, i: 'gavel', h: 'app/admin/disputas.html' }
     ];
     return '<h2 class="font-label-caps text-label-caps uppercase tracking-[0.06em] text-on-surface-variant mb-2">Colas de trabajo</h2>' +
-      '<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">' +
+      '<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">' +
       lista.map(function (c) {
-        return '<a class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 hover:border-secondary hover:shadow-nivel-2 transition" href="' + href(c.h) + '">' +
-          '<div class="flex items-center justify-between">' + ic(c.i, 'text-[22px] text-secondary') +
-          '<span class="font-headline-md text-headline-md font-bold ' + (c.n ? 'text-primary-container' : 'text-outline') + '">' + c.n + '</span></div>' +
-          '<p class="font-body-sm text-body-sm text-on-surface mt-1">' + esc(c.t) + '</p></a>';
+        return '<a data-cola class="min-w-0 rounded-card border border-outline-variant bg-surface-container-lowest p-3 sm:p-4 hover:border-secondary hover:shadow-nivel-2 transition" href="' + href(c.h) + '">' +
+          '<div class="flex items-center justify-between gap-2">' + ic(c.i, 'shrink-0 text-[22px] text-secondary') +
+          '<span class="font-headline-md text-headline-md font-bold tm-num ' + (c.n ? 'text-primary-container' : 'text-outline') + '">' + c.n + '</span></div>' +
+          '<p class="font-body-sm text-body-sm text-on-surface mt-1 break-words">' + esc(c.t) + '</p></a>';
       }).join('') + '</div>';
   }
   function actividad() {
+    var lista = TM.estado.eventos.slice(0, 6);
     return '<h2 class="font-label-caps text-label-caps uppercase tracking-[0.06em] text-on-surface-variant mb-2 mt-6">Actividad reciente</h2>' +
-      '<div class="rounded-card border border-outline-variant bg-surface-container-lowest divide-y divide-outline-variant">' +
-      TM.estado.eventos.slice(0, 6).map(function (ev) {
-        return '<div class="flex flex-wrap gap-x-3 gap-y-0.5 px-4 py-2.5 font-body-sm text-body-sm">' +
-          '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(ev.fecha) + '</span>' +
-          '<span class="font-bold text-on-surface">' + esc(ev.actor) + '</span>' +
-          '<span>' + esc(ev.accion) + '</span>' +
-          '<span class="text-on-surface-variant">' + esc(ev.detalle) + '</span></div>';
-      }).join('') + '</div>';
+      (lista.length ? '<ul data-actividad class="rounded-card border border-outline-variant bg-surface-container-lowest divide-y divide-outline-variant">' +
+      lista.map(function (ev) {
+        return '<li class="px-4 py-3 font-body-sm text-body-sm">' +
+          '<div class="flex flex-wrap items-baseline justify-between gap-x-3">' +
+            '<span class="min-w-0 font-semibold text-on-surface break-words">' + esc(ev.accion) + '</span>' +
+            '<span class="shrink-0 font-data-mono text-data-mono text-on-surface-variant">' + esc(ev.fecha) + '</span></div>' +
+          '<p class="text-on-surface-variant break-words">' + esc(ev.actor) + (ev.detalle ? ' · ' + esc(ev.detalle) : '') + '</p></li>';
+      }).join('') + '</ul>'
+        : '<div class="rounded-card border border-outline-variant bg-surface-container-lowest">' + UI.vacio('history', 'Sin actividad todavía', 'Cada acción del equipo y de los comercios aparece aquí.', '', { compacto: true }) + '</div>');
   }
   /* Los indicadores de siempre (modo local: los datos del navegador). */
   function kpisLocales() {
@@ -120,19 +124,20 @@
     var d = m.disputas || {};
     var e = m.embudo || {};
     var conv = C().n(e.vieron) ? 100 * C().n(e.reportaron_pago) / C().n(e.vieron) : null;
-    return (m.solo_demo ? '<p class="flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant mb-3">' + ic('info', 'text-[16px] mt-0.5') +
-        'Con una cuenta de prueba ves solo los datos de la demo (sin pedidos de personas o comercios reales). Las búsquedas, el checkout y el pago reportado, que no son de ningún comercio, ' +
-        'también los hacen los visitantes reales: no se muestran.</p>' : '') +
+    return (m.solo_demo ? UI.avisoPrueba('Con una cuenta de prueba ves solo los datos de la demo.',
+        '<p>No incluyen pedidos de personas o comercios reales. Las búsquedas, el checkout y el pago reportado, que no son de ningún comercio, ' +
+        'también los hacen los visitantes reales: no se muestran.</p>', 'info') : '') +
       '<section data-metricas class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">' +
       UI.kpi('GMV del período', esc(C().usd(k.gmv_usd)), C().entero(k.unidades) + ' unidades vendidas', 'trending_up') +
       UI.kpi('Pedidos pagados', esc(C().entero(k.pedidos)), 'ticket promedio ' + esc(C().usd(k.ticket_usd)), 'package_2') +
-      UI.kpi('Take rate real', esc(C().pct(k.take_rate_pct)), esc(C().usd(k.comision_usd)) + ' en comisión y tarifas', 'percent') +
+      UI.kpi('Comisión efectiva', esc(C().pct(k.take_rate_pct)), esc(C().usd(k.comision_usd)) + ' en comisión y tarifas', 'percent') +
       UI.kpi('Conversión', esc(conv == null ? '—' : C().pct(conv)), 'de quien vio un producto a quien reportó el pago', 'filter_alt') +
       UI.kpi('Recompra', esc(C().pct(k.recompra_pct)), C().entero(k.compradores) + ' compradores', 'repeat') +
-      UI.kpi('Cancelaciones', esc(C().pct(k.cancelacion_pct)), C().entero(k.cancelados) + ' de ' + C().entero(k.pedidos_creados) + ' pedidos', 'cancel', C().n(k.cancelacion_pct) > 10 ? 'text-error' : '') +
+      UI.kpi('Cancelación', esc(C().pct(k.cancelacion_pct)), C().entero(k.cancelados) + ' de ' + C().entero(k.pedidos_creados) + ' pedidos', 'cancel', C().n(k.cancelacion_pct) > 10 ? 'text-error' : '') +
       UI.kpi('Reclamos', esc(C().pct(d.pct)), C().entero(d.total) + ' abiertos · ' + C().entero(d.perdidas) + ' perdidos por el comercio', 'gavel') +
-      UI.kpi('Tiempos', esc(t.conciliacion_horas == null ? '—' : C().entero(t.conciliacion_horas) + ' h'), 'conciliación · despacho ' +
-        esc(t.despacho_horas == null ? '—' : C().entero(t.despacho_horas) + ' h'), 'timer') +
+      UI.kpi('Tiempos', esc(t.conciliacion_horas == null ? '—' : C().entero(t.conciliacion_horas) + ' h'),
+        t.conciliacion_horas == null && t.despacho_horas == null ? 'sin pagos conciliados ni despachos en el período'
+          : 'para conciliar · despacho en ' + esc(t.despacho_horas == null ? '—' : C().entero(t.despacho_horas) + ' h'), 'timer') +
       '</section>' +
       '<div class="grid lg:grid-cols-[1.4fr_1fr] gap-4">' +
         C().caja('<h3 class="font-label-md text-label-md text-on-surface mb-3">GMV por ' + esc({ dia: 'día', semana: 'semana', mes: 'mes' }[m.periodo.agrupar] || 'día') + '</h3>' +
@@ -151,7 +156,7 @@
       '<div class="grid md:grid-cols-2 gap-4 mt-2">' +
         '<div>' + C().subtitulo('Lo más buscado') + tabla(['Búsqueda', 'Veces'], (m.top_busquedas || []).map(function (x) {
           return [esc(x.texto), C().entero(x.veces)];
-        }), m.solo_demo ? 'Reservado: las búsquedas también son de visitantes reales.' : 'Aún no hay búsquedas registradas.') + '</div>' +
+        }), m.solo_demo ? 'Con una cuenta de prueba no se muestran: las búsquedas también las hacen visitantes reales.' : 'Aún no hay búsquedas registradas.') + '</div>' +
         '<div>' + C().subtitulo('Lo más visto') + tabla(['Producto', 'Vistas'], (m.top_vistos || []).map(function (x) {
           return [esc(x.nombre || x.sku), C().entero(x.vistas)];
         }), 'Aún no hay vistas registradas.') + '</div>' +
@@ -161,20 +166,21 @@
     var cats = (datos && datos.categorias) || [];
     var sellers = (datos && datos.sellers) || [];
     function op(v, t, sel) { return '<option value="' + esc(v) + '"' + (sel ? ' selected' : '') + '>' + esc(t) + '</option>'; }
-    return '<form data-metricas-filtros class="flex flex-wrap items-end gap-2 mb-4">' +
-      C().campo('mt-preset', 'Período', '<select id="mt-preset" name="preset" class="' + C().CAMPO + '">' +
+    var SEL = C().CAMPO + ' pr-9';
+    return '<form data-metricas-filtros class="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-2 sm:flex sm:flex-wrap sm:items-end mb-4">' +
+      C().campo('mt-preset', 'Período', '<select id="mt-preset" name="preset" class="' + SEL + '">' +
         op('7', 'Últimos 7 días', f.preset === '7') + op('30', 'Últimos 30 días', f.preset === '30') + op('90', 'Últimos 90 días', f.preset === '90') +
         op('mes', 'Este mes', f.preset === 'mes') + op('rango', 'Rango…', f.preset === 'rango') + '</select>') +
+      C().campo('mt-agrupar', 'Agrupar', '<select id="mt-agrupar" name="agrupar" class="' + SEL + '">' +
+        op('dia', 'Por día', f.agrupar === 'dia') + op('semana', 'Por semana', f.agrupar === 'semana') + op('mes', 'Por mes', f.agrupar === 'mes') + '</select>') +
       (f.preset === 'rango' ? C().campo('mt-desde', 'Desde', '<input id="mt-desde" name="desde" type="date" value="' + esc(f.desde) + '" class="' + C().CAMPO + '"/>') +
         C().campo('mt-hasta', 'Hasta', '<input id="mt-hasta" name="hasta" type="date" value="' + esc(f.hasta) + '" class="' + C().CAMPO + '"/>') : '') +
-      C().campo('mt-agrupar', 'Agrupar', '<select id="mt-agrupar" name="agrupar" class="' + C().CAMPO + '">' +
-        op('dia', 'Por día', f.agrupar === 'dia') + op('semana', 'Por semana', f.agrupar === 'semana') + op('mes', 'Por mes', f.agrupar === 'mes') + '</select>') +
-      C().campo('mt-cat', 'Categoría', '<select id="mt-cat" name="categoria" class="' + C().CAMPO + '">' + op('', 'Todas', !f.categoria) +
-        cats.map(function (k) { return op(k.id, k.nombre, f.categoria === k.id); }).join('') + '</select>') +
-      C().campo('mt-seller', 'Comercio', '<select id="mt-seller" name="seller" class="' + C().CAMPO + '">' + op('', 'Todos', !f.seller) +
-        sellers.map(function (x) { return op(x.id, x.nombre, f.seller === x.id); }).join('') + '</select>') +
-      btn('Aplicar', { tipo: 'submit', icono: 'filter_alt' }) +
-      btn('Exportar CSV', { icono: 'download', attr: 'data-metricas-csv' }) + '</form>';
+      '<div class="col-span-2 min-w-0 sm:min-w-[160px]">' + C().campo('mt-cat', 'Categoría', '<select id="mt-cat" name="categoria" class="' + SEL + '">' + op('', 'Todas', !f.categoria) +
+        cats.map(function (k) { return op(k.id, k.nombre, f.categoria === k.id); }).join('') + '</select>') + '</div>' +
+      '<div class="col-span-2 min-w-0 sm:min-w-[180px]">' + C().campo('mt-seller', 'Comercio', '<select id="mt-seller" name="seller" class="' + SEL + '">' + op('', 'Todos', !f.seller) +
+        sellers.map(function (x) { return op(x.id, x.nombre, f.seller === x.id); }).join('') + '</select>') + '</div>' +
+      '<div class="col-span-2 grid grid-cols-2 gap-2 sm:flex">' + btn('Aplicar', { tipo: 'submit', icono: 'filter_alt', estilo: 'primario' }) +
+      btn('Exportar CSV', { icono: 'download', attr: 'data-metricas-csv' }) + '</div></form>';
   }
 
   function vPanel(q, s) {
@@ -258,6 +264,90 @@
     if (typeof v === 'object') return JSON.stringify(v);
     return String(v);
   }
+  var NOMBRES_AJUSTE = { comunicacion: 'Plazos de comunicación', demo_activa: 'Demo activa', envios: 'Envío de mensajes',
+    funciones_url: 'Dirección de las funciones del servidor' };
+  var NOMBRES_CAMPO = {
+    nota: 'Nota', metodos: 'Cuentas de cobro por método', configurado: 'Configurado', rif: 'RIF', banco: 'Banco', titular: 'Titular', telefono: 'Teléfono',
+    cuenta: 'Número de cuenta', correo: 'Correo', horario: 'Horario', whatsapp: 'WhatsApp',
+    aceptar_horas: 'Horas para aceptar', cancelar_horas: 'Cancelar sin aceptar (horas desde el pago)', recordar_horas: 'Recordatorio (horas antes del vencimiento)',
+    peso_defecto_kg: 'Peso por omisión de un producto (kg)', solicitud_horas: 'Horas para responder una solicitud de cancelación',
+    sin_novedad_dias: 'Días sin novedades de un despacho', autoconfirmar_dias: 'Días para dar por recibida una entrega',
+    aviso_autoconfirmar_dias: 'Aviso previo (días antes)', reclamo_no_llego_habiles: 'Días hábiles de gracia del reclamo «no llegó»',
+    dias_resena: 'Días para dejar una reseña', dias_apelacion: 'Días para apelar', horas_evidencia: 'Horas para enviar evidencia',
+    sla_soporte_horas: 'Plazo de respuesta de soporte (horas)', alta: 'Prioridad alta', normal: 'Prioridad normal', baja: 'Prioridad baja',
+    horas_respuesta_reclamo: 'Horas del comercio para responder un reclamo', lote: 'Mensajes por tanda', funcion_url: 'Dirección de la función de envío',
+    max_intentos: 'Intentos como máximo', niveles: 'Niveles', requiere_kyc: 'Exige el expediente verificado', ventana_dias: 'Ventana de evaluación (días)',
+    id: 'Identificador', nombre: 'Nombre', ventas_min: 'Ventas mínimas', gmv_min_usd: 'Ventas mínimas en USD', a_tiempo_min_pct: 'Despachos a tiempo (mínimo, %)',
+    cancelacion_max_pct: 'Cancelación máxima (%)', descuento_comision_pts: 'Descuento de comisión (puntos)', disputas_perdidas_max_pct: 'Reclamos perdidos (máximo, %)'
+  };
+  function nombreCampo(k) {
+    if (NOMBRES_CAMPO[k]) return NOMBRES_CAMPO[k];
+    var t = String(k).replace(/_/g, ' ');
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+  /* La explicación de los ajustes cuya descripción del servidor es técnica
+     («null: sin configurar», «pg_cron + pg_net»): en lenguaje llano. */
+  var AYUDA_AJUSTE = {
+    funciones_url: 'Dirección de las funciones del servidor de este proyecto. La usa la limpieza programada para borrar los archivos que sobran. Vacío: sin configurar.',
+    envios: 'Envío automático de la bandeja de salida: la dirección de la función que manda los correos y los WhatsApp, cuántos mensajes salen por tanda y cuántos intentos se hacen.',
+    aviso_incidencia: 'Aviso que se muestra en la tienda durante una incidencia. Vacío: no hay aviso.'
+  };
+  function ayudaAjuste(a) {
+    return a.ayuda || AYUDA_AJUSTE[a.clave] || String(a.descripcion || '').replace(/\bnull\b/g, 'vacío');
+  }
+  function etiquetaAjuste(a) {
+    return a.etiqueta && a.etiqueta !== a.clave ? a.etiqueta : (NOMBRES_AJUSTE[a.clave] || nombreCampo(a.clave));
+  }
+  function esObjeto(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
+  /* Campos con etiqueta para un objeto sin esquema: cada valor simple es un
+     campo; un objeto o una lista de objetos, un grupo con su título. Cada
+     campo guarda su ruta (data-aj-ruta) para rearmar el valor al guardar. */
+  /* en el teléfono, cada grupo anidado solo con su borde izquierdo: el ancho
+     queda para los campos */
+  var GRUPO = 'min-w-0 border-0 border-l-2 border-outline-variant pl-2 sm:border sm:rounded-btn sm:p-3';
+  function filas(t) { return Math.min(8, Math.max(2, Math.ceil(String(t || '').length / 28))); }
+  function camposObjeto(valor, id, dis, ruta) {
+    ruta = ruta || [];
+    return Object.keys(valor || {}).map(function (k) {
+      var v = valor[k], r = ruta.concat([k]);
+      var cid = id + '-' + r.join('-').replace(/[^A-Za-z0-9_-]/g, '_');
+      var attr = ' data-aj-ruta="' + esc(JSON.stringify(r)) + '"';
+      if (esObjeto(v)) {
+        return '<fieldset class="' + GRUPO + ' sm:col-span-2"><legend class="px-1 font-label-md text-label-md text-on-surface">' + esc(nombreCampo(k)) + '</legend>' +
+          '<div class="grid sm:grid-cols-2 gap-3">' + camposObjeto(v, id, dis, r) + '</div></fieldset>';
+      }
+      if (Array.isArray(v) && v.length && v.every(esObjeto)) {
+        return '<div class="sm:col-span-2 grid gap-3 min-w-0"><p class="font-label-md text-label-md text-on-surface">' + esc(nombreCampo(k)) + '</p>' + v.map(function (x, i) {
+          return '<fieldset class="' + GRUPO + '"><legend class="px-1 font-label-md text-label-md text-on-surface">' + esc(x.nombre || x.id || ('#' + (i + 1))) + '</legend>' +
+            '<div class="grid sm:grid-cols-2 gap-3">' + camposObjeto(x, id, dis, r.concat([i])) + '</div></fieldset>';
+        }).join('') + '</div>';
+      }
+      var html;
+      /* sin permiso para editar, el valor se lee como texto (un campo
+         deshabilitado cortaba «PENDIENTE DE CONFIGU…» en el teléfono) */
+      if (dis) {
+        var txt = v == null || v === '' ? '' : typeof v === 'boolean' ? (v ? 'Sí' : 'No') : Array.isArray(v) ? v.join(', ') : String(v);
+        if (/^PENDIENTE DE CONFIGURAR/.test(txt)) txt = 'Pendiente de configurar';
+        return '<div class="min-w-0"><p class="font-label-md text-label-md text-on-surface mb-0.5">' + esc(nombreCampo(k)) + '</p>' +
+          '<p class="font-body-sm text-body-sm break-words [overflow-wrap:anywhere] ' + (txt && txt !== 'Pendiente de configurar' ? 'text-on-surface' : 'text-on-surface-variant') + '">' +
+          esc(txt || 'Sin configurar') + '</p></div>';
+      }
+      if (typeof v === 'boolean') {
+        html = '<select id="' + cid + '"' + attr + ' data-aj-tipo="boolean" class="' + C().CAMPO + ' pr-9"' + dis + '><option value="true"' + (v ? ' selected' : '') + '>Sí</option><option value="false"' + (v ? '' : ' selected') + '>No</option></select>';
+      } else if (typeof v === 'number') {
+        html = '<input id="' + cid + '"' + attr + ' data-aj-tipo="number" type="number" step="any" inputmode="decimal" value="' + esc(v) + '" class="' + C().CAMPO + '"' + dis + '/>';
+      } else if (Array.isArray(v)) {
+        html = '<input id="' + cid + '"' + attr + ' data-aj-tipo="array" value="' + esc(v.join(', ')) + '" class="' + C().CAMPO + '"' + dis + '/>';
+      } else if (typeof v === 'string' && v.length > 60) {
+        html = '<textarea id="' + cid + '"' + attr + ' data-aj-tipo="string" rows="' + filas(v) + '" class="' + C().AREA + '"' + dis + '>' + esc(v) + '</textarea>';
+      } else {
+        html = '<input id="' + cid + '"' + attr + ' data-aj-tipo="' + (v == null ? 'nulo' : 'string') + '" value="' + esc(v == null ? '' : v) + '"' +
+          (k === 'id' ? ' readonly' : '') + (/url$/.test(k) ? ' type="url" inputmode="url"' : /correo/.test(k) ? ' type="email" inputmode="email"' : '') +
+          ' class="' + C().CAMPO + (/url$/.test(k) ? ' font-data-mono' : '') + '"' + dis + '/>';
+      }
+      return '<div class="min-w-0' + (typeof v === 'string' && v.length > 60 ? ' sm:col-span-2' : '') + '">' + C().campo(cid, nombreCampo(k), html) + '</div>';
+    }).join('');
+  }
   function editorAjuste(a, editable) {
     var id = 'aj-' + a.clave;
     var dis = editable ? '' : ' disabled';
@@ -268,12 +358,14 @@
         ic('lock', 'text-[16px] mt-0.5 shrink-0') + 'Valor reservado: es un control contra el fraude o el abuso y una cuenta de prueba (contraseña pública) no lo ve.</p>';
       editable = false;
     } else if (a.tipo === 'boolean') {
-      control = '<select id="' + id + '" data-aj-valor class="' + C().CAMPO + '"' + dis + '><option value="true"' + (a.valor ? ' selected' : '') + '>Sí</option>' +
+      control = '<select id="' + id + '" data-aj-valor aria-label="' + esc(etiquetaAjuste(a)) + '" class="' + C().CAMPO + ' pr-9"' + dis + '><option value="true"' + (a.valor ? ' selected' : '') + '>Sí</option>' +
         '<option value="false"' + (a.valor ? '' : ' selected') + '>No</option></select>';
     } else if (a.tipo === 'number') {
-      control = '<input id="' + id + '" data-aj-valor type="number" step="any" value="' + esc(a.valor) + '" class="' + C().CAMPO + '"' + dis + '/>';
+      control = '<input id="' + id + '" data-aj-valor aria-label="' + esc(etiquetaAjuste(a)) + '" type="number" step="any" inputmode="decimal" value="' + esc(a.valor) + '" class="' + C().CAMPO + '"' + dis + '/>';
     } else if (a.tipo === 'string') {
-      control = '<textarea id="' + id + '" data-aj-valor rows="2" class="' + C().AREA + '"' + dis + '>' + esc(a.valor == null ? '' : a.valor) + '</textarea>';
+      control = '<textarea id="' + id + '" data-aj-valor aria-label="' + esc(etiquetaAjuste(a)) + '" rows="' + filas(a.valor) + '" class="' + C().AREA + (/url$/.test(a.clave) ? ' font-data-mono break-all' : '') + '"' + dis + '>' + esc(a.valor == null ? '' : a.valor) + '</textarea>';
+    } else if (a.tipo === 'object' && !Object.keys(esq).length && esObjeto(a.valor)) {
+      control = '<div class="grid sm:grid-cols-2 gap-3" data-aj-campos>' + camposObjeto(a.valor, id, dis) + '</div>';
     } else if (a.tipo === 'object' && Object.keys(esq).length) {
       control = '<div class="grid sm:grid-cols-2 gap-3" data-aj-campos>' + Object.keys(esq).map(function (k) {
         var e = esq[k], v = (a.valor || {})[k], cid = id + '-' + k;
@@ -286,16 +378,15 @@
         return C().campo(cid, e.etiqueta || k, html, e.tipo === 'number' && (e.min != null || e.max != null) ? 'De ' + e.min + ' a ' + e.max + (e.entero ? ' (entero)' : '') : '');
       }).join('') + '</div>';
     } else {
-      control = '<textarea id="' + id + '" data-aj-json rows="' + (a.tipo === 'array' ? 2 : 5) + '" class="' + C().AREA + ' font-data-mono text-data-mono"' + dis + '>' +
+      control = '<textarea id="' + id + '" data-aj-json aria-label="' + esc(etiquetaAjuste(a)) + ' (valor en JSON)" rows="' + (a.tipo === 'array' ? 2 : 5) + '" class="' + C().AREA + ' font-data-mono text-data-mono"' + dis + '>' +
         esc(JSON.stringify(a.valor, null, 2)) + '</textarea>';
     }
-    return '<article data-ajuste="' + esc(a.clave) + '" class="rounded-btn border border-outline-variant p-3">' +
-      '<div class="flex flex-wrap items-center gap-2 mb-1"><span class="font-body-md text-body-md font-bold text-on-surface">' + esc(a.etiqueta) + '</span>' +
-        '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(a.clave) + ' · ' + esc(a.tipo) + '</span>' +
-        (a.publico ? C().chip('público', 'azul', 'public') : C().chip('privado', 'gris', 'lock')) +
-        (a.doble ? C().chip('doble aprobación', 'ambar', 'rule') : '') +
-        (a.seguridad ? C().chip('solo superadministrador', 'rojo', 'shield') : '') + '</div>' +
-      '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">' + esc(a.ayuda || a.descripcion || '') + '</p>' +
+    return '<article data-ajuste="' + esc(a.clave) + '" class="rounded-btn border border-outline-variant p-3 min-w-0">' +
+      '<div class="flex flex-wrap items-center gap-2 mb-1"><span class="font-body-md text-body-md font-bold text-on-surface" title="' + esc('Clave: ' + a.clave + ' (' + a.tipo + ')') + '">' + esc(etiquetaAjuste(a)) + '</span>' +
+        (a.publico ? C().chip('Público', 'azul', 'public') : C().chip('Privado', 'gris', 'lock')) +
+        (a.doble ? C().chip('Doble aprobación', 'ambar', 'rule') : '') +
+        (a.seguridad ? C().chip('Solo superadministrador', 'rojo', 'shield') : '') + '</div>' +
+      (ayudaAjuste(a) ? '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">' + esc(ayudaAjuste(a)) + '</p>' : '') +
       (a.seguridad ? '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">De aquí salen los enlaces con token de los correos o adónde llama Tumbo a sus funciones: ' +
         'lo propone y lo aprueba un superadministrador, y el dominio solo puede ser el que ya tiene o uno que autorizó la persona dueña del proyecto.</p>' : '') +
       control +
@@ -311,7 +402,10 @@
       return 'Comisión ' + x.pct + ' % · ' + (x.seller_id || 'todos los comercios') + (x.categoria ? ' · ' + cat(x.categoria) : '') +
         ' · desde ' + C().fecha(x.desde) + (x.hasta ? ' hasta ' + C().fecha(x.hasta) : '') + ' (rige hoy ' + valorTexto(c.antes) + ' %)';
     }
-    return c.clave + ': ' + valorTexto(c.antes).slice(0, 120) + ' → ' + valorTexto(c.despues).slice(0, 160);
+    var aj = (d.ajustes || []).find(function (x) { return x.clave === c.clave; });
+    var nombre = aj ? etiquetaAjuste(aj) : ({ ventana_reclamo_dias: 'Ventana de reclamo (días)', tarifa_fija_usd: 'Tarifa fija por pedido (USD)',
+      ciudad_entrega: 'Ciudad de la cabecera' }[c.clave] || nombreCampo(c.clave));
+    return nombre + ': ' + valorTexto(c.antes).slice(0, 120) + ' → ' + valorTexto(c.despues).slice(0, 160);
   }
   function seccionPendientes(d, editable) {
     if (!(d.pendientes || []).length) return '';
@@ -348,7 +442,7 @@
           '<input type="checkbox" data-metodo="' + esc(m.id) + '"' + (m.activo ? ' checked' : '') + dis + ' class="mt-1 w-5 h-5 rounded text-secondary"/></label>';
       }).join('') + '</div>' +
       '<div class="grid md:grid-cols-2 gap-4 mt-3">' +
-        '<div><p class="' + C().ETIQUETA + '">Categorías en pausa</p><div data-cats-pausa class="max-h-48 overflow-y-auto rounded-btn border border-outline-variant p-2">' +
+        '<div><p class="' + C().ETIQUETA + '">Categorías en pausa</p><div data-cats-pausa class="sm:max-h-48 sm:overflow-y-auto rounded-btn border border-outline-variant p-2">' +
           (d.categorias || []).map(function (k) {
             return '<label class="flex items-center gap-2 py-0.5 font-body-sm text-body-sm ' + (k.padre ? 'pl-5' : 'font-semibold') + '">' +
               '<input type="checkbox" value="' + esc(k.id) + '"' + (cats.indexOf(k.id) >= 0 ? ' checked' : '') + dis + ' class="rounded text-secondary"/>' + esc(k.nombre) + '</label>';
@@ -369,9 +463,9 @@
       return UI.td(esc(c.seller ? c.seller + ' · ' + c.seller_id : c.seller_id || 'Todos los comercios')) +
         UI.td(esc(c.categoria ? cat(c.categoria) : 'Todas')) +
         UI.td(c.pct != null ? '<strong class="tm-crec-num">' + esc(C().pct(c.pct)) + '</strong>' : '<span class="tm-crec-num">−' + esc(C().pct(c.descuento_pts)) + ' pts</span>') +
-        UI.td(esc(C().fecha(c.desde)) + (c.hasta ? '<span class="block text-on-surface-variant">hasta ' + esc(C().fecha(c.hasta)) + '</span>' : '')) +
-        UI.td((c.estado === 'pendiente' ? C().chip('pendiente', 'ambar', 'rule') : c.rige ? C().chip('rige', 'verde', 'check') : C().chip('programada', 'azul', 'event')) +
-          (c.origen === 'nivel' ? ' ' + C().chip('nivel', 'gris', 'workspace_premium') : '') +
+        UI.td('<span class="tm-num">' + esc(C().fecha(c.desde)) + '</span>' + (c.hasta ? '<span class="block text-on-surface-variant">hasta <span class="tm-num">' + esc(C().fecha(c.hasta)) + '</span></span>' : '')) +
+        UI.td((c.estado === 'pendiente' ? C().chip('Pendiente', 'ambar', 'rule') : c.rige ? C().chip('Rige', 'verde', 'check') : C().chip('Programada', 'azul', 'event')) +
+          (c.origen === 'nivel' ? '<span class="ml-1.5">' + C().chip('Por nivel', 'gris', 'workspace_premium') + '</span>' : '') +
           (c.motivo ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(c.motivo) + '</span>' : '')) +
         UI.td(editable && c.estado === 'vigente' && c.origen === 'manual' ? btn('Terminar', { attr: 'data-comision-terminar="' + c.id + '"' }) : '', 'text-right');
     });
@@ -410,26 +504,38 @@
         '<p class="text-on-surface-variant">Aceptar en ' + esc(valorTexto(log.aceptar_horas)) + ' h (recordatorio ' + esc(valorTexto(log.recordar_horas)) + ' h antes; cancelación a las ' +
         esc(valorTexto(log.cancelar_horas)) + ' h) · autoconfirmación a los ' + esc(valorTexto(log.autoconfirmar_dias)) + ' días · «no llegó» tras ' +
         esc(valorTexto(log.reclamo_no_llego_habiles)) + ' días hábiles de gracia.</p>' +
-        '<a class="inline-flex items-center gap-1 mt-1 text-secondary hover:underline" href="' + href('app/admin/envios.html') + '">' + ic('local_shipping', 'text-[16px]') +
-        'Editar los plazos en Envíos y tarifas (con su validación)</a></div>', 'data-config-base');
+        /* (Envíos y tarifas es de superadmin y Operaciones: a Finanzas no se le ofrece) */
+        (APP.puedeAbrir('admin/envios', TM.sesion(), ['superadmin', 'ops'])
+          ? '<p class="mt-1">' + UI.enlace('Editar los plazos en Envíos y tarifas', href('app/admin/envios.html?tab=plazos'), 'local_shipping') + '</p>' : '') + '</div>', 'data-config-base');
   }
   function seccionHistorial(d) {
     return C().subtitulo('Historial de cambios') + UI.tabla(['Fecha', 'Cambio', 'Estado', 'Quién'], (d.historial || []).map(function (c) {
-      return UI.td('<span class="font-data-mono text-data-mono">' + esc(C().fecha(c.creado)) + '</span>') +
+      return UI.td('<span class="font-data-mono text-data-mono tm-num">' + esc(C().fecha(c.creado)) + '</span>') +
         UI.td(esc(descripcionCambio(c, d)) + (c.nota ? '<span class="block text-on-surface-variant">' + esc(c.nota) + '</span>' : '')) +
-        UI.td(C().chip(c.estado, { aplicado: 'verde', rechazado: 'rojo', anulado: 'gris' }[c.estado] || 'gris')) +
+        UI.td(C().chip({ aplicado: 'Aplicado', rechazado: 'Rechazado', anulado: 'Anulado', pendiente: 'Pendiente' }[c.estado] || c.estado,
+          { aplicado: 'verde', rechazado: 'rojo', anulado: 'gris' }[c.estado] || 'gris')) +
         UI.td(esc(c.propuesto || '—') + (c.decidido ? '<span class="block text-on-surface-variant">aprobó o decidió: ' + esc(c.decidido) + '</span>' : ''));
     }), UI.vacio('history', 'Sin cambios todavía', 'Cada cambio de un ajuste, la configuración o una comisión queda aquí.'));
   }
   function vAjustes(q, s) {
+    /* sin el permiso «ajustes» (Operaciones o Finanzas): el 403, no un error con «Reintentar» */
+    var no = C().sinAcceso(s, 'ajustes', 'Ajustes');
+    if (no) return no;
     if (!C().remoto()) return C().titulo('Ajustes de la plataforma') + C().avisoServidor('Los ajustes, las comisiones y los interruptores viven en el servidor.');
     var r = leerAjustes();
     return C().titulo('Ajustes de la plataforma') + C().seccion(r, 'ajustes', function (d) {
       var editable = !!d.editable;
       var grupos = {};
-      (d.ajustes || []).forEach(function (a) { (grupos[a.grupo] = grupos[a.grupo] || []).push(a); });
+      /* los de la tarjeta «Interruptores» ya tienen su control arriba: no se repiten abajo */
+      var PROPIOS = ['checkout_activo', 'registro_activo', 'categorias_apagadas', 'ciudades_apagadas', 'aviso_incidencia'];
+      (d.ajustes || []).forEach(function (a) {
+        if (PROPIOS.indexOf(a.clave) >= 0) return;
+        (grupos[a.grupo] = grupos[a.grupo] || []).push(a);
+      });
       return (editable ? '<p class="flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant mb-4">' + ic('lock', 'text-[16px] mt-0.5') +
-          'Cada cambio pide sesión elevada (el código de tu app de verificación) y queda en el historial y en la auditoría.</p>' : C().avisoDemo()) +
+          'Cada cambio pide sesión elevada (el código de tu app de verificación) y queda en el historial y en la auditoría.</p>'
+          : '<div data-aviso-demo>' + UI.avisoPrueba('Cuenta de prueba: ves los ajustes, pero no los cambias.',
+            '<p>Su contraseña es pública: cambiar algo exige una cuenta real del equipo con verificación en dos pasos.</p>') + '</div>') +
         seccionPendientes(d, editable) +
         seccionInterruptores(d, editable) +
         seccionComisiones(d, editable) +
@@ -437,7 +543,8 @@
         C().subtitulo('Todos los ajustes') +
         Object.keys(grupos).map(function (g) {
           return '<details class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-3" data-grupo="' + esc(g) + '"' + (g === 'Pagos y cobro' ? ' open' : '') + '>' +
-            '<summary class="cursor-pointer font-headline-sm text-headline-sm text-primary-container">' + esc(g) + '</summary>' +
+            '<summary class="cursor-pointer font-headline-sm text-headline-sm text-primary-container">' + esc(g === 'Otros' ? 'Más ajustes' : g) +
+              ' <span class="font-body-sm text-body-sm font-normal text-on-surface-variant">(' + grupos[g].length + ')</span></summary>' +
             '<div class="grid gap-3 mt-3">' + grupos[g].map(function (a) { return editorAjuste(a, editable); }).join('') + '</div></details>';
         }).join('') +
         seccionHistorial(d);
@@ -447,6 +554,21 @@
     var json = art.querySelector('[data-aj-json]');
     if (json) {
       try { return JSON.parse(json.value); } catch (e) { throw { error: 'El valor no es un JSON válido: revísalo.' }; }
+    }
+    /* objeto sin esquema: cada campo vuelve a su ruta dentro del valor */
+    var rutas = art.querySelectorAll('[data-aj-ruta]');
+    if (rutas.length) {
+      var copia = JSON.parse(JSON.stringify(a.valor || {}));
+      rutas.forEach(function (c) {
+        var r = JSON.parse(c.getAttribute('data-aj-ruta')), t = c.getAttribute('data-aj-tipo'), x = c.value;
+        var v = t === 'number' ? (x.trim() === '' ? null : Number(x)) : t === 'boolean' ? x === 'true'
+          : t === 'array' ? x.split(',').map(function (y) { return y.trim(); }).filter(Boolean)
+          : t === 'nulo' ? (x.trim() === '' ? null : x.trim()) : x;
+        var dest = copia;
+        for (var i = 0; i < r.length - 1; i++) dest = dest[r[i]];
+        dest[r[r.length - 1]] = v;
+      });
+      return copia;
     }
     var campos = art.querySelectorAll('[data-aj-campo]');
     if (campos.length) {

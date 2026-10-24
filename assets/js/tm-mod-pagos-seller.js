@@ -65,7 +65,7 @@
       '</div>' +
       '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant">El titular debe ser el comercio (el mismo RIF de tu expediente): Finanzas lo verifica antes de pagarte. ' +
         'Por seguridad, el cambio exige sesión elevada (verificación en dos pasos), se avisa por correo y WhatsApp a las personas dueñas del comercio y, si ya tenías una cuenta, la nueva rige 48 horas después de registrarla: mientras tanto la puedes anular.</p>' +
-      '<div class="mt-3">' + btn('Registrar cuenta', { estilo: 'primario', icono: 'lock', attr: 'data-guardar-cuenta' }) + '</div></div>';
+      '<div class="mt-3">' + btn('Registrar cuenta', { estilo: 'primario', icono: 'lock', attr: 'data-guardar-cuenta', clase: 'w-full sm:w-auto' }) + '</div></div>';
   }
 
   function seccionCuenta(d, s) {
@@ -107,17 +107,20 @@
         td('<span class="tm-num font-bold">' + esc(P().usd(m.saldo)) + '</span>', 'text-right');
     });
     return '<article data-imprimible data-estado-cuenta class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
-      '<div class="flex flex-wrap items-start justify-between gap-2 mb-3"><div>' +
+      '<div class="flex flex-wrap items-start justify-between gap-3 mb-3"><div class="min-w-0">' +
         '<p class="font-label-caps text-label-caps uppercase text-on-surface-variant">Estado de cuenta · Tumbo Market</p>' +
-        '<p class="font-body-md text-body-md font-bold text-on-surface">' + esc((e.comercio || {}).nombre || '') + ' · RIF ' + esc((e.comercio || {}).rif || '—') + '</p>' +
+        '<p class="font-body-md text-body-md font-bold text-on-surface">' + esc((e.comercio || {}).nombre || '') + ' · RIF <span class="tm-id">' + esc((e.comercio || {}).rif || '—') + '</span></p>' +
         '<p class="font-body-sm text-body-sm text-on-surface-variant">Del ' + esc(P().dia(e.desde)) + ' al ' + esc(P().dia(e.hasta)) + ' · montos en USD de referencia</p></div>' +
-        '<div class="text-right font-body-sm text-body-sm"><p>Saldo inicial: <strong class="tm-num">' + esc(P().usd(e.saldo_inicial)) + '</strong></p>' +
-        '<p>Saldo final (por cobrar): <strong class="tm-num">' + esc(P().usd(e.saldo_final)) + '</strong></p></div></div>' +
+        '<dl class="w-full sm:w-auto grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 rounded-btn bg-surface-container-low px-3 py-2 font-body-sm text-body-sm">' +
+          '<dt class="text-on-surface-variant">Saldo inicial</dt><dd class="tm-num text-right font-bold">' + esc(P().usd(e.saldo_inicial)) + '</dd>' +
+          '<dt class="text-on-surface-variant">Saldo final (por cobrar)</dt><dd class="tm-num text-right font-bold">' + esc(P().usd(e.saldo_final)) + '</dd></dl></div>' +
       UI.tabla(['Fecha', 'Concepto', 'Referencia', 'Abono', 'Cargo', 'Saldo'], filas,
-        '<p class="font-body-sm text-body-sm text-on-surface-variant">Sin movimientos en el período.</p>') +
+        '<p class="font-body-sm text-body-sm text-on-surface-variant">Sin movimientos en el período: el saldo final es el mismo que el inicial.</p>') +
       (e.ajustes_pendientes.length ? '<p class="mt-2 font-body-sm text-body-sm">Ajustes que entran en tu próxima liquidación: ' + e.ajustes_pendientes.map(function (a) {
         return (a.monto_usd > 0 ? '+' : '') + esc(P().usd(a.monto_usd)) + ' (' + esc(a.motivo) + ')';
       }).join(' · ') + '</p>' : '') +
+      '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant" data-saldo-explicado>El saldo por cobrar suma tus ventas con pago verificado y el envío cobrado, también de pedidos que aún no se entregan, y resta reembolsos, comisiones y liquidaciones pagadas (la comisión se descuenta al liquidar). ' +
+        'Por eso no coincide con las tarjetas de arriba, que muestran el neto estimado de cada pedido según el estado de su dinero.</p>' +
       '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant">Comisión vigente ' + esc(P().pct(e.comision_pct)) + ' + ' + esc(P().usd(e.tarifa_usd)) + ' por pedido (cada venta conserva la comisión del día en que se hizo). ' +
         (e.envio_al_seller ? 'Envío: pagas la guía y recibes el envío que pagó el comprador.' : 'Envío: lo gestiona Tumbo.') +
         ' Las liquidaciones se pagan en bolívares a la tasa del día del pago.</p></article>';
@@ -169,22 +172,25 @@
             liquidado: 'pagado en ' + (p.liquidacionId || ''),
             reembolsado: 'reembolsado al comprador por resolución'
           }[p.liquidacion] || '';
+          /* en el teléfono la tarjeta lleva arriba el pedido y el estado de su dinero */
+          var cabeza = '<td data-th="" class="px-4 py-3"><span class="flex items-center justify-between gap-2 w-full">' +
+            '<span class="tm-id font-data-mono text-data-mono font-bold">' + esc(p.id) + '</span><span class="lg:hidden">' + UI.badge(p.liquidacion) + '</span></span></td>';
           if (remoto) {
             var l = P().netoSeller(p);
-            return td(mono(p.id)) + td(mono(TM.fmtUsd(l.base))) +
-              td('<span class="font-data-mono text-data-mono text-error">−' + esc(TM.fmtUsd(l.comision + l.tarifa)) + '</span> <span class="font-body-sm text-body-sm text-on-surface-variant">(' + esc(P().pct(l.comisionPct)) + ')</span>') +
-              td('<span class="font-data-mono text-data-mono font-bold">' + esc(TM.fmtUsd(l.neto)) + '</span>') +
-              td(UI.badge(p.liquidacion)) + td('<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(detalle) + '</span>');
+            return cabeza + td(mono(TM.fmtUsd(l.base))) +
+              td('<span class="tm-num font-data-mono text-data-mono text-on-surface">−' + esc(TM.fmtUsd(l.comision + l.tarifa)) + '</span><span class="ml-1 font-body-sm text-body-sm text-on-surface-variant">(' + esc(P().pct(l.comisionPct)) + ')</span>') +
+              td('<span class="tm-num font-data-mono text-data-mono font-bold">' + esc(TM.fmtUsd(l.neto)) + '</span>') +
+              td(UI.badge(p.liquidacion), 'hidden lg:table-cell') + td('<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(detalle) + '</span>');
           }
-          return td(mono(p.id)) + td(mono(TM.fmtUsd(TM.totalPedidoUsd(p) - p.envio.costoUsd))) + td(UI.badge(p.liquidacion)) +
+          return cabeza + td(mono(TM.fmtUsd(TM.totalPedidoUsd(p) - p.envio.costoUsd))) + td(UI.badge(p.liquidacion), 'hidden lg:table-cell') +
             td('<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(detalle) + '</span>');
         }),
-        UI.vacio('payments', 'Aún sin movimientos', 'Cuando tus pedidos se entreguen, verás aquí la custodia de cada uno.')) +
+        '<div class="rounded-card border border-outline-variant bg-surface-container-lowest">' + UI.vacio('payments', 'Aún sin movimientos', 'Cuando tus pedidos se entreguen, verás aquí la custodia de cada uno.', '', { compacto: true }) + '</div>', { desdeLg: [remoto ? 4 : 2] }) +
 
       subtitulo('Liquidaciones', remoto ? btn('Mis liquidaciones (CSV)', { icono: 'download', attr: 'data-exportar="liquidaciones"' }) : '') +
       UI.tabla(remoto ? ['Liquidación', 'Período', 'Pedidos', 'Bruto', 'Comisión', 'Neto', 'Pago en Bs.', 'Estado', 'Comprobante'] : ['Liquidación', 'Período', 'Pedidos', 'Bruto', 'Comisión', 'Neto', 'Comprobante'],
         liqs.map(function (l) {
-          var fila = td(mono(l.id)) + td(esc(l.periodo)) + td(l.pedidos.length) +
+          var fila = '<td data-th="" class="px-4 py-3"><span class="block w-full tm-id font-data-mono text-data-mono font-bold">' + esc(l.id) + '</span></td>' + td(esc(l.periodo)) + td(l.pedidos.length) +
             td('<span class="font-data-mono text-data-mono">' + esc(TM.fmtUsd(l.brutoUsd + (l.envioUsd || 0) + (l.ajustesUsd || 0))) + '</span>' +
               (remoto && (l.envioUsd || l.ajustesUsd) ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">incluye envío ' + esc(TM.fmtUsd(l.envioUsd || 0)) +
                 (l.ajustesUsd ? ' y ajustes ' + esc(TM.fmtUsd(l.ajustesUsd)) : '') + '</span>' : '')) +
@@ -200,19 +206,21 @@
             td(mono(l.comprobante || '') + (l.referenciaPago ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">ref. ' + esc(l.referenciaPago) + '</span>' : '') +
               (l.comprobanteArchivo ? '<button type="button" data-ver-archivo="' + esc(l.comprobanteArchivo) + '" class="block font-label-md text-label-md text-secondary hover:underline">Ver comprobante</button>' : ''));
         }),
-        UI.vacio('receipt_long', 'Sin liquidaciones todavía', 'Finanzas prepara las corridas con los pedidos elegibles; otra persona las aprueba y se pagan con su referencia.')) +
+        '<div class="rounded-card border border-outline-variant bg-surface-container-lowest">' + UI.vacio('receipt_long', 'Sin liquidaciones todavía', 'Finanzas prepara las corridas con los pedidos elegibles; otra persona las aprueba y se pagan con su referencia.', '', { compacto: true }) + '</div>') +
 
-      (remoto ? subtitulo('Estado de cuenta',
-          '<form data-periodo-edc class="tm-no-imprimir flex flex-wrap items-end gap-2">' +
-            '<div><label class="' + ETIQUETA + '" for="edc-desde">Desde</label><input id="edc-desde" type="date" value="' + esc(pe.desde) + '" class="' + CAMPO + '"/></div>' +
-            '<div><label class="' + ETIQUETA + '" for="edc-hasta">Hasta</label><input id="edc-hasta" type="date" value="' + esc(pe.hasta) + '" class="' + CAMPO + '"/></div>' +
-            btn('Ver', { tipo: 'submit', icono: 'filter_alt' }) + btn('CSV', { icono: 'download', attr: 'data-edc-csv' }) +
+      /* período y descargas: en el teléfono, las fechas lado a lado y los botones en una rejilla */
+      (remoto ? subtitulo('Estado de cuenta') +
+          '<form data-periodo-edc class="tm-no-imprimir grid grid-cols-2 sm:flex sm:flex-wrap sm:items-end gap-2 mb-3">' +
+            '<div class="min-w-0"><label class="' + ETIQUETA + '" for="edc-desde">Desde</label><input id="edc-desde" type="date" value="' + esc(pe.desde) + '" class="' + CAMPO + '"/></div>' +
+            '<div class="min-w-0"><label class="' + ETIQUETA + '" for="edc-hasta">Hasta</label><input id="edc-hasta" type="date" value="' + esc(pe.hasta) + '" class="' + CAMPO + '"/></div>' +
+            btn('Ver el período', { tipo: 'submit', icono: 'filter_alt', estilo: 'primario', clase: 'col-span-2' }) + btn('CSV', { icono: 'download', attr: 'data-edc-csv' }) +
             btn('Imprimir', { icono: 'print', attr: 'data-imprimir' }) +
-            btn('Libro de ventas (CSV)', { icono: 'download', attr: 'data-exportar="libro_ventas"' }) + '</form>') +
+            btn('Libro de ventas (CSV)', { icono: 'download', attr: 'data-exportar="libro_ventas"', clase: 'col-span-2' }) + '</form>' +
         P().seccion(edc, 'edc:' + pe.desde + ':' + pe.hasta, seccionEstadoCuenta, 'Cargando tu estado de cuenta…') : '') +
 
-      '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Comisión del marketplace: ' + TM.estado.config.comisionPct + ' % + tarifa fija de ' + esc(TM.fmtUsd(TM.estado.config.tarifaFijaUsd)) + ' por pedido' +
-        (remoto ? ' (cada venta conserva la del día en que se hizo). Los recibos de cada pedido no son facturas fiscales.' : '. Modelo de custodia sujeto a validación legal — beta demo.') + '</p>';
+      /* con servidor, la comisión ya la explica el estado de cuenta: aquí no se repite */
+      '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">' + (remoto ? 'Los recibos de cada pedido no son facturas fiscales.'
+        : 'Comisión del marketplace: ' + TM.estado.config.comisionPct + ' % + tarifa fija de ' + esc(TM.fmtUsd(TM.estado.config.tarifaFijaUsd)) + ' por pedido. Modelo de custodia sujeto a validación legal — beta demo.') + '</p>';
   }
 
   function despuesFinanzasSeller(raiz, q, s) {

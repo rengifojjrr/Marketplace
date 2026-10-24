@@ -106,24 +106,33 @@
         href('app/tienda/resultados.html') + '">' + ic('search', 'text-[18px]') + 'Explorar el catálogo</a>');
     }
     return tituloSeccion('Tu carrito') + lineasNoDisponibles() +
-      '<div class="grid lg:grid-cols-[1fr_340px] gap-6 items-start">' +
+      '<div class="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 lg:gap-6 items-start">' +
       '<div class="rounded-card border border-outline-variant bg-surface-container-lowest divide-y divide-outline-variant">' +
       items.map(function (i) {
         var p = TM.producto(i.sku);
         var disponible = p.stockFis - p.stockRes;
-        return '<div class="flex gap-3 p-4">' + UI.imgProducto(p, 'w-24 h-24 object-cover shrink-0') +
-          '<div class="flex-1 min-w-0">' +
-          '<a class="font-body-md text-body-md text-on-surface hover:text-secondary leading-snug" href="' + href('app/tienda/producto.html?sku=' + p.sku) + '">' + esc(p.nombre) + '</a>' +
+        /* En el teléfono: la foto a la izquierda y, a su lado, el nombre, el
+           precio y la cantidad uno debajo del otro (antes el precio a la
+           derecha dejaba el nombre en una columna de 85 px). Desde sm, el
+           precio vuelve a la derecha. (La línea de una oferta se agrega
+           junto al nombre.) */
+        return '<div class="grid grid-cols-[80px_minmax(0,1fr)] sm:grid-cols-[96px_minmax(0,1fr)_auto] gap-x-3 gap-y-1 p-4">' +
+          '<div class="row-span-3 sm:row-span-2">' + UI.imgProducto(p, 'w-20 h-20 sm:w-24 sm:h-24 object-cover') + '</div>' +
+          '<div class="min-w-0">' +
+          /* (py-3 -my-3: 44 px de blanco táctil sin mover el texto) */
+          '<a class="inline-block py-3 -my-3 font-body-md text-body-md text-on-surface hover:text-secondary leading-snug break-words" href="' + href('app/tienda/producto.html?sku=' + p.sku) + '">' + esc(p.nombre) + '</a>' +
           '<p class="font-body-sm text-body-sm ' + (disponible >= i.cant + 1 ? 'text-tertiary' : 'text-warning') + ' mt-0.5">' +
-            (disponible >= i.cant + 1 ? 'Disponible' : 'Quedan pocas unidades') + '</p>' +
-          '<div class="flex flex-wrap items-center gap-3 mt-2">' +
-            '<span class="inline-flex items-center rounded-btn border border-outline-variant">' +
-            '<button data-menos="' + p.sku + '" class="px-3 py-1.5 min-h-[36px]" aria-label="Restar">−</button>' +
-            '<span class="px-2 font-data-mono text-data-mono">' + i.cant + '</span>' +
-            '<button data-mas="' + p.sku + '" class="px-3 py-1.5 min-h-[36px]" aria-label="Sumar">+</button></span>' +
-            '<button data-quitar="' + p.sku + '" class="font-label-md text-label-md text-secondary hover:underline">Eliminar</button>' +
-          '</div></div>' +
-          '<div class="text-right shrink-0">' + UI.precio(p.precioUsd * i.cant) + '</div></div>';
+            (disponible >= i.cant + 1 ? 'Disponible' : 'Quedan pocas unidades') + '</p></div>' +
+          '<div class="sm:col-start-3 sm:row-start-1 sm:text-right">' + UI.precio(p.precioUsd * i.cant) + '</div>' +
+          '<div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 sm:col-start-2">' +
+            '<span class="inline-flex items-center rounded-btn border border-outline-variant" role="group" aria-label="Cantidad">' +
+            '<button data-menos="' + p.sku + '" class="inline-flex items-center justify-center w-11 h-11 text-[20px] leading-none" aria-label="' + (i.cant <= 1 ? 'Quitar del carrito' : 'Restar uno') + '">−</button>' +
+            '<span class="min-w-[2rem] text-center font-data-mono text-data-mono" aria-live="polite">' + i.cant + '</span>' +
+            '<button data-mas="' + p.sku + '" class="inline-flex items-center justify-center w-11 h-11 text-[20px] leading-none" aria-label="Sumar uno">+</button></span>' +
+            /* en el teléfono, solo el icono (cabe junto a la cantidad) */
+            '<button data-quitar="' + p.sku + '" class="inline-flex items-center justify-center gap-1 min-h-[44px] min-w-[44px] px-1 font-label-md text-label-md text-secondary hover:underline" aria-label="Eliminar ' + esc(p.nombre) + ' del carrito">' +
+              ic('delete', 'text-[20px]') + '<span class="hidden sm:inline">Eliminar</span></button>' +
+          '</div></div>';
       }).join('') + '</div>' +
       '<div>' + resumenPedidoRail(items, null) + '</div></div>';
   }
@@ -337,31 +346,55 @@
     return m.listo ? m.dato.filter(function (x) { return x.activo; }) : null;
   }
 
+  /* «3 %», «16 %», «Bs. 349,69»: sin partirse a la mitad */
+  function unido(t) { return '<span class="tm-num">' + esc(t) + '</span>'; }
+
   function htmlDestino(cot) {
     if (!cot || !cot.destino) return '';
     var d = cot.destino;
-    return '<p data-chk-destino class="mt-2 flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant">' + ic('person', 'text-[16px] mt-0.5') +
-      '<span>' + (d.tipo === 'agencia' ? 'Retira' : 'Recibe') + ': <strong class="text-on-surface">' + esc(d.destinatario || '') + '</strong>' +
-      (d.cedula ? ' · C.I. ' + esc(d.cedula) : '') + (d.telefono_destinatario ? ' · Tel. ' + esc(d.telefono_destinatario) : '') +
+    return '<p data-chk-destino class="mt-2 flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant">' + ic('person', 'text-[16px] mt-0.5 shrink-0') +
+      '<span class="min-w-0">' + (d.tipo === 'agencia' ? 'Retira' : 'Recibe') + ': <strong class="text-on-surface">' + esc(d.destinatario || '') + '</strong>' +
+      (d.cedula ? ' · C.I. ' + unido(d.cedula) : '') + (d.telefono_destinatario ? ' · Tel. ' + unido(d.telefono_destinatario) : '') +
       (d.tipo === 'agencia' ? (d.ciudad ? ' · en ' + esc(d.ciudad) + (d.estado ? ' (' + esc(d.estado) + ')' : '') : '') + ' · lleva tu documento de identidad.' : '') +
-      ' <a class="text-secondary hover:underline" href="' + href('app/tienda/direcciones.html') + '">Cambiar en Direcciones</a></span></p>';
+      ' <a class="text-secondary font-semibold hover:underline" href="' + href('app/tienda/direcciones.html') + '">Cambiar en Direcciones</a></span></p>';
   }
 
+  /* Las opciones de envío de cada comercio: a la vista la elegida y la más
+     barata; las demás, plegadas en «Ver N opciones más» (un comercio con
+     seis couriers ya no llena dos pantallas). */
   function htmlEnvios(c, cot) {
     if (!cot) return c.error ? P().fallo(c.error) : P().cargando('Calculando las opciones de envío…');
+    c.enviosAbiertos = c.enviosAbiertos || {};
     return cot.sellers.map(function (sv) {
+      function opcion(o) {
+        var elegida = sv.envio && sv.envio.clave === o.clave;
+        return '<label class="' + OPCION + '">' +
+          '<input type="radio" name="envio-' + esc(sv.seller_id) + '" data-envio-seller="' + esc(sv.seller_id) + '" value="' + esc(o.clave) + '"' +
+            (elegida ? ' checked' : '') + ' class="mt-1 text-secondary focus:ring-secondary/40"/>' +
+          /* el precio en la línea del courier y la descripción a todo el ancho debajo
+             (antes el precio era una columna y la descripción quedaba en 160 px) */
+          '<span class="flex-1 min-w-0"><span class="flex flex-wrap items-baseline justify-between gap-x-3"><span class="font-body-sm text-body-sm font-bold text-on-surface">' + esc(o.courier || 'Courier') + '</span>' +
+            '<span class="font-body-sm text-body-sm font-bold tm-num">' + esc(P().bs(P().n(o.costo_usd) * cot.tasa)) + '</span></span>' +
+          '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(o.descripcion || '') +
+            (o.dias_min ? ' · ' + unido(o.dias_min + '–' + o.dias_max) + ' días hábiles' : '') + '</span></span></label>';
+      }
+      var ops = sv.opciones || [];
+      var visibles = ops;
+      var resto = [];
+      if (ops.length > 3) {
+        var barata = ops.reduce(function (m, o) { return P().n(o.costo_usd) < P().n(m.costo_usd) ? o : m; }, ops[0]);
+        var elegida = ops.filter(function (o) { return sv.envio && sv.envio.clave === o.clave; })[0] || ops[0];
+        visibles = ops.filter(function (o) { return o === elegida || o === barata; });
+        resto = ops.filter(function (o) { return visibles.indexOf(o) < 0; });
+      }
       return '<div class="mb-3 last:mb-0"><p class="font-body-sm text-body-sm font-bold text-on-surface mb-1">' + esc(sv.nombre) +
         ' <span class="font-normal text-on-surface-variant">· ' + sv.items.length + ' producto' + (sv.items.length === 1 ? '' : 's') + '</span></p>' +
-        sv.opciones.map(function (o) {
-          var elegida = sv.envio && sv.envio.clave === o.clave;
-          return '<label class="' + OPCION + '">' +
-            '<input type="radio" name="envio-' + esc(sv.seller_id) + '" data-envio-seller="' + esc(sv.seller_id) + '" value="' + esc(o.clave) + '"' +
-              (elegida ? ' checked' : '') + ' class="mt-1 text-secondary focus:ring-secondary/40"/>' +
-            '<span class="flex-1"><span class="font-body-sm text-body-sm font-bold text-on-surface">' + esc(o.courier || 'Courier') + '</span>' +
-            '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(o.descripcion || '') +
-              (o.dias_min ? ' · ' + esc(o.dias_min + '–' + o.dias_max) + ' días hábiles' : '') + '</span></span>' +
-            '<span class="font-body-sm text-body-sm font-bold tm-num">' + esc(P().bs(P().n(o.costo_usd) * cot.tasa)) + '</span></label>';
-        }).join('') + '</div>';
+        visibles.map(opcion).join('') +
+        (resto.length ? '<details data-mas-envios="' + esc(sv.seller_id) + '"' + (c.enviosAbiertos[sv.seller_id] ? ' open' : '') + ' class="group">' +
+          '<summary class="inline-flex items-center gap-1 min-h-[40px] cursor-pointer list-none [&::-webkit-details-marker]:hidden font-label-md text-label-md text-secondary">' +
+            '<span class="group-open:hidden">Ver ' + resto.length + ' opci' + (resto.length === 1 ? 'ón' : 'ones') + ' más</span><span class="hidden group-open:inline">Ver menos opciones</span>' +
+            ic('expand_more', 'text-[18px] transition group-open:rotate-180') + '</summary>' +
+          '<div class="mt-2">' + resto.map(opcion).join('') + '</div></details>' : '') + '</div>';
     }).join('');
   }
 
@@ -379,7 +412,7 @@
         '<input type="radio" name="metodo" value="' + esc(x.id) + '"' + (c.metodo === x.id ? ' checked' : '') + ' class="mt-1 text-secondary focus:ring-secondary/40"/>' +
         '<span><span class="font-body-sm text-body-sm font-bold text-on-surface">' + esc(x.nombre) + '</span>' +
         '<span class="block font-body-sm text-body-sm text-on-surface-variant">Pagas ' + moneda +
-          (x.igtf ? ' · se suma el IGTF (3 %) por pagar en divisas' : '') + '. Después de confirmar te mostramos el monto exacto y a quién pagar.</span></span></label>';
+          (x.igtf ? ' · se suma el IGTF (' + unido('3 %') + ') por pagar en divisas' : '') + '. Después de confirmar te mostramos el monto exacto y a quién pagar.</span></span></label>';
     }).join('');
   }
 
@@ -401,16 +434,16 @@
     var lineas = f('Productos (' + cant + ')', esc(P().bs(cot.subtotal_usd * t)));
     if (P().n(cot.descuento_usd) > 0) lineas += f('Descuentos', '−' + esc(P().bs(cot.descuento_usd * t)));
     lineas += f('Envío' + (cot.sellers.length > 1 ? ' (' + cot.sellers.length + ' paquetes)' : ''), esc(P().bs(cot.envio_usd * t)));
-    if (P().n(cot.igtf_usd) > 0) lineas += f('IGTF ' + esc(P().pct(cot.igtf_pct)) + ' (pago en divisas)', esc(P().bs(cot.igtf_usd * t)));
+    if (P().n(cot.igtf_usd) > 0) lineas += f('IGTF ' + unido(P().pct(cot.igtf_pct)) + ' (pago en divisas)', esc(P().bs(cot.igtf_usd * t)));
     if (P().n(cot.credito_usd) > 0) lineas += f('Crédito en Tumbo', '−' + esc(P().bs(cot.credito_usd * t)));
     var aPagar = cot.moneda === 'VES' ? P().bs(cot.total_bs) : P().monto(cot.total_usd, cot.moneda);
     return '<dl class="space-y-1.5 font-body-sm text-body-sm">' + lineas +
       '<div class="flex justify-between border-t border-outline-variant pt-2 mt-2 font-bold text-body-md"><dt>Total</dt>' +
         '<dd class="text-right"><span data-total-bs class="tm-num">' + esc(P().bs(cot.total_bs)) + '</span>' +
         '<span data-total-usd class="block font-data-mono text-data-mono font-normal text-on-surface-variant">' + esc(P().usd(cot.total_usd)) + ' ref.</span></dd></div></dl>' +
-      (cot.moneda !== 'VES' && P().n(cot.total_usd) > 0 ? '<p class="mt-2 font-body-sm text-body-sm text-on-surface"><strong>A pagar: ' + esc(aPagar) + '</strong> por ' + esc(cot.metodo.nombre) + '</p>' : '') +
+      (cot.moneda !== 'VES' && P().n(cot.total_usd) > 0 ? '<p class="mt-2 font-body-sm text-body-sm text-on-surface"><strong>A pagar: ' + unido(aPagar) + '</strong> por ' + esc(cot.metodo.nombre) + '</p>' : '') +
       (P().n(cot.total_usd) === 0 ? '<p class="mt-2 font-body-sm text-body-sm text-on-surface"><strong>Tu crédito cubre todo el pedido.</strong></p>' : '') +
-      '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant">IVA incluido en los precios (' + esc(P().pct(cot.iva_pct)) + '): ' + esc(P().bs(cot.iva_usd * t)) +
+      '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant">IVA incluido en los precios (' + unido(P().pct(cot.iva_pct)) + '): ' + unido(P().bs(cot.iva_usd * t)) +
         (cot.sellers.some(function (sv) { return P().n(sv.exento_usd) > 0; }) ? ' · hay productos exentos' : '') + '.</p>';
   }
 
@@ -443,7 +476,7 @@
     items.forEach(function (i) { var p = TM.producto(i.sku); (porSeller[p.sellerId] = porSeller[p.sellerId] || []).push(i); });
 
     return tituloSeccion('Finalizar compra') +
-    '<div class="grid lg:grid-cols-[1fr_340px] gap-6 items-start"><form data-checkout-v2 class="space-y-4" novalidate>' +
+    '<div class="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 lg:gap-6 items-start"><form data-checkout-v2 class="space-y-4 min-w-0" novalidate>' +
       paso(1, 'Entrega',
         dirs.map(function (d) {
           return '<label class="' + OPCION + '">' +
@@ -466,13 +499,14 @@
       paso(3, 'Método de pago', '<div data-chk-metodos>' + htmlMetodos(c) + '</div><div data-chk-credito>' + htmlCredito(c, cot) + '</div>') +
       paso(4, 'Cupón y factura',
         '<label class="' + ETIQUETA + '" for="chk-cupon">Cupón de descuento</label>' +
-        '<div class="flex flex-wrap gap-2"><input id="chk-cupon" name="cupon" value="' + esc(c.borradorCupon || c.cupon) + '" maxlength="40" autocomplete="off" placeholder="Ej.: BIENVENIDA" class="' + CAMPO.replace('w-full', 'flex-1 min-w-0 uppercase') + '"/>' +
+        '<div class="flex flex-wrap gap-2"><input id="chk-cupon" name="cupon" value="' + esc(c.borradorCupon || c.cupon) + '" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Ej.: BIENVENIDA" class="' + CAMPO.replace('w-full', 'flex-1 min-w-[10rem] uppercase placeholder:normal-case') + '"/>' +
           btn('Aplicar', { attr: 'data-aplicar-cupon' }) + (c.cupon ? btn('Quitar', { attr: 'data-quitar-cupon' }) : '') + '</div>' +
         (cot && cot.cupon && cot.cupon.mensaje ? '<p data-chk-cupon class="mt-1 font-body-sm text-body-sm text-error">' + esc(cot.cupon.mensaje) + '</p>'
           : cot && cot.cupon && cot.cupon.aplicado ? '<p data-chk-cupon class="mt-1 font-body-sm text-body-sm text-tertiary">Cupón ' + esc(cot.cupon.codigo) + ' aplicado.</p>' : '') +
-        '<details data-chk-fiscal class="mt-4"' + (c.doc || c.fiscalAbierto ? ' open' : '') + '><summary class="cursor-pointer font-label-md text-label-md text-secondary">Datos para la factura (opcional)</summary>' +
+        '<details data-chk-fiscal class="mt-4 group"' + (c.doc || c.fiscalAbierto ? ' open' : '') + '><summary class="inline-flex items-center gap-1 cursor-pointer list-none [&::-webkit-details-marker]:hidden font-body-sm text-body-sm font-semibold text-secondary">' +
+          'Datos para la factura (opcional)' + ic('expand_more', 'text-[18px] transition group-open:rotate-180') + '</summary>' +
           '<div class="grid sm:grid-cols-2 gap-3 mt-3">' +
-            campo('chk-doc', 'Cédula o RIF', 'name="doc" value="' + esc(c.doc) + '" maxlength="15" placeholder="V-12345678 o J-12345678-9"') +
+            campo('chk-doc', 'Cédula o RIF', 'name="doc" value="' + esc(c.doc) + '" maxlength="15" autocapitalize="characters" spellcheck="false" placeholder="V-12345678 o J-12345678-9"') +
             campo('chk-razon', 'Nombre o razón social', 'name="razon" value="' + esc(c.razon) + '" maxlength="120"') +
           '</div><p class="mt-2 font-body-sm text-body-sm text-on-surface-variant">El comercio emite la factura con estos datos. Si los dejas vacíos, va a tu nombre.</p>' +
           '<p data-err-fiscal class="hidden mt-1 font-body-sm text-body-sm text-error"></p></details>') +
@@ -482,20 +516,28 @@
             porSeller[sid].map(function (i) {
               var p = TM.producto(i.sku);
               return '<div class="flex items-center gap-3 py-2 border-b border-outline-variant last:border-0">' +
-                UI.imgProducto(p, 'w-12 h-12 object-cover') +
-                '<span class="flex-1 font-body-sm text-body-sm">' + esc(p.nombre) + ' × ' + i.cant + '</span>' +
-                '<span class="font-body-sm text-body-sm font-bold tm-num">' + esc(TM.fmtBs(p.precioUsd * i.cant)) + '</span></div>';
+                UI.imgProducto(p, 'w-12 h-12 object-cover shrink-0') +
+                '<span class="flex-1 min-w-0 font-body-sm text-body-sm break-words">' + esc(p.nombre) + ' <span class="tm-num">× ' + i.cant + '</span></span>' +
+                '<span class="shrink-0 font-body-sm text-body-sm font-bold tm-num">' + esc(TM.fmtBs(p.precioUsd * i.cant)) + '</span></div>';
             }).join('');
         }).join('') +
         '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Se crea un pedido por comercio y un solo pago para todos. El precio en bolívares queda fijado con la tasa de hoy.</p>') +
-    '</form><div><div class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 sticky top-4">' +
+    '</form><div class="min-w-0"><div id="chk-resumen" data-chk-rail class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 lg:sticky lg:top-4 scroll-mt-4">' +
       '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-3">Resumen</h2>' +
       '<div data-chk-resumen>' + htmlResumen(c, cot, items) + '</div>' +
       '<div data-rail-accion class="mt-4">' + botonConfirmar(c, cot) + '</div>' +
       '<p class="mt-3 flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant">' + ic('currency_exchange', 'text-[16px] mt-0.5 shrink-0') +
         '<span data-tasa-info>' + esc(P().textoTasa()) + '</span></p>' +
-      '<p class="mt-2 flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant">' + ic('lock', 'text-[16px] mt-0.5') +
-        'Pago protegido: el dinero queda en custodia hasta que confirmes la entrega.</p></div></div></div>';
+      '<p class="mt-2 flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant">' + ic('lock', 'text-[16px] mt-0.5 shrink-0') +
+        'Pago protegido: el dinero queda en custodia hasta que confirmes la entrega.</p></div></div></div>' +
+      /* En el teléfono el resumen queda al final de un formulario largo: una
+         barra abajo muestra el total y lleva a «Confirmar pedido» mientras el
+         resumen no está a la vista (despuesCheckoutRemoto la muestra). */
+      '<div data-chk-barra hidden class="lg:hidden fixed inset-x-0 bottom-0 z-30 border-t border-outline-variant bg-surface-container-lowest px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-nivel-2">' +
+        '<div class="flex items-center gap-3 max-w-screen-sm mx-auto"><div class="min-w-0 flex-1"><p class="font-body-sm text-body-sm text-on-surface-variant">Total</p>' +
+        '<p class="font-body-md text-body-md font-bold text-on-surface tm-num">' + (cot ? esc(P().bs(cot.total_bs)) : 'Calculando…') + '</p></div>' +
+        '<a href="#chk-resumen" data-ir-resumen class="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md">' +
+        'Revisar y confirmar' + ic('expand_more', 'text-[18px]') + '</a></div></div>';
   }
 
   /* Lo marcado pasa a ser «lo pintado»: así un repintado (la cotización que
@@ -508,10 +550,34 @@
     });
   }
 
+  /* La barra del total en el teléfono: visible mientras el resumen está más
+     abajo de la pantalla; se oculta al llegar a él (o al pasarlo). */
+  var observador = null;
+  function barraTotal(raiz) {
+    if (observador) { observador.disconnect(); observador = null; }
+    var barra = raiz.querySelector('[data-chk-barra]');
+    var rail = raiz.querySelector('[data-chk-rail]');
+    if (!barra || !rail || !('IntersectionObserver' in window)) return;
+    observador = new IntersectionObserver(function (entradas) {
+      var e = entradas[0];
+      barra.hidden = e.isIntersecting || e.boundingClientRect.top < 0;
+    }, { rootMargin: '0px 0px -72px 0px' });
+    observador.observe(rail);
+    var ir = barra.querySelector('[data-ir-resumen]');
+    if (ir) ir.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      rail.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    });
+  }
+
   function despuesCheckoutRemoto(raiz) {
     var form = raiz.querySelector('[data-checkout-v2]');
     if (!form) return;
     var c = estadoChk();
+    barraTotal(raiz);
+    form.querySelectorAll('[data-mas-envios]').forEach(function (d) {
+      d.addEventListener('toggle', function () { c.enviosAbiertos[d.getAttribute('data-mas-envios')] = d.open; });
+    });
     form.addEventListener('change', function (ev) {
       var el = ev.target;
       if (el.name === 'dir') { c.dir = el.value; c.envios = {}; }
@@ -562,7 +628,7 @@
         if (mal) {
           err.textContent = mal;
           err.classList.remove('hidden');
-          raiz.querySelector('details').open = true;
+          raiz.querySelector('[data-chk-fiscal]').open = true;
           raiz.querySelector('#chk-doc').focus();
           return;
         }
@@ -612,13 +678,19 @@
   function bloqueBeneficiario(g) {
     var b = g.beneficiario || {};
     var d = b.datos;
-    var filas = d && typeof d === 'object' ? Object.keys(d).map(function (k) {
+    var claves = d && typeof d === 'object' ? Object.keys(d) : [];
+    function pendiente(k) { return /PENDIENTE/i.test(String(d[k] == null ? '' : d[k])); }
+    /* sin ningún dato cargado, el aviso de arriba lo dice una vez (antes,
+       «PENDIENTE DE CONFIGURAR» en rojo en cada fila) */
+    var todosPendientes = claves.length && claves.every(pendiente);
+    var filas = !todosPendientes ? claves.map(function (k) {
       var v = String(d[k] == null ? '' : d[k]);
-      var pendienteConf = /PENDIENTE/i.test(v);
-      return '<div class="flex flex-wrap items-center justify-between gap-2 py-1.5 border-b border-outline-variant last:border-0">' +
+      var pendienteConf = pendiente(k);
+      return '<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5 border-b border-outline-variant last:border-0">' +
         '<span class="font-body-sm text-body-sm text-on-surface-variant">' + esc(ETIQ_BENEF[k] || k) + '</span>' +
-        '<span class="flex items-center gap-2"><span class="font-data-mono text-data-mono ' + (pendienteConf ? 'text-error' : 'text-on-surface') + '">' + esc(v) + '</span>' +
-        (pendienteConf ? '' : P().botonCopiar(v, ETIQ_BENEF[k] || k)) + '</span></div>';
+        '<span class="flex items-center gap-2 min-w-0">' + (pendienteConf
+          ? '<span class="font-body-sm text-body-sm text-error">Por configurar</span>'
+          : '<span class="font-data-mono text-data-mono text-on-surface break-all">' + esc(v) + '</span>' + P().botonCopiar(v, ETIQ_BENEF[k] || k)) + '</span></div>';
     }).join('') : '';
     return caja('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-2">A quién pagar</h3>' +
       (!b.configurado || !filas
@@ -637,12 +709,12 @@
     var html = '<div class="grid sm:grid-cols-2 gap-3">' +
       (tiene('banco') ? '<div><label class="' + ETIQUETA + '" for="pg-banco">Banco desde el que pagaste</label>' +
         '<select id="pg-banco" name="banco" class="' + CAMPO + '">' + P().opcionesBancos(p.banco) + '</select></div>' : '') +
-      (tiene('telefono') ? campo('pg-telefono', 'Teléfono del Pago Móvil', 'name="telefono" inputmode="tel" maxlength="16" placeholder="0414-1234567" value="' + esc(p.telefono || '') + '"') : '') +
-      (tiene('cedula') ? campo('pg-cedula', 'Cédula o RIF del titular', 'name="cedula" maxlength="15" placeholder="V-12345678" value="' + esc(p.cedula || '') + '"') : '') +
+      (tiene('telefono') ? campo('pg-telefono', 'Teléfono del Pago Móvil', 'name="telefono" type="tel" inputmode="tel" autocomplete="tel" maxlength="16" placeholder="0414-1234567" value="' + esc(p.telefono || '') + '"') : '') +
+      (tiene('cedula') ? campo('pg-cedula', 'Cédula o RIF del titular', 'name="cedula" maxlength="15" autocapitalize="characters" spellcheck="false" placeholder="V-12345678" value="' + esc(p.cedula || '') + '"') : '') +
       (tiene('correo') ? campo('pg-correo', 'Correo de la cuenta Zelle', 'name="correo" type="email" maxlength="120" value="' + esc(p.correo || '') + '"') : '') +
       (tiene('titular') ? campo('pg-titular', 'Titular de la cuenta Zelle', 'name="titular" maxlength="80" value="' + esc(p.titular || '') + '"') : '') +
       '<div><label class="' + ETIQUETA + '" for="pg-ref">' + esc(etiquetaRef) + '</label>' +
-        '<input id="pg-ref" name="referencia" maxlength="100" autocomplete="off" class="' + CAMPO + ' font-data-mono"/>' +
+        '<input id="pg-ref" name="referencia" maxlength="100" autocomplete="off" autocapitalize="characters" spellcheck="false" class="' + CAMPO + ' font-data-mono"/>' +
         '<p data-err-ref class="hidden mt-1 font-body-sm text-body-sm text-error"></p></div>' +
       '<div><label class="' + ETIQUETA + '" for="pg-fecha">Fecha del pago</label>' +
         '<input id="pg-fecha" name="fecha" type="date" value="' + P().hoy() + '" max="' + P().hoy() + '" class="' + CAMPO + '"/></div>' +
@@ -653,7 +725,7 @@
     return caja('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-1">' + (g.correcciones ? 'Corrige y reporta tu pago' : 'Ya pagué: reportar el pago') + '</h3>' +
       '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Con estos datos Finanzas encuentra tu pago en el banco.</p>' +
       html + archivo +
-      '<div class="mt-4">' + btn('Reportar pago', { estilo: 'primario', icono: 'send', attr: 'data-reportar' }) + '</div>', 'tm-no-imprimir');
+      '<div class="tm-acciones mt-4">' + btn('Reportar pago', { estilo: 'primario', icono: 'send', attr: 'data-reportar' }) + '</div>', 'tm-no-imprimir');
   }
 
   function pagoGuiado(g) {
@@ -701,29 +773,31 @@
       '</dl></details>';
 
     return '<div data-pago="' + esc(g.id) + '" data-metodo="' + esc(g.metodo && g.metodo.id) + '" class="space-y-4">' +
-      caja('<div class="flex flex-wrap items-center gap-2 mb-3"><h2 class="font-headline-sm text-headline-sm text-primary-container">Pago <span class="font-data-mono">' + esc(g.id) + '</span></h2>' +
-          P().insignia('pago', g.estado) + '<span class="font-body-sm text-body-sm text-on-surface-variant">· ' + esc(g.metodo ? g.metodo.nombre : '') + '</span></div>' +
+      caja('<div class="flex flex-wrap items-center gap-x-2 gap-y-1"><h2 class="font-headline-sm text-headline-sm text-primary-container">Pago <span class="font-data-mono tm-id">' + esc(g.id) + '</span></h2>' +
+          P().insignia('pago', g.estado) + '</div>' +
+          (g.metodo ? '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">' + esc(g.metodo.nombre) + '</p>' : '<div class="mb-3"></div>') +
         aviso +
         '<div class="grid sm:grid-cols-2 gap-4 items-start">' +
           '<div><p class="font-label-caps text-label-caps uppercase text-on-surface-variant">' + (porPagar ? 'Monto exacto a pagar' : 'Monto del pago') + '</p>' +
             '<p class="flex flex-wrap items-center gap-2"><span data-monto-exacto class="font-headline-md text-headline-md font-bold text-on-surface tm-num">' + esc(montoTxt) + '</span>' +
             (porPagar ? P().botonCopiar(valorCopiar, 'el monto') : '') + '</p>' +
-            '<p class="font-body-sm text-body-sm text-on-surface-variant">' + (moneda === 'VES' ? esc(P().usd(esp.esperado_usd)) + ' ref. · tasa Bs. ' + esc(P().tasa(esp.tasa)) : 'Incluye el IGTF por pagar en divisas') + '</p></div>' +
+            '<p class="font-body-sm text-body-sm text-on-surface-variant">' + (moneda === 'VES' ? unido(P().usd(esp.esperado_usd) + ' ref.') + ' · tasa ' + unido('Bs. ' + P().tasa(esp.tasa)) : 'Incluye el IGTF por pagar en divisas') + '</p></div>' +
           plazo + '</div>' + desglose) +
       (porPagar ? bloqueBeneficiario(g) : '') +
       (g.puede_reportar ? formularioReporte(g) : '') +
       caja('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-2">Pedidos de este pago</h3>' +
         (g.pedidos || []).map(function (x) {
-          return '<a class="flex flex-wrap items-center justify-between gap-2 py-2 border-b border-outline-variant last:border-0 hover:bg-surface-container-low px-1 rounded" href="' +
+          return '<a class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 border-b border-outline-variant last:border-0 hover:bg-surface-container-low px-1 rounded" href="' +
             href('app/tienda/pedido.html?id=' + encodeURIComponent(x.id)) + '">' +
-            '<span><span class="font-data-mono text-data-mono text-on-surface">' + esc(x.id) + '</span> <span class="font-body-sm text-body-sm text-on-surface-variant">· ' + esc(x.seller) +
-              (x.envio_dias ? ' · llega en ' + esc(x.envio_dias) : '') + '</span></span>' +
-            '<span class="flex items-center gap-2">' + UI.badge(x.estado) + '<span class="font-body-sm text-body-sm font-bold tm-num">' + esc(P().usd(x.total_usd)) + '</span></span></a>';
+            '<span class="min-w-0"><span class="font-data-mono text-data-mono text-on-surface tm-id">' + esc(x.id) + '</span> <span class="font-body-sm text-body-sm text-on-surface-variant">· ' + esc(x.seller) +
+              (x.envio_dias ? ' · llega en ' + unido(x.envio_dias) : '') + '</span></span>' +
+            '<span class="flex items-center gap-2">' + UI.badge(porPagar && x.estado === 'pago_por_verificar' ? 'por_pagar' : x.estado) + '<span class="font-body-sm text-body-sm font-bold tm-num">' +
+              esc(x.monto_bs != null ? P().bs(x.monto_bs) : P().usd(x.total_usd)) + '</span></span></a>';
         }).join('')) +
       ((g.eventos || []).length ? caja('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-2">Historial del pago</h3>' +
         '<ol class="space-y-2">' + g.eventos.slice().reverse().map(function (e) {
-          return '<li class="flex gap-2 font-body-sm text-body-sm">' + ic(e.icono || 'info', 'text-[16px] text-secondary mt-0.5') +
-            '<span><span class="text-on-surface">' + esc(e.texto) + '</span> <span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(P().fecha(e.fecha)) + ' · ' + esc(e.actor) + '</span></span></li>';
+          return '<li class="flex gap-2 font-body-sm text-body-sm">' + ic(e.icono || 'info', 'text-[16px] text-secondary mt-0.5 shrink-0') +
+            '<span class="min-w-0"><span class="block text-on-surface break-words">' + esc(e.texto) + '</span><span class="block text-on-surface-variant">' + esc(P().fecha(e.fecha)) + ' · ' + esc(e.actor) + '</span></span></li>';
         }).join('') + '</ol>') : '') +
       '</div>';
   }
@@ -769,36 +843,69 @@
     if (P().remoto() && /^PAG-\d{4}-\d{5,}$/.test(pago || '')) {
       return '<div class="max-w-3xl mx-auto">' +
         '<div class="flex items-start gap-3 mb-4"><span class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-success-container text-on-success-container shrink-0">' + ic('check_circle', 'text-[26px]') + '</span>' +
-        '<div><h1 class="font-headline-md text-headline-md text-primary-container">¡Pedido registrado!</h1>' +
-        '<p class="font-body-md text-body-md text-on-surface-variant">Reservamos tus productos: ' + ids.map(esc).join(', ') + '. Ahora paga el monto exacto y repórtalo aquí mismo; Finanzas lo verifica y los comercios empiezan a preparar.</p></div></div>' +
+        '<div class="min-w-0"><h1 class="font-headline-md text-headline-md text-primary-container">¡Pedido registrado!</h1>' +
+        '<p class="font-body-md text-body-md text-on-surface-variant">Reservamos tus productos: ' + ids.map(function (id) { return '<span class="tm-id">' + esc(id) + '</span>'; }).join(', ') +
+          '. Ahora paga el monto exacto y repórtalo aquí mismo; Finanzas lo verifica y los comercios empiezan a preparar.</p></div></div>' +
         P().seccion(leerPago(pago), claveP(pago), pagoGuiado, 'Cargando los datos del pago…') +
-        '<a class="inline-flex mt-4 font-label-md text-label-md text-secondary hover:underline" href="' + href('app/tienda/resultados.html') + '">Seguir comprando</a></div>';
+        '<p class="mt-4 flex flex-wrap gap-x-6">' + UI.enlace('Ver mis pedidos', href('app/tienda/pedidos.html'), 'package_2') +
+          UI.enlace('Seguir comprando', href('app/tienda/resultados.html'), 'arrow_forward') + '</p></div>';
+    }
+    /* sin una compra en la dirección (un enlace viejo o el historial): no se promete nada */
+    if (!ids.length) {
+      return UI.vacio('receipt_long', 'No hay una compra reciente que mostrar', 'Tus compras y su seguimiento están en «Mis pedidos».',
+        '<div class="flex flex-wrap justify-center gap-x-6">' + UI.enlace('Ver mis pedidos', href('app/tienda/pedidos.html'), 'package_2') +
+          UI.enlace('Explorar el catálogo', href('app/tienda/resultados.html'), 'arrow_forward') + '</div>');
     }
     return '<div class="max-w-xl mx-auto text-center py-8">' +
       '<span class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success-container text-on-success-container mb-4">' + ic('check_circle', 'text-[32px]') + '</span>' +
       '<h1 class="font-headline-md text-headline-md text-primary-container mb-2">¡Pedido registrado!</h1>' +
-      '<p class="font-body-md text-body-md text-on-surface-variant mb-4">Tu pago quedó <strong>pendiente de verificación</strong>: Finanzas concilia la referencia y el seller empieza a preparar. Te avisaremos en cada paso.</p>' +
+      '<p class="font-body-md text-body-md text-on-surface-variant mb-4">Tu pago quedó <strong>pendiente de verificación</strong>: Finanzas concilia la referencia y el comercio empieza a preparar. Te avisaremos en cada paso.</p>' +
       ids.map(function (id) {
         return '<a class="flex items-center justify-between gap-2 rounded-card border border-outline-variant bg-surface-container-lowest px-4 py-3 mb-2 hover:border-secondary" href="' +
           esc(href('app/tienda/pedido.html?id=' + encodeURIComponent(id))) + '">' +
           '<span class="font-data-mono text-data-mono text-on-surface">' + esc(id) + '</span>' +
           '<span class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary">Seguir pedido' + ic('arrow_forward', 'text-[16px]') + '</span></a>';
       }).join('') +
-      '<a class="inline-flex mt-4 font-label-md text-label-md text-secondary hover:underline" href="' + href('app/tienda/resultados.html') + '">Seguir comprando</a></div>';
+      '<p class="mt-4 flex flex-wrap justify-center gap-x-6">' + UI.enlace('Ver mis pedidos', href('app/tienda/pedidos.html'), 'package_2') +
+        UI.enlace('Seguir comprando', href('app/tienda/resultados.html'), 'arrow_forward') + '</p></div>';
   }
 
   /* =====================================================================
      Pago (uno, o la lista de los míos)
      ===================================================================== */
+  /* Mis pagos: una lista de tarjetas en todos los anchos (la tabla de seis
+     columnas pedía 820 px y se desplazaba a lo ancho hasta en la tableta):
+     el pago y su estado, la fecha y el método, sus pedidos, el total grande
+     y «Pagar» (o «Ver el pago»). */
   function tablaPagos(lista) {
-    return UI.tabla(['Pago', 'Fecha', 'Método', 'Total', 'Estado', ''], lista.map(function (g) {
-      return UI.td('<span class="font-data-mono text-data-mono">' + esc(g.id) + '</span><span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc((g.pedidos || []).join(', ')) + '</span>') +
-        UI.td(esc(P().fecha(g.creado))) + UI.td(esc(g.metodo)) +
-        UI.td('<span class="font-body-sm text-body-sm font-bold tm-num">' + esc(g.moneda === 'VES' ? P().bs(g.total_bs) : P().monto(g.total_usd, g.moneda)) + '</span>') +
-        UI.td(P().insignia('pago', g.estado)) +
-        UI.td('<a class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline" href="' + href('app/tienda/pago.html?id=' + encodeURIComponent(g.id)) + '">' +
-          (g.estado === 'pendiente' ? 'Pagar' : 'Ver') + ic('arrow_forward', 'text-[16px]') + '</a>', 'text-right');
-    }), UI.vacio('payments', 'Aún no tienes pagos', 'Cuando confirmes una compra verás aquí su pago.'));
+    if (!lista.length) {
+      /* con pedidos de antes de los pagos guiados: su pago está en cada pedido (no «aún no tienes pagos») */
+      var s = TM.sesion();
+      var conPedidos = s && TM.estado.pedidos.some(function (p) { return p.compradorEmail === s.email; });
+      return '<div class="rounded-card border border-outline-variant bg-surface-container-lowest">' +
+        (conPedidos
+          ? UI.vacio('payments', 'Tus pagos anteriores están en cada pedido', 'Las compras hechas antes de este sistema de pagos muestran su referencia en el detalle del pedido.',
+              UI.enlace('Ver mis pedidos', href('app/tienda/pedidos.html'), 'arrow_forward'), { compacto: true })
+          : UI.vacio('payments', 'Aún no tienes pagos', 'Cuando confirmes una compra verás aquí su pago.', '', { compacto: true })) + '</div>';
+    }
+    return '<ul data-mis-pagos class="rounded-card border border-outline-variant bg-surface-container-lowest divide-y divide-outline-variant">' +
+      lista.map(function (g) {
+        var enlace = href('app/tienda/pago.html?id=' + encodeURIComponent(g.id));
+        return '<li data-pago-fila="' + esc(g.id) + '" class="flex flex-wrap items-center gap-x-4 gap-y-2 p-4">' +
+          '<div class="min-w-0 flex-1 basis-[220px]">' +
+            '<p class="flex flex-wrap items-center gap-x-2 gap-y-1"><span class="font-data-mono text-data-mono text-on-surface tm-id">' + esc(g.id) + '</span>' + P().insignia('pago', g.estado) + '</p>' +
+            '<p class="mt-0.5 font-body-sm text-body-sm text-on-surface-variant">' + esc(P().fecha(g.creado)) + ' · ' + esc(g.metodo || '') + '</p>' +
+            ((g.pedidos || []).length ? '<p class="font-body-sm text-body-sm text-on-surface-variant">' + ((g.pedidos || []).length === 1 ? 'Pedido ' : 'Pedidos ') +
+              g.pedidos.map(function (id) { return '<span class="tm-id">' + esc(id) + '</span>'; }).join(', ') + '</p>' : '') +
+          '</div>' +
+          '<p class="font-body-md text-body-md font-bold text-on-surface tm-num">' + esc(g.moneda === 'VES' ? P().bs(g.total_bs) : P().monto(g.total_usd, g.moneda)) + '</p>' +
+          (g.estado === 'pendiente'
+            ? '<a class="ml-auto inline-flex items-center justify-center gap-1 min-h-[40px] px-4 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md" href="' + enlace + '">' +
+              'Pagar' + ic('arrow_forward', 'text-[16px]') + '</a>'
+            : '<a class="ml-auto inline-flex items-center gap-1 min-h-[40px] px-2 font-label-md text-label-md text-secondary hover:underline" href="' + enlace + '" aria-label="Ver el pago ' + esc(g.id) + '">' +
+              'Ver el pago' + ic('arrow_forward', 'text-[16px]') + '</a>') +
+          '</li>';
+      }).join('') + '</ul>';
   }
 
   function vPago(q) {
@@ -831,15 +938,15 @@
     var val = function (k) { return claro ? (d[k] || '') : ''; };
     return '<div data-destino-form="' + r.id + '" class="mt-3 rounded-btn border border-outline-variant p-3">' +
       '<p class="font-label-md text-label-md text-on-surface mb-2">¿Dónde quieres recibirlo?</p>' +
-      '<div class="flex flex-wrap gap-2 mb-3">' + DESTINOS.map(function (o) {
+      '<div class="grid sm:grid-cols-3 gap-2 mb-3">' + DESTINOS.map(function (o) {
         return '<label class="flex items-start gap-2 px-3 py-2 rounded-btn border border-outline-variant cursor-pointer has-[:checked]:border-secondary has-[:checked]:bg-secondary-container/30">' +
           '<input type="radio" name="dest-' + r.id + '" value="' + o[0] + '"' + (tipo === o[0] ? ' checked' : '') + ' class="mt-1 text-secondary focus:ring-secondary/40"/>' +
           '<span><span class="block font-body-sm text-body-sm font-bold">' + o[1] + '</span><span class="font-body-sm text-body-sm text-on-surface-variant">' + o[2] + '</span></span></label>';
       }).join('') + '</div>' +
       '<div data-campos="pago_movil" class="grid sm:grid-cols-3 gap-3"' + (tipo === 'pago_movil' ? '' : ' hidden') + '>' +
         '<div><label class="' + ETIQUETA + '" for="rd-banco-' + r.id + '">Banco</label><select id="rd-banco-' + r.id + '" data-c="banco" class="' + CAMPO + '">' + P().opcionesBancos(d.banco) + '</select></div>' +
-        campo('rd-tel-' + r.id, 'Teléfono afiliado', 'data-c="telefono" inputmode="tel" maxlength="16" placeholder="0414-1234567" value="' + esc(val('telefono')) + '"') +
-        campo('rd-ced-' + r.id, 'Cédula del titular', 'data-c="cedula" maxlength="15" placeholder="V-12345678" value="' + esc(val('cedula')) + '"') + '</div>' +
+        campo('rd-tel-' + r.id, 'Teléfono afiliado', 'data-c="telefono" type="tel" inputmode="tel" autocomplete="tel" maxlength="16" placeholder="0414-1234567" value="' + esc(val('telefono')) + '"') +
+        campo('rd-ced-' + r.id, 'Cédula del titular', 'data-c="cedula" maxlength="15" autocapitalize="characters" spellcheck="false" placeholder="V-12345678" value="' + esc(val('cedula')) + '"') + '</div>' +
       '<div data-campos="zelle" class="grid sm:grid-cols-2 gap-3"' + (tipo === 'zelle' ? '' : ' hidden') + '>' +
         campo('rd-correo-' + r.id, 'Correo de Zelle', 'data-c="correo" type="email" maxlength="120" value="' + esc(val('correo')) + '"') +
         campo('rd-tit-' + r.id, 'Titular', 'data-c="titular" maxlength="80" value="' + esc(val('titular')) + '"') + '</div>' +
@@ -852,12 +959,12 @@
   function tarjetaReembolso(r) {
     var dest = r.destino ? (r.destino.tipo === 'pago_movil' ? 'Pago Móvil ' + (r.destino.banco_nombre || '') + ' · ' + (r.destino.telefono || '')
       : r.destino.tipo === 'zelle' ? 'Zelle · ' + (r.destino.correo || '') : 'Crédito en Tumbo') : null;
-    return '<article data-reembolso="' + r.id + '" class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
-      '<div class="flex flex-wrap items-center gap-2 mb-1"><span class="font-data-mono text-data-mono">R-' + r.id + '</span>' +
+    return '<article data-reembolso="' + r.id + '" class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 min-w-0">' +
+      '<div class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1"><span class="font-data-mono text-data-mono tm-id">R-' + r.id + '</span>' +
         P().insignia('reembolso', r.estado) +
-        '<span class="font-body-sm text-body-sm text-on-surface-variant">pedido ' + esc(r.pedido_id) + '</span>' +
+        '<span class="font-body-sm text-body-sm text-on-surface-variant">pedido <span class="tm-id">' + esc(r.pedido_id) + '</span></span>' +
         '<span class="ml-auto font-body-md text-body-md font-bold tm-num">' + esc(P().usd(r.monto_usd)) + '</span></div>' +
-      '<p class="font-body-sm text-body-sm text-on-surface">' + esc(r.motivo || '') + '</p>' +
+      '<p class="font-body-sm text-body-sm text-on-surface break-words">' + esc(r.motivo || '') + '</p>' +
       (dest ? '<p class="font-body-sm text-body-sm text-on-surface-variant">Destino: ' + esc(dest) + '</p>' : '') +
       (r.estado === 'enviado' ? '<p class="font-body-sm text-body-sm text-tertiary">Enviado' + (r.enviado_el ? ' el ' + esc(P().fecha(r.enviado_el)) : '') +
         (r.monto_enviado != null ? ' · ' + esc(r.moneda_envio === 'VES' ? P().bs(r.monto_enviado) : P().usd(r.monto_enviado)) : '') +
@@ -872,23 +979,26 @@
     var cred = P().datos('credito', function () { return TM.api('tm_credito'); });
     var reem = P().datos('reemb:mios', function () { return TM.api('tm_reembolsos'); });
     var pagos = P().datos('pagos:mios', function () { return TM.api('tm_pagos_mios'); });
+    /* (min-w-0 y una columna explícita: la tabla de pagos ya no ensancha la
+       página; en el teléfono el crédito va primero, es el resumen) */
     return tituloSeccion('Pagos y reembolsos') +
-      '<div class="grid lg:grid-cols-[1fr_320px] gap-6 items-start"><div class="space-y-4">' +
+      '<div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 lg:gap-6 items-start"><div class="space-y-4 min-w-0">' +
         '<h2 class="font-headline-sm text-headline-sm text-primary-container">Reembolsos</h2>' +
         P().seccion(reem, 'reemb:mios', function (lista) {
           return lista.length ? '<div class="space-y-3">' + lista.map(tarjetaReembolso).join('') + '</div>'
-            : UI.vacio('undo', 'Sin reembolsos', 'Si cancelas un pedido ya pagado o un reclamo sale a tu favor, el reembolso aparece aquí.');
+            : '<div class="rounded-card border border-outline-variant bg-surface-container-lowest">' +
+              UI.vacio('undo', 'Sin reembolsos', 'Si cancelas un pedido ya pagado o un reclamo sale a tu favor, el reembolso aparece aquí.', '', { compacto: true }) + '</div>';
         }, 'Cargando tus reembolsos…') +
         '<h2 class="font-headline-sm text-headline-sm text-primary-container pt-2">Mis pagos</h2>' +
         P().seccion(pagos, 'pagos:mios', tablaPagos, 'Cargando tus pagos…') +
-      '</div><aside>' +
+      '</div><aside class="min-w-0 order-first lg:order-none">' +
         P().seccion(cred, 'credito', function (c) {
           return caja('<p class="font-label-caps text-label-caps uppercase text-on-surface-variant">Crédito en Tumbo</p>' +
             '<p data-saldo-credito class="font-headline-md text-headline-md font-bold text-primary-container tm-num">' + esc(P().usd(c.saldo)) + '</p>' +
             '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Lo usas en el checkout marcando «Usar mi crédito».</p>' +
             (c.movimientos.length ? '<ul class="divide-y divide-outline-variant">' + c.movimientos.slice(0, 10).map(function (m) {
-              return '<li class="py-1.5 flex justify-between gap-2 font-body-sm text-body-sm"><span><span class="block text-on-surface">' + esc(m.motivo) + '</span>' +
-                '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(P().fecha(m.fecha)) + '</span></span>' +
+              return '<li class="py-1.5 flex justify-between gap-2 font-body-sm text-body-sm"><span class="min-w-0"><span class="block text-on-surface break-words">' + esc(m.motivo) + '</span>' +
+                '<span class="text-on-surface-variant">' + esc(P().fecha(m.fecha)) + '</span></span>' +
                 '<span class="font-bold tm-num ' + (m.monto_usd < 0 ? 'text-error' : 'text-tertiary') + '">' + (m.monto_usd > 0 ? '+' : '') + esc(P().usd(m.monto_usd)) + '</span></li>';
             }).join('') + '</ul>' : ''));
         }, 'Cargando tu crédito…') +
@@ -932,12 +1042,12 @@
     var pe = r.pedido || {};
     var f = P().filaMonto;
     var base = P().n(m.productos) - P().n(m.descuento) - P().n(m.descuento_tumbo);
-    return '<article data-imprimible class="max-w-3xl rounded-card border border-outline-variant bg-surface-container-lowest p-6">' +
+    return '<article data-imprimible class="max-w-3xl rounded-card border border-outline-variant bg-surface-container-lowest p-4 sm:p-6">' +
       '<div class="flex flex-wrap items-start justify-between gap-3 mb-4">' +
         '<div><p class="font-label-caps text-label-caps uppercase text-on-surface-variant">Recibo y nota de entrega</p>' +
-        '<h1 class="font-headline-md text-headline-md text-primary-container">Pedido <span class="font-data-mono">' + esc(pe.id) + '</span></h1>' +
+        '<h1 class="font-headline-md text-headline-md text-primary-container">Pedido <span class="font-data-mono tm-id">' + esc(pe.id) + '</span></h1>' +
         '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(P().fecha(pe.creado)) + ' · ' + esc(UI.nombreEstado(pe.estado)) + '</p></div>' +
-        '<div class="text-right"><p class="font-bold text-on-surface">Tumbo Market</p><p class="font-body-sm text-body-sm text-on-surface-variant">Marketplace · Venezuela</p></div></div>' +
+        '<div class="sm:text-right"><p class="font-bold text-on-surface">Tumbo Market</p><p class="font-body-sm text-body-sm text-on-surface-variant">Marketplace · Venezuela</p></div></div>' +
       '<p data-aviso-no-fiscal class="rounded-btn bg-warning-container text-on-warning-container px-3 py-2 mb-4 font-body-sm text-body-sm">' + esc(r.aviso) + '</p>' +
       '<div class="grid sm:grid-cols-2 gap-4 mb-4 font-body-sm text-body-sm">' +
         '<div><p class="font-label-caps text-label-caps uppercase text-on-surface-variant mb-1">Vende</p>' +
@@ -948,7 +1058,7 @@
           '<p>' + ((r.comprador || {}).documento ? 'Documento ' + esc(r.comprador.documento) : 'Sin datos fiscales') + '</p></div>' +
         '<div><p class="font-label-caps text-label-caps uppercase text-on-surface-variant mb-1">Entrega</p>' +
           '<p>' + esc(pe.envio_tipo === 'agencia' ? 'Retiro en agencia' : 'A domicilio') + ': ' + esc(pe.envio_dir || '') + '</p>' +
-          '<p>' + esc(pe.courier || '') + (pe.guia ? ' · guía ' + esc(pe.guia) : '') + (pe.destino && pe.destino.destinatario ? ' · recibe ' + esc(pe.destino.destinatario) : '') + '</p></div>' +
+          '<p>' + esc(pe.courier || '') + (pe.guia ? (/^TM-GUIA-/.test(pe.guia) ? ' · etiqueta Tumbo ' : ' · guía ') + '<span class="tm-id">' + esc(pe.guia) + '</span>' : '') + (pe.destino && pe.destino.destinatario ? ' · recibe ' + esc(pe.destino.destinatario) : '') + '</p></div>' +
         '<div><p class="font-label-caps text-label-caps uppercase text-on-surface-variant mb-1">Pago</p>' +
           '<p>' + esc((r.pago || {}).metodo || '') + ((r.pago || {}).referencia ? ' · ref. ' + esc(r.pago.referencia) : '') + '</p>' +
           '<p>' + ((r.pago || {}).id ? esc(r.pago.id) + ' · ' + esc(P().nombreInsignia('pago', r.pago.estado)) + (r.pago.verificado_el ? ' el ' + esc(P().fecha(r.pago.verificado_el)) : '') : '') + '</p></div>' +
@@ -957,7 +1067,7 @@
         '<th class="py-2 pr-2">Cant.</th><th class="py-2 pr-2">Descripción</th><th class="py-2 pr-2 text-right">Precio USD</th><th class="py-2 text-right">Total USD</th></tr></thead><tbody>' +
         (r.items || []).map(function (i) {
           return '<tr class="border-b border-outline-variant"><td class="py-1.5 pr-2">' + i.cant + '</td><td class="py-1.5 pr-2">' + esc(i.nombre) +
-            ' <span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(i.sku) + '</span>' + (i.exento ? ' <strong>(E)</strong>' : '') + '</td>' +
+            ' <span class="font-data-mono text-data-mono text-on-surface-variant tm-id">' + esc(i.sku) + '</span>' + (i.exento ? ' <strong>(E)</strong>' : '') + '</td>' +
             '<td class="py-1.5 pr-2 text-right tm-num">' + esc(P().usd(i.precio_usd)) + '</td><td class="py-1.5 text-right tm-num">' + esc(P().usd(i.total_usd)) + '</td></tr>';
         }).join('') + '</tbody></table></div>' +
       '<dl class="ml-auto max-w-sm space-y-1 font-body-sm text-body-sm">' +
@@ -966,7 +1076,7 @@
         (P().n(m.exento) ? f('Exento de IVA (E)', esc(P().usd(m.exento))) : '') +
         ((r.pago || {}).id
           ? f('Base imponible', esc(P().usd(base - P().n(m.exento) - P().n(m.iva)))) + f('IVA ' + esc(P().pct(m.iva_pct)) + ' (incluido)', esc(P().usd(m.iva)))
-          : f('IVA', 'no desglosado (pedido anterior a los pagos guiados)')) +
+          : f('IVA', 'No desglosado<span class="block text-on-surface-variant">Pedido hecho antes del sistema de pagos actual</span>', '', { texto: true })) +
         f('Envío', esc(P().usd(m.envio))) +
         (P().n(m.igtf) ? f('IGTF (pago en divisas)', esc(P().usd(m.igtf))) : '') +
         f('<strong class="text-on-surface">Total USD</strong>', '<strong>' + esc(P().usd(m.pagado)) + '</strong>', 'border-t border-outline-variant pt-1 mt-1') +

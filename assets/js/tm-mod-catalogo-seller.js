@@ -64,7 +64,7 @@
         UI.accion(b, function () { return C().api('tm_precios_deshacer', { p_lote: b.getAttribute('data-deshacer') }, true); }, function (r) {
           try { sessionStorage.removeItem(DESHACER); } catch (e) { }
           var omitidos = (r && r.detalle || []).map(function (x) { return x.sku + ': ' + x.motivo; });
-          UI.toast('Cambio deshecho', (r && r.restaurados) + ' precio(s) restaurado(s)' +
+          UI.toast('Cambio deshecho', plural((r && r.restaurados) || 0, 'precio restaurado', 'precios restaurados') +
             (omitidos.length ? '. Sin tocar: ' + omitidos.slice(0, 3).join(' ') + (omitidos.length > 3 ? ' (y ' + (omitidos.length - 3) + ' más)' : '')
                              : '.'), 'undo');
           TM._avisar('propio');
@@ -126,66 +126,83 @@
     function chip(e, texto2) {
       var u = new URLSearchParams(location.search);
       if (e) u.set('estado', e); else u.delete('estado');
-      return '<a class="px-3 py-1.5 rounded-full font-label-md text-label-md border ' +
-        ((q.get('estado') || '') === e ? 'bg-secondary text-on-secondary border-secondary' : 'border-outline-variant text-on-surface-variant hover:border-secondary') +
-        '" href="?' + u.toString() + '">' + texto2 + '</a>';
+      return UI.chip(texto2, '?' + u.toString(), (q.get('estado') || '') === e);
     }
     var ub = new URLSearchParams(location.search);
     if (bajo) ub.delete('bajo'); else ub.set('bajo', '1');
     var chips = ['', 'publicado', 'en_revision', 'borrador', 'pausado', 'rechazado'].map(function (e) {
       return chip(e, e ? UI.nombreEstado(e) : 'Todos');
-    }).join('') + '<a class="px-3 py-1.5 rounded-full font-label-md text-label-md border ' +
-      (bajo ? 'bg-secondary text-on-secondary border-secondary' : 'border-outline-variant text-on-surface-variant hover:border-secondary') +
-      '" href="?' + ub.toString() + '">Stock bajo</a>';
+    }).join('') + UI.chip('Stock bajo', '?' + ub.toString(), bajo);
+
+    /* Una acción de la fila: desde lg, solo el icono (con su nombre en
+       title); en la tableta, el texto bajo el icono (con el dedo, ⊘ y ✓ solos
+       eran ambiguos) sin ensanchar la tabla; en el teléfono (la fila es una
+       tarjeta), tres botones a lo ancho. */
+    var claseAccion = 'inline-flex flex-col lg:flex-row items-center justify-center gap-0.5 rounded-btn hover:bg-surface-container-high font-label-md text-label-md ' +
+      'min-h-[52px] px-1.5 py-1.5 text-center [overflow-wrap:normal] sm:min-w-[60px] lg:w-11 lg:h-11 lg:min-h-0 lg:min-w-0 lg:p-0 ' +
+      'max-sm:flex-1 max-sm:basis-0 max-sm:px-1 max-sm:border max-sm:border-outline-variant';
+    function accion(icono, texto, attrs, extra) {
+      return (attrs.indexOf('href=') === 0 ? '<a ' + attrs : '<button type="button" ' + attrs) + ' class="' + claseAccion + (extra ? ' ' + extra : '') + '" title="' + esc(texto) + '" aria-label="' + esc(texto) + '">' +
+        ic(icono, 'text-[18px]') + '<span class="lg:hidden" aria-hidden="true">' + esc(texto) + '</span>' + (attrs.indexOf('href=') === 0 ? '</a>' : '</button>');
+    }
 
     var filas = orden.map(function (p) {
       var disponible = C().disponible(p);
       var esVariante = !!p.padreSku && !!vistos[p.padreSku] && lista.some(function (x) { return x.sku === p.padreSku; });
       var fotos = (p.imagenes || []).length;
-      return td('<div class="flex items-center gap-2 min-w-[220px] ' + (esVariante ? 'pl-6' : '') + '">' +
-          (esVariante ? ic('subdirectory_arrow_right', 'text-[18px] text-outline shrink-0') : '') +
-          UI.imgProducto(p, 'w-10 h-10 object-cover shrink-0') +
-          '<span><span class="block font-body-sm text-body-sm text-on-surface leading-snug">' + esc(p.nombre) + '</span>' +
-          '<span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(p.sku) + '</span>' +
+      var acciones = (puedeCrear ? accion('edit', 'Editar', 'href="' + href('app/seller/producto.html?sku=' + encodeURIComponent(p.sku)) + '"') : '') +
+          (C().remoto() && editaStock ? accion('history', 'Kardex', 'href="' + href('app/seller/inventario.html?sku=' + encodeURIComponent(p.sku)) + '"') : '') +
+          (p.estado === 'publicado' && puedeCrear ? accion('block', 'Pausar', 'data-pausar="' + esc(p.sku) + '"', 'text-on-surface') : '') +
+          (p.estado === 'pausado' && puedeCrear ? accion('check_circle', 'Reanudar', 'data-reanudar="' + esc(p.sku) + '"') : '') +
+          ((p.estado === 'borrador' || p.estado === 'rechazado') && puedeCrear ? accion('task_alt', 'Enviar a revisión', 'data-revision="' + esc(p.sku) + '"') : '');
+      /* la primera celda es la cabecera de la tarjeta en el teléfono: foto, nombre, SKU y estado */
+      return '<td data-th="" class="px-4 py-3"><div class="flex items-start gap-2 w-full sm:min-w-[180px] lg:min-w-[220px] ' + (esVariante ? 'sm:pl-6' : '') + '">' +
+          (esVariante ? ic('subdirectory_arrow_right', 'text-[18px] text-outline shrink-0 mt-2') : '') +
+          UI.imgProducto(p, 'w-12 h-12 sm:w-10 sm:h-10 object-cover shrink-0') +
+          '<span class="min-w-0 flex-1"><span class="block font-body-sm text-body-sm text-on-surface leading-snug">' + esc(p.nombre) + '</span>' +
+          '<span class="tm-id font-data-mono text-data-mono text-on-surface-variant">' + esc(p.sku) + '</span>' +
           (p.padreSku || (p.variantesPor || []).length ? '<span class="block font-body-sm text-body-sm text-secondary">' + esc(textoVariante(p) || 'Producto con variantes') + '</span>' : '') +
           (C().remoto() ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + (fotos ? fotos + ' foto' + (fotos === 1 ? '' : 's') : 'Sin fotos') + '</span>' : '') +
           (p.estado === 'rechazado' && p.motivoRechazo ? '<span class="block font-body-sm text-body-sm text-error">Motivo: ' + esc(p.motivoRechazo) + '</span>' : '') +
-          '</span></div>') +
-        td(UI.badge(p.estado)) +
+          '<span class="block mt-1 lg:hidden">' + UI.badge(p.estado) + '</span>' +
+          '</span></div></td>' +
+        td(UI.badge(p.estado), 'hidden lg:table-cell') +
         td(editaPrecio
-          ? '<label class="inline-flex items-center gap-1 font-data-mono text-data-mono">$<input data-precio="' + esc(p.sku) + '" type="number" min="0" step="0.5" value="' + p.precioUsd + '" aria-label="Precio de ' + esc(p.sku) + '" class="w-20 h-9 px-2 rounded-btn border border-outline-variant bg-surface-container-low text-right focus:border-secondary outline-none"/></label>' +
-            '<span class="block font-body-sm text-body-sm text-on-surface-variant mt-0.5">' + esc(TM.fmtBs(p.precioUsd)) + '</span>'
-          : '<span class="font-data-mono text-data-mono">' + esc(TM.fmtUsd(p.precioUsd)) + '</span>') +
-        td(editaStock
-          ? '<input data-stock="' + esc(p.sku) + '" type="number" min="0" value="' + p.stockFis + '" aria-label="Stock de ' + esc(p.sku) + '" class="w-16 h-9 px-2 rounded-btn border border-outline-variant bg-surface-container-low text-right font-data-mono text-data-mono focus:border-secondary outline-none"/>'
+          ? '<label class="inline-flex items-center gap-1 font-data-mono text-data-mono">$<input data-precio="' + esc(p.sku) + '" type="number" inputmode="decimal" min="0" step="0.5" value="' + p.precioUsd + '" aria-label="Precio de ' + esc(p.sku) + '" class="w-24 sm:w-20 h-9 px-2 rounded-btn border border-outline-variant bg-surface-container-low text-right focus:border-secondary outline-none"/></label>' +
+            '<span class="block tm-num font-body-sm text-body-sm text-on-surface-variant mt-0.5">' + esc(TM.fmtBs(p.precioUsd)) + '</span>'
+          : '<span class="tm-num font-data-mono text-data-mono">' + esc(TM.fmtUsd(p.precioUsd)) + '</span>') +
+        /* bajo lg, el disponible va debajo del stock físico (en la tableta la tabla cabe; en el teléfono la tarjeta es más corta) */
+        td((editaStock
+          ? '<input data-stock="' + esc(p.sku) + '" type="number" inputmode="numeric" min="0" value="' + p.stockFis + '" aria-label="Stock de ' + esc(p.sku) + '" class="w-24 sm:w-16 h-9 px-2 rounded-btn border border-outline-variant bg-surface-container-low text-right font-data-mono text-data-mono focus:border-secondary outline-none"/>'
           : '<span class="font-data-mono text-data-mono">' + p.stockFis + '</span>') +
+          '<span class="block lg:hidden mt-0.5 font-body-sm text-body-sm ' + (disponible <= umbral(p) ? 'text-error font-semibold' : 'text-on-surface-variant') + '">disponible ' + disponible +
+            (disponible <= umbral(p) ? ' · stock bajo' : '') + '</span>') +
         td('<span class="font-data-mono text-data-mono ' + (disponible <= umbral(p) ? 'text-error font-bold' : '') + '">' + disponible + '</span>' +
-          (p.stockMinimo != null ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">umbral ' + p.stockMinimo + '</span>' : '')) +
-        td('<div class="flex gap-1 justify-end">' +
-          (puedeCrear ? '<a class="p-2 rounded hover:bg-surface-container-high" title="Editar" href="' + href('app/seller/producto.html?sku=' + encodeURIComponent(p.sku)) + '">' + ic('edit', 'text-[18px]') + '</a>' : '') +
-          (C().remoto() && editaStock ? '<a class="p-2 rounded hover:bg-surface-container-high" title="Kardex" href="' + href('app/seller/inventario.html?sku=' + encodeURIComponent(p.sku)) + '">' + ic('history', 'text-[18px]') + '</a>' : '') +
-          (p.estado === 'publicado' && puedeCrear ? '<button data-pausar="' + esc(p.sku) + '" class="p-2 rounded hover:bg-surface-container-high" title="Pausar publicación">' + ic('block', 'text-[18px]') + '</button>' : '') +
-          (p.estado === 'pausado' && puedeCrear ? '<button data-reanudar="' + esc(p.sku) + '" class="p-2 rounded hover:bg-surface-container-high" title="Reanudar publicación">' + ic('check_circle', 'text-[18px]') + '</button>' : '') +
-          ((p.estado === 'borrador' || p.estado === 'rechazado') && puedeCrear ? '<button data-revision="' + esc(p.sku) + '" class="p-2 rounded hover:bg-surface-container-high" title="Enviar a revisión">' + ic('task_alt', 'text-[18px]') + '</button>' : '') +
-          '</div>', 'text-right');
+          (disponible <= umbral(p) ? '<span class="sr-only"> (en el umbral de stock bajo)</span>' : '') +
+          (p.stockMinimo != null ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">umbral ' + p.stockMinimo + '</span>' : ''), 'hidden lg:table-cell') +
+        (acciones ? td('<div class="flex gap-2 sm:gap-1 justify-end w-full">' + acciones + '</div>', 'text-right')
+                  : '<td data-th="" class="hidden sm:table-cell px-4 py-3"></td>');
     });
 
-    var accesos = C().remoto() ? '<div class="flex flex-wrap gap-2">' +
-      (editaPrecio ? '<a class="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-btn border border-outline-variant bg-surface-container-lowest font-label-md text-label-md hover:border-secondary" href="' + href('app/seller/precios.html') + '">' + ic('sell', 'text-[18px]') + 'Gestor de precios</a>' : '') +
-      '<a class="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-btn border border-outline-variant bg-surface-container-lowest font-label-md text-label-md hover:border-secondary" href="' + href('app/seller/carga.html') + '">' + ic('upload_file', 'text-[18px]') + 'Carga masiva</a>' +
-      (puedeCrear ? btn('Nuevo producto', { estilo: 'primario', icono: 'add', attr: 'data-nuevo' }) : '') + '</div>'
-      : (puedeCrear ? btn('Nuevo producto', { estilo: 'primario', icono: 'add', attr: 'data-nuevo' }) : '');
+    var accesos = C().remoto() ? '<div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full sm:w-auto">' +
+      (editaPrecio ? '<a class="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 sm:px-4 rounded-btn border border-outline-variant bg-surface-container-lowest font-label-md text-label-md hover:border-secondary" href="' + href('app/seller/precios.html') + '">' + ic('sell', 'text-[18px]') + 'Gestor de precios</a>' : '') +
+      '<a class="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 sm:px-4 rounded-btn border border-outline-variant bg-surface-container-lowest font-label-md text-label-md hover:border-secondary' + (editaPrecio ? '' : ' col-span-2') + '" href="' + href('app/seller/carga.html') + '">' + ic('upload_file', 'text-[18px]') + 'Carga masiva</a>' +
+      (puedeCrear ? btn('Nuevo producto', { estilo: 'primario', icono: 'add', attr: 'data-nuevo', clase: 'col-span-2 order-first sm:order-none' }) : '') + '</div>'
+      : (puedeCrear ? btn('Nuevo producto', { estilo: 'primario', icono: 'add', attr: 'data-nuevo', clase: 'w-full sm:w-auto' }) : '');
 
     return titulo('Catálogo', accesos) +
       bannerDeshacer(s) +
       (esPrecios ? '<p class="flex items-center gap-1.5 font-body-sm text-body-sm text-on-secondary-container bg-secondary-container rounded-btn px-3 py-2 mb-4">' +
         ic('sell', 'text-[16px]') + 'Como gestor de precios editas los precios; el stock y las publicaciones son del operador y del seller principal.</p>' : '') +
-      '<div class="flex flex-wrap items-center gap-2 mb-4">' + chips +
-        '<form data-filtro-catalogo class="ml-auto flex min-w-[220px]" role="search"><input name="q" value="' + esc(q.get('q') || '') + '" placeholder="Buscar por nombre o SKU…" aria-label="Buscar en mi catálogo" class="flex-1 min-w-0 h-9 px-3 rounded-l-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm focus:border-secondary outline-none"/>' +
-        '<button class="h-9 px-3 rounded-r-btn bg-secondary text-on-secondary" aria-label="Buscar">' + ic('search', 'text-[18px]') + '</button></form></div>' +
+      /* en el teléfono: la búsqueda a lo ancho primero y los filtros en una tira que se desliza */
+      '<div class="flex flex-col-reverse sm:flex-row sm:flex-wrap sm:items-center gap-3 mb-4">' +
+        '<div class="flex flex-wrap gap-2 tm-tira-movil min-w-0">' + chips + '</div>' +
+        '<form data-filtro-catalogo class="flex w-full sm:w-auto sm:ml-auto sm:min-w-[260px]" role="search"><input type="search" enterkeyhint="search" name="q" value="' + esc(q.get('q') || '') + '" placeholder="Nombre o SKU" aria-label="Buscar en mi catálogo" class="flex-1 min-w-0 h-11 px-3 rounded-l-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm focus:border-secondary outline-none"/>' +
+        '<button class="inline-flex items-center justify-center h-11 w-12 shrink-0 rounded-r-btn bg-secondary text-on-secondary" aria-label="Buscar">' + ic('search', 'text-[20px]') + '</button></form></div>' +
+      /* en la tableta, el estado y el disponible van dentro de otras celdas (desde lg, en su columna) */
       UI.tabla(['Producto', 'Estado', 'Precio (USD)', 'Stock físico', 'Disponible', ''], filas,
         UI.vacio('inventory_2', 'Sin productos aquí', 'No hay productos con ese filtro.',
-          puedeCrear ? btn('Crear el primero', { estilo: 'primario', icono: 'add', attr: 'data-nuevo' }) : '')) +
+          puedeCrear ? btn('Crear el primero', { estilo: 'primario', icono: 'add', attr: 'data-nuevo' }) : ''), { desdeLg: [1, 4] }) +
       '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Los cambios de precio y stock se guardan al salir del campo y quedan en la auditoría. «Disponible» descuenta lo reservado por pedidos en curso' +
       (C().remoto() ? '; se marca en rojo al llegar al umbral de stock bajo de cada producto (3 si no lo fijaste). Un cambio de precio de más de 30 % pide confirmación y se puede deshacer durante 5 minutos.' : '.') + '</p>';
   }
@@ -255,10 +272,10 @@
   /* =====================================================================
      Ficha de producto (crear / editar)
      ===================================================================== */
-  function campo(nombre, clave, valor, tipo, extra, ayuda) {
-    return '<label class="block"><span class="block font-label-md text-label-md text-on-surface mb-1">' + nombre + '</span>' +
+  function campo(nombre, clave, valor, tipo, extra, ayuda, clase) {
+    return '<label class="block' + (clase ? ' ' + clase : '') + '"><span class="block font-label-md text-label-md text-on-surface mb-1">' + nombre + '</span>' +
       (tipo === 'area'
-        ? '<textarea data-campo="' + clave + '" rows="3" ' + (extra || '') + ' class="w-full px-3 py-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none">' + esc(valor || '') + '</textarea>'
+        ? '<textarea data-campo="' + clave + '"' + (/\brows=/.test(extra || '') ? '' : ' rows="3"') + ' ' + (extra || '') + ' class="w-full px-3 py-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none">' + esc(valor || '') + '</textarea>'
         : '<input data-campo="' + clave + '" type="' + (tipo || 'text') + '" ' + (extra || '') + ' value="' + esc(valor == null ? '' : valor) + '" class="' + campoClase + '"/>') +
       (ayuda ? '<span class="block font-body-sm text-body-sm text-on-surface-variant mt-1">' + ayuda + '</span>' : '') +
       '</label>';
@@ -277,27 +294,29 @@
   /* --- modo local: la ficha de siempre ------------------------------- */
   function vProductoLocal(q, s) {
     var p = q.get('sku') ? TM.producto(q.get('sku')) : null;
-    return '<a class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline mb-3" href="' + href('app/seller/catalogo.html') + '">' +
-      ic('arrow_back', 'text-[16px]') + 'Volver al catálogo</a>' +
-      titulo(p ? 'Editar ' + p.sku : 'Nuevo producto', p ? UI.badge(p.estado) : '') +
+    return '<p class="mb-1">' + UI.enlace('Volver al catálogo', href('app/seller/catalogo.html'), 'arrow_back') + '</p>' +
+      titulo(p ? 'Editar «' + p.nombre + '»' : 'Nuevo producto', p ? UI.badge(p.estado) : '') +
+      (p ? '<p class="-mt-3 mb-4 font-body-sm text-body-sm text-on-surface-variant">SKU <span class="tm-id font-data-mono text-data-mono">' + esc(p.sku) + '</span></p>' : '') +
       '<div class="max-w-2xl space-y-4">' +
-      '<div class="grid sm:grid-cols-2 gap-4">' +
-        campo('Nombre del producto', 'nombre', p && p.nombre) +
-        campo('Marca', 'marca', p && p.marca) +
-        selectCampo('Categoría', 'categoria', TM.estado.categorias.map(function (c) { return [c.id, c.nombre]; }), p && p.categoria) +
+      '<div class="grid grid-cols-2 gap-4">' +
+        campo('Nombre del producto', 'nombre', p && p.nombre, 'text', '', '', 'col-span-2 sm:col-span-1') +
+        campo('Marca', 'marca', p && p.marca, 'text', '', '', 'col-span-2 sm:col-span-1') +
+        '<div class="col-span-2 sm:col-span-1">' + selectCampo('Categoría', 'categoria', TM.estado.categorias.map(function (c) { return [c.id, c.nombre]; }), p && p.categoria) + '</div>' +
+        '<span class="hidden sm:block"></span>' +
         campo('Precio (USD)', 'precioUsd', p ? p.precioUsd : '', 'number',
-          'min="0" step="0.5"' + (p && s.rol === 'operador' ? ' readonly title="Lo gestionan el seller principal o el gestor de precios"' : '')) +
-        campo('Stock físico', 'stockFis', p ? p.stockFis : '', 'number', 'min="0"') + '</div>' +
-      campo('Descripción', 'descripcion', p && p.descripcion, 'area') +
+          'inputmode="decimal" min="0" step="0.5"' + (p && s.rol === 'operador' ? ' readonly title="Lo gestionan el seller principal o el gestor de precios"' : '')) +
+        campo('Stock físico', 'stockFis', p ? p.stockFis : '', 'number', 'inputmode="numeric" min="0"') + '</div>' +
+      campo('Descripción', 'descripcion', p && p.descripcion, 'area', 'rows="5"') +
       C().avisoServidor('Las fotos, los atributos de la categoría, las variantes y la ficha completa se cargan con el backend de la beta.') +
       (p && (p.estado === 'publicado' || p.estado === 'pausado')
         ? '<p class="flex items-start gap-1.5 font-body-sm text-body-sm text-on-secondary-container bg-secondary-container rounded-btn px-3 py-2">' +
           ic('info', 'text-[16px] mt-0.5') + 'Si cambias el nombre, la marca, la categoría o la descripción, el producto vuelve a moderación antes de mostrarse otra vez. Precio y stock se actualizan al instante.</p>'
         : '') +
       '<p data-err class="hidden font-body-sm text-body-sm text-error"></p>' +
-      '<div class="flex flex-wrap gap-2">' +
-        btn('Guardar borrador', { icono: 'edit', attr: 'data-borrador' }) +
-        btn('Enviar a revisión', { estilo: 'primario', icono: 'task_alt', attr: 'data-enviar' }) + '</div>' +
+      /* en el teléfono, a lo ancho y apilados, el principal primero (a 360 px «Guardar borrador» se partía) */
+      '<div class="flex flex-col-reverse sm:flex-row sm:flex-wrap gap-2">' +
+        btn('Guardar borrador', { icono: 'edit', attr: 'data-borrador', clase: 'w-full sm:w-auto' }) +
+        btn('Enviar a revisión', { estilo: 'primario', icono: 'task_alt', attr: 'data-enviar', clase: 'w-full sm:w-auto' }) + '</div>' +
       '<p class="font-body-sm text-body-sm text-on-surface-variant">Al enviarlo, Moderación lo revisa; si lo aprueba, ' +
         (p && (p.estado === 'pausado' || p.volverAPausa) ? 'seguirá pausado hasta que lo reanudes.' : 'aparece publicado en la tienda.') + '</p></div>';
   }
@@ -350,8 +369,8 @@
       (lista.length ? '<ol class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">' + lista.map(function (f, i) {
         return '<li class="relative rounded-lg border ' + (i === 0 ? 'border-secondary' : 'border-outline-variant') + ' bg-white overflow-hidden" data-foto="' + esc(f.id) + '">' +
           '<img src="' + esc(f.url) + '" alt="Foto ' + (i + 1) + '" class="w-full aspect-square object-contain"/>' +
-          (i === 0 ? '<span class="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-secondary text-on-secondary text-[11px] font-bold">Principal</span>' : '') +
-          '<div class="flex items-center justify-between gap-1 p-1 border-t border-outline-variant bg-surface-container-lowest">' +
+          (i === 0 ? '<span class="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-secondary text-on-secondary font-label-sm text-label-sm font-bold">Principal</span>' : '') +
+          '<div class="flex flex-wrap items-center justify-center sm:justify-between gap-1 p-1 border-t border-outline-variant bg-surface-container-lowest">' +
             '<button type="button" data-foto-mover="' + i + '" data-dir="-1" class="p-1 rounded hover:bg-surface-container-high disabled:opacity-30" aria-label="Mover antes"' + (i === 0 ? ' disabled' : '') + '>' + ic('arrow_back', 'text-[18px]') + '</button>' +
             (i > 0 ? '<button type="button" data-foto-principal="' + i + '" class="p-1 rounded hover:bg-surface-container-high" title="Usar como principal" aria-label="Usar como principal">' + ic('star', 'text-[18px]') + '</button>' : '') +
             '<button type="button" data-foto-mover="' + i + '" data-dir="1" class="p-1 rounded hover:bg-surface-container-high disabled:opacity-30" aria-label="Mover después"' + (i === lista.length - 1 ? ' disabled' : '') + '>' + ic('arrow_forward', 'text-[18px]') + '</button>' +
@@ -385,10 +404,11 @@
     var valores = p ? (p.atributos || {}) : padre ? Object.assign({}, padre.atributos || {}) : {};
     if (padre) ejesFamilia.forEach(function (e) { delete valores[e]; });
 
-    var encabezado = p ? 'Editar ' + p.sku : padre ? 'Nueva variante de ' + padre.sku : 'Nuevo producto';
-    return '<a class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline mb-3" href="' + href('app/seller/catalogo.html') + '">' +
-      ic('arrow_back', 'text-[16px]') + 'Volver al catálogo</a>' +
+    var encabezado = p ? 'Editar «' + p.nombre + '»' : padre ? 'Nueva variante de «' + padre.nombre + '»' : 'Nuevo producto';
+    return '<p class="mb-1">' + UI.enlace('Volver al catálogo', href('app/seller/catalogo.html'), 'arrow_back') + '</p>' +
       titulo(encabezado, p ? UI.badge(p.estado) : '') +
+      (p || padre ? '<p class="-mt-3 mb-4 font-body-sm text-body-sm text-on-surface-variant">' + (p ? 'SKU ' : 'Variante de ') +
+        '<span class="tm-id font-data-mono text-data-mono">' + esc((p || padre).sku) + '</span></p>' : '') +
       '<div class="max-w-3xl space-y-4" data-ficha-producto>' +
       (padre ? '<p class="flex items-start gap-1.5 font-body-sm text-body-sm text-on-secondary-container bg-secondary-container rounded-btn px-3 py-2">' + ic('info', 'text-[16px] mt-0.5') +
         'La variante toma los datos de «' + esc(padre.nombre) + '». Completa los atributos que la distinguen (' + esc(ejesFamilia.map(function (e) {
@@ -396,16 +416,16 @@
       (p && p.padreSku ? '<p class="font-body-sm text-body-sm text-on-surface-variant">Variante de <a class="text-secondary hover:underline" href="' + href('app/seller/producto.html?sku=' + encodeURIComponent(p.padreSku)) + '">' + esc(p.padreSku) + '</a> · ' + esc(textoVariante(p)) + '</p>' : '') +
 
       seccion('Datos básicos',
-        '<div class="grid sm:grid-cols-2 gap-4">' +
-          campo('Nombre del producto', 'nombre', base.nombre) +
-          campo('Marca', 'marca', base.marca) +
-          '<label class="block sm:col-span-2"><span class="block font-label-md text-label-md text-on-surface mb-1">Categoría</span>' +
+        '<div class="grid grid-cols-2 gap-4">' +
+          campo('Nombre del producto', 'nombre', base.nombre, 'text', '', '', 'col-span-2 sm:col-span-1') +
+          campo('Marca', 'marca', base.marca, 'text', '', '', 'col-span-2 sm:col-span-1') +
+          '<label class="block col-span-2"><span class="block font-label-md text-label-md text-on-surface mb-1">Categoría</span>' +
           '<select data-campo="categoria"' + (categoriaFija ? ' disabled' : '') + ' class="' + campoClase + '">' + opcionesCategoria(cat) + '</select>' +
           (categoriaFija ? '<span class="block font-body-sm text-body-sm text-on-surface-variant mt-1">Las variantes comparten la categoría del producto principal.</span>' : '') + '</label>' +
           campo('Precio (USD)', 'precioUsd', p ? p.precioUsd : padre ? padre.precioUsd : '', 'number',
-            'min="0" step="0.5"' + (p && esOperador ? ' readonly title="Lo gestionan el seller principal o el gestor de precios"' : '')) +
-          campo('Stock físico', 'stockFis', p ? p.stockFis : '', 'number', 'min="0"') + '</div>' +
-        '<div class="mt-4">' + campo('Descripción', 'descripcion', base.descripcion, 'area', 'maxlength="4000"') + '</div>') +
+            'inputmode="decimal" min="0" step="0.5"' + (p && esOperador ? ' readonly title="Lo gestionan el seller principal o el gestor de precios"' : '')) +
+          campo('Stock físico', 'stockFis', p ? p.stockFis : '', 'number', 'inputmode="numeric" min="0"') + '</div>' +
+        '<div class="mt-4">' + campo('Descripción', 'descripcion', base.descripcion, 'area', 'rows="5" maxlength="4000"') + '</div>') +
 
       seccion('Fotos', htmlFotos(p ? p.sku : s.sellerId)) +
 
@@ -414,11 +434,12 @@
       seccion('Ficha', '<div class="grid sm:grid-cols-2 gap-4">' +
           selectCampo('Condición', 'condicion', [['nuevo', 'Nuevo'], ['usado', 'Usado'], ['reacondicionado', 'Reacondicionado']], base.condicion || 'nuevo') +
           campo('Origen', 'origen', base.origen, 'text', 'maxlength="60" placeholder="Ej.: Nacional, China, EE. UU."') +
-          campo('Garantía (meses)', 'garantiaMeses', base.garantiaMeses, 'number', 'min="0" max="120"', '0 o vacío si no tiene garantía.') +
+          campo('Garantía (meses)', 'garantiaMeses', base.garantiaMeses, 'number', 'inputmode="numeric" min="0" max="120"', '0 o vacío si no tiene garantía.') +
           selectCampo('¿Quién da la garantía?', 'garantiaQuien', [['', '—'], ['fabricante', 'El fabricante'], ['vendedor', 'Mi comercio']], base.garantiaQuien || '') +
-        '</div><div class="mt-4">' + campo('Contenido de la caja', 'contenidoCaja', base.contenidoCaja, 'area', 'maxlength="500" placeholder="Ej.: equipo, cargador, cable USB-C, manual"') + '</div>') +
+        '</div><div class="mt-4">' + campo('Contenido de la caja', 'contenidoCaja', base.contenidoCaja, 'area', 'rows="2" maxlength="500" placeholder="Ej.: equipo, cargador y manual"',
+          'Todo lo que trae la caja, separado por comas.') + '</div>') +
 
-      seccion('Envío e impuestos', '<div class="grid sm:grid-cols-4 gap-4">' +
+      seccion('Envío e impuestos', '<div class="grid grid-cols-2 sm:grid-cols-4 gap-4">' +
           campo('Peso (kg)', 'pesoKg', base.pesoKg, 'text', 'inputmode="decimal"') +
           campo('Largo (cm)', 'largoCm', base.largoCm, 'text', 'inputmode="decimal"') +
           campo('Ancho (cm)', 'anchoCm', base.anchoCm, 'text', 'inputmode="decimal"') +
@@ -428,8 +449,8 @@
         '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant">El peso y las medidas sirven para cotizar el envío; el IVA, para la facturación.</p>') +
 
       seccion('Inventario y precio', '<div class="grid sm:grid-cols-2 gap-4">' +
-          campo('Umbral de stock bajo', 'stockMinimo', p ? p.stockMinimo : '', 'number', 'min="0"', 'Te avisamos al llegar a este disponible (3 si lo dejas vacío).') +
-          (s.rol === 'seller' ? campo('Precio mínimo (USD)', 'precioMinimo', p ? p.precioMinimo : '', 'number', 'min="0" step="0.01"', 'Opcional: ningún cambio de precio lo atraviesa.') : '') +
+          campo('Umbral de stock bajo', 'stockMinimo', p ? p.stockMinimo : '', 'number', 'inputmode="numeric" min="0"', 'Te avisamos al llegar a este disponible (3 si lo dejas vacío).') +
+          (s.rol === 'seller' ? campo('Precio mínimo (USD)', 'precioMinimo', p ? p.precioMinimo : '', 'number', 'inputmode="decimal" min="0" step="0.01"', 'Opcional: ningún cambio de precio lo atraviesa.') : '') +
         '</div>') +
 
       (p && !p.padreSku ? seccion('Variantes',
@@ -450,9 +471,10 @@
           ic('info', 'text-[16px] mt-0.5') + 'Si cambias el nombre, la marca, la categoría, la descripción, la ficha, los atributos o agregas fotos, el producto vuelve a moderación antes de mostrarse otra vez. Precio, stock, medidas e IVA se actualizan al instante.</p>'
         : '') +
       '<p data-err class="hidden font-body-sm text-body-sm text-error"></p>' +
-      '<div class="flex flex-wrap gap-2">' +
-        btn('Guardar borrador', { icono: 'edit', attr: 'data-borrador' }) +
-        btn('Enviar a revisión', { estilo: 'primario', icono: 'task_alt', attr: 'data-enviar' }) + '</div>' +
+      /* en el teléfono, a lo ancho y apilados, el principal primero (a 360 px «Guardar borrador» se partía) */
+      '<div class="flex flex-col-reverse sm:flex-row sm:flex-wrap gap-2">' +
+        btn('Guardar borrador', { icono: 'edit', attr: 'data-borrador', clase: 'w-full sm:w-auto' }) +
+        btn('Enviar a revisión', { estilo: 'primario', icono: 'task_alt', attr: 'data-enviar', clase: 'w-full sm:w-auto' }) + '</div>' +
       '<p class="font-body-sm text-body-sm text-on-surface-variant">Al enviarlo, Moderación lo revisa; si lo aprueba, ' +
         (p && (p.estado === 'pausado' || p.volverAPausa) ? 'seguirá pausado hasta que lo reanudes.' : 'aparece publicado en la tienda.') + '</p></div>';
   }
@@ -595,6 +617,9 @@
     return { comision: comision, tarifa: cfg.tarifaFijaUsd, neto: Math.round((precio - comision - cfg.tarifaFijaUsd) * 100) / 100 };
   }
 
+  function plural(n, uno, varios) { return n + ' ' + (n === 1 ? uno : varios); }
+  function textoElegidos(n) { return n ? plural(n, 'producto elegido.', 'productos elegidos.') : 'Ningún producto elegido.'; }
+
   function vPrecios(q, s) {
     var cab = titulo('Gestor de precios');
     if (TM.requiereServidor()) return cab + C().avisoServidor('La edición masiva, el precio mínimo, el historial y «deshacer» viven en el servidor.');
@@ -609,52 +634,74 @@
     (PRECIOS.previa || []).forEach(function (c) { previa[c.sku] = c; });
     var cfg = TM.estado.config;
     var ej = neto(100);
+    /* En el teléfono cada producto es una tarjeta: arriba la casilla con el
+       nombre y el SKU; debajo precio actual, mínimo (editable), nuevo y neto. */
     var filas = lista.map(function (p) {
       var pv = previa[p.sku];
       var n = neto(pv ? pv.despues : p.precioUsd);
-      return td('<input type="checkbox" data-sel="' + esc(p.sku) + '"' + (PRECIOS.sel[p.sku] ? ' checked' : '') + ' aria-label="Elegir ' + esc(p.sku) + '" class="w-4 h-4 rounded border-outline text-secondary"/>') +
-        td('<span class="block font-body-sm text-body-sm leading-snug">' + esc(p.nombre) + '</span><span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(p.sku) + '</span>') +
-        td('<span class="font-data-mono text-data-mono">' + esc(TM.fmtUsd(p.precioUsd)) + '</span>') +
-        td('<input data-minimo="' + esc(p.sku) + '" type="number" min="0" step="0.01" value="' + (p.precioMinimo == null ? '' : p.precioMinimo) + '" placeholder="—" aria-label="Precio mínimo de ' + esc(p.sku) + '" class="w-20 h-9 px-2 rounded-btn border border-outline-variant bg-surface-container-low text-right font-data-mono text-data-mono"/>') +
-        td(pv ? '<span data-nuevo="' + esc(p.sku) + '" class="font-data-mono text-data-mono font-bold ' + (pv.bajoMinimo ? 'text-error' : '') + '">' + esc(TM.fmtUsd(pv.despues)) + '</span>' +
+      return '<td data-th="" class="px-4 py-3"><label class="flex items-start gap-3 w-full cursor-pointer">' +
+          '<input type="checkbox" data-sel="' + esc(p.sku) + '"' + (PRECIOS.sel[p.sku] ? ' checked' : '') + ' aria-label="Elegir ' + esc(p.sku) + '" class="mt-0.5 w-5 h-5 shrink-0 rounded border-outline text-secondary"/>' +
+          '<span class="min-w-0"><span class="block font-body-sm text-body-sm leading-snug">' + esc(p.nombre) + '</span><span class="tm-id font-data-mono text-data-mono text-on-surface-variant">' + esc(p.sku) + '</span></span></label></td>' +
+        td('<span class="tm-num font-data-mono text-data-mono">' + esc(TM.fmtUsd(p.precioUsd)) + '</span>' +
+          '<span class="block lg:hidden font-body-sm text-body-sm text-on-surface-variant">' + (pv ? 'neto con el nuevo: ' : 'neto ') + '<span class="tm-num">' + esc(TM.fmtUsd(n.neto)) + '</span></span>') +
+        td('<input data-minimo="' + esc(p.sku) + '" type="number" inputmode="decimal" min="0" step="0.01" value="' + (p.precioMinimo == null ? '' : p.precioMinimo) + '" placeholder="Opcional" aria-label="Precio mínimo de ' + esc(p.sku) + '" class="w-32 h-9 px-2 rounded-btn border border-outline-variant bg-surface-container-low text-right font-body-md text-body-md"/>') +
+        td(pv ? '<span data-nuevo="' + esc(p.sku) + '" class="tm-num font-data-mono text-data-mono font-bold ' + (pv.bajoMinimo ? 'text-error' : '') + '">' + esc(TM.fmtUsd(pv.despues)) + '</span>' +
           '<span class="block font-body-sm text-body-sm ' + (Math.abs(pv.pct) > 30 ? 'text-warning font-semibold' : 'text-on-surface-variant') + '">' + (pv.pct > 0 ? '+' : '') + pv.pct + ' %' +
-          (Math.abs(pv.pct) > 30 ? ' · pide confirmación' : '') + (pv.bajoMinimo ? ' · bajo el mínimo' : '') + '</span>' : '<span class="text-on-surface-variant">—</span>') +
-        td('<span class="font-data-mono text-data-mono">' + esc(TM.fmtUsd(n.neto)) + '</span>') +
-        td('<button type="button" data-historial="' + esc(p.sku) + '" class="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline">' + ic('history', 'text-[16px]') + 'Historial</button>', 'text-right');
+          (Math.abs(pv.pct) > 30 ? ' · pide confirmación' : '') + (pv.bajoMinimo ? ' · bajo el mínimo' : '') + '</span>' : '<span class="text-on-surface-variant">Sin cambio</span>') +
+        td('<span class="tm-num font-data-mono text-data-mono">' + esc(TM.fmtUsd(n.neto)) + '</span>', 'hidden lg:table-cell') +
+        td('<button type="button" data-historial="' + esc(p.sku) + '" aria-label="Historial de precios de ' + esc(p.sku) + '" class="inline-flex items-center justify-center gap-1 min-h-[36px] font-label-md text-label-md text-secondary hover:underline">' +
+          ic('history', 'text-[16px]') + 'Historial</button>', 'text-right');
     });
     var nSel = Object.keys(PRECIOS.sel).filter(function (k) { return PRECIOS.sel[k]; }).length;
+    var nPrevia = PRECIOS.previa ? PRECIOS.previa.length : 0;
+    var etq = 'block font-label-md text-label-md text-on-surface mb-1';
+    var campoP = 'w-full h-10 px-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm';
+    /* En el teléfono: cambio masivo, luego la lista (donde se eligen los
+       productos) y al final la calculadora; desde lg, cambio masivo y
+       calculadora lado a lado y la lista debajo, como antes. */
     return cab + bannerDeshacer(s) +
-      '<div class="grid lg:grid-cols-[1fr_300px] gap-4 items-start mb-4">' +
-      '<section class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
+      '<div class="flex flex-col gap-4 lg:grid lg:grid-cols-[1fr_300px] lg:items-start mb-4">' +
+      '<section class="min-w-0 rounded-card border border-outline-variant bg-surface-container-lowest p-4 lg:col-start-1 lg:row-start-1">' +
         '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-3">Cambio masivo</h2>' +
-        '<div class="flex flex-wrap items-end gap-3">' +
-          '<label class="block"><span class="block font-label-md text-label-md mb-1">Operación</span><select data-op class="h-10 px-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm">' +
+        '<div class="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">' +
+          '<label class="block min-w-0"><span class="' + etq + '">Operación</span><select data-op class="' + campoP + ' sm:w-auto">' +
             '<option value="subir">Subir %</option><option value="bajar">Bajar %</option><option value="fijar">Fijar precio (USD)</option></select></label>' +
-          '<label class="block"><span class="block font-label-md text-label-md mb-1">Valor</span><input data-valor inputmode="decimal" placeholder="Ej.: 10" class="w-24 h-10 px-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm"/></label>' +
-          '<label class="block"><span class="block font-label-md text-label-md mb-1">Redondeo</span><select data-redondeo class="h-10 px-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm">' +
+          '<label class="block min-w-0"><span class="' + etq + '">Valor</span><input data-valor inputmode="decimal" placeholder="Ej.: 10" class="' + campoP + ' sm:w-24"/></label>' +
+          '<label class="block min-w-0 col-span-2"><span class="' + etq + '">Redondeo</span><select data-redondeo class="' + campoP + ' sm:w-auto">' +
             '<option value="">Sin redondeo</option><option value="99">Terminar en ,99</option><option value="entero">Al dólar entero</option><option value="050">Al medio dólar</option><option value="5">A múltiplos de 5</option></select></label>' +
-          btn('Vista previa', { icono: 'visibility', attr: 'data-vista-previa' }) +
-          btn('Aplicar ' + (PRECIOS.previa ? PRECIOS.previa.length : 0) + ' cambio(s)', { estilo: 'primario', icono: 'check', attr: 'data-aplicar' + (PRECIOS.previa && PRECIOS.previa.length ? '' : ' disabled') }) +
+          btn('Vista previa', { icono: 'visibility', attr: 'data-vista-previa', clase: 'col-span-2' }) +
+          btn(nPrevia ? 'Aplicar ' + plural(nPrevia, 'cambio', 'cambios') : 'Aplicar cambios', { estilo: 'primario', icono: 'check', attr: 'data-aplicar' + (nPrevia ? '' : ' disabled'), clase: 'col-span-2' }) +
         '</div>' +
-        '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant" data-seleccion>' + nSel + ' producto(s) elegido(s). Los cambios de más de 30 % piden confirmación; ningún precio baja de su mínimo. Puedes deshacer el lote durante 5 minutos.</p>' +
+        '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant" data-seleccion><strong data-seleccion-n class="text-on-surface">' + textoElegidos(nSel) + '</strong> ' +
+          'Elige los productos en la lista, mira la vista previa y aplica. Los cambios de más de 30 % piden confirmación; ningún precio baja de su mínimo. Puedes deshacer el lote durante 5 minutos.</p>' +
       '</section>' +
-      '<section class="rounded-card border border-outline-variant bg-surface-container-lowest p-4" data-calculadora>' +
+      '<div class="order-2 lg:order-none min-w-0 lg:col-span-2 lg:row-start-2">' +
+        '<form data-filtro-precios class="grid grid-cols-[1fr_auto] sm:flex sm:flex-wrap gap-2 mb-3" role="search">' +
+          '<input type="search" enterkeyhint="search" name="q" value="' + esc(q.get('q') || '') + '" placeholder="Nombre o SKU" aria-label="Filtrar productos" class="col-span-2 sm:flex-1 sm:min-w-[200px] h-10 px-3 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm"/>' +
+          '<select name="cat" aria-label="Categoría" class="min-w-0 h-10 px-3 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm"><option value="">Todas las categorías</option>' +
+            C().raices().map(function (r) { return '<option value="' + esc(r.id) + '"' + (cat === r.id ? ' selected' : '') + '>' + esc(r.nombre) + '</option>'; }).join('') + '</select>' +
+          '<button class="inline-flex items-center justify-center gap-1 h-10 px-4 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md">' + ic('filter_alt', 'text-[18px]') + 'Filtrar</button></form>' +
+        (lista.length ? '<label class="inline-flex items-center gap-2 mb-2 font-body-sm text-body-sm min-h-[40px] cursor-pointer"><input type="checkbox" data-sel-todos' + (nSel && nSel === lista.length ? ' checked' : '') +
+          ' class="w-5 h-5 rounded border-outline text-secondary"/>Elegir todos (' + lista.length + ')</label>' : '') +
+        UI.tabla(['Producto', 'Precio actual', 'Mínimo', 'Nuevo', 'Neto estimado', ''], filas,
+          UI.vacio('sell', 'Sin productos', 'No hay productos con ese filtro.'), { desdeLg: [4] }) +
+        /* en el teléfono, con productos elegidos, una barra fija abajo: la vista
+           previa y «Aplicar» sin subir 2000 px hasta el cambio masivo */
+        '<div data-barra-precios' + (nSel || nPrevia ? '' : ' hidden') + ' class="lg:hidden sticky bottom-0 z-20 -mx-4 sm:-mx-6 mt-3 px-4 sm:px-6 pt-2 pb-[max(12px,env(safe-area-inset-bottom))] bg-surface-container-lowest border-t border-outline-variant shadow-nivel-3">' +
+          '<p class="mb-2 font-body-sm text-body-sm"><strong data-barra-n class="text-on-surface">' + textoElegidos(nSel) + '</strong></p>' +
+          '<div class="grid grid-cols-2 gap-2">' + btn('Vista previa', { icono: 'visibility', attr: 'data-barra-previa' }) +
+            btn(nPrevia ? 'Aplicar ' + plural(nPrevia, 'cambio', 'cambios') : 'Aplicar', { estilo: 'primario', icono: 'check', attr: 'data-barra-aplicar' + (nPrevia ? '' : ' disabled') }) + '</div></div>' +
+      '</div>' +
+      '<section class="order-3 lg:order-none min-w-0 rounded-card border border-outline-variant bg-surface-container-lowest p-4 lg:col-start-2 lg:row-start-1" data-calculadora>' +
         '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Calculadora de neto</h2>' +
-        '<label class="block font-label-md text-label-md mb-1" for="calc-precio">Precio (USD)</label>' +
-        '<input id="calc-precio" data-calc-precio inputmode="decimal" value="100" class="w-full h-10 px-2 rounded-btn border border-outline-variant bg-surface-container-low font-data-mono text-data-mono"/>' +
+        '<label class="' + etq + '" for="calc-precio">Precio (USD)</label>' +
+        '<input id="calc-precio" data-calc-precio inputmode="decimal" value="100" class="w-full h-10 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-data-mono text-data-mono"/>' +
         '<dl class="mt-3 space-y-1 font-body-sm text-body-sm">' +
-          '<div class="flex justify-between"><dt class="text-on-surface-variant">Comisión (' + cfg.comisionPct + ' %)</dt><dd data-calc-comision class="font-data-mono text-data-mono">−' + esc(TM.fmtUsd(ej.comision)) + '</dd></div>' +
-          '<div class="flex justify-between"><dt class="text-on-surface-variant">Tarifa fija por pedido</dt><dd class="font-data-mono text-data-mono">−' + esc(TM.fmtUsd(ej.tarifa)) + '</dd></div>' +
-          '<div class="flex justify-between border-t border-outline-variant pt-1 font-bold"><dt>Neto estimado</dt><dd data-calc-neto class="font-data-mono text-data-mono">' + esc(TM.fmtUsd(ej.neto)) + '</dd></div></dl>' +
+          '<div class="flex justify-between gap-3"><dt class="text-on-surface-variant">Comisión (' + cfg.comisionPct + ' %)</dt><dd data-calc-comision class="tm-num font-data-mono text-data-mono">−' + esc(TM.fmtUsd(ej.comision)) + '</dd></div>' +
+          '<div class="flex justify-between gap-3"><dt class="text-on-surface-variant">Tarifa fija por pedido</dt><dd class="tm-num font-data-mono text-data-mono">−' + esc(TM.fmtUsd(ej.tarifa)) + '</dd></div>' +
+          '<div class="flex justify-between gap-3 border-t border-outline-variant pt-1 font-bold"><dt>Neto estimado</dt><dd data-calc-neto class="tm-num font-data-mono text-data-mono">' + esc(TM.fmtUsd(ej.neto)) + '</dd></div></dl>' +
         '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant">Estimado por unidad en un pedido de un solo producto, sin envío ni impuestos.</p>' +
-      '</section></div>' +
-      '<form data-filtro-precios class="flex flex-wrap gap-2 mb-3" role="search">' +
-        '<input name="q" value="' + esc(q.get('q') || '') + '" placeholder="Filtrar por nombre o SKU…" aria-label="Filtrar productos" class="flex-1 min-w-[200px] h-9 px-3 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm"/>' +
-        '<select name="cat" aria-label="Categoría" class="h-9 px-2 rounded-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm"><option value="">Todas las categorías</option>' +
-          C().raices().map(function (r) { return '<option value="' + esc(r.id) + '"' + (cat === r.id ? ' selected' : '') + '>' + esc(r.nombre) + '</option>'; }).join('') + '</select>' +
-        '<button class="h-9 px-3 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md">Filtrar</button></form>' +
-      UI.tabla(['<todos>', 'Producto', 'Precio actual', 'Mínimo', 'Nuevo', 'Neto estimado', ''], filas,
-        UI.vacio('sell', 'Sin productos', 'No hay productos con ese filtro.')).replace('&lt;todos&gt;', '<input type="checkbox" data-sel-todos aria-label="Elegir todos" class="w-4 h-4 rounded border-outline text-secondary"/>');
+      '</section></div>';
   }
 
   function despuesPrecios(raiz, q, s) {
@@ -679,8 +726,12 @@
     });
     function contar() {
       var n = Object.keys(PRECIOS.sel).filter(function (k) { return PRECIOS.sel[k]; }).length;
-      var p = raiz.querySelector('[data-seleccion]');
-      if (p) p.firstChild.textContent = n + ' producto(s) elegido(s). Los cambios de más de 30 % piden confirmación; ningún precio baja de su mínimo. Puedes deshacer el lote durante 5 minutos.';
+      var p = raiz.querySelector('[data-seleccion-n]');
+      if (p) p.textContent = textoElegidos(n);
+      var barra = raiz.querySelector('[data-barra-precios]');
+      if (barra) { barra.hidden = !n && !PRECIOS.previa; barra.querySelector('[data-barra-n]').textContent = textoElegidos(n); }
+      var t = raiz.querySelector('[data-sel-todos]');
+      if (t) t.checked = !!n && n === raiz.querySelectorAll('[data-sel]').length;
     }
     raiz.querySelectorAll('[data-sel]').forEach(function (c) {
       c.addEventListener('change', function () { PRECIOS.sel[c.getAttribute('data-sel')] = c.checked; contar(); });
@@ -717,19 +768,33 @@
           return;
         }
         if (r && r.confirmar) {
-          UI.confirmar('Confirmar cambios grandes', r.confirmar.length + ' precio(s) cambian más de 30 %: ' + r.confirmar.slice(0, 6).map(function (x) {
+          UI.confirmar('Confirmar cambios grandes', (r.confirmar.length === 1 ? '1 precio cambia' : r.confirmar.length + ' precios cambian') + ' más de 30 %: ' + r.confirmar.slice(0, 6).map(function (x) {
             return x.sku + ' (' + TM.fmtUsd(Number(x.antes)) + ' → ' + TM.fmtUsd(Number(x.despues)) + ', ' + (x.pct > 0 ? '+' : '') + x.pct + ' %)';
           }).join(', ') + '. ¿Los aplicas?', { accion: 'Sí, aplicar' }, function () { aplicar(null, true); });
           return;
         }
-        guardarDeshacer(s, r.lote, 'Cambiaste ' + r.cambiados + ' precio(s) en lote');
+        guardarDeshacer(s, r.lote, 'Cambiaste ' + plural(r.cambiados, 'precio', 'precios') + ' en lote');
         PRECIOS.previa = null;
         PRECIOS.sel = {};
-        UI.toast('Precios actualizados', r.cambiados + ' cambio(s) aplicados.', 'sell');
+        UI.toast('Precios actualizados', plural(r.cambiados, 'cambio aplicado.', 'cambios aplicados.'), 'sell');
         TM._avisar('propio');
       }, 'No se aplicaron los precios');
     }
     raiz.querySelector('[data-aplicar]').addEventListener('click', function () { aplicar(this); });
+    /* la barra del teléfono: sin un valor todavía, lleva al cambio masivo */
+    var barraPrevia = raiz.querySelector('[data-barra-previa]');
+    if (barraPrevia) barraPrevia.addEventListener('click', function () {
+      var valor = raiz.querySelector('[data-valor]');
+      if (!valor.value.trim()) {
+        valor.scrollIntoView({ block: 'center' });
+        valor.focus({ preventScroll: true });
+        UI.toast('Falta el valor', 'Indica la operación y el valor del cambio masivo.', 'info');
+        return;
+      }
+      raiz.querySelector('[data-vista-previa]').click();
+    });
+    var barraAplicar = raiz.querySelector('[data-barra-aplicar]');
+    if (barraAplicar) barraAplicar.addEventListener('click', function () { aplicar(this); });
     raiz.querySelectorAll('[data-minimo]').forEach(function (i) {
       var original = i.value;
       i.addEventListener('change', function () {
@@ -745,12 +810,15 @@
         var sku = b.getAttribute('data-historial');
         UI.accion(b, function () { return C().api('tm_precio_historial', { p_sku: sku }); }, function (h) {
           var ORIGEN = { ficha: 'Ficha', en_linea: 'En línea', masivo: 'Lote', csv: 'CSV', deshacer: 'Deshecho' };
-          UI.modal('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-3">Historial de precios · ' + esc(sku) + '</h3>' +
-            (h && h.length ? '<div class="max-h-80 overflow-y-auto"><table class="w-full font-body-sm text-body-sm"><tbody>' + h.map(function (x) {
-              return '<tr class="border-b border-outline-variant"><td class="py-1.5 pr-2 font-data-mono text-data-mono">' + esc(new Date(x.fecha).toLocaleString('es-VE')) + '</td>' +
-                '<td class="py-1.5 pr-2">' + esc(TM.fmtUsd(Number(x.antes))) + ' → <strong>' + esc(TM.fmtUsd(Number(x.despues))) + '</strong></td>' +
-                '<td class="py-1.5 pr-2">' + esc(ORIGEN[x.origen] || x.origen) + (x.deshecho ? ' · deshecho' : '') + '</td><td class="py-1.5 text-on-surface-variant">' + esc(x.por) + '</td></tr>';
-            }).join('') + '</tbody></table></div>' : '<p class="font-body-sm text-body-sm text-on-surface-variant">Aún no hay cambios de precio registrados para este SKU.</p>') +
+          /* una lista (no una tabla de 4 columnas): cabe en el diálogo del teléfono */
+          UI.modal('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-1">Historial de precios</h3>' +
+            '<p class="mb-3 font-body-sm text-body-sm text-on-surface-variant">' + esc((TM.producto(sku) || {}).nombre || '') + ' · <span class="tm-id font-data-mono text-data-mono">' + esc(sku) + '</span></p>' +
+            (h && h.length ? '<ol class="max-h-80 overflow-y-auto divide-y divide-outline-variant border-y border-outline-variant">' + h.map(function (x) {
+              return '<li class="py-2 font-body-sm text-body-sm">' +
+                '<p class="flex flex-wrap items-baseline justify-between gap-x-3"><span class="tm-num">' + esc(TM.fmtUsd(Number(x.antes))) + ' → <strong>' + esc(TM.fmtUsd(Number(x.despues))) + '</strong></span>' +
+                '<span class="text-on-surface-variant">' + esc(UI.fechaHora(x.fecha)) + '</span></p>' +
+                '<p class="text-on-surface-variant">' + esc(ORIGEN[x.origen] || x.origen) + (x.deshecho ? ' · deshecho' : '') + (x.por ? ' · ' + esc(x.por) : '') + '</p></li>';
+            }).join('') + '</ol>' : '<p class="font-body-sm text-body-sm text-on-surface-variant">Aún no hay cambios de precio registrados para este SKU.</p>') +
             '<div class="flex justify-end mt-4">' + btn('Cerrar', { attr: 'data-cerrar' }) + '</div>');
         }, 'No se pudo leer el historial');
       });
@@ -772,40 +840,48 @@
     var panel = '';
     if (sel && sel.sellerId === s.sellerId) {
       var k = KARDEX[sku];
+      /* el kardex: en el teléfono cada movimiento es una tarjeta (table[data-tarjetas]) */
       panel = '<section data-kardex-panel="' + esc(sku) + '" class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-4">' +
-        '<div class="flex flex-wrap items-center justify-between gap-2 mb-3"><h2 class="font-headline-sm text-headline-sm text-primary-container">Kardex · ' + esc(sel.nombre) + ' <span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(sku) + '</span></h2>' +
-        '<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href('app/seller/inventario.html') + '">Cerrar</a></div>' +
-        (k && k.datos ? (k.datos.length ? '<div class="overflow-x-auto"><table class="w-full font-body-sm text-body-sm"><thead><tr class="text-left text-on-surface-variant">' +
+        '<div class="flex items-start justify-between gap-2 mb-3"><h2 class="min-w-0 font-headline-sm text-headline-sm text-primary-container">Kardex · ' + esc(sel.nombre) +
+          '<span class="block tm-id font-data-mono text-data-mono text-on-surface-variant font-normal">' + esc(sku) + '</span></h2>' +
+        '<a class="shrink-0 inline-flex items-center gap-1 min-h-[40px] px-3 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary" href="' + href('app/seller/inventario.html') + '">' + ic('close', 'text-[18px]') + 'Cerrar</a></div>' +
+        (k && k.datos ? (k.datos.length ? '<div class="sm:overflow-x-auto"><table data-tarjetas class="w-full font-body-sm text-body-sm"><thead><tr class="text-left text-on-surface-variant">' +
             '<th class="py-1.5 pr-3">Fecha</th><th class="py-1.5 pr-3">Tipo</th><th class="py-1.5 pr-3 text-right">Cantidad</th><th class="py-1.5 pr-3 text-right">Stock</th><th class="py-1.5 pr-3">Motivo</th><th class="py-1.5">Por</th></tr></thead><tbody>' +
             k.datos.map(function (m) {
-              return '<tr class="border-t border-outline-variant" data-movimiento="' + esc(m.tipo) + '"><td class="py-1.5 pr-3 font-data-mono text-data-mono whitespace-nowrap">' + esc(new Date(m.fecha).toLocaleString('es-VE')) + '</td>' +
+              return '<tr class="border-t border-outline-variant" data-movimiento="' + esc(m.tipo) + '"><td class="py-1.5 pr-3 whitespace-nowrap">' + esc(UI.fechaHora(m.fecha)) + '</td>' +
                 '<td class="py-1.5 pr-3">' + esc(TIPO_MOV[m.tipo] || m.tipo) + '</td>' +
                 '<td class="py-1.5 pr-3 text-right font-data-mono text-data-mono ' + (m.cantidad < 0 ? 'text-error' : 'text-tertiary') + '">' + (m.cantidad > 0 ? '+' : '') + m.cantidad + '</td>' +
                 '<td class="py-1.5 pr-3 text-right font-data-mono text-data-mono">' + m.antes + ' → ' + m.despues + '</td>' +
-                '<td class="py-1.5 pr-3">' + esc(m.motivo || '') + (m.ref ? ' <span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(m.ref) + '</span>' : '') + '</td>' +
+                '<td class="py-1.5 pr-3">' + (m.motivo ? esc(m.motivo) : m.ref ? '' : '<span class="text-on-surface-variant">—</span>') + (m.ref ? ' <span class="tm-id font-data-mono text-data-mono text-on-surface-variant">' + esc(m.ref) + '</span>' : '') + '</td>' +
                 '<td class="py-1.5 text-on-surface-variant">' + esc(m.por) + '</td></tr>';
-            }).join('') + '</tbody></table></div>' : '<p class="font-body-sm text-body-sm text-on-surface-variant">Aún no hay movimientos.</p>')
+            }).join('') + '</tbody></table></div>' : '<p class="font-body-sm text-body-sm text-on-surface-variant">Aún no hay movimientos de este producto.</p>')
           : k && k.error ? '<p class="font-body-sm text-body-sm text-error">' + esc(k.error) + '</p>'
           : '<p data-kardex-cargando class="font-body-sm text-body-sm text-on-surface-variant">Cargando movimientos…</p>') +
         '</section>';
     }
+    /* En el teléfono cada producto es una tarjeta: nombre, SKU y estado
+       arriba; físico, reservado, disponible y umbral; y las tres acciones a lo ancho. */
+    var boton = 'inline-flex items-center justify-center gap-1 min-h-[36px] px-3 rounded-btn border border-outline-variant bg-surface-container-lowest font-label-md text-label-md hover:border-secondary';
     var filas = lista.map(function (p) {
       var d = C().disponible(p);
       var bajo = d <= umbral(p);
-      return td('<span class="block font-body-sm text-body-sm leading-snug">' + esc(p.nombre) + '</span><span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(p.sku) + '</span>') +
+      var estado = bajo ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm whitespace-nowrap">' + ic('warning', 'text-[14px]') + 'Bajo</span>'
+        : '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-success-container text-on-success-container font-label-sm text-label-sm whitespace-nowrap">' + ic('check_circle', 'text-[14px]') + 'OK</span>';
+      return '<td data-th="" class="px-4 py-3"><div class="flex items-start justify-between gap-2 w-full">' +
+          '<span class="min-w-0"><span class="block font-body-sm text-body-sm leading-snug">' + esc(p.nombre) + '</span><span class="tm-id font-data-mono text-data-mono text-on-surface-variant">' + esc(p.sku) + '</span></span>' +
+          '<span class="shrink-0 lg:hidden">' + estado + '</span></div></td>' +
         td('<span class="font-data-mono text-data-mono">' + p.stockFis + '</span>', 'text-right') +
         td('<span class="font-data-mono text-data-mono">' + p.stockRes + '</span>', 'text-right') +
         td('<span class="font-data-mono text-data-mono ' + (bajo ? 'text-error font-bold' : '') + '">' + d + '</span>', 'text-right') +
-        td('<input data-umbral="' + esc(p.sku) + '" type="number" min="0" value="' + (p.stockMinimo == null ? '' : p.stockMinimo) + '" placeholder="3" aria-label="Umbral de ' + esc(p.sku) + '" class="w-16 h-9 px-2 rounded-btn border border-outline-variant bg-surface-container-low text-right font-data-mono text-data-mono"/>') +
-        td(bajo ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm">' + ic('warning', 'text-[14px]') + 'Bajo</span>'
-                : '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-success-container text-on-success-container font-label-sm text-label-sm">' + ic('check_circle', 'text-[14px]') + 'OK</span>') +
-        td('<div class="flex flex-wrap gap-1 justify-end">' +
-          '<button type="button" data-entrada="' + esc(p.sku) + '" class="px-2 py-1 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary">Entrada</button>' +
-          '<button type="button" data-ajuste="' + esc(p.sku) + '" class="px-2 py-1 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary">Ajuste</button>' +
-          '<a class="px-2 py-1 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary" href="' + href('app/seller/inventario.html?sku=' + encodeURIComponent(p.sku)) + '">Kardex</a></div>', 'text-right');
+        td('<input data-umbral="' + esc(p.sku) + '" type="number" inputmode="numeric" min="0" value="' + (p.stockMinimo == null ? '' : p.stockMinimo) + '" placeholder="3" aria-label="Umbral de ' + esc(p.sku) + '" class="w-20 sm:w-16 h-9 px-2 rounded-btn border border-outline-variant bg-surface-container-low text-right font-data-mono text-data-mono"/>') +
+        td(estado, 'hidden lg:table-cell') +
+        td('<div class="grid grid-cols-3 sm:flex sm:flex-wrap gap-2 sm:gap-1 sm:justify-end w-full">' +
+          '<button type="button" data-entrada="' + esc(p.sku) + '" class="' + boton + '">' + ic('add', 'text-[16px]') + 'Entrada</button>' +
+          '<button type="button" data-ajuste="' + esc(p.sku) + '" class="' + boton + '">' + ic('tune', 'text-[16px]') + 'Ajuste</button>' +
+          '<a class="' + boton + '" href="' + href('app/seller/inventario.html?sku=' + encodeURIComponent(p.sku)) + '">' + ic('history', 'text-[16px]') + 'Kardex</a></div>', 'text-right');
     });
     return cab + panel +
-      UI.tabla(['Producto', 'Físico', 'Reservado', 'Disponible', 'Umbral', 'Estado', ''], filas, UI.vacio('inventory_2', 'Sin productos', 'Carga tu primer producto desde el catálogo.')) +
+      UI.tabla(['Producto', 'Físico', 'Reservado', 'Disponible', 'Umbral', 'Estado', ''], filas, UI.vacio('inventory_2', 'Sin productos', 'Carga tu primer producto desde el catálogo.'), { desdeLg: [5] }) +
       '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Cada cambio del stock físico queda en el kardex: entradas, ventas (al despachar), devoluciones recibidas y ajustes con su motivo. Al llegar al umbral te avisamos en la campana.</p>';
   }
 
@@ -836,13 +912,13 @@
       UI.modal('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-1">' + (tipo === 'entrada' ? 'Entrada de mercancía' : 'Ajuste de inventario') + '</h3>' +
         '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">' + esc(p.nombre) + ' · stock físico ' + p.stockFis + ' (reservado ' + p.stockRes + ')</p>' +
         '<label class="block font-label-md text-label-md mb-1">' + (tipo === 'entrada' ? 'Unidades que entran' : 'Unidades que suma (+) o resta (−)') + '</label>' +
-        '<input data-mov-cant type="number" ' + (tipo === 'entrada' ? 'min="1"' : '') + ' class="w-full h-10 px-3 mb-3 rounded-btn border border-outline-variant bg-surface-container-low font-data-mono text-data-mono"/>' +
+        '<input data-mov-cant type="number" ' + (tipo === 'entrada' ? 'inputmode="numeric" min="1"' : '') + ' class="w-full h-11 px-3 mb-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md"/>' +
         '<label class="block font-label-md text-label-md mb-1">Motivo' + (tipo === 'ajuste' ? ' (obligatorio)' : ' (opcional)') + '</label>' +
-        '<input data-mov-motivo maxlength="200" placeholder="' + (tipo === 'ajuste' ? 'Conteo físico, merma, daño…' : 'Reposición del proveedor…') + '" class="w-full h-10 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm"/>' +
+        '<input data-mov-motivo maxlength="200" placeholder="' + (tipo === 'ajuste' ? 'Conteo físico, merma…' : 'Reposición…') + '" class="w-full h-11 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-md text-body-md"/>' +
         '<p data-mov-err class="hidden mt-2 font-body-sm text-body-sm text-error"></p>' +
-        '<div class="flex justify-end gap-2 mt-4">' + btn('Cancelar', { attr: 'data-cerrar' }) + btn('Guardar', { estilo: 'primario', attr: 'data-ok' }) + '</div>',
+        '<div class="tm-acciones mt-4">' + btn('Cancelar', { attr: 'data-cerrar' }) + btn('Guardar', { estilo: 'primario', attr: 'data-ok' }) + '</div>',
         function (velo, cerrar) {
-          velo.querySelector('[data-mov-cant]').focus();
+          if (!UI.tactil()) velo.querySelector('[data-mov-cant]').focus();
           velo.querySelector('[data-ok]').addEventListener('click', function () {
             var cant = parseInt(velo.querySelector('[data-mov-cant]').value, 10);
             var motivo = velo.querySelector('[data-mov-motivo]').value.trim();
@@ -980,11 +1056,12 @@
       '<section class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
         '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-2">Plantillas y exportación</h2>' +
         (!soloPrecio ? '<label class="block font-label-md text-label-md mb-1" for="cg-cat">Plantilla de ficha por categoría</label>' +
-          '<div class="flex flex-wrap gap-2 mb-3"><select id="cg-cat" data-plantilla-cat class="flex-1 min-w-[200px] h-10 px-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm">' + opcionesCat + '</select>' +
+          '<div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 mb-3"><select id="cg-cat" data-plantilla-cat class="w-full sm:w-auto sm:flex-1 sm:min-w-[200px] h-10 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm">' + opcionesCat + '</select>' +
           btn('Descargar plantilla', { icono: 'download', attr: 'data-descargar-plantilla' }) + '</div>' : '') +
-        '<div class="flex flex-wrap gap-2">' +
-          btn('Plantilla de precio y stock (con tus SKU)', { icono: 'download', attr: 'data-descargar-precios' }) +
+        '<div class="flex flex-col sm:flex-row sm:flex-wrap gap-2">' +
+          btn('Plantilla de precio y stock', { icono: 'download', attr: 'data-descargar-precios' }) +
           btn('Exportar mi catálogo', { icono: 'table_view', attr: 'data-exportar' }) + '</div>' +
+        '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant">La plantilla de precio y stock trae tus SKU con sus valores actuales: cambia solo esas columnas.</p>' +
         '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Archivos CSV en UTF-8 separados por punto y coma (abren bien en Excel en español). Las columnas <span class="font-data-mono text-data-mono">attr:clave</span> son los atributos de la categoría.</p>' +
       '</section>' +
       '<section class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
@@ -993,13 +1070,21 @@
           (!soloPrecio ? '<label class="flex items-center gap-2 font-body-sm text-body-sm mb-1"><input type="radio" name="modo" value="completo"' + (modo === 'completo' ? ' checked' : '') + ' data-modo/> Ficha completa (altas y ediciones)</label>' : '') +
           '<label class="flex items-center gap-2 font-body-sm text-body-sm"><input type="radio" name="modo" value="precio_stock"' + (modo === 'precio_stock' ? ' checked' : '') + ' data-modo/> Solo precio y stock por SKU' +
           (s.rol === 'precios' ? ' (tu rol: solo precio)' : s.rol === 'operador' ? ' (tu rol: solo stock)' : '') + '</label></fieldset>' +
-        '<input type="file" accept=".csv,text/csv" data-csv aria-label="Archivo CSV" class="block w-full font-body-sm text-body-sm mb-2"/>' +
-        (CARGA.nombre ? '<p class="font-body-sm text-body-sm text-on-surface mb-2">' + ic('description', 'text-[16px] align-middle') + ' ' + esc(CARGA.nombre) + ': ' + (CARGA.filas ? CARGA.filas.length + ' fila(s)' : '') + '</p>' : '') +
+        /* el selector de archivos con el mismo aspecto que el resto del Seller Center (TM.archivos) */
+        '<div class="rounded-card border border-dashed border-outline-variant bg-surface-container-low p-3 mb-3">' +
+          '<div class="flex flex-wrap items-center gap-2">' +
+            '<label class="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-btn border border-outline-variant bg-surface-container-lowest font-label-md text-label-md text-on-surface cursor-pointer hover:border-secondary focus-within:ring-2 focus-within:ring-secondary/30">' +
+              ic('upload_file', 'text-[18px]') + (CARGA.nombre ? 'Elegir otro archivo' : 'Elegir archivo CSV') +
+              '<input type="file" accept=".csv,text/csv" data-csv aria-label="Archivo CSV" class="sr-only"/></label>' +
+            '<span class="min-w-0 break-words font-body-sm text-body-sm ' + (CARGA.nombre ? 'text-on-surface' : 'text-on-surface-variant') + '">' +
+              (CARGA.nombre ? ic('description', 'text-[16px] align-middle') + ' ' + esc(CARGA.nombre) + ': ' + (CARGA.filas ? CARGA.filas.length + ' fila(s)' : 'sin filas válidas') : 'Hasta 2 MB y 200 filas.') + '</span>' +
+          '</div></div>' +
         (CARGA.error ? '<p data-carga-error class="font-body-sm text-body-sm text-error mb-2">' + esc(CARGA.error) + '</p>' : '') +
         (modo === 'completo' ? '<label class="flex items-center gap-2 font-body-sm text-body-sm mb-3"><input type="checkbox" data-enviar-revision class="w-4 h-4 rounded"/> Enviar a revisión los productos válidos</label>' : '') +
-        '<div class="flex flex-wrap gap-2">' +
+        '<div class="flex flex-col-reverse sm:flex-row sm:flex-wrap gap-2">' +
           btn('Validar (sin guardar)', { icono: 'rule', attr: 'data-validar' + (CARGA.filas ? '' : ' disabled') }) +
           btn('Importar', { estilo: 'primario', icono: 'upload', attr: 'data-importar' + (CARGA.filas ? '' : ' disabled') }) + '</div>' +
+        (CARGA.filas ? '' : '<p class="mt-2 font-body-sm text-body-sm text-on-surface-variant">Elige un archivo para validarlo o importarlo.</p>') +
       '</section></div>' +
       (r ? '<section data-resultado-carga class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
         '<div class="flex flex-wrap items-center justify-between gap-2 mb-3"><h2 class="font-headline-sm text-headline-sm text-primary-container">' +
@@ -1054,7 +1139,7 @@
           .concat(claves.map(function (k) { return (p.atributos || {})[k] || ''; }));
       });
       descargar('tumbo-catalogo-' + s.sellerId + '-' + hoy + '.csv', [cab].concat(filas));
-      UI.toast('Catálogo exportado', mios.length + ' producto(s).', 'table_view');
+      UI.toast('Catálogo exportado', plural(mios.length, 'producto.', 'productos.'), 'table_view');
     });
     var archivo = raiz.querySelector('[data-csv]');
     archivo.addEventListener('change', function () {
@@ -1126,6 +1211,9 @@
     return UI.badge(d.estado);
   }
   var TIENDA = null;       /* {logo, portada}: ids e imágenes nuevas sin guardar */
+  function falta(v) {
+    return String(v == null ? '' : v).trim() ? '' : ' <span class="ml-1 px-1.5 py-0.5 rounded bg-warning-container text-on-warning-container font-label-sm text-label-sm">Falta</span>';
+  }
 
   function vComercio(q, s) {
     var cab = titulo('Mi comercio');
@@ -1141,11 +1229,16 @@
         : '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Sin ' + (tipo === 'logo' ? 'logo' : 'portada') + '.</p>';
     }
     return cab +
+      /* cabecera: cada insignia con su rótulo (la cuenta puede estar homologada con el expediente aún incompleto) */
       '<section class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-4 flex flex-wrap items-center gap-3">' +
         C().logoSeller(x) +
-        '<div class="flex-1 min-w-[200px]"><p class="font-body-md text-body-md font-bold text-on-surface">' + esc(x.nombre) + ' <span class="font-data-mono text-data-mono text-on-surface-variant">' + esc(x.id) + '</span></p>' +
-        '<p class="flex flex-wrap items-center gap-2 mt-1">' + UI.badge(x.estado) + badgeExpediente(x.expediente) + C().insignia(x) + '</p></div>' +
-        '<a class="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary" href="' + href('app/tienda/seller.html?id=' + encodeURIComponent(x.id)) + '">' + ic('storefront', 'text-[18px]') + 'Ver mi tienda</a>' +
+        '<div class="flex-1 min-w-[180px]"><p class="font-body-md text-body-md font-bold text-on-surface">' + esc(x.nombre) + '</p>' +
+        '<p class="font-body-sm text-body-sm text-on-surface-variant">Código de comercio <span class="tm-id font-data-mono text-data-mono">' + esc(x.id) + '</span></p>' +
+        '<dl class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 font-body-sm text-body-sm">' +
+          '<div class="inline-flex items-center gap-1.5"><dt class="text-on-surface-variant">Cuenta</dt><dd>' + UI.badge(x.estado) + '</dd></div>' +
+          '<div class="inline-flex items-center gap-1.5"><dt class="text-on-surface-variant">Expediente</dt><dd>' + badgeExpediente(x.expediente) + '</dd></div>' +
+          '</dl>' + (C().insignia(x) ? '<p class="mt-1">' + C().insignia(x) + '</p>' : '') + '</div>' +
+        '<a class="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 rounded-btn border border-outline-variant font-label-md text-label-md hover:border-secondary w-full sm:w-auto" href="' + href('app/tienda/seller.html?id=' + encodeURIComponent(x.id)) + '">' + ic('storefront', 'text-[18px]') + 'Ver mi tienda</a>' +
         (x.observacion ? '<p class="w-full font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2">' + esc(x.observacion) + '</p>' : '') +
         '<p class="w-full font-body-sm text-body-sm text-on-surface-variant">La insignia «Verificado por Tumbo» aparece solo cuando Tumbo aprueba los cuatro documentos. Si cambias un dato fiscal o reemplazas un documento, vuelve a revisión.</p>' +
       '</section>' +
@@ -1153,14 +1246,14 @@
       '<div class="grid lg:grid-cols-2 gap-4 mb-4">' +
       seccion('Datos del comercio',
         '<div class="space-y-3" data-form-kyc>' +
-          '<label class="block"><span class="block font-label-md text-label-md mb-1">Razón social</span><input data-kyc="razonSocial" value="' + esc(x.razonSocial) + '" maxlength="160" class="' + campoClase + '"/></label>' +
-          '<label class="block"><span class="block font-label-md text-label-md mb-1">RIF</span><input data-kyc="rif" value="' + esc(x.rif && x.rif !== '—' ? x.rif : '') + '" placeholder="J-12345678-9" class="' + campoClase + ' font-data-mono"/></label>' +
-          '<label class="block"><span class="block font-label-md text-label-md mb-1">Dirección fiscal</span><textarea data-kyc="direccionFiscal" rows="2" maxlength="300" class="w-full px-3 py-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm">' + esc(x.direccionFiscal) + '</textarea></label>' +
+          '<label class="block"><span class="block font-label-md text-label-md mb-1">Razón social' + falta(x.razonSocial) + '</span><input data-kyc="razonSocial" value="' + esc(x.razonSocial) + '" maxlength="160" placeholder="Como figura en tu RIF" autocomplete="organization" class="' + campoClase + '"/></label>' +
+          '<label class="block"><span class="block font-label-md text-label-md mb-1">RIF' + falta(x.rif && x.rif !== '—' ? x.rif : '') + '</span><input data-kyc="rif" value="' + esc(x.rif && x.rif !== '—' ? x.rif : '') + '" placeholder="J-12345678-9" autocapitalize="characters" class="' + campoClase + ' font-data-mono"/></label>' +
+          '<label class="block"><span class="block font-label-md text-label-md mb-1">Dirección fiscal' + falta(x.direccionFiscal) + '</span><textarea data-kyc="direccionFiscal" rows="3" maxlength="300" placeholder="Como figura en tu RIF" class="w-full px-3 py-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm">' + esc(x.direccionFiscal) + '</textarea></label>' +
           '<div class="grid sm:grid-cols-2 gap-3">' +
             '<label class="block"><span class="block font-label-md text-label-md mb-1">Ciudad de despacho</span><input data-kyc="ciudadDespacho" value="' + esc(x.ciudadDespacho || x.ciudad) + '" maxlength="80" class="' + campoClase + '"/></label>' +
-            '<label class="block"><span class="block font-label-md text-label-md mb-1">Teléfono</span><input data-kyc="telefono" value="' + esc(x.telefono) + '" placeholder="0412-1234567" inputmode="tel" class="' + campoClase + '"/></label></div>' +
+            '<label class="block"><span class="block font-label-md text-label-md mb-1">Teléfono' + falta(x.telefono) + '</span><input data-kyc="telefono" type="tel" value="' + esc(x.telefono) + '" placeholder="0412-1234567" inputmode="tel" autocomplete="tel" class="' + campoClase + '"/></label></div>' +
           '<p data-kyc-err class="hidden font-body-sm text-body-sm text-error"></p>' +
-          btn('Guardar datos', { estilo: 'primario', icono: 'save', attr: 'data-guardar-kyc' }) + '</div>') +
+          btn('Guardar datos', { estilo: 'primario', icono: 'save', attr: 'data-guardar-kyc', clase: 'w-full sm:w-auto' }) + '</div>') +
       seccion('Documentos',
         '<ul class="space-y-3">' + docs.map(function (d) {
           return '<li data-doc-orden="' + d.orden + '" class="rounded-btn border border-outline-variant p-3">' +
@@ -1168,11 +1261,11 @@
             '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">' + esc(AYUDA_DOC[d.orden]) + '</p>' +
             (d.observacion ? '<p class="font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-2 py-1 mb-2">' + ic('warning', 'text-[14px] align-middle') + ' ' + esc(d.observacion) + '</p>' : '') +
             (d.archivoId ? '<p class="font-body-sm text-body-sm mb-2">' + ic('description', 'text-[16px] align-middle') + ' ' + esc(d.archivoNombre || 'archivo') +
-              ' · <button type="button" data-ver-doc="' + esc(d.archivoId) + '" class="text-secondary hover:underline">Ver</button></p>' : '') +
+              ' · <button type="button" data-ver-doc="' + esc(d.archivoId) + '" class="tm-tocable font-label-md text-label-md text-secondary hover:underline">Ver</button></p>' : '') +
             TM.archivos.selector({ proposito: 'kyc', entidad: x.id, comprimir: false, texto: d.archivoId ? 'Reemplazar' : 'Subir archivo', ayuda: 'PDF o foto, hasta 8 MB.' }) +
             '</li>';
         }).join('') + '</ul>' +
-        '<div class="mt-3">' + btn('Enviar a revisión', { estilo: 'primario', icono: 'send', attr: 'data-enviar-kyc' }) + '</div>' +
+        '<div class="mt-3">' + btn('Enviar a revisión', { estilo: 'primario', icono: 'send', attr: 'data-enviar-kyc', clase: 'w-full sm:w-auto' }) + '</div>' +
         (C().cuentaDemo(s)
           ? '<p data-privacidad-kyc="prueba" class="mt-2 font-body-sm text-body-sm text-on-warning-container bg-warning-container rounded-btn px-3 py-2">Esta es una cuenta de prueba: su contraseña es pública, así que cualquiera que entre con ella, y el superadministrador de prueba, puede ver estos archivos. No subas documentos reales.</p>'
           : '<p data-privacidad-kyc="real" class="mt-2 font-body-sm text-body-sm text-on-surface-variant">Tus documentos son privados: los ven quienes entran a esta cuenta de seller principal y el superadministrador de Tumbo con su cuenta real y sesión elevada (verificación en dos pasos), con enlaces que vencen a los 5 minutos. Cada consulta del equipo de Tumbo queda en la auditoría.</p>')) +
@@ -1182,7 +1275,7 @@
         '<div class="grid lg:grid-cols-[1fr_320px] gap-4">' +
           '<div class="space-y-3">' +
             '<label class="block"><span class="block font-label-md text-label-md mb-1">Descripción</span><textarea data-tienda="descripcion" rows="3" maxlength="600" class="w-full px-3 py-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm">' + esc(x.descripcion) + '</textarea></label>' +
-            '<label class="block"><span class="block font-label-md text-label-md mb-1">Horario de atención</span><input data-tienda="horario" value="' + esc(x.horario) + '" maxlength="200" placeholder="Lunes a viernes de 8:00 a. m. a 5:00 p. m." class="' + campoClase + '"/></label>' +
+            '<label class="block"><span class="block font-label-md text-label-md mb-1">Horario de atención</span><input data-tienda="horario" value="' + esc(x.horario) + '" maxlength="200" placeholder="Lun a vie, 8 a. m. a 5 p. m." class="' + campoClase + '"/></label>' +
             '<label class="block"><span class="block font-label-md text-label-md mb-1">Políticas de envío y devolución</span><textarea data-tienda="politicas" rows="4" maxlength="2000" class="w-full px-3 py-2 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm">' + esc(x.politicas) + '</textarea></label>' +
           '</div>' +
           '<div class="space-y-4">' +
@@ -1193,7 +1286,7 @@
               TM.archivos.selector({ proposito: 'perfil', entidad: x.id, texto: 'Subir portada', ayuda: 'Horizontal, hasta 3 MB.' }) +
               (TIENDA.portadaUrl ? '<button type="button" data-quitar-imagen="portada" class="mt-1 font-label-md text-label-md text-error hover:underline">Quitar portada</button>' : '') + '</div>' +
           '</div></div>' +
-        '<div class="mt-3">' + btn('Guardar tienda', { estilo: 'primario', icono: 'storefront', attr: 'data-guardar-tienda' }) + '</div>');
+        '<div class="mt-3">' + btn('Guardar tienda', { estilo: 'primario', icono: 'storefront', attr: 'data-guardar-tienda', clase: 'w-full sm:w-auto' }) + '</div>');
   }
 
   function despuesComercio(raiz, q, s) {
@@ -1272,7 +1365,7 @@
     return '<section data-panel-catalogo class="grid sm:grid-cols-2 gap-3 mb-6">' +
       '<a class="flex gap-3 rounded-card border border-outline-variant bg-surface-container-lowest p-4 hover:border-secondary" href="' + href('app/seller/inventario.html') + '">' +
         ic('warehouse', 'text-[24px] ' + (bajos.length ? 'text-warning' : 'text-tertiary') + ' shrink-0') +
-        '<span><span class="block font-body-md text-body-md font-bold">' + (bajos.length ? bajos.length + ' producto(s) en su umbral de stock' : 'Inventario al día') + '</span>' +
+        '<span><span class="block font-body-md text-body-md font-bold">' + (bajos.length ? plural(bajos.length, 'producto llegó', 'productos llegaron') + ' a su umbral de stock' : 'Inventario al día') + '</span>' +
         '<span class="font-body-sm text-body-sm text-on-surface-variant">Revisa el kardex y registra entradas o ajustes.</span></span></a>' +
       '<a class="flex gap-3 rounded-card border border-outline-variant bg-surface-container-lowest p-4 hover:border-secondary" href="' + href('app/seller/comercio.html') + '">' +
         ic(x.kycVerificado ? 'verified' : 'badge', 'text-[24px] ' + (x.kycVerificado ? 'text-tertiary' : 'text-warning') + ' shrink-0') +

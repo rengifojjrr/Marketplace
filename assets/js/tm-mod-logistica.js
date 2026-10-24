@@ -74,7 +74,7 @@
         esc(ciudad) + ', listo en ' + diasTexto(tienda.dias_min, tienda.dias_max) + ' (entre el ' + esc(L.fecha(tienda.fecha_min)) + ' y el ' + esc(L.fecha(tienda.fecha_max)) + ').</p>';
     }
     if (ops.length > 1 || (r.delivery_municipios || []).length) {
-      html += '<details class="mt-1 ml-6 font-body-sm text-body-sm"><summary class="cursor-pointer text-secondary">Ver opciones de envío (' + ops.length + ')</summary>' +
+      html += '<details class="mt-1 ml-6 font-body-sm text-body-sm"><summary class="cursor-pointer text-secondary font-semibold">Ver opciones de envío (' + ops.length + ')</summary>' +
         '<ul class="mt-1 space-y-1">' + ops.map(function (x) {
           return '<li>' + esc(x.servicio) + (x.courier_codigo === 'propio' || x.courier_codigo === 'tienda' ? (enDestino(x) ? '' : ' en ' + esc(ciudad)) : ' · ' + esc(x.courier)) +
             ' · <strong>' + esc(costoTexto(x)) + '</strong> · ' + diasTexto(x.dias_min, x.dias_max) + '</li>';
@@ -85,8 +85,9 @@
         '</details>';
     }
     if (lista.length) {
-      html += '<label class="flex items-center gap-1.5 mt-1 ml-6 font-body-sm text-body-sm text-on-surface-variant">Enviar a' +
-        '<select data-promesa-estado class="h-8 pl-2 pr-8 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm">' +
+      /* (h-10: 44 px con el dedo; sin el relleno vertical, el estado no se recorta) */
+      html += '<label class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2 ml-6 font-body-sm text-body-sm text-on-surface-variant">Enviar a' +
+        '<select data-promesa-estado class="h-10 min-w-0 max-w-full py-0 pl-3 pr-9 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm text-on-surface">' +
         lista.map(function (e) { return '<option' + (e.estado === destino.estado ? ' selected' : '') + '>' + esc(e.estado) + '</option>'; }).join('') + '</select></label>';
     }
     return html;
@@ -166,7 +167,8 @@
     var c = L.dato('seller:cola', 'tm_envios_cola', {});
     var m = c && c.metricas;
     if (!m) return '';
-    var pct = function (a, b) { return b ? Math.round(100 * a / b) + ' %' : '—'; };
+    /* sin pedidos en el período no hay porcentaje: se dice (antes, un «—» sin explicación) */
+    var pct = function (a, b) { return b ? Math.round(100 * a / b) + ' %' : '<span class="font-normal text-on-surface-variant">sin pedidos aún</span>'; };
     return '<section class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mb-6" data-panel-logistica>' +
       '<div class="flex flex-wrap items-center justify-between gap-2 mb-2"><h2 class="font-headline-sm text-headline-sm text-primary-container">Cumplimiento logístico · 30 días</h2>' +
       '<a class="font-label-md text-label-md text-secondary hover:underline" href="' + href('app/seller/envios.html') + '">Configurar envíos</a></div>' +

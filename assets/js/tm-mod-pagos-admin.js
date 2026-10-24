@@ -36,6 +36,7 @@
   }
   function mono(t) { return '<span class="font-data-mono text-data-mono">' + esc(t) + '</span>'; }
   function nota(t) { return '<p class="font-body-sm text-body-sm text-on-surface-variant">' + t + '</p>'; }
+  function explicacion(t, resumen) { return UI.explicacion(t, resumen, 'mt-2 mb-1'); }
   var CAMPO = 'w-full h-10 px-3 rounded-btn border border-outline-variant bg-surface-container-low font-body-sm text-body-sm focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none';
   var ETIQUETA = 'block font-label-md text-label-md text-on-surface mb-1';
 
@@ -47,11 +48,9 @@
   }
 
   function pestanas(vista, tabs, activa) {
-    return '<nav class="flex gap-1 overflow-x-auto border-b border-outline-variant mb-4" aria-label="Secciones">' + tabs.map(function (t) {
-      var on = t[0] === activa;
-      return '<a class="inline-flex items-center gap-1.5 px-3 py-2 -mb-px border-b-2 whitespace-nowrap font-label-md text-label-md ' +
-        (on ? 'border-secondary text-secondary' : 'border-transparent text-on-surface-variant hover:text-on-surface') + '" href="' +
-        href('app/' + vista + '.html?tab=' + t[0]) + '"' + (on ? ' aria-current="page"' : '') + '>' + ic(t[2], 'text-[18px]') + esc(t[1]) + '</a>';
+    /* chips como las demás pestañas del Backoffice */
+    return '<nav class="flex flex-wrap gap-2 mb-4 tm-tira-movil" aria-label="Secciones">' + tabs.map(function (t) {
+      return UI.chip(t[1], href('app/' + vista + '.html?tab=' + t[0]), t[0] === activa);
     }).join('') + '</nav>';
   }
 
@@ -80,12 +79,12 @@
           (c.area ? '<textarea id="md-' + c.k + '" data-' + c.k + ' rows="2" class="' + CAMPO.replace('h-10', 'min-h-[64px] py-2') + ' mb-3"></textarea>'
             : '<input id="md-' + c.k + '" data-' + c.k + ' value="' + esc(c.v || '') + '"' + (c.attr ? ' ' + c.attr : '') + ' class="' + CAMPO + ' mb-3"/>');
       }).join('') + (extraHtml || '') +
-      '<div class="flex justify-end gap-2 mt-2">' + btn('Cancelar', { attr: 'data-cerrar' }) +
+      '<div class="tm-acciones mt-2">' + btn('Cancelar', { attr: 'data-cerrar' }) +
       btn(accionTxt, { estilo: 'primario', attr: 'data-ok' }) + '</div>',
       function (velo, cerrar) {
         if (TM.archivos) TM.archivos.enlazar(velo);
         var primero = velo.querySelector('input,textarea');
-        if (primero) primero.focus();
+        if (primero && !UI.tactil()) primero.focus();
         velo.querySelector('[data-ok]').addEventListener('click', function () {
           var v = {};
           campos.forEach(function (c) { v[c.k] = velo.querySelector('[data-' + c.k + ']').value.trim(); });
@@ -159,7 +158,7 @@
       var vence = g.vence ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">vence en <span data-cuenta-regresiva data-hasta="' + esc(g.vence) + '">' +
         esc(P().restante(Date.parse(g.vence) - Date.now())) + '</span></span>' : '';
       return td(celdaPago(g)) +
-        td(esc(g.metodo || '') + '<span class="block">' + (g.referencia ? mono(g.referencia) : '<span class="font-body-sm text-body-sm text-on-surface-variant">sin reportar</span>') + '</span>' +
+        td(esc(P().nombreMetodo(g.metodo)) + '<span class="block">' + (g.referencia ? mono(g.referencia) : '<span class="font-body-sm text-body-sm text-on-surface-variant">sin reportar</span>') + '</span>' +
           pagador(g) + (g.fecha_pago ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">pagó el ' + esc(P().dia(g.fecha_pago)) + '</span>' : '') +
           botonArchivo(g.comprobante)) +
         td(montoEsperado(g)) +
@@ -171,17 +170,18 @@
           (g.contra_entrega ? '' : btn('Rechazar', { estilo: 'borde', icono: 'block', attr: 'data-rechazar-pago="' + esc(g.id) + '"' })) +
           btn(g.contra_entrega ? 'Registrar cobro' : 'Conciliar', { estilo: 'primario', icono: 'fact_check', attr: 'data-conciliar="' + esc(g.id) + '"' }) + '</div>', 'text-right');
     });
+    /* (en tarjetas también en la tableta: la acción de la cola, Conciliar, siempre a la vista) */
     return UI.tabla(['Pago y pedidos', 'Método y lo reportado', 'Monto esperado', 'Estado', ''], filas,
-      UI.vacio('task_alt', 'Nada por verificar', 'Cada checkout aparece aquí con su pago hasta que lo verifiques con el banco.')) +
-      '<p class="mt-3 font-body-sm text-body-sm text-on-surface-variant">Cada pago se coteja con el banco antes de conciliarlo (no hay conciliación masiva). Conciliar verifica el pago completo: sus pedidos pasan al seller. ' +
+      UI.vacio('task_alt', 'Nada por verificar', 'Cada checkout aparece aquí con su pago hasta que lo verifiques con el banco.'), { tarjetas: 'lg' }) +
+      '<div class="mt-3">' + explicacion('Cada pago se coteja con el banco antes de conciliarlo (no hay conciliación masiva). Conciliar verifica el pago completo: sus pedidos pasan al seller. ' +
       'Si la referencia no aparece, pide una corrección (hasta 2) antes de rechazar. Un pago sin reportar también se puede conciliar si el dinero llegó. ' +
-      'Los pagos de personas reales solo los gestiona una cuenta real del equipo con verificación en dos pasos; las cuentas de prueba practican con los de la demo.</p>';
+      'Los pagos de personas reales solo los gestiona una cuenta real del equipo con verificación en dos pasos; las cuentas de prueba practican con los de la demo.', '¿Cómo se concilia?') + '</div>';
   }
 
   function tablaHistorialPagos(lista, vencidos) {
     var filas = lista.map(function (g) {
       return td(celdaPago(g)) +
-        td(esc(g.metodo || '') + '<span class="block">' + (g.referencia ? mono(g.referencia) : '—') + '</span>' + pagador(g)) +
+        td(esc(P().nombreMetodo(g.metodo)) + '<span class="block">' + (g.referencia ? mono(g.referencia) : '—') + '</span>' + pagador(g)) +
         td(montoEsperado(g)) +
         td(P().insignia('pago', g.estado) + (g.tardio ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">recibido tarde</span>' : '') +
           (g.verificado_el ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(P().fecha(g.verificado_el)) + (g.verificado_por ? ' · ' + esc(g.verificado_por) : '') + '</span>' : '') +
@@ -193,7 +193,7 @@
     });
     return UI.tabla(['Pago y pedidos', 'Método y referencia', 'Monto', 'Estado', ''], filas,
       UI.vacio(vencidos ? 'timer_off' : 'history', vencidos ? 'Sin pagos vencidos recientes' : 'Sin registros',
-        vencidos ? 'Los pagos que vencen sin verificarse quedan aquí 60 días por si el dinero llega tarde (se reactivan los de 7 días; los demás se reembolsan).' : 'Aún no hay pagos en este estado.'));
+        vencidos ? 'Los pagos que vencen sin verificarse quedan aquí 60 días por si el dinero llega tarde (se reactivan los de 7 días; los demás se reembolsan).' : 'Aún no hay pagos en este estado.'), { tarjetas: 'lg' });
   }
 
   /* ---- Estado de cuenta del banco ---- */
@@ -287,12 +287,12 @@
     return '<div class="mt-3 rounded-btn border border-outline-variant p-3">' +
       '<p class="font-body-sm text-body-sm text-on-surface mb-2"><strong>' + importacion.filas.length + ' movimientos leídos</strong> de «' + esc(importacion.archivo) + '» (' +
         abonos + ' abonos)' + (importacion.omitidas ? ', ' + importacion.omitidas + ' filas omitidas (totales o sin fecha)' : '') + '. Los que ya se importaron no se repiten.</p>' +
-      '<div class="overflow-x-auto"><table class="w-full font-body-sm text-body-sm"><thead><tr class="text-left text-on-surface-variant"><th class="pr-3">Fecha</th><th class="pr-3">Referencia</th><th class="pr-3 text-right">Monto</th><th>Descripción</th></tr></thead><tbody>' +
+      '<table data-tarjetas class="w-full font-body-sm text-body-sm"><thead><tr class="text-left text-on-surface-variant border-b border-outline-variant"><th class="py-1 pr-3">Fecha</th><th class="py-1 pr-3">Referencia</th><th class="py-1 pr-3 text-right">Monto</th><th class="py-1">Descripción</th></tr></thead><tbody>' +
       importacion.filas.slice(0, 8).map(function (x) {
-        return '<tr><td class="pr-3">' + esc(P().dia(x.fecha)) + '</td><td class="pr-3 font-data-mono">' + esc(x.referencia) + '</td><td class="pr-3 text-right tm-num">' +
-          esc(P().bs(x.monto)) + '</td><td>' + esc(x.descripcion) + '</td></tr>';
-      }).join('') + '</tbody></table></div>' +
-      '<div class="flex flex-wrap gap-2 mt-3">' + btn('Importar y cruzar', { estilo: 'primario', icono: 'upload', attr: 'data-importar' }) +
+        return '<tr class="border-b border-outline-variant last:border-0"><td class="py-1 pr-3">' + esc(P().dia(x.fecha)) + '</td><td class="py-1 pr-3 font-data-mono break-all">' + esc(x.referencia) + '</td><td class="py-1 pr-3 text-right tm-num">' +
+          esc(P().bs(x.monto)) + '</td><td class="py-1 break-words">' + esc(x.descripcion) + '</td></tr>';
+      }).join('') + '</tbody></table>' +
+      '<div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 mt-3">' + btn('Importar y cruzar', { estilo: 'primario', icono: 'upload', attr: 'data-importar' }) +
         btn('Descartar', { attr: 'data-descartar-importacion' }) + '</div></div>';
   }
 
@@ -330,14 +330,19 @@
       var f = lista.find(function (x) { return x.banco === bancoSel; }) || lista[0];
       var prueba = movs.dato && movs.dato.prueba;
       return caja('<h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Importar el estado de cuenta</h2>' +
-        nota('Descarga el estado de cuenta del banco en CSV y súbelo: se lee aquí con el formato del banco, se cruza cada abono con los pagos por la referencia (también recortada a sus últimos dígitos), el monto y la fecha, y lo que no cuadra va a la cola de excepciones. Un movimiento ya importado no se repite. Hay un tope de movimientos nuevos por persona cada 24 horas.') +
-        (prueba ? '<p data-aviso-prueba class="mt-2 flex items-start gap-1.5 rounded-btn bg-warning-container text-on-warning-container px-3 py-2 font-body-sm text-body-sm">' + ic('lock', 'text-[16px] mt-0.5') +
-          'Son movimientos del banco real: importar, cambiar los formatos y resolver excepciones exige una cuenta real del equipo con verificación en dos pasos. Con una cuenta de prueba solo puedes mirar.</p>' : '') +
+        nota('Descarga el estado de cuenta del banco en CSV y súbelo: cada abono se cruza con los pagos y lo que no cuadra va a la cola de excepciones.') +
+        explicacion('Se lee aquí con el formato del banco y se cruza cada abono con los pagos por la referencia (también recortada a sus últimos dígitos), el monto y la fecha. ' +
+          'Un movimiento ya importado no se repite. Hay un tope de movimientos nuevos por persona cada 24 horas.') +
+        (prueba ? '<div data-aviso-prueba class="mt-2">' + UI.avisoPrueba('Solo puedes mirar: importar exige una cuenta real del equipo.',
+          '<p>Son movimientos del banco real: importar, cambiar los formatos y resolver excepciones exige una cuenta real del equipo con verificación en dos pasos. Con una cuenta de prueba solo puedes mirar.</p>') + '</div>' : '') +
         '<div class="grid sm:grid-cols-[220px_1fr] gap-3 mt-3 items-end">' +
           '<div><label class="' + ETIQUETA + '" for="imp-banco">Banco</label><select id="imp-banco" class="' + CAMPO + '">' + lista.map(function (x) {
             return '<option value="' + esc(x.banco) + '"' + (x.banco === (f && f.banco) ? ' selected' : '') + '>' + esc(x.nombre) + '</option>';
           }).join('') + '</select></div>' +
-          '<div><label class="' + ETIQUETA + '" for="imp-archivo">Archivo CSV</label><input id="imp-archivo" type="file" accept=".csv,.txt,text/csv,text/plain" class="block w-full font-body-sm text-body-sm"/></div>' +
+          /* el selector con el aspecto de los demás adjuntos del sitio (no el «Choose File» del navegador) */
+          '<div><p class="' + ETIQUETA + '">Archivo CSV</p><label class="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 min-h-[44px] px-4 rounded-btn border border-outline-variant bg-surface-container-lowest font-label-md text-label-md text-on-surface cursor-pointer hover:border-secondary focus-within:ring-2 focus-within:ring-secondary/30">' +
+            ic('upload_file', 'text-[18px]') + (importacion ? 'Elegir otro archivo' : 'Elegir el estado de cuenta') +
+            '<input id="imp-archivo" type="file" accept=".csv,.txt,text/csv,text/plain" aria-label="Archivo CSV del estado de cuenta" class="sr-only"/></label></div>' +
         '</div><div data-vista-previa>' + vistaPrevia() + '</div>' + (f ? editorFormato(f) : ''));
     }, 'Cargando los formatos de los bancos…') +
     subtitulo('Excepciones por resolver') +
@@ -355,10 +360,12 @@
             '</div>', 'text-right');
       });
       var r = d.resumen || {};
-      return '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Movimientos importados: ' + (r.conciliado || 0) + ' conciliados · ' + (r.excepcion || 0) + ' excepciones · ' +
-        (r.reembolsado || 0) + ' reembolsados · ' + (r.ignorado || 0) + ' ignorados. Vincular verifica un pago abierto; reembolsar devuelve el dinero de un pago rechazado, vencido, cancelado o repetido (con doble aprobación).</p>' +
+      return '<p class="font-body-sm text-body-sm text-on-surface-variant">Movimientos importados: ' + (r.conciliado || 0) + ' conciliados · ' + (r.excepcion || 0) + ' excepciones · ' +
+        (r.reembolsado || 0) + ' reembolsados · ' + (r.ignorado || 0) + ' ignorados.</p>' +
+        '<div class="mb-2">' + explicacion('Vincular verifica un pago abierto; reembolsar devuelve el dinero de un pago rechazado, vencido, cancelado o repetido (con doble aprobación).', '¿Qué hago con una excepción?') + '</div>' +
         UI.tabla(['Fecha', 'Referencia', 'Monto', 'Motivo', ''], filas,
-          UI.vacio('task_alt', 'Sin excepciones', 'Los abonos que no cuadran con un pago (monto distinto, parcial, duplicado, sin referencia, fuera de fecha o de un pago vencido) aparecen aquí.')) +
+          '<div class="rounded-card border border-outline-variant bg-surface-container-lowest">' +
+          UI.vacio('task_alt', 'Sin excepciones', 'Los abonos que no cuadran con un pago (monto distinto, parcial, duplicado, sin referencia, fuera de fecha o de un pago vencido) aparecen aquí.', '', { compacto: true }) + '</div>') +
         (d.importaciones.length ? subtitulo('Últimas importaciones') + UI.tabla(['Fecha', 'Banco', 'Archivo', 'Filas', 'Nuevas', 'Repetidas', 'Conciliadas', 'Excepciones', 'Por'],
           d.importaciones.map(function (i) {
             return td(esc(P().fecha(i.creado))) + td(esc(i.banco)) + td(esc(i.archivo || '—')) + td(i.filas) + td(i.nuevas) + td(i.repetidas) + td(i.conciliadas) + td(i.excepciones) + td(esc(i.por));
@@ -554,10 +561,10 @@
             td(btn(TM.modo === 'remoto' ? 'Cerrar ventana' : 'Cerrar ventana (demo)', { icono: 'lock_open', attr: 'data-cerrar-ventana="' + esc(p.id) + '"' }), 'text-right');
         }))
       : '<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Ninguna: todos los pedidos entregados cerraron su ventana.</p>') +
-      '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1 mb-6">' + (TM.modo === 'remoto'
+      '<div class="mb-6">' + explicacion(TM.modo === 'remoto'
         ? 'La ventana se cierra sola a los ' + e.config.ventanaReclamoDias + ' días de la entrega (lo hace la revisión de SLA). La de un pedido de la demo puedes cerrarla antes para avanzar el recorrido; ' +
           'la de una persona o un comercio real, solo cuando venció y con una cuenta real del equipo (el comprador conserva su plazo para reclamar).'
-        : 'En producción la ventana se cierra sola a los ' + e.config.ventanaReclamoDias + ' días; en la beta puedes cerrarla a mano para avanzar el recorrido.') + '</p>';
+        : 'En producción la ventana se cierra sola a los ' + e.config.ventanaReclamoDias + ' días; en la beta puedes cerrarla a mano para avanzar el recorrido.', '¿Cuándo se cierra la ventana?') + '</div>';
   }
 
   function vLiquidacionesLocal() {
@@ -606,30 +613,37 @@
 
   function tarjetaPorPreparar(x, tasaHoy) {
     var ids = x.pedidos.map(function (p) { return p.id; });
+    function par(t, v, clase) {
+      return '<div class="flex items-baseline justify-between gap-2 min-w-0"><dt class="text-on-surface-variant">' + t + '</dt><dd class="tm-num ' + (clase || 'text-on-surface') + '">' + v + '</dd></div>';
+    }
     return caja('<div data-corrida-seller="' + esc(x.seller_id) + '">' +
-      '<div class="flex flex-wrap items-center gap-2 mb-1"><span class="font-body-md text-body-md font-bold">' + esc(x.seller) + '</span>' + mono(x.seller_id) +
+      '<div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 mb-2"><div class="min-w-0"><p class="font-body-md text-body-md font-bold text-on-surface break-words">' + esc(x.seller) + '</p>' +
+        '<p class="tm-id font-data-mono text-data-mono text-on-surface-variant">' + esc(x.seller_id) + '</p></div>' +
         (x.retencion ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm">' + ic('lock', 'text-[14px]') + 'Retenido: ' + esc(x.retencion) + '</span>' : '') + '</div>' +
-      '<p class="font-body-sm text-body-sm ' + (x.cuenta ? 'text-on-surface-variant' : 'text-warning font-bold') + ' mb-2">' +
+      '<p class="font-body-sm text-body-sm ' + (x.cuenta ? 'text-on-surface-variant' : 'text-warning font-bold') + ' mb-3 break-words">' +
         (x.cuenta ? 'Cobra en: ' + esc(textoCuenta(x.cuenta)) : 'Sin cuenta de liquidación verificada y vigente: se puede preparar, pero no pagar.') + '</p>' +
-      '<div class="overflow-x-auto"><table class="w-full font-body-sm text-body-sm mb-2"><thead><tr class="text-left text-on-surface-variant border-b border-outline-variant">' +
+      '<table data-tarjetas class="w-full font-body-sm text-body-sm mb-3"><thead><tr class="text-left text-on-surface-variant border-b border-outline-variant">' +
         '<th class="py-1 pr-3">Pedido</th><th class="py-1 pr-3 text-right">Base</th><th class="py-1 pr-3 text-right">Envío</th><th class="py-1 pr-3 text-right">Comisión</th><th class="py-1 pr-3 text-right">Tarifa</th><th class="py-1 text-right">Neto</th></tr></thead><tbody>' +
         x.pedidos.map(function (p) {
-          return '<tr class="border-b border-outline-variant last:border-0"><td class="py-1 pr-3 font-data-mono">' + esc(p.id) + '</td>' +
+          return '<tr class="border-b border-outline-variant sm:last:border-0 max-sm:rounded-btn max-sm:border max-sm:mb-2 max-sm:!px-3 max-sm:!py-2"><td class="py-1 pr-3"><span class="tm-id font-data-mono text-data-mono">' + esc(p.id) + '</span></td>' +
             '<td class="py-1 pr-3 text-right tm-num">' + esc(P().usd(p.base)) + '</td><td class="py-1 pr-3 text-right tm-num">' + esc(P().usd(p.envio)) + '</td>' +
-            '<td class="py-1 pr-3 text-right tm-num">−' + esc(P().usd(p.comision)) + ' <span class="text-on-surface-variant">(' + esc(P().pct(p.comision_pct)) + ')</span></td>' +
+            '<td class="py-1 pr-3 text-right"><span class="tm-num">−' + esc(P().usd(p.comision)) + '</span><span class="tm-num ml-1 text-on-surface-variant">(' + esc(P().pct(p.comision_pct)) + ')</span></td>' +
             '<td class="py-1 pr-3 text-right tm-num">−' + esc(P().usd(p.tarifa)) + '</td><td class="py-1 text-right tm-num font-bold">' + esc(P().usd(p.neto)) + '</td></tr>';
-        }).join('') + '</tbody></table></div>' +
-      (x.ajustes_detalle.length ? '<p class="font-body-sm text-body-sm mb-2">Ajustes: ' + x.ajustes_detalle.map(function (a) {
+        }).join('') + '</tbody></table>' +
+      (x.ajustes_detalle.length ? '<p class="font-body-sm text-body-sm mb-2 break-words">Ajustes: ' + x.ajustes_detalle.map(function (a) {
         return '<span class="whitespace-nowrap">' + (a.monto_usd > 0 ? '+' : '') + esc(P().usd(a.monto_usd)) + '</span> (' + esc(a.motivo) + ')';
       }).join(' · ') + '</p>' : '') +
-      '<p class="font-body-sm text-body-sm mb-3">Base <strong class="tm-num">' + esc(P().usd(x.bruto)) + '</strong> · envío <strong class="tm-num">' + esc(P().usd(x.envio)) + '</strong>' +
-        (P().n(x.ajustes) ? ' · ajustes <strong class="tm-num">' + esc(P().usd(x.ajustes)) + '</strong>' : '') +
-        ' · comisión y tarifas <strong class="tm-num text-error">−' + esc(P().usd(P().n(x.comision) + P().n(x.tarifa))) + '</strong> · neto <strong class="tm-num">' + esc(P().usd(x.neto)) + '</strong>' +
-        ' <span class="text-on-surface-variant">(≈ ' + esc(P().bs(P().n(x.neto) * tasaHoy)) + ' a la tasa de hoy)</span></p>' +
+      '<dl class="grid grid-cols-2 sm:flex sm:flex-wrap gap-x-5 gap-y-1 rounded-btn bg-surface-container-low px-3 py-2 mb-3 font-body-sm text-body-sm">' +
+        par('Base', esc(P().usd(x.bruto))) + par('Envío', esc(P().usd(x.envio))) +
+        (P().n(x.ajustes) ? par('Ajustes', esc(P().usd(x.ajustes))) : '') +
+        par('Comisión y tarifas', '−' + esc(P().usd(P().n(x.comision) + P().n(x.tarifa))), 'text-error') +
+        '<div class="col-span-2 sm:col-span-1 flex items-baseline justify-between gap-2 border-t border-outline-variant pt-1 sm:border-0 sm:pt-0"><dt class="font-bold text-on-surface">Neto</dt>' +
+          '<dd class="text-right"><strong class="tm-num text-on-surface">' + esc(P().usd(x.neto)) + '</strong> <span class="tm-num text-on-surface-variant">≈ ' + esc(P().bs(P().n(x.neto) * tasaHoy)) + ' hoy</span></dd></div>' +
+      '</dl>' +
       '<div class="flex flex-wrap gap-2">' +
         (x.retencion ? '<button type="button" disabled class="inline-flex items-center gap-1.5 min-h-[40px] px-4 rounded-btn border border-outline-variant font-label-md text-label-md opacity-50">' + ic('lock', 'text-[18px]') + 'Retenido</button>'
           : x.bloqueado ? P().soloCuentaReal(COMERCIO_REAL)
-          : btn('Preparar corrida', { estilo: 'marca', icono: 'receipt_long', attr: 'data-liquidar="' + esc(x.seller_id) + '" data-pedidos="' + esc(ids.join(',')) + '"' })) +
+          : btn('Preparar corrida', { estilo: 'marca', icono: 'receipt_long', attr: 'data-liquidar="' + esc(x.seller_id) + '" data-pedidos="' + esc(ids.join(',')) + '"', clase: 'w-full sm:w-auto' })) +
       '</div></div>', 'mb-3');
   }
 
@@ -657,13 +671,16 @@
       if (l.ciclo === 'aprobada') acciones.push(btn('La transferencia falló', { icono: 'error', attr: 'data-fallar-liq="' + esc(l.id) + '"' }));
       acciones.push(btn('Anular', { estilo: 'peligro', icono: 'block', attr: 'data-anular-liq="' + esc(l.id) + '"' }));
     }
+    var nPed = (l.pedidos || []).length;
     return caja('<div data-liquidacion="' + esc(l.id) + '">' +
-      '<div class="flex flex-wrap items-center gap-2 mb-1">' +
-        (l.ciclo === 'aprobada' ? '<input type="checkbox" data-lote-liq="' + esc(l.id) + '" aria-label="Incluir en el lote" class="rounded text-secondary focus:ring-secondary/40"/>' : '') +
-        mono(l.id) + P().insignia('ciclo', l.ciclo) + '<span class="font-body-md text-body-md font-bold">' + esc(l.seller) + '</span>' + mono(l.seller_id) +
-        '<span class="ml-auto font-body-md text-body-md font-bold tm-num">' + esc(P().usd(l.neto_usd)) + '</span></div>' +
-      '<p class="font-body-sm text-body-sm text-on-surface-variant">' + (l.pedidos || []).length + ' pedidos (' + esc((l.pedidos || []).join(', ')) + ') · ' + esc(l.periodo || '') +
-        ' · comprobante ' + esc(l.comprobante || '') + ' · ≈ ' + esc(P().bs(P().n(l.neto_usd) * tasaHoy)) + ' a la tasa de hoy</p>' +
+      '<div class="flex items-start justify-between gap-3 mb-1">' +
+        '<div class="min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1">' +
+        (l.ciclo === 'aprobada' ? '<label class="inline-flex items-center justify-center w-8 h-8 -ml-1 cursor-pointer"><input type="checkbox" data-lote-liq="' + esc(l.id) + '" aria-label="Incluir ' + esc(l.id) + ' en el lote" class="w-5 h-5 rounded text-secondary focus:ring-secondary/40"/></label>' : '') +
+        '<span class="tm-id font-data-mono text-data-mono text-on-surface">' + esc(l.id) + '</span>' + P().insignia('ciclo', l.ciclo) + '</div>' +
+        '<span class="shrink-0 font-body-md text-body-md font-bold tm-num">' + esc(P().usd(l.neto_usd)) + '</span></div>' +
+      '<p class="font-body-md text-body-md font-bold text-on-surface break-words">' + esc(l.seller) + ' <span class="tm-id font-data-mono text-data-mono font-normal text-on-surface-variant">' + esc(l.seller_id) + '</span></p>' +
+      '<p class="font-body-sm text-body-sm text-on-surface-variant break-words">' + nPed + ' pedido' + (nPed === 1 ? '' : 's') + ' (' + esc((l.pedidos || []).join(', ')) + ')' + (l.periodo ? ' · ' + esc(l.periodo) : '') +
+        (l.comprobante ? ' · comprobante ' + esc(l.comprobante) : '') + ' · <span class="tm-num">≈ ' + esc(P().bs(P().n(l.neto_usd) * tasaHoy)) + '</span> a la tasa de hoy</p>' +
       '<p class="font-body-sm text-body-sm text-on-surface-variant">' + [quien('preparar', 'Preparó'), quien('aprobar', 'Aprobó'), quien('fallar', 'Falló')].filter(Boolean).join(' · ') +
         ((l.ajustes_por || []).length ? ' · ajustes de ' + esc(l.ajustes_por.join(', ')) : '') + '</p>' +
       (l.motivo ? '<p class="font-body-sm text-body-sm text-error">' + esc(l.motivo) + '</p>' : '') +
@@ -681,10 +698,11 @@
     var opcionesSeller = d.sellers.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.nombre) + ' (' + esc(x.id) + ')</option>'; }).join('');
     var automaticas = d.sellers.filter(function (x) { return x.retencion && !manuales[x.id]; });
     return subtitulo('Corridas por preparar') +
-      nota('Cada lunes a las 8:00 (hora de Caracas) el calendario prepara las corridas solo, si el servidor tiene activas las tareas programadas. También puedes prepararlas a mano: la corrida toma exactamente los pedidos mostrados, con la comisión guardada al vender y el envío cobrado (el seller paga la guía). ' +
+      explicacion('Cada lunes a las 8:00 (hora de Caracas) el calendario prepara las corridas solo, si el servidor tiene activas las tareas programadas. También puedes prepararlas a mano: la corrida toma exactamente los pedidos mostrados, con la comisión guardada al vender y el envío cobrado (el seller paga la guía). ' +
         'Siempre intervienen dos personas: la aprueba otra que quien la preparó y que quien registró sus ajustes; la del calendario la paga otra que quien la aprobó.') +
       '<div class="mt-2">' + (d.por_preparar.length ? d.por_preparar.map(function (x) { return tarjetaPorPreparar(x, tasaHoy); }).join('')
-        : UI.vacio('receipt_long', 'Sin corridas por preparar', 'Cuando haya pedidos con fondos elegibles, la corrida de cada seller aparecerá aquí.')) + '</div>' +
+        : '<div class="rounded-card border border-outline-variant bg-surface-container-lowest mb-3">' +
+          UI.vacio('receipt_long', 'Sin corridas por preparar', 'Cuando haya pedidos con fondos elegibles, la corrida de cada seller aparecerá aquí.', '', { compacto: true }) + '</div>') + '</div>' +
       subtitulo('Corridas en curso', aprobadas.length ? btn('Lote para el banco (CSV)', { icono: 'download', attr: 'data-exportar-lote' }) : '') +
       (d.en_curso.length ? d.en_curso.map(function (l) { return tarjetaEnCurso(l, tasaHoy); }).join('')
         : nota('Ninguna: las corridas preparadas esperan aquí la aprobación de otra persona y después el pago.')) +
@@ -725,14 +743,19 @@
       '</div>' +
       subtitulo('Historial') +
       UI.tabla(['Liquidación', 'Seller', 'Pedidos', 'Neto', 'Pago en Bs.', 'Referencia', 'Estado'], d.historial.map(function (l) {
-        return td(mono(l.id) + '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(P().dia(l.fecha)) + '</span>') +
-          td(esc(l.seller)) + td((l.pedidos || []).length) +
+        /* bajo lg, los pedidos van con la liquidación (a 768 px la tabla no cabía por 11 px) */
+        var nPed = (l.pedidos || []).length;
+        return td(mono(l.id) + '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(P().dia(l.fecha)) +
+            '<span class="lg:hidden"> · ' + nPed + ' pedido' + (nPed === 1 ? '' : 's') + '</span></span>') +
+          td(esc(l.seller)) + td(nPed, 'hidden lg:table-cell') +
           td('<span class="font-data-mono text-data-mono font-bold">' + esc(P().usd(l.neto_usd)) + '</span>') +
           td(l.neto_bs != null ? '<span class="tm-num">' + esc(P().bs(l.neto_bs)) + '</span><span class="block font-body-sm text-body-sm text-on-surface-variant">tasa ' + esc(P().tasa(l.tasa_pago)) +
             (l.diferencial_bs != null ? ' · diferencial ' + esc(P().bs(l.diferencial_bs)) : '') + '</span>' : '<span class="text-on-surface-variant">—</span>') +
-          td(mono(l.referencia_pago || '—') + '<span class="block font-body-sm text-body-sm">' + esc(l.comprobante || '') + ' ' + botonArchivo(l.comprobante_archivo, 'Ver comprobante') + '</span>') +
+          td((l.referencia_pago ? '<span class="block">' + mono(l.referencia_pago) + '</span>' : '') +
+            (l.comprobante ? '<span class="block font-body-sm text-body-sm">' + (l.referencia_pago ? '' : 'Comprobante ') + '<span class="tm-id">' + esc(l.comprobante) + '</span></span>' : '') +
+            (!l.referencia_pago && !l.comprobante ? '<span class="text-on-surface-variant">—</span>' : '') + botonArchivo(l.comprobante_archivo, 'Ver comprobante')) +
           td(P().insignia('ciclo', l.ciclo || 'pagada') + (l.motivo ? '<span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(l.motivo) + '</span>' : ''));
-      }), UI.vacio('receipt_long', 'Sin liquidaciones', 'Aquí queda el historial de corridas pagadas y anuladas.'));
+      }), UI.vacio('receipt_long', 'Sin liquidaciones', 'Aquí queda el historial de corridas pagadas y anuladas.'), { desdeLg: [2] });
   }
 
   function vLiquidaciones(q, s) {
@@ -912,26 +935,29 @@
   function seccionTasa(res, s) {
     var t = res.tasa || {};
     var prop = res.tasa_propuesta;
+    /* una cuenta de prueba no propone ni confirma la tasa: los controles se ven
+       deshabilitados (antes abrían el diálogo y fallaban después) */
+    var dis = s && s.demo ? ' disabled title="Con una cuenta real del equipo y la verificación en dos pasos"' : '';
     return caja('<div class="flex flex-wrap items-start justify-between gap-3">' +
-      '<div><p class="font-label-caps text-label-caps uppercase text-on-surface-variant">Tasa vigente</p>' +
+      '<div class="min-w-0 max-w-xl"><p class="font-label-caps text-label-caps uppercase text-on-surface-variant">Tasa vigente</p>' +
         '<p class="font-headline-md text-headline-md font-bold text-primary-container tm-num">Bs. ' + esc(P().tasa(t.valor)) + '</p>' +
         '<p class="font-body-sm text-body-sm text-on-surface-variant">' + (t.fecha ? 'Del ' + esc(P().dia(t.fecha)) + ' · ' : '') + esc(t.fuente || '') +
           (t.actualizada ? ' · consultada ' + esc(P().fecha(t.actualizada)) : '') + '</p>' +
         (t.desactualizada ? '<p class="mt-1 flex items-center gap-1 font-body-sm text-body-sm text-error">' + ic('warning', 'text-[16px]') + 'Lleva más de ' + esc(t.horas_alerta || 24) + ' h sin actualizarse: revisa la fuente o cárgala a mano.</p>' : '') +
-        '<p class="mt-1 font-body-sm text-body-sm text-on-surface-variant">La fuente automática solo aplica una tasa de la fecha vigente o posterior y cercana a la actual; si se aleja mucho, queda propuesta para que la confirme una persona.</p></div>' +
+        explicacion('La fuente automática solo aplica una tasa de la fecha vigente o posterior y cercana a la actual; si se aleja mucho, queda propuesta para que la confirme una persona.', '¿De dónde sale la tasa?') + '</div>' +
       (prop ? '<div data-tasa-propuesta class="rounded-btn border border-warning bg-warning-container/40 p-3"><p class="font-body-sm text-body-sm"><strong>Propuesta: Bs. ' + esc(P().tasa(prop.valor)) + '</strong> del ' + esc(P().dia(prop.fecha)) +
           (prop.automatica ? ' (de la fuente automática: ' + esc(prop.fuente || '') + ')' : ' (propuso ' + esc(prop.propuesta_por) + ')') + '</p>' +
           (prop.nota ? '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(prop.nota) + '</p>' : '') +
           (prop.mia ? '<p class="font-body-sm text-body-sm text-on-surface-variant">La confirma otra persona del equipo.</p>' +
-            '<div class="mt-2">' + btn('Descartar', { attr: 'data-tasa-decidir="0" data-id="' + prop.id + '"' }) + '</div>'
-            : '<div class="flex gap-2 mt-2">' + btn('Descartar', { attr: 'data-tasa-decidir="0" data-id="' + prop.id + '"' }) +
-              btn('Confirmar y aplicar', { estilo: 'primario', icono: 'check', attr: 'data-tasa-decidir="1" data-id="' + prop.id + '"' }) + '</div>') + '</div>'
-        : '<details class="min-w-[260px]"><summary class="cursor-pointer font-label-md text-label-md text-secondary">Cargar la tasa a mano</summary>' +
+            '<div class="mt-2">' + btn('Descartar', { attr: 'data-tasa-decidir="0" data-id="' + prop.id + '"' + dis }) + '</div>'
+            : '<div class="flex gap-2 mt-2">' + btn('Descartar', { attr: 'data-tasa-decidir="0" data-id="' + prop.id + '"' + dis }) +
+              btn('Confirmar y aplicar', { estilo: 'primario', icono: 'check', attr: 'data-tasa-decidir="1" data-id="' + prop.id + '"' + dis }) + '</div>') + '</div>'
+        : '<details class="w-full sm:w-auto sm:min-w-[260px]"><summary class="inline-flex items-center gap-1 cursor-pointer font-label-md text-label-md text-secondary">' + ic('edit', 'text-[18px]') + 'Cargar la tasa a mano</summary>' +
           '<div class="grid grid-cols-2 gap-2 mt-2">' +
-            '<div><label class="' + ETIQUETA + '" for="ts-valor">Bs. por USD</label><input id="ts-valor" type="number" step="0.0001" min="0" class="' + CAMPO + '"/></div>' +
-            '<div><label class="' + ETIQUETA + '" for="ts-fecha">Vigente desde</label><input id="ts-fecha" type="date" value="' + P().hoy() + '" class="' + CAMPO + '"/></div>' +
-            '<div class="col-span-2"><label class="' + ETIQUETA + '" for="ts-nota">Nota</label><input id="ts-nota" maxlength="200" placeholder="Ej.: publicada en bcv.org.ve" class="' + CAMPO + '"/></div>' +
-          '</div><div class="mt-2">' + btn('Proponer tasa', { icono: 'currency_exchange', attr: 'data-proponer-tasa' }) + '</div>' +
+            '<div><label class="' + ETIQUETA + '" for="ts-valor">Bs. por USD</label><input id="ts-valor" type="number" inputmode="decimal" step="0.0001" min="0" class="' + CAMPO + '"' + (dis ? ' disabled' : '') + '/></div>' +
+            '<div><label class="' + ETIQUETA + '" for="ts-fecha">Vigente desde</label><input id="ts-fecha" type="date" value="' + P().hoy() + '" class="' + CAMPO + '"' + (dis ? ' disabled' : '') + '/></div>' +
+            '<div class="col-span-2"><label class="' + ETIQUETA + '" for="ts-nota">Nota</label><input id="ts-nota" maxlength="200" placeholder="Ej.: publicada en bcv.org.ve" class="' + CAMPO + '"' + (dis ? ' disabled' : '') + '/></div>' +
+          '</div><div class="mt-2">' + btn('Proponer tasa', { icono: 'currency_exchange', attr: 'data-proponer-tasa' + dis }) + '</div>' +
           '<p class="mt-1 font-body-sm text-body-sm text-on-surface-variant">La propone una persona y la confirma otra, las dos con verificación en dos pasos (las cuentas de prueba no pueden).</p></details>') +
       '</div>');
   }
@@ -943,42 +969,46 @@
       caja('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-2">Saldos por cuenta</h3>' +
         '<p class="font-body-sm text-body-sm mb-2 ' + (cuadra ? 'text-tertiary' : 'text-error') + '">' + ic(cuadra ? 'check_circle' : 'error', 'text-[16px] align-middle') +
           ' Debe ' + esc(P().usd(t.debe)) + ' · Haber ' + esc(P().usd(t.haber)) + (cuadra ? ' · cuadra' : ' · NO cuadra') + '</p>' +
-        '<div class="overflow-x-auto"><table class="w-full font-body-sm text-body-sm"><thead><tr class="text-left text-on-surface-variant border-b border-outline-variant">' +
-          '<th class="py-1 pr-3">Cuenta</th><th class="py-1 pr-3 text-right">Debe</th><th class="py-1 pr-3 text-right">Haber</th><th class="py-1 text-right">Saldo</th></tr></thead><tbody>' +
-          l.cuentas.map(function (c) {
-            return '<tr class="border-b border-outline-variant last:border-0"><td class="py-1 pr-3">' + esc(CUENTAS[c.cuenta] || c.cuenta) + '</td>' +
-              '<td class="py-1 pr-3 text-right tm-num">' + esc(P().usd(c.debe)) + '</td><td class="py-1 pr-3 text-right tm-num">' + esc(P().usd(c.haber)) + '</td>' +
-              '<td class="py-1 text-right tm-num font-bold">' + esc(P().usd(c.saldo)) + '</td></tr>';
-          }).join('') + '</tbody></table></div>') +
+        (l.cuentas.length
+          ? '<table data-tarjetas class="w-full font-body-sm text-body-sm"><thead><tr class="text-left text-on-surface-variant border-b border-outline-variant">' +
+            '<th class="py-1 pr-3">Cuenta</th><th class="py-1 pr-3 text-right">Debe</th><th class="py-1 pr-3 text-right">Haber</th><th class="py-1 text-right">Saldo</th></tr></thead><tbody>' +
+            l.cuentas.map(function (c) {
+              return '<tr class="border-b border-outline-variant last:border-0 max-sm:!px-0"><td class="py-1 pr-3 max-sm:font-semibold">' + esc(CUENTAS[c.cuenta] || c.cuenta) + '</td>' +
+                '<td class="py-1 pr-3 text-right tm-num">' + esc(P().usd(c.debe)) + '</td><td class="py-1 pr-3 text-right tm-num">' + esc(P().usd(c.haber)) + '</td>' +
+                '<td class="py-1 text-right tm-num font-bold">' + esc(P().usd(c.saldo)) + '</td></tr>';
+            }).join('') + '</tbody></table>'
+          : nota('Sin asientos en el período: elige otras fechas arriba.'))) +
       caja('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-2">Por pagar a cada seller</h3>' +
         (l.sellers.length ? '<ul class="divide-y divide-outline-variant font-body-sm text-body-sm">' + l.sellers.map(function (x) {
-          return '<li class="py-1.5 flex justify-between gap-2"><span>' + esc(x.seller || x.seller_id) + ' ' + mono(x.seller_id) + '</span><span class="tm-num font-bold">' + esc(P().usd(x.por_pagar)) + '</span></li>';
-        }).join('') + '</ul>' : nota('Sin saldos.')) +
+          return '<li class="py-1.5 flex justify-between gap-3"><span class="min-w-0 break-words">' + esc(x.seller || x.seller_id) + ' <span class="tm-id font-data-mono text-data-mono text-on-surface-variant">' + esc(x.seller_id) + '</span></span><span class="shrink-0 tm-num font-bold">' + esc(P().usd(x.por_pagar)) + '</span></li>';
+        }).join('') + '</ul>' : nota('Nada por pagar a los sellers en el período.')) +
         '<h3 class="font-headline-sm text-headline-sm text-primary-container mt-4 mb-2">Cierres diarios</h3>' +
         (l.cierres.length ? '<ul class="divide-y divide-outline-variant font-body-sm text-body-sm">' + l.cierres.slice(0, 10).map(function (c) {
           return '<li class="py-1.5 flex flex-wrap justify-between gap-2"><span>' + esc(P().dia(c.fecha)) + ' · ' + c.asientos + ' asientos</span>' +
             '<span class="' + (c.cuadra ? 'text-tertiary' : 'text-error font-bold') + '">' + (c.cuadra ? 'cuadra' : 'no cuadra (' + c.descuadrados + ')') + ' · ' + esc(P().usd(c.debe)) + '</span></li>';
         }).join('') + '</ul>' : nota('El cierre se calcula cada madrugada (tarea programada).'))) +
       '</div>' +
-      '<details class="mt-3"><summary class="cursor-pointer font-label-md text-label-md text-secondary">Últimos asientos del período (' + l.asientos.length + ')</summary>' +
+      (l.asientos.length ? '<details class="mt-3"><summary class="inline-flex items-center gap-1 cursor-pointer font-label-md text-label-md text-secondary">' + ic('list', 'text-[18px]') +
+        'Últimos asientos del período (' + l.asientos.length + ')</summary>' +
       '<div class="mt-2 space-y-2">' + l.asientos.slice(0, 60).map(function (a) {
-        return '<div class="rounded-btn border border-outline-variant p-2 font-body-sm text-body-sm"><p><span class="font-data-mono">#' + a.id + '</span> · ' + esc(P().fecha(a.fecha)) + ' · ' +
+        return '<div class="rounded-btn border border-outline-variant p-3 font-body-sm text-body-sm"><p class="break-words"><span class="font-data-mono">#' + a.id + '</span> · ' + esc(P().fecha(a.fecha)) + ' · ' +
           esc(a.evento) + ' · ' + mono(a.referencia) + ' — ' + esc(a.descripcion) + ' <span class="text-on-surface-variant">(' + esc(a.actor) + ')</span></p>' +
           '<ul class="mt-1">' + (a.lineas || []).map(function (x) {
-            return '<li class="flex justify-between gap-2"><span>' + esc(CUENTAS[x.cuenta] || x.cuenta) + (x.seller ? ' · ' + esc(x.seller) : '') + '</span>' +
-              '<span class="tm-num">' + (P().n(x.debe) ? 'D ' + esc(P().usd(x.debe)) : '') + (P().n(x.haber) ? 'H ' + esc(P().usd(x.haber)) : '') + '</span></li>';
+            return '<li class="flex justify-between gap-3"><span class="min-w-0 break-words">' + esc(CUENTAS[x.cuenta] || x.cuenta) + (x.seller ? ' · ' + esc(x.seller) : '') + '</span>' +
+              '<span class="shrink-0 tm-num">' + (P().n(x.debe) ? 'Debe ' + esc(P().usd(x.debe)) : '') + (P().n(x.haber) ? 'Haber ' + esc(P().usd(x.haber)) : '') + '</span></li>';
           }).join('') + '</ul></div>';
-      }).join('') + '</div></details>';
+      }).join('') + '</div></details>' : '');
   }
 
-  function seccionMetodos() {
+  function seccionMetodos(s) {
     var m = P().metodos();
+    var dis = s && s.demo ? ' disabled title="Con una cuenta real del equipo y la verificación en dos pasos"' : '';
     return P().seccion(m, 'metodos', function (lista) {
       return UI.tabla(['Método', 'Moneda', 'IGTF', 'Estado', ''], lista.map(function (x) {
         return td('<span class="font-body-sm text-body-sm font-bold">' + esc(x.nombre) + '</span><span class="block font-body-sm text-body-sm text-on-surface-variant">' + esc(x.instrucciones) + '</span>') +
           td(esc(x.moneda)) + td(x.igtf ? 'Sí (3 %)' : 'No') +
           td(x.activo ? '<span class="text-tertiary font-bold">Activo</span>' : '<span class="text-on-surface-variant">Inactivo</span>') +
-          td(btn(x.activo ? 'Desactivar' : 'Activar', { attr: 'data-metodo-activo="' + esc(x.id) + '" data-valor="' + (x.activo ? '0' : '1') + '"' }), 'text-right');
+          td(btn(x.activo ? 'Desactivar' : 'Activar', { attr: 'data-metodo-activo="' + esc(x.id) + '" data-valor="' + (x.activo ? '0' : '1') + '"' + dis }), 'text-right');
       })) + nota('Cambiarlos exige una cuenta real del equipo con verificación en dos pasos. El checkout solo ofrece los activos y el servidor rechaza los demás.');
     }, 'Cargando los métodos…');
   }
@@ -990,10 +1020,10 @@
     var res = P().datos(clave + ':resumen', function () { return TM.api('tm_finanzas_resumen', { p_desde: pe.desde, p_hasta: pe.hasta }); });
     var libro = P().datos(clave + ':libro', function () { return TM.api('tm_libro_mayor', { p_desde: pe.desde, p_hasta: pe.hasta }); });
     return titulo('Panel financiero',
-      '<form data-periodo class="flex flex-wrap items-end gap-2">' +
-        '<div><label class="' + ETIQUETA + '" for="fin-desde">Desde</label><input id="fin-desde" type="date" value="' + esc(pe.desde) + '" class="' + CAMPO + '"/></div>' +
-        '<div><label class="' + ETIQUETA + '" for="fin-hasta">Hasta</label><input id="fin-hasta" type="date" value="' + esc(pe.hasta) + '" class="' + CAMPO + '"/></div>' +
-        btn('Aplicar', { tipo: 'submit', icono: 'filter_alt' }) + '</form>') +
+      '<form data-periodo class="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:flex-wrap sm:items-end">' +
+        '<div class="min-w-0"><label class="' + ETIQUETA + '" for="fin-desde">Desde</label><input id="fin-desde" type="date" value="' + esc(pe.desde) + '" class="' + CAMPO + '"/></div>' +
+        '<div class="min-w-0"><label class="' + ETIQUETA + '" for="fin-hasta">Hasta</label><input id="fin-hasta" type="date" value="' + esc(pe.hasta) + '" class="' + CAMPO + '"/></div>' +
+        btn('Aplicar', { tipo: 'submit', icono: 'filter_alt', clase: 'col-span-2 sm:col-span-1' }) + '</form>') +
       P().seccion(res, clave + ':resumen', function (r) {
         var pl = r.por_liquidar || {};
         return '<section class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">' +
@@ -1021,12 +1051,12 @@
             'El cierre del ' + esc(P().dia(r.ultimo_cierre.fecha)) + ' no cuadra: revisa el libro mayor.</p>' : '');
       }, 'Calculando los indicadores…') +
       subtitulo('Exportaciones del período') +
-      caja('<div class="flex flex-wrap gap-2">' + EXPORTS.map(function (x) {
-        return btn(x[1], { icono: 'download', attr: 'data-exportar="' + x[0] + '"' });
+      caja('<div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 mb-2">' + EXPORTS.map(function (x, i) {
+        return btn(x[1], { icono: 'download', attr: 'data-exportar="' + x[0] + '"', clase: 'text-center' + (i === EXPORTS.length - 1 && EXPORTS.length % 2 ? ' col-span-2 sm:col-span-1' : '') });
       }).join('') + '</div>' + nota('CSV para Excel (separador «;», coma decimal). El libro de ventas tiene una fila por pedido con su pago verificado, para el contador.')) +
       subtitulo('Libro mayor (partida doble)') +
       P().seccion(libro, clave + ':libro', seccionLibro, 'Cargando el libro mayor…') +
-      (s.rol === 'superadmin' ? subtitulo('Métodos de pago') + seccionMetodos() : '');
+      (s.rol === 'superadmin' ? subtitulo('Métodos de pago') + seccionMetodos(s) : '');
   }
 
   function despuesFinanzas(raiz) {
@@ -1121,23 +1151,25 @@
       if (r.estado === 'fallido') acciones.push(btn('Reintentar', { icono: 'refresh', attr: 'data-reemb="reintentar" data-id="' + r.id + '"' }));
     }
     var enBs = r.destino && r.destino.tipo === 'pago_movil';
+    var PASOS = { crear: 'Creado', destino: 'Destino elegido', tomar: 'Tomado', aprobar: 'Aprobado', enviar: 'Enviado', fallar: 'Falló', reintentar: 'Reintentado' };
     return caja('<div data-reembolso="' + r.id + '">' +
-      '<div class="flex flex-wrap items-center gap-2 mb-1">' + mono('R-' + r.id) + P().insignia('reembolso', r.estado) +
+      '<div class="flex items-start justify-between gap-3 mb-1">' +
+        '<div class="min-w-0 flex flex-wrap items-center gap-2">' + '<span class="tm-id font-data-mono text-data-mono text-on-surface">R-' + esc(r.id) + '</span>' + P().insignia('reembolso', r.estado) +
         (r.tipo && r.tipo !== 'pedido' ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning-container text-on-warning-container font-label-sm text-label-sm">' + ic('account_balance', 'text-[14px]') +
           (r.tipo === 'excedente' ? 'Excedente de un pago' : 'Dinero sin venta') + '</span>' : '') +
         (r.requiere_doble ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm">' + ic('group', 'text-[14px]') +
-          (r.tipo && r.tipo !== 'pedido' ? 'Doble aprobación' : 'Doble aprobación (≥ ' + esc(P().usd(umbral)) + ')') + '</span>' : '') +
-        '<span class="font-body-sm text-body-sm text-on-surface-variant">pedido ' + esc(r.pedido_id) + (r.pago_id ? ' · ' + esc(r.pago_id) : '') + ' · ' + esc(r.comprador) + '</span>' +
-        '<span class="ml-auto font-body-md text-body-md font-bold tm-num">' + esc(P().usd(r.monto_usd)) +
-          (enBs && r.estado !== 'enviado' ? ' <span class="font-body-sm text-body-sm font-normal text-on-surface-variant">≈ ' + esc(P().bs(P().n(r.monto_usd) * tasaHoy)) + ' hoy</span>' : '') + '</span></div>' +
+          (r.tipo && r.tipo !== 'pedido' ? 'Doble aprobación' : 'Doble aprobación (≥ ' + esc(P().usd(umbral)) + ')') + '</span>' : '') + '</div>' +
+        '<span class="shrink-0 text-right"><span class="block font-body-md text-body-md font-bold tm-num">' + esc(P().usd(r.monto_usd)) + '</span>' +
+          (enBs && r.estado !== 'enviado' ? '<span class="block font-body-sm text-body-sm text-on-surface-variant tm-num">≈ ' + esc(P().bs(P().n(r.monto_usd) * tasaHoy)) + ' hoy</span>' : '') + '</span></div>' +
+      '<p class="font-body-sm text-body-sm text-on-surface-variant break-words">Pedido <span class="tm-id">' + esc(r.pedido_id) + '</span>' + (r.pago_id ? ' · <span class="tm-id">' + esc(r.pago_id) + '</span>' : '') + ' · ' + esc(r.comprador) + '</p>' +
       '<p class="font-body-sm text-body-sm text-on-surface">' + esc(r.motivo || '') + '</p>' +
       '<p class="font-body-sm text-body-sm text-on-surface-variant">Destino: ' + esc(textoDestino(r.destino) || 'sin elegir') + '</p>' +
       (r.estado === 'enviado' ? '<p class="font-body-sm text-body-sm text-tertiary">Enviado ' + esc(P().fecha(r.enviado_el)) + ' · ' +
         esc(r.moneda_envio === 'VES' ? P().bs(r.monto_enviado) + ' (tasa ' + P().tasa(r.tasa_envio) + ')' : r.moneda_envio === 'CREDITO' ? 'crédito ' + P().usd(r.monto_enviado) : P().usd(r.monto_enviado)) +
         (r.referencia ? ' · ref. ' + esc(r.referencia) : '') + '</p>' : '') +
       (r.error ? '<p class="font-body-sm text-body-sm text-error">' + esc(r.error) + '</p>' : '') +
-      (ev.length ? '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">' + ev.map(function (e) {
-        return esc(e.accion) + ': ' + esc(e.actor) + ' (' + esc(P().fecha(e.fecha)) + ')' + (e.nota ? ' — ' + esc(e.nota) : '');
+      (ev.length ? '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1 break-words">' + ev.map(function (e) {
+        return esc(PASOS[e.accion] || e.accion) + ': ' + esc(e.actor) + ' (' + esc(P().fecha(e.fecha)) + ')' + (e.nota ? ' — ' + esc(e.nota) : '');
       }).join(' · ') + '</p>' : '') +
       (acciones.length ? '<div class="flex flex-wrap gap-2 mt-3">' + acciones.join('') + '</div>' : '') + '</div>', 'mb-3');
   }
@@ -1148,9 +1180,10 @@
     var r = P().datos('reemb:' + tab, function () { return TM.api('tm_reembolsos_gestion', { p_estado: tab }); });
     return titulo('Reembolsos') + pestanas('admin/reembolsos', TABS_REEMB, tab) +
       P().seccion(r, 'reemb:' + tab, function (d) {
-        return nota('Pendiente → en proceso → enviado (con la referencia) o fallido. Por Pago Móvil se envía en bolívares a la tasa del día (Bs. ' + esc(P().tasa(d.tasa_hoy)) + ') y por Zelle en dólares. ' +
+        return (d.prueba ? nota('Con una cuenta de prueba solo gestionas los reembolsos de las cuentas de prueba.') : '') +
+          explicacion('Pendiente → en proceso → enviado (con la referencia) o fallido. Por Pago Móvil se envía en bolívares a la tasa del día (Bs. ' + esc(P().tasa(d.tasa_hoy)) + ') y por Zelle en dólares. ' +
           'Desde ' + esc(P().usd(d.umbral_doble_usd)) + ' (y siempre los de dinero que llegó de más o sin venta) lo aprueba una segunda persona con verificación en dos pasos, también si va al crédito en Tumbo. ' +
-          (d.prueba ? 'Con una cuenta de prueba solo gestionas los reembolsos de las cuentas de prueba.' : 'Los de personas reales exigen sesión elevada.')) +
+          (d.prueba ? '' : 'Los de personas reales exigen sesión elevada.')) +
           '<div class="mt-3">' + (d.reembolsos.length ? d.reembolsos.map(function (x) { return tarjetaReembolso(x, d.umbral_doble_usd, P().n(d.tasa_hoy)); }).join('')
             : UI.vacio('task_alt', 'Nada por aquí', 'Los reembolsos de cancelaciones, reclamos y excedentes aparecen en esta cola.')) + '</div>';
       }, 'Cargando los reembolsos…');
