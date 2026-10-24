@@ -26,7 +26,17 @@
  *   · el catálogo de tareas tiene las de Comunicación y Crecimiento (también
  *     si pg_cron las había adoptado) y ninguna tarea_* queda sin catálogo;
  *   · con la demo apagada el reinicio se rechaza antes que nada, también
- *     sin sesión.
+ *     sin sesión;
+ *   · lo de la revisión de la integración (sección 7 de la migración):
+ *     cupones, presupuestos y relámpagos en un checkout de varios
+ *     comercios; el pago recibido tarde con sus promociones tomadas; la
+ *     cancelación con el cupón de Tumbo (TMPAG y el pago completo); la
+ *     apelación con el descuento del parcial ya liquidado y con quién paga
+ *     la devolución; los reclamos perdidos de niveles y métricas; la cuenta
+ *     de prueba del comercio frente a una compradora real (chat, reclamo,
+ *     evidencia, preguntas y fallo automático); los ajustes de seguridad y
+ *     de control; las listas negras y el riesgo de las cuentas de prueba; el
+ *     techo de la analítica; las métricas de la demo y ocultar_contacto.
  * Reinicia la demo al empezar y al terminar (con datos reales, con la
  * cuenta real de las pruebas: tools/reinicio-comun.js).
  */
@@ -129,7 +139,8 @@ const hoy = () => new Date(Date.now() - 4 * 3600000).toISOString().slice(0, 10);
     for (const t of ['completar_reembolso_total y crear_reembolso_extra (Pagos) y su uso en Comunicación',
       'congelado por el plazo de apelación en el panel financiero', 'devolucion_pagador (Logística)',
       'el propósito marketing y la limpieza de huérfanos', 'la baja borra lo de Comunicación',
-      'el catálogo de tareas de Comunicación y Crecimiento', 'el reinicio con la demo apagada']) omitida(t);
+      'el catálogo de tareas de Comunicación y Crecimiento', 'el reinicio con la demo apagada',
+      'la revisión de la integración (promociones, pago tardío, apelaciones, niveles, cuentas de prueba del comercio, ajustes, listas negras, analítica y ocultar_contacto)']) omitida(t);
     console.log('');
     if (fallos) { console.log(rojo(`FALLOS: ${fallos}`)); process.exit(1); }
     console.log(verde('✓ Integración de la ola 2: nada más que comprobar sin TM_PGDATABASE.'));
@@ -353,6 +364,425 @@ const hoy = () => new Date(Date.now() - 4 * 3600000).toISOString().slice(0, 10);
       rollback;`);
     ok(adop.envios === 'Comunicación|1|false' && adop.niveles === 'Crecimiento|1440|false',
       'si pg_cron ya las había adoptado («Sin asignar»), el catálogo completa su dominio, su descripción y su frecuencia', JSON.stringify(adop));
+
+    /* =====================================================================
+       Revisión de la integración (hallazgos corregidos antes de desplegar)
+       ===================================================================== */
+    /* (la demo vuelve a la semilla: DSP-0098 sin resolver, sus pedidos como al principio) */
+    const rRev = await R.reiniciar(rpc, s.superadmin);
+    ok(rRev.ok, 'la demo vuelve a la semilla para las pruebas de la revisión', rRev.texto);
+    /* sesiones reales con la 2FA y elevadas; Finanzas real con «ajustes» */
+    psql(`insert into tumbo.usuarios_2fa (usuario_id, secreto, activo, activado)
+          select id, tumbo_privado.cifrar_2fa(extensions.gen_random_bytes(20)), true, now() from tumbo.usuarios where email = ${lit(REALES.admin.email)}
+          on conflict (usuario_id) do update set activo = true;
+          update tumbo.sesiones set elevada_hasta = now() + interval '1 hour'
+          where usuario_id in (select id from tumbo.usuarios where email in (${lit(REALES.admin.email)}, ${lit(REALES.fin.email)}))`);
+    /* La compra de quien tiene la sesión (agencia, pago móvil) con un cupón:
+       {aplicado, descuento, pago} o {…, error}. Vacía antes su carrito. */
+    const COMPRAR = `create function pg_temp.comprar(sa text, p_items jsonb, p_cupon text) returns jsonb language plpgsql as $f$
+      declare q jsonb; c jsonb; x jsonb;
+      begin
+        delete from tumbo.carrito_items where usuario_id = (select s.usuario_id from tumbo.sesiones s where s.token_hash = tumbo_privado.hash_token(sa));
+        for x in select * from jsonb_array_elements(p_items) loop
+          perform public.tm_carrito_poner(sa, x ->> 0, (x ->> 1)::integer);
+        end loop;
+        q := public.tm_checkout_cotizar(sa, jsonb_build_object('entrega', 'agencia', 'metodo', 'pago_movil', 'cupon', p_cupon));
+        begin
+          c := public.tm_checkout_crear(sa, jsonb_build_object('entrega', 'agencia', 'metodo', 'pago_movil', 'cupon', p_cupon,
+                                           'esperado', jsonb_build_object('total_usd', (q ->> 'total_usd')::numeric)));
+          return jsonb_build_object('aplicado', q -> 'cupon' -> 'aplicado', 'descuento', (q ->> 'descuento_usd')::numeric, 'pago', c ->> 'pago');
+        exception when others then
+          return jsonb_build_object('aplicado', q -> 'cupon' -> 'aplicado', 'descuento', (q ->> 'descuento_usd')::numeric, 'error', sqlerrm);
+        end;
+      end $f$;`;
+    const cuponSql = (codigo, tipo, valor, minimo, usos, presupuesto, seller) =>
+      `insert into tumbo.cupones (codigo, tipo, valor, minimo_usd, usos_por_usuario, desde, hasta, financia, presupuesto_usd, seller_id, por)
+       values (${lit(codigo)}, ${lit(tipo)}, ${valor}, ${minimo}, ${usos}, now() - interval '1 minute', now() + interval '1 day',
+               ${seller ? "'seller'" : "'tumbo'"}, ${presupuesto == null ? 'null' : presupuesto}, ${seller ? lit(seller) : 'null'}, 'Pruebas de la integración')`;
+
+    /* --- a. Promociones de un checkout de varios comercios --- */
+    {
+      const pr = json(`begin;
+        ${COMPRAR}
+        create function pg_temp.probar(sa text) returns jsonb language plpgsql as $f$
+        declare r jsonb; res jsonb := '{}'; e text; st text; v_ped text;
+        begin
+          -- 1. cupón de Tumbo de un uso por persona (10 %) en dos comercios
+          begin
+            ${cuponSql('INTEG2UNO', 'porcentaje', 10, 0, 1, 1000)};
+            r := pg_temp.comprar(sa, '[["SKU-TEC-0450",1],["SKU-HOG-0110",1]]', 'INTEG2UNO');
+            res := res || jsonb_build_object('uno', r || jsonb_build_object('uso', tumbo_privado.cupon_uso((select id from tumbo.cupones where codigo = 'INTEG2UNO'), null),
+              'pedidos', (select count(*) from tumbo.pedidos where pago_id = r ->> 'pago')));
+            raise exception 'deshacer';
+          exception when others then if sqlerrm <> 'deshacer' then res := res || jsonb_build_object('uno', sqlerrm); end if;
+          end;
+          -- 2. cupón de Hogar Total (SEL-009, el primer comercio) de un uso por persona
+          begin
+            ${cuponSql('INTEG2HOGAR', 'porcentaje', 10, 0, 1, null, 'SEL-009')};
+            res := res || jsonb_build_object('dos', pg_temp.comprar(sa, '[["SKU-TEC-0450",1],["SKU-HOG-0110",1]]', 'INTEG2HOGAR'));
+            raise exception 'deshacer';
+          exception when others then if sqlerrm <> 'deshacer' then res := res || jsonb_build_object('dos', sqlerrm); end if;
+          end;
+          -- 3. cupón de Tumbo de $10 con el presupuesto justo para un uso
+          begin
+            ${cuponSql('INTEG2PRES', 'monto', 10, 0, 5, 10)};
+            r := pg_temp.comprar(sa, '[["SKU-TEC-0450",1],["SKU-HOG-0110",1]]', 'INTEG2PRES');
+            res := res || jsonb_build_object('tres', r || jsonb_build_object('uso', tumbo_privado.cupon_uso((select id from tumbo.cupones where codigo = 'INTEG2PRES'), null)));
+            raise exception 'deshacer';
+          exception when others then if sqlerrm <> 'deshacer' then res := res || jsonb_build_object('tres', sqlerrm); end if;
+          end;
+          -- 4. relámpago de SEL-009 (3 unidades): lleva 2 más un producto de SEL-014
+          begin
+            insert into tumbo.ofertas (seller_id, sku, tipo, precio_oferta_usd, precio_referencia_usd, stock_oferta, desde, hasta, financia, por)
+            values ('SEL-009', 'SKU-HOG-0110', 'relampago', 45, 55, 3, now() - interval '1 minute', now() + interval '24 hours', 'seller', 'Pruebas');
+            r := pg_temp.comprar(sa, '[["SKU-HOG-0110",2],["SKU-TEC-0450",1]]', null);
+            res := res || jsonb_build_object('cuatro', r || jsonb_build_object('vendidas',
+              tumbo_privado.oferta_vendidas((select id from tumbo.ofertas where sku = 'SKU-HOG-0110' and tipo = 'relampago' order by id desc limit 1))));
+            raise exception 'deshacer';
+          exception when others then if sqlerrm <> 'deshacer' then res := res || jsonb_build_object('cuatro', sqlerrm); end if;
+          end;
+          -- 5. cancelar un pedido de un pago con el cupón de Tumbo ($30 desde $100)
+          begin
+            ${cuponSql('INTEG2MIN', 'monto', 30, 100, 5, 1000)};
+            r := pg_temp.comprar(sa, '[["SKU-TEC-0450",2],["SKU-HOG-0110",1]]', 'INTEG2MIN');
+            v_ped := (select id from tumbo.pedidos where pago_id = r ->> 'pago' and seller_id = 'SEL-009');
+            begin
+              perform public.tm_cancelar_pedido(sa, v_ped, 'Ya no lo quiero');
+            exception when others then e := sqlerrm; st := sqlstate;
+            end;
+            perform public.tm_cancelar_pedido(sa, r ->> 'pago', 'Todo el pago');
+            res := res || jsonb_build_object('cinco', r || jsonb_build_object('e', e, 'st', st,
+              'pedidos', (select jsonb_agg(estado order by id) from tumbo.pedidos where pago_id = r ->> 'pago'),
+              'estado', (select estado from tumbo.pagos where id = r ->> 'pago'),
+              'uso', tumbo_privado.cupon_uso((select id from tumbo.cupones where codigo = 'INTEG2MIN'), null)));
+            raise exception 'deshacer';
+          exception when others then if sqlerrm <> 'deshacer' then res := res || jsonb_build_object('cinco', sqlerrm); end if;
+          end;
+          -- 6. sin compra mínima: la parte del pedido cancelado vuelve al presupuesto
+          begin
+            ${cuponSql('INTEG2SIN', 'monto', 30, 0, 5, 1000)};
+            r := pg_temp.comprar(sa, '[["SKU-TEC-0450",2],["SKU-HOG-0110",1]]', 'INTEG2SIN');
+            perform public.tm_cancelar_pedido(sa, (select id from tumbo.pedidos where pago_id = r ->> 'pago' and seller_id = 'SEL-009'), 'Ya no lo quiero');
+            res := res || jsonb_build_object('seis', r || jsonb_build_object(
+              'queda', (select descuento_tumbo_usd from tumbo.pedidos where pago_id = r ->> 'pago' and seller_id = 'SEL-014'),
+              'uso', tumbo_privado.cupon_uso((select id from tumbo.cupones where codigo = 'INTEG2SIN'), null)));
+            raise exception 'deshacer';
+          exception when others then if sqlerrm <> 'deshacer' then res := res || jsonb_build_object('seis', sqlerrm); end if;
+          end;
+          return res;
+        end $f$;
+        select pg_temp.probar(${lit(s.comprador)});
+        rollback;`);
+      const { uno = {}, dos = {}, tres = {}, cuatro = {}, cinco = {}, seis = {} } = pr;
+      ok(uno.aplicado === true && uno.pago && Number(uno.pedidos) === 2 && uno.uso && Number(uno.uso.usos) === 1 &&
+         Math.abs(Number(uno.uso.gastado_usd) - Number(uno.descuento)) < 0.005,
+        'un cupón de Tumbo de un uso por persona sirve en un checkout de dos comercios (el registro no cuenta el propio pago) y queda registrado una vez',
+        JSON.stringify(uno).slice(0, 300));
+      ok(dos.aplicado === true && dos.pago, 'un cupón de un uso del primer comercio del carrito también (antes: «Ya usaste el cupón»)', JSON.stringify(dos).slice(0, 300));
+      ok(tres.aplicado === true && tres.pago && tres.uso && Number(tres.uso.gastado_usd) === 10,
+        'el cupón con el presupuesto justo para un uso aplica en dos comercios y gasta exactamente su presupuesto', JSON.stringify(tres).slice(0, 300));
+      ok(cuatro.pago && Number(cuatro.vendidas) === 2 && Number(cuatro.descuento) === 20,
+        'la relámpago del primer comercio ve sus unidades sin descontar las que el mismo pago ya registró', JSON.stringify(cuatro).slice(0, 300));
+      ok(cinco.pago && cinco.st === 'TMPAG' && /compra mínima de \$100\.00/.test(cinco.e || '') && /cancela el pago completo/.test(cinco.e || '') &&
+         JSON.stringify(cinco.pedidos) === '["cancelado","cancelado"]' && cinco.estado === 'cancelado' && cinco.uso && Number(cinco.uso.gastado_usd) === 0,
+        'cancelar un pedido de un pago con el cupón de Tumbo no deja el resto bajo la compra mínima (TMPAG): se cancela el pago completo y el cupón deja de contarlo',
+        JSON.stringify(cinco).slice(0, 300));
+      ok(seis.pago && seis.uso && Math.abs(Number(seis.uso.gastado_usd) - Number(seis.queda)) < 0.005 && Number(seis.queda) > 0 && Number(seis.queda) < 30,
+        'sin compra mínima, la parte del cupón del pedido cancelado vuelve a su presupuesto (queda solo la del pedido que sigue)', JSON.stringify(seis).slice(0, 300));
+    }
+
+    /* --- a. Pago recibido tarde con las promociones tomadas por otra compra --- */
+    {
+      const pt = json(`begin;
+        ${COMPRAR}
+        create function pg_temp.probar(sa text, sb text, sf text) returns jsonb language plpgsql as $f$
+        declare a jsonb; b jsonb; res jsonb := '{}'; e text;
+        begin
+          -- relámpago de 2 unidades y cupón de $10 con presupuesto de $10: A compra, vence; B compra; A llega tarde
+          foreach e in array array['oferta', 'cupon', 'libre'] loop
+            begin
+              if e = 'oferta' then
+                insert into tumbo.ofertas (seller_id, sku, tipo, precio_oferta_usd, precio_referencia_usd, stock_oferta, desde, hasta, financia, por)
+                values ('SEL-014', 'SKU-TEC-0450', 'relampago', 20, 25, 2, now() - interval '1 minute', now() + interval '24 hours', 'seller', 'Pruebas');
+              end if;
+              ${cuponSql('INTEG2TARDE', 'monto', 10, 0, 1, 10)};
+              a := pg_temp.comprar(sa, '[["SKU-TEC-0450",2]]', 'INTEG2TARDE');
+              update tumbo.pagos set vence = now() - interval '1 hour' where id = a ->> 'pago';
+              perform tumbo_privado.tarea_pagos();
+              if e <> 'libre' then
+                b := pg_temp.comprar(sb, '[["SKU-TEC-0450",2]]', 'INTEG2TARDE');
+              end if;
+              begin
+                res := res || jsonb_build_object(e, jsonb_build_object('a', a ->> 'pago', 'b', b ->> 'pago',
+                  'estado', public.tm_pago_tardio(sf, a ->> 'pago', 'verificar', 'Llegó el lunes') ->> 'estado'));
+              exception when others then
+                res := res || jsonb_build_object(e, jsonb_build_object('a', a ->> 'pago', 'b', b ->> 'pago', 'error', sqlerrm));
+              end;
+              raise exception 'deshacer';
+            exception when others then if sqlerrm <> 'deshacer' then res := res || jsonb_build_object(e, sqlerrm); end if;
+            end;
+          end loop;
+          return res;
+        end $f$;
+        select pg_temp.probar(${lit(s.comprador)}, ${lit(s.r_compra)}, ${lit(s.r_fin)});
+        rollback;`);
+      ok(pt.oferta && pt.oferta.b && /oferta relámpago .* ya las compró otra persona/.test(pt.oferta.error || '') &&
+         pt.cupon && pt.cupon.b && /cupón INTEG2TARDE llegó a su tope/.test(pt.cupon.error || '') &&
+         pt.libre && pt.libre.estado === 'verificado',
+        'el pago recibido tarde no se reactiva si sus unidades relámpago o su cupón ya los tomó otra compra («genera el reembolso»); sin otra compra, se verifica',
+        JSON.stringify(pt).slice(0, 300));
+    }
+
+    /* --- b. Apelaciones: el descuento del parcial ya liquidado y quién paga la devolución --- */
+    {
+      const T = (p) => psql(`select tumbo_privado.devolucion_paga_texto(${lit(p)})`);
+      const tTumbo = T('tumbo'), tSeller = T('seller');
+      const ap = json(`begin;
+        create function pg_temp.evidencia(dsp text) returns text language sql as $q$
+          insert into tumbo.archivos (proposito, bucket, ruta, entidad, propietario, tipo, bytes, reserva, estado)
+          values ('evidencia', 'tumbo-privado', 'evidencia/' || dsp || '/' || gen_random_uuid() || '.jpg', dsp,
+                  'a0000000-0000-4000-8000-000000000001', 'image/jpeg', 100, 100, 'listo') returning id::text $q$;
+        create function pg_temp.probar(sc text, so text, sa text) returns jsonb language plpgsql as $f$
+        declare res jsonb := '{}';
+        begin
+          -- 1. parcial de $20 → la corrida del lunes toma su descuento → apelación → reembolso total
+          begin
+            perform public.tm_disputa_resolver(so, 'DSP-0098', '{"decision": "reembolso_parcial", "monto": 20, "nota": "Parcial por un rayón"}');
+            perform tumbo_privado.tarea_liquidaciones();
+            perform public.tm_disputa_apelar(sc, 'DSP-0098', 'El rayón inutiliza la pantalla: pido el reembolso total del pedido', array[pg_temp.evidencia('DSP-0098')]);
+            update tumbo.disputa_casos set resuelta_en = now() - interval '6 days' where disputa_id = 'DSP-0098';
+            perform public.tm_disputa_apelacion_resolver(sa, 'DSP-0098', '{"resultado": "modificar", "decision": "reembolso", "nota": "La evidencia muestra la pantalla inutilizable"}');
+            res := res || jsonb_build_object('total', jsonb_build_object(
+              'liq', (select jsonb_agg(l.ajustes_usd) from tumbo.liquidaciones l where l.seller_id = 'SEL-014' and l.ciclo = 'preparada'),
+              'ajustes', (select jsonb_agg(a.monto_usd::text || '|' || (a.liquidacion_id is null) order by a.id) from tumbo.ajustes_seller a
+                          where a.seller_id = 'SEL-014' and (a.motivo like '%DSP-0098%')),
+              'estado', (select estado from tumbo.pedidos where id = 'TM-2026-00428'),
+              'decision', (select decision from tumbo.disputa_casos where disputa_id = 'DSP-0098')));
+            raise exception 'deshacer';
+          exception when others then if sqlerrm <> 'deshacer' then res := res || jsonb_build_object('total', sqlerrm); end if;
+          end;
+          -- 2. liberar → apelación → devolución que paga Tumbo
+          begin
+            perform public.tm_disputa_resolver(so, 'DSP-0098', '{"decision": "liberar", "nota": "Sin pruebas suficientes"}');
+            perform public.tm_disputa_apelar(sc, 'DSP-0098', 'Adjunto fotos nuevas que muestran que el producto llegó defectuoso', array[pg_temp.evidencia('DSP-0098')]);
+            perform public.tm_disputa_apelacion_resolver(sa, 'DSP-0098', '{"resultado": "modificar", "decision": "devolucion", "paga": "tumbo", "nota": "Las fotos nuevas muestran el defecto de fábrica"}');
+            res := res || jsonb_build_object('devolucion', (select jsonb_build_object('paga', paga, 'instrucciones', instrucciones)
+                                                            from tumbo.devoluciones where pedido_id = 'TM-2026-00428'));
+            raise exception 'deshacer';
+          exception when others then if sqlerrm <> 'deshacer' then res := res || jsonb_build_object('devolucion', sqlerrm); end if;
+          end;
+          return res;
+        end $f$;
+        select pg_temp.probar(${lit(s.comprador)}, ${lit(s.ops)}, ${lit(s.superadmin)});
+        rollback;`);
+      const tot = ap.total || {};
+      ok(Array.isArray(tot.liq) && tot.liq.some((x) => Number(x) === -20) && JSON.stringify(tot.ajustes) === '["-20.00|false","20.00|true"]' &&
+         tot.estado === 'reembolsado' && tot.decision === 'reembolso',
+        'la apelación pasa a reembolso total aunque el descuento del parcial ya entró en una corrida: se le devuelve al comercio en la próxima (+$20)',
+        JSON.stringify(ap.total).slice(0, 300));
+      const dv = ap.devolucion || {};
+      ok(dv.paga === 'tumbo' && (dv.instrucciones || '').includes(tTumbo) && !(dv.instrucciones || '').includes(tSeller),
+        'la apelación que pasa a devolución fija quién paga con el contrato de Logística: «paga» y la frase que lee el comprador coinciden',
+        JSON.stringify(ap.devolucion).slice(0, 300));
+    }
+
+    /* --- c. Un reclamo que el comercio ganó en la apelación no cuenta como perdido --- */
+    {
+      const nv = json(`begin;
+        create function pg_temp.probar(ss text, so text, sa text) returns jsonb language plpgsql as $f$
+        declare a jsonb; b jsonb; m1 jsonb; m2 jsonb; v_ev text;
+        begin
+          perform public.tm_disputa_resolver(so, 'DSP-0098', '{"decision": "reembolso", "nota": "A favor del comprador"}');
+          a := tumbo_privado.metricas_nivel('SEL-014', 90);
+          m1 := public.tm_metricas_negocio(sa, jsonb_build_object('desde', (current_date - 399)::text, 'hasta', current_date::text)) -> 'disputas';
+          insert into tumbo.archivos (proposito, bucket, ruta, entidad, propietario, tipo, bytes, reserva, estado)
+          select 'evidencia', 'tumbo-privado', 'evidencia/DSP-0098/' || gen_random_uuid() || '.jpg', 'DSP-0098', u.id, 'image/jpeg', 100, 100, 'listo'
+          from tumbo.usuarios u where u.email = 'propietario@sel-014.demo' returning id::text into v_ev;
+          perform public.tm_disputa_apelar(ss, 'DSP-0098', 'La guía muestra que el comprador recibió el producto en perfecto estado', array[v_ev]);
+          perform public.tm_disputa_apelacion_resolver(sa, 'DSP-0098', '{"resultado": "modificar", "monto": 10, "nota": "La guía firmada le da la razón al comercio"}');
+          b := tumbo_privado.metricas_nivel('SEL-014', 90);
+          m2 := public.tm_metricas_negocio(sa, jsonb_build_object('desde', (current_date - 399)::text, 'hasta', current_date::text)) -> 'disputas';
+          return jsonb_build_object('antes', a -> 'disputas_perdidas', 'despues', b -> 'disputas_perdidas',
+            'm_antes', m1 -> 'perdidas', 'm_despues', m2 -> 'perdidas',
+            'reput', tumbo_privado.reputacion_comercio('SEL-014') -> 'reclamos_perdidos_pct',
+            'a_favor', (select apelacion_a_favor from tumbo.disputa_casos where disputa_id = 'DSP-0098'));
+        end $f$;
+        select pg_temp.probar(${lit(s.seller)}, ${lit(s.ops)}, ${lit(s.superadmin)});
+        rollback;`);
+      ok(nv.a_favor === 'comercio' && Number(nv.despues) === Number(nv.antes) - 1 && Number(nv.m_despues) === Number(nv.m_antes) - 1,
+        'los niveles y las métricas de negocio cuentan los reclamos perdidos como la reputación: el que el comercio ganó en la apelación ya no pesa',
+        JSON.stringify(nv));
+    }
+
+    /* --- d. La cuenta de prueba del comercio frente a una compradora real --- */
+    {
+      const cr = json(`begin;
+        create function pg_temp.probar(sc text, ss text) returns jsonb language plpgsql as $f$
+        declare v_dsp text; res jsonb := '{}'; e1 text; e2 text; e3 text; e4 text; v_q bigint; v_vendedor tumbo.usuarios;
+        begin
+          -- un pedido entregado de la compradora real a TechElectro (comercio de la demo)
+          update tumbo.pedidos set comprador_id = (select s.usuario_id from tumbo.sesiones s where s.token_hash = tumbo_privado.hash_token(sc)),
+                 estado = 'entregado', entregado_el = now(), liquidacion = 'retenido', disputa_id = null
+          where id = 'TM-2026-00431';
+          perform public.tm_chat_enviar(sc, 'TM-2026-00431', 'Hola, déjenlo con el conserje del 7-B, estoy de 2 a 6', '{}');
+          v_dsp := public.tm_abrir_disputa(sc, 'TM-2026-00431', 'Producto dañado', 'Llegó con la pantalla rota; estoy en Chacao, piso 7.', '{}');
+          res := jsonb_build_object('chat', public.tm_chat(ss, 'TM-2026-00431', null), 'pendientes', public.tm_chat_pendientes(ss),
+                                    'disputa', public.tm_disputa(ss, v_dsp), 'propia', public.tm_disputa(sc, v_dsp) -> 'bloqueado',
+                                    'cargar', (select d from jsonb_array_elements(public.tm_cargar(ss) -> 'disputas') d where d ->> 'id' = v_dsp));
+          select * into v_vendedor from tumbo.usuarios where email = 'propietario@sel-014.demo';
+          res := res || jsonb_build_object('evidencia', tumbo_privado.archivo_permitido(v_vendedor, 'evidencia', v_dsp, 'ver'));
+          begin perform public.tm_responder_disputa(ss, v_dsp, 'No aceptamos el reclamo: salió bien empacado.', '{}'); exception when others then e1 := sqlerrm; end;
+          begin perform public.tm_disputa_mensaje(ss, v_dsp, 'Mensaje de la cuenta de prueba', '{}'); exception when others then e2 := sqlerrm; end;
+          v_q := (public.tm_pregunta_hacer(sc, 'SKU-TEC-0450', '¿Este modelo trae el cable de carga?') ->> 'id')::bigint;
+          begin perform public.tm_pregunta_responder(ss, v_q, 'Sí, trae el cable original.'); exception when others then e3 := sqlerrm; end;
+          -- el plazo del comercio vence: el fallo automático corre (nadie lo frenó)
+          update tumbo.disputa_casos set plazo_seller = now() - interval '1 minute' where disputa_id = v_dsp;
+          res := res || jsonb_build_object('e1', e1, 'e2', e2, 'e3', e3, 'tarea', tumbo_privado.tarea_comunicacion());
+          res := res || jsonb_build_object('final', (select estado || '|' || coalesce(resolucion_decision, '') from tumbo.disputas where id = v_dsp));
+          return res;
+        end $f$;
+        select pg_temp.probar(${lit(s.r_compra)}, ${lit(s.seller)});
+        rollback;`);
+      const ch = cr.chat || {}, dp = cr.disputa || {}, cg = cr.cargar || {};
+      ok(ch.bloqueado === true && Array.isArray(ch.mensajes) && ch.mensajes.length === 0 && ch.puede_escribir === false &&
+         !Object.keys(cr.pendientes || {}).includes('TM-2026-00431'),
+        'la cuenta de prueba del comercio no lee el chat de una compradora real (bloqueado, sin mensajes ni avisos de no leídos)', JSON.stringify(ch).slice(0, 240));
+      ok(dp.bloqueado === true && !/Chacao/.test(JSON.stringify(dp)) && dp.acciones && dp.acciones.responder === false && dp.acciones.apelar === false &&
+         Array.isArray(dp.mensajes) && dp.mensajes.length === 0 && cr.propia === false && cg.bloqueado === true && !/Chacao/.test(JSON.stringify(cg)) &&
+         cr.evidencia === false,
+        'ni su reclamo (tm_disputa y tm_cargar bloqueados, sin descripción ni evidencia; la compradora sí lo ve completo)', JSON.stringify(dp).slice(0, 240));
+      ok(/cuentas de prueba/.test(cr.e1 || '') && /cuentas de prueba/.test(cr.e2 || '') && /cuentas de prueba/.test(cr.e3 || '') &&
+         cr.tarea && Number(cr.tarea.fallos_automaticos) >= 1 && /^resuelta\|reembolso$/.test(cr.final || ''),
+        'ni responde su reclamo, ni le escribe en el expediente, ni responde su pregunta: el fallo automático a su favor sigue su curso',
+        JSON.stringify({ final: cr.final, tarea: cr.tarea, e2: cr.e2 }).slice(0, 300));
+    }
+
+    /* --- e. Ajustes de seguridad y de control --- */
+    {
+      const aj = json(`begin;
+        insert into tumbo.permisos_usuario (usuario_id, permiso, otorgado_por)
+        select id, 'ajustes', 'Pruebas' from tumbo.usuarios where email = ${lit(REALES.fin.email)} on conflict do nothing;
+        create function pg_temp.intento(ses text, clave text, valor jsonb) returns text language plpgsql as $f$
+        begin
+          return coalesce(public.tm_ajuste_guardar(ses, clave, valor) ->> 'pendiente', 'aplicado');
+        exception when others then return 'error: ' || sqlerrm;
+        end $f$;
+        create function pg_temp.probar(sf text, sa text) returns jsonb language plpgsql as $f$
+        declare res jsonb := '{}'; v_id bigint; e text;
+        begin
+          res := jsonb_build_object(
+            'fin_sitio', pg_temp.intento(sf, 'sitio_url', '"https://tumbo-market.ejemplo-atacante.net"'),
+            'fin_envios', pg_temp.intento(sf, 'envios', '{"funcion_url": "https://atacante.example/functions/v1/tumbo-envios", "lote": 50, "max_intentos": 5}'),
+            'admin_ajeno', pg_temp.intento(sa, 'sitio_url', '"https://tumbo-market.ejemplo-atacante.net"'),
+            'admin_mismo', pg_temp.intento(sa, 'sitio_url', '"https://rengifojjrr.github.io/Tumbo"'),
+            'umbral_alto', pg_temp.intento(sf, 'reembolsos', '{"umbral_doble_usd": 10000000}'),
+            'umbral', pg_temp.intento(sf, 'reembolsos', '{"umbral_doble_usd": 1000}'),
+            'tasa_url', pg_temp.intento(sf, 'tasa_bcv', '{"url": "https://tasa.atacante.example/v1", "horas_alerta": 24, "variacion_max_pct": 15}'),
+            'tasa_var', pg_temp.intento(sf, 'tasa_bcv', '{"url": "https://ve.dolarapi.com/v1/dolares/oficial", "horas_alerta": 24, "variacion_max_pct": 100}'),
+            'valor', (select valor #>> '{}' from tumbo.ajustes where clave = 'sitio_url'),
+            'umbral_valor', (select valor -> 'umbral_doble_usd' from tumbo.ajustes where clave = 'reembolsos'));
+          v_id := (select id from tumbo.cambios_config where clave = 'sitio_url' and estado = 'pendiente' order by id desc limit 1);
+          begin perform public.tm_cambio_decidir(sf, v_id, true, 'Aprobado'); exception when others then e := sqlerrm; end;
+          -- un dominio que la persona dueña del proyecto autorizó por SQL
+          insert into tumbo_privado.secretos (nombre, valor) values ('hosts_sitio_url', 'tumbo.com.ve www.tumbo.com.ve')
+          on conflict (nombre) do update set valor = excluded.valor;
+          update tumbo.cambios_config set estado = 'anulado' where clave = 'sitio_url' and estado = 'pendiente';
+          res := res || jsonb_build_object('aprobar_fin', e,
+            'autorizado', pg_temp.intento(sa, 'sitio_url', '"https://www.tumbo.com.ve"'),
+            'admin', (select jsonb_object_agg(x ->> 'clave', jsonb_build_object('doble', x -> 'doble', 'seguridad', x -> 'seguridad'))
+                      from jsonb_array_elements(public.tm_ajustes_admin(sf) -> 'ajustes') x
+                      where x ->> 'clave' in ('sitio_url', 'envios', 'funciones_url', 'reembolsos', 'tasa_bcv', 'conciliacion', 'riesgo', 'analitica', 'moderacion')));
+          return res;
+        end $f$;
+        select pg_temp.probar(${lit(s.r_fin)}, ${lit(s.r_admin)});
+        rollback;`);
+      ok(/Solo el superadministrador/.test(aj.fin_sitio || '') && /Solo el superadministrador/.test(aj.fin_envios || '') &&
+         /dominio autorizado/.test(aj.admin_ajeno || '') && aj.admin_mismo === 'true' && aj.valor === 'https://rengifojjrr.github.io/Marketplace' &&
+         /otro superadministrador/.test(aj.aprobar_fin || '') && aj.autorizado === 'true',
+        'sitio_url y las direcciones de las funciones: solo el superadministrador, con doble aprobación de otro superadministrador y a un dominio autorizado',
+        JSON.stringify(aj).slice(0, 300));
+      const ad = aj.admin || {};
+      ok(/hasta 5\.000 USD/.test(aj.umbral_alto || '') && aj.umbral === 'true' && Number(aj.umbral_valor) === 200 &&
+         /dominio autorizado/.test(aj.tasa_url || '') && /hasta 50 %/.test(aj.tasa_var || '') &&
+         ['reembolsos', 'tasa_bcv', 'conciliacion', 'riesgo', 'analitica', 'sitio_url', 'envios', 'funciones_url'].every((k) => ad[k] && ad[k].doble === true) &&
+         ad.moderacion && ad.moderacion.doble === false && ad.sitio_url.seguridad === true && ad.reembolsos.seguridad === false,
+        'el umbral de los reembolsos, la tasa automática, la conciliación, el riesgo y la analítica piden la segunda aprobación, con topes y la fuente de la tasa autorizada',
+        JSON.stringify(aj).slice(0, 300));
+    }
+
+    /* --- f. Listas negras y riesgo de las cuentas de prueba --- */
+    {
+      const rg = json(`begin;
+        insert into tumbo.listas_negras (tipo, valor, motivo, por, demo)
+        values ('cedula', tumbo_privado.valor_lista('cedula', 'V-27111919'), 'Fraude confirmado: cédula de una persona real', 'Finanzas (real)', false),
+               ('cuenta', '01340000000000000014', 'Cuenta usada en un fraude real', 'Finanzas (real)', false);
+        insert into tumbo.usuarios (email, clave_hash, nombre, rol, cedula) values ('integ2-cedula@tumbo-local.ve', 'x', 'Persona Real', 'comprador', 'V-30555919');
+        create function pg_temp.probar(so text, sa text) returns jsonb language plpgsql as $f$
+        declare v_demo uuid := 'a0000000-0000-4000-8000-000000000001';
+                v_real uuid := (select id from tumbo.usuarios where email = ${lit(REALES.compra.email)});
+                res jsonb;
+        begin
+          res := jsonb_build_object(
+            'demo_lista', tumbo_privado.riesgo_pedido(v_demo, '{"pagador": {"cedula": "V-27111919"}}') -> 'motivos',
+            'demo_dato', tumbo_privado.riesgo_pedido(v_demo, '{"pagador": {"cedula": "V-30555919"}}') -> 'motivos',
+            'real_lista', tumbo_privado.riesgo_pedido(v_real, '{"pagador": {"cedula": "V-27111919"}}') -> 'motivos',
+            'real_dato', tumbo_privado.riesgo_pedido(v_real, '{"pagador": {"cedula": "V-30555919"}}') -> 'motivos',
+            'comercio', tumbo_privado.seller_lista_negra('SEL-014'));
+          update tumbo.listas_negras set demo = true where valor = '01340000000000000014';
+          update tumbo.usuarios set cedula = 'V-27111919' where id = v_demo;
+          return res || jsonb_build_object('comercio_demo', tumbo_privado.seller_lista_negra('SEL-014'),
+            'ops_sin_riesgo', public.tm_comprador_360(so, v_demo) -> 'riesgo' -> 'listas_negras',
+            'super_demo', public.tm_comprador_360(sa, v_demo) -> 'riesgo' -> 'listas_negras');
+        end $f$;
+        select pg_temp.probar(${lit(s.r_ops)}, ${lit(s.superadmin)});
+        rollback;`);
+      const reglas = (m) => (m || []).map((x) => x.regla);
+      ok(!reglas(rg.demo_lista).includes('lista_negra') && !reglas(rg.demo_dato).includes('dato_compartido') &&
+         reglas(rg.real_lista).includes('lista_negra') && reglas(rg.real_dato).includes('dato_compartido'),
+        'una cuenta de prueba ya no consulta la lista negra real ni si una cédula es de una persona registrada (riesgo_pedido solo mira lo de la demo); una real, sí',
+        JSON.stringify(rg).slice(0, 300));
+      ok(rg.comercio === null && /cuenta/.test(rg.comercio_demo || '') && rg.ops_sin_riesgo === null &&
+         Array.isArray(rg.super_demo) && !/persona real/.test(JSON.stringify(rg.super_demo)),
+        'los datos de cobro de un comercio de prueba solo se cotejan con la lista de la demo, y la ficha 360 da las listas solo con el permiso «riesgo» (a una cuenta de prueba, las de la demo)',
+        JSON.stringify(rg).slice(0, 300));
+    }
+
+    /* --- g. Analítica con techo diario; métricas de la demo sin lo de los visitantes reales --- */
+    {
+      const an = json(`begin;
+        insert into tumbo.topes_crecimiento as t (red, tipo, ventana, n)
+        values ('*', 'analitica_dia', date_bin(interval '1 day', now(), timestamptz '2000-01-01'), 100000)
+        on conflict (red, tipo, ventana) do update set n = 100000;
+        select jsonb_build_object('lleno', public.tm_analitica_registrar('[{"tipo": "busqueda", "texto": "tope diario", "visitante": "integ2tope"}]'));
+        rollback;`);
+      const mt = jsonTodo(`begin;
+        insert into tumbo.eventos_analitica (tipo, texto, visitante) values ('busqueda', 'repuestos corolla integ dos', 'integ2visit');
+        insert into tumbo.eventos_analitica (tipo, visitante) values ('inicio_checkout', 'integ2visit');
+        select jsonb_build_object('demo', public.tm_metricas_negocio(${lit(s.superadmin)}, '{}'));
+        select jsonb_build_object('real', public.tm_metricas_negocio(${lit(s.r_admin)}, '{}'));
+        rollback;`);
+      const d = mt.demo || {}, r = mt.real || {};
+      ok(an.lleno && an.lleno.limitado === true && Number(an.lleno.registrados) === 0,
+        'la analítica tiene un techo diario (100.000 eventos) además del tope por minuto: lo que lo pasa se descarta en silencio', JSON.stringify(an));
+      ok(d.solo_demo === true && Array.isArray(d.top_busquedas) && d.top_busquedas.length === 0 && (d.reservado || []).includes('top_busquedas') &&
+         d.embudo && Number(d.embudo.busquedas) === 0 && Number(d.embudo.iniciaron_checkout) === 0 &&
+         (r.top_busquedas || []).some((x) => x.texto === 'repuestos corolla integ dos'),
+        'las métricas de la demo ya no traen las búsquedas ni el checkout de los visitantes reales (una cuenta real, sí)',
+        JSON.stringify({ d: d.top_busquedas, e: d.embudo, res: d.reservado }).slice(0, 300));
+    }
+
+    /* --- h. ocultar_contacto con cifras de ancho completo y la I o la l por el 1 --- */
+    {
+      const oc = (t) => JSON.parse(psql(`select tumbo_privado.ocultar_contacto(${lit(t)})`));
+      const a = oc('Escríbeme al ０４１４-５５５-１２３４'), b = oc('Llámame al 04I4 555 I234 o al O4l4|555|1234');
+      const c = oc('Botella de 2l, guía MRW 123456, pedido TM-2026-00431, iPhone 12 Pro');
+      let pub = '';
+      try { psql(`select tumbo_privado.texto_publico(${lit('Tengo el mismo más barato, info al ０４１４５５５１２３４')}, 'la pregunta')`); } catch (e) { pub = e.message; }
+      ok(a.ocultos.includes('telefono') && !/[０-９]{4}/.test(a.texto) && b.ocultos.includes('telefono') && !/I234|l4/.test(b.texto) &&
+         c.ocultos.length === 0 && /No incluyas teléfonos/.test(pub),
+        'ocultar_contacto reconoce las cifras de ancho completo y la I, la l o la barra en lugar del 1 (y deja las guías y los pedidos)',
+        JSON.stringify([a, b, c]).slice(0, 300));
+    }
 
     /* ================= Reinicio con la demo apagada ================= */
     const pedidosAntes = psql(`select count(*) from tumbo.pedidos`);

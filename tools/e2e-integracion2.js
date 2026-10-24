@@ -7,7 +7,14 @@
  *   · el pedido del comprador (Logística) muestra un reembolso parcial como
  *     parcial, con su monto, y nunca como «reembolso total»;
  *   · el panel financiero (Pagos) explica lo congelado por el plazo de
- *     apelación de un reclamo resuelto (Comunicación).
+ *     apelación de un reclamo resuelto (Comunicación);
+ *   · lo de la revisión de la integración en el cliente: el inicio de sesión
+ *     vuelve al centro de ayuda (Contacto con su categoría); el registro
+ *     enlaza los términos y la privacidad; el menú de Finanzas sin Soporte
+ *     ni Contenido (sin su permiso) y sus vistas sin enlaces a Pedido 360 ni
+ *     Comprador 360 (el recibo vuelve a la conciliación); el seller en el
+ *     centro de ayuda tiene su camino de vuelta; las fechas de Logística en
+ *     hora de Caracas aunque el navegador esté en otra zona.
  *
  *   node tools/e2e-integracion2.js [urlBase]      # mismas variables que verificar-beta.js
  *
@@ -78,6 +85,78 @@ async function rpc(fn, args) {
     const tx = await nota.innerText();
     const kpi = await p.locator('#raiz').innerText();
     if (!/5 días, el plazo que tiene el comprador para apelar/.test(tx) || !/en plazo de apelación/.test(kpi)) throw new Error(tx.slice(0, 200));
+  });
+
+  /* ================= Revisión de la integración (cliente) ================= */
+  await prueba('el inicio de sesión vuelve al centro de ayuda (Contacto con su categoría) y el registro enlaza los términos y la privacidad', async () => {
+    await p.goto(t.BASE + '/index.html?volver=' + encodeURIComponent('app/ayuda/contacto.html?categoria=vender'), { waitUntil: 'domcontentloaded' });
+    await p.waitForSelector('[data-lista] button');
+    const legales = await p.locator('label:has(#rg-terminos) a').evaluateAll((as) => as.map((a) => a.getAttribute('href')));
+    if (!legales.includes('app/ayuda/terminos.html') || !legales.includes('app/ayuda/privacidad.html')) throw new Error('enlaces: ' + legales.join());
+    await p.locator('[data-lista] button', { hasText: 'Comprador' }).first().click();
+    await p.locator('form[data-paso=credenciales] button[type=submit]').click();
+    await p.waitForURL(/\/app\/ayuda\/contacto\.html\?categoria=vender$/, { timeout: 15000 });
+    if (remoto) {
+      /* el visitante: el enlace «inicia sesión» de Contacto conserva la categoría */
+      await p.evaluate(() => TM.cerrarSesion && TM.cerrarSesion());
+      await abrir('ayuda/contacto?categoria=vender');
+      const a = p.locator('#raiz a', { hasText: 'inicia sesión' }).first();
+      await a.waitFor({ timeout: 15000 });
+      const h = await a.getAttribute('href');
+      if (!/volver=app%2Fayuda%2Fcontacto\.html%3Fcategoria%3Dvender/.test(h || '')) throw new Error('enlace: ' + h);
+    }
+  });
+
+  await prueba('el menú de Finanzas no ofrece Soporte ni Contenido sin su permiso', async () => {
+    await login('finanzas');
+    await abrir('admin/cuenta');
+    const nav = p.locator('aside[data-nav] nav');
+    await p.waitForSelector('aside[data-nav] nav[data-crec-permisos]', { state: 'attached', timeout: 15000 });
+    for (const v of ['admin/soporte', 'admin/contenido']) {
+      if (await nav.locator('a[href$="app/' + v + '.html"]').isVisible().catch(() => false)) throw new Error('se ve ' + v);
+    }
+  });
+
+  await soloRemoto('Finanzas no recibe enlaces a Pedido 360 ni Comprador 360, y el recibo la devuelve a la conciliación', async () => {
+    await login('finanzas');
+    await abrir('admin/seller?id=SEL-014');
+    await p.locator('#raiz [data-pedidos-360]').waitFor({ timeout: 15000 });
+    const enl = await p.locator('#raiz a[href*="admin/pedido.html"], #raiz a[href*="admin/comprador.html"]').count();
+    if (enl) throw new Error(enl + ' enlaces a vistas que Finanzas no abre en Comercio 360');
+    if (!(await p.locator('#raiz [data-pedidos-360] li').count())) throw new Error('sin pedidos recientes en la ficha');
+    await abrir('admin/riesgo');
+    await p.waitForFunction(() => /Compradores marcados/.test(document.querySelector('#raiz').innerText), null, { timeout: 15000 });
+    if (await p.locator('#raiz a[href*="admin/pedido.html"], #raiz a[href*="admin/comprador.html"]').count()) throw new Error('enlaces en Riesgo');
+    await abrir('tienda/recibo?id=TM-2026-00433');
+    const atras = p.locator('#raiz a', { hasText: 'Volver a la conciliación' }).first();
+    await atras.waitFor({ timeout: 15000 });
+    if (!/app\/admin\/conciliacion\.html$/.test(await atras.getAttribute('href'))) throw new Error('vuelve a ' + await atras.getAttribute('href'));
+  });
+
+  await prueba('el seller en el centro de ayuda ve su nombre y el camino de vuelta al Seller Center', async () => {
+    await login('seller');
+    await abrir('ayuda/terminos');
+    const vuelta = p.locator('header [data-volver-panel]').first();
+    await vuelta.waitFor({ state: 'attached', timeout: 15000 });
+    const h = await vuelta.getAttribute('href');
+    const saludo = await p.locator('header [data-cuenta-btn]').innerText();
+    if (!/app\/seller\/panel\.html$/.test(h || '') || /identifícate/.test(saludo)) throw new Error(h + ' · ' + saludo);
+  });
+
+  await prueba('las fechas de Logística salen en hora de Caracas aunque el navegador esté en otra zona', async () => {
+    const ctx2 = await t.navegador.newContext({ timezoneId: 'Europe/Madrid', serviceWorkers: 'block' });
+    try {
+      /* (solo el formato: el sitio en modo local, sin backend) */
+      await ctx2.route('**/assets/js/tm-config.js', (r) => r.fulfill({ contentType: 'application/javascript',
+        body: "window.TM_CONFIG = { supabaseUrl: '', supabaseKey: '' };" }));
+      const q = await ctx2.newPage();
+      await q.goto(t.BASE + '/app/tienda/pedidos.html', { waitUntil: 'domcontentloaded' });
+      await q.waitForFunction(() => window.TM && TM.log && TM.log.fechaHora, null, { timeout: 15000 });
+      const r = await q.evaluate(() => [TM.log.fechaHora('2026-11-05T04:00:00Z'), TM.log.fecha('2026-11-05'), new Date('2026-11-05T04:00:00Z').getHours()]);
+      if (r[0] !== 'jue 05/11 12:00 am' || r[1] !== 'jue 05/11' || r[2] !== 5) throw new Error(JSON.stringify(r));
+    } finally {
+      await ctx2.close();
+    }
   });
 
   await t.reset();

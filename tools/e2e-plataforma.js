@@ -623,6 +623,11 @@ function servidor(sitio) {
       await q.waitForSelector('#raiz > *', { timeout: 15000 });
       const texto = await q.locator('#raiz').innerText();
       if (remoto ? !/Estás sin conexión/.test(texto) : !/Tumbo/.test(texto)) throw new Error(texto.slice(0, 200));
+      /* «lo que ves abajo» solo cuando abajo hay una copia guardada; si no, dice que la página no está guardada */
+      const copia = await q.locator('#raiz [data-copia-pedidos], #raiz [data-copia-carrito]').count();
+      if (remoto && (copia ? !/Lo que ves abajo/.test(texto) : (/Lo que ves abajo/.test(texto) || !/no está guardada en este dispositivo/.test(texto)))) {
+        throw new Error('sin señal, el texto no coincide con la copia (' + copia + '): ' + texto.slice(0, 200));
+      }
       if (!(await q.evaluate(() => /^cfg-/.test(window.TM_CONFIG.marca || '')))) throw new Error('sin señal no usó la última configuración guardada');
       await q.goto(SITIO + '/app/admin/sistema.html', { waitUntil: 'domcontentloaded' });
       await q.waitForURL(/sin-conexion\.html\?desde=app%2Fadmin%2Fsistema\.html|sin-conexion\.html\?desde=app\/admin\/sistema\.html/, { timeout: 10000 });

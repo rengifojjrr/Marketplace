@@ -71,6 +71,13 @@ function psql(consulta) {
   if (r.status !== 0) throw new Error((r.stderr || '').trim());
   return r.stdout.trim();
 }
+/* Los ajustes de control (umbral de los reembolsos, conciliación, tasa)
+   piden la segunda aprobación desde la revisión de la integración de la
+   ola 2: aquí se fijan por SQL, como lo hace la persona dueña del proyecto
+   (el editor de ajustes y su doble aprobación los prueba api-crecimiento). */
+function fijarAjuste(clave, valor) {
+  psql(`update tumbo.ajustes set valor = '${JSON.stringify(valor).replace(/'/g, "''")}'::jsonb where clave = '${clave}'`);
+}
 const hoy = () => new Date(Date.now() - 4 * 3600000).toISOString().slice(0, 10);
 const redondo = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const cerca = (a, b) => Math.abs(Number(a) - Number(b)) < 0.0101;
@@ -547,7 +554,7 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
     'con crédito suficiente el pedido queda pagado al instante (sin dinero por verificar)', ch7.texto.slice(0, 200));
 
   /* doble aprobación sobre el umbral */
-  await rpc('tm_ajuste_guardar', { p_sesion: s.admin, p_clave: 'reembolsos', p_valor: { umbral_doble_usd: 20 } });
+  fijarAjuste('reembolsos', { umbral_doble_usd: 20 });
   const c8 = await compradorNuevo('doble');
   await carrito(c8, [['SKU-TEC-0450', 1]]);
   const ch8 = await checkout(c8, { entrega: 'agencia', metodo: 'pago_movil' });
@@ -583,7 +590,7 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
   ok(r8b.requiere_doble && dcb.ok && dcb.dato.estado === 'pendiente' && saldoAntes === 0 && b1.ok && !b2.ok && /otra persona/.test(b2.texto) &&
      b3.ok && b4.ok && b4.dato.estado === 'enviado' && b4.dato.moneda_envio === 'CREDITO' && cerca(await saldo(c8b), 25 + Number(ch8b.cot.envio_usd)),
     'sobre el umbral, el destino crédito en Tumbo no se acredita solo: espera la aprobación de otra persona', [dcb.texto, b2.texto].join(' | ').slice(0, 240));
-  await rpc('tm_ajuste_guardar', { p_sesion: s.admin, p_clave: 'reembolsos', p_valor: { umbral_doble_usd: 200 } });
+  fijarAjuste('reembolsos', { umbral_doble_usd: 200 });
 
   /* ================= Conciliación con el estado de cuenta ================= */
   const fm = await rpc('tm_conciliacion_formatos', { p_sesion: s.finanzas });
@@ -622,14 +629,12 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
   ok(!impRol.ok, 'un comprador no importa estados de cuenta');
   /* tope de movimientos nuevos por persona cada 24 horas */
   const cfgConc = (await rpc('tm_ajustes_publicos', {})).dato;
-  await rpc('tm_ajuste_guardar', { p_sesion: s.admin, p_clave: 'conciliacion',
-    p_valor: { tolerancia_bs: 1, dias: 3, digitos_sufijo: 6, filas_dia_usuario: 105, filas_dia_total: 20000 } });
+  fijarAjuste('conciliacion', { tolerancia_bs: 1, dias: 3, digitos_sufijo: 6, filas_dia_usuario: 105, filas_dia_total: 20000 });
   const muchas = [];
   for (let i = 0; i < 101; i++) muchas.push({ fecha: hoy(), referencia: String(91000000 + i), monto: redondo(10 + i / 100), descripcion: 'ABONO PRUEBA TOPE ' + i });
   const impTope = await rpc('tm_conciliacion_importar', { p_sesion: fin, p_banco: 'banesco', p_filas: muchas, p_archivo: 'muchas.csv' });
   const impOtro = await rpc('tm_conciliacion_importar', { p_sesion: fin2, p_banco: 'banesco', p_filas: muchas.slice(0, 50), p_archivo: 'pocas.csv' });
-  await rpc('tm_ajuste_guardar', { p_sesion: s.admin, p_clave: 'conciliacion',
-    p_valor: { tolerancia_bs: 1, dias: 3, digitos_sufijo: 6, filas_dia_usuario: 5000, filas_dia_total: 20000 } });
+  fijarAjuste('conciliacion', { tolerancia_bs: 1, dias: 3, digitos_sufijo: 6, filas_dia_usuario: 5000, filas_dia_total: 20000 });
   ok(!impTope.ok && /tope de 105 movimientos nuevos/.test(impTope.texto) && impOtro.ok && impOtro.dato.nuevas === 50 && !('conciliacion' in (cfgConc || {})),
     'la importación tiene tope de movimientos nuevos por persona cada 24 horas (y no se guarda nada si lo pasa)', impTope.texto);
   const exc = await rpc('tm_conciliacion_movimientos', { p_sesion: fin, p_estado: 'excepcion', p_antes: null });
@@ -673,9 +678,9 @@ const refNueva = (pre) => (pre || 'PM-') + String(70000000 + (Date.now() % 10000
     'el aviso de tasa desactualizada llega a Finanzas una sola vez al día');
   psql(`select tumbo_privado.tarea_tasa()`);
   ok(psql(`select count(*) from tumbo.notificaciones where para = 'rol:finanzas' and texto like 'La tasa BCV lleva más de%'`) === '1', 'y no se repite');
-  await rpc('tm_ajuste_guardar', { p_sesion: s.admin, p_clave: 'tasa_bcv', p_valor: { url: 'https://ve.dolarapi.com/v1/dolares/oficial', horas_alerta: 6, variacion_max_pct: 15 } });
+  fijarAjuste('tasa_bcv', { url: 'https://ve.dolarapi.com/v1/dolares/oficial', horas_alerta: 6, variacion_max_pct: 15 });
   ok((await rpc('tm_tasa_vigente', {})).dato.horas_alerta === 6, 'la vitrina usa las horas de alerta del ajuste (no 24 h fijas)');
-  await rpc('tm_ajuste_guardar', { p_sesion: s.admin, p_clave: 'tasa_bcv', p_valor: { url: 'https://ve.dolarapi.com/v1/dolares/oficial', horas_alerta: 24, variacion_max_pct: 15 } });
+  fijarAjuste('tasa_bcv', { url: 'https://ve.dolarapi.com/v1/dolares/oficial', horas_alerta: 24, variacion_max_pct: 15 });
   const tp0 = await rpc('tm_tasa_proponer', { p_sesion: s.finanzas, p_valor: 40.5, p_fecha: hoy(), p_nota: 'BCV publicó' });
   ok(!tp0.ok && /cuentas de prueba/.test(tp0.texto), 'las cuentas de prueba no cargan la tasa (cambia los precios de toda la tienda)', tp0.texto);
   const tasaPedido = Number((await pedido(c1, peds1[1])).monto_bs);
