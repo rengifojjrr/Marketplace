@@ -512,16 +512,15 @@ function servidor(sitio) {
       await abrir('tienda/inicio', q);
       const pie = await q.locator('#raiz footer').innerText();
       if (/beta|ficticios/i.test(pie)) throw new Error('el pie dice: ' + pie.slice(0, 200));
-      /* el menú de la cuenta de la superadministración: con servidor, sin
-         «Reiniciar datos de la demo» (borraría los datos reales); en modo
-         local (la copia de este navegador), sigue */
+      /* el menú de la cuenta de la superadministración (la única que reinicia
+         con servidor; en la tienda su cabecera es la de un visitante): con
+         servidor, sin «Reiniciar datos de la demo» (borraría los datos
+         reales); en modo local (la copia de este navegador), sigue */
       await login('superadmin');
-      for (const r of ['admin/panel', 'tienda/inicio']) {
-        await abrir(r, q);
-        await q.locator('[data-cuenta-btn]').first().click();
-        const reinicio = await q.locator('[data-reiniciar]').count();
-        if (remoto ? reinicio : !reinicio) throw new Error(r + ': botón de reinicio ' + (reinicio ? 'visible' : 'ausente') + ' en modo ' + t.modo);
-      }
+      await abrir('admin/panel', q);
+      await q.locator('[data-cuenta-btn]').first().click();
+      const reinicio = await q.locator('[data-reiniciar]').count();
+      if (remoto ? reinicio : !reinicio) throw new Error('botón de reinicio ' + (reinicio ? 'visible' : 'ausente') + ' en modo ' + t.modo);
     } finally {
       await q.close();
       await p.goto(t.BASE + '/index.html');
