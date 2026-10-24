@@ -10,29 +10,48 @@ body { min-height: 100vh; }
 :focus-visible { outline: 2px solid var(--tm-accion); outline-offset: 2px; border-radius: 4px; }
 
 /* --- Avisos emergentes -------------------------------------------------- */
+/* En el escritorio, abajo a la derecha. En el teléfono y la tableta van
+   arriba (sobre la cabecera, que no se usa mientras se lee el aviso), así no
+   tapan los botones de acción del final de los formularios; ver más abajo. */
 .tm-toasts {
-  position: fixed; right: 16px; bottom: 16px; z-index: 9500;
+  position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 9500;
   display: flex; flex-direction: column; gap: 8px;
-  max-width: min(92vw, 380px); pointer-events: none;
+  width: min(calc(100vw - 32px), 380px); pointer-events: none;
 }
 .tm-toast {
   display: flex; align-items: flex-start; gap: 10px;
-  padding: 11px 12px; border: 1px solid var(--tm-borde); border-radius: 12px;
+  padding: 12px 8px 12px 12px; border: 1px solid var(--tm-borde); border-radius: 14px;
   background: #fff; color: #172033;
   box-shadow: 0 4px 20px rgba(11, 37, 69, .14);
   pointer-events: auto; animation: tm-entra .22s ease-out;
-  font: 400 12px/1.5 Inter, system-ui, sans-serif;
+  font: 400 14px/20px Inter, system-ui, sans-serif;
 }
 .tm-toast.sale { animation: tm-sale .5s ease-in forwards; }
-.tm-toast__ico { flex: none; font-size: 20px !important; color: var(--tm-accion); }
-.tm-toast__cuerpo { display: grid; gap: 2px; }
-.tm-toast__cuerpo strong { font-size: 13px; font-weight: 600; }
+.tm-toast__ico { flex: none; font-size: 20px !important; color: var(--tm-accion); margin-top: 1px; }
+/* min-width: 0 y overflow-wrap: un correo o una guía larga se parten y la X no se sale */
+.tm-toast__cuerpo { display: grid; gap: 2px; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.tm-toast__cuerpo strong { font-size: 15px; line-height: 20px; font-weight: 600; }
 .tm-toast__cuerpo span { color: #44506a; }
-.tm-toast__x { flex: none; margin-left: auto; border: 0; background: none; color: #74829f; cursor: pointer; padding: 0; }
-.tm-toast__x .material-symbols-outlined { font-size: 18px !important; }
+.tm-toast__accion {
+  justify-self: start; display: inline-flex; align-items: center; gap: 4px; min-height: 36px; margin-top: 2px;
+  color: var(--tm-accion); font-weight: 600; text-decoration: underline; text-underline-offset: 2px;
+}
+.tm-toast__x { flex: none; margin-left: auto; border: 0; background: none; color: #5b6880; cursor: pointer; padding: 0; border-radius: 10px; }
+.tm-toast__x .material-symbols-outlined { font-size: 20px !important; }
 
 @keyframes tm-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes tm-entra-arriba { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 @keyframes tm-sale  { to { opacity: 0; transform: translateY(-6px); } }
+
+@media (max-width: 1023.98px) {
+  .tm-toasts { top: calc(8px + env(safe-area-inset-top)); bottom: auto; }
+  /* con la cabecera fija de los paneles, debajo de ella (no tapa el menú ni la campana) */
+  body:has(#raiz header.sticky) .tm-toasts { top: calc(64px + env(safe-area-inset-top)); }
+  .tm-toast { animation-name: tm-entra-arriba; }
+}
+@media (max-width: 639.98px) {
+  .tm-toasts { left: 16px; right: 16px; width: auto; }
+}
 
 /* --- Modales ------------------------------------------------------------ */
 .tm-velo {
@@ -40,12 +59,20 @@ body { min-height: 100vh; }
   background: rgba(11, 37, 69, .45);
   display: flex; align-items: center; justify-content: center; padding: 16px;
 }
+/* cabe siempre en la pantalla (dvh: sin la barra del navegador del teléfono)
+   y se desplaza por dentro sin arrastrar la página de fondo */
 .tm-modal {
-  width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto;
+  width: 100%; max-width: 440px; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px);
+  overflow-y: auto; overscroll-behavior: contain;
   background: #fff; border-radius: 14px; padding: 20px;
   box-shadow: 0 8px 40px rgba(11, 37, 69, .25);
   animation: tm-entra .18s ease-out;
   font-family: Inter, system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 639.98px) {
+  .tm-velo { padding: 16px; }
+  .tm-modal { padding: 16px; }
 }
 
 /* Texto truncado a dos líneas en tarjetas de producto */
@@ -98,13 +125,8 @@ button[aria-busy="true"] { opacity: .65; cursor: progress; }
   box-shadow: 0 4px 20px rgba(11, 37, 69, .25); text-decoration: underline;
 }
 .tm-saltar:focus { top: 12px; }
-/* el botón de cerrar un aviso tiene un blanco de 24 px como mínimo */
-.tm-toast__x { min-width: 24px; min-height: 24px; display: inline-flex; align-items: center; justify-content: center; }
-/* en pantallas táctiles, los botones de la interfaz miden 44 px de alto */
-@media (pointer: coarse) {
-  .min-h-\[40px\] { min-height: 44px; }
-  .min-h-\[36px\], .min-h-\[32px\] { min-height: 40px; }
-}
+/* el botón de cerrar un aviso: 32 px con el ratón; 44 px con el dedo (más abajo) */
+.tm-toast__x { min-width: 32px; min-height: 32px; margin: -6px 0 -6px 0; display: inline-flex; align-items: center; justify-content: center; }
 /* el diálogo modal recibe el foco sin un recuadro de más */
 .tm-modal:focus { outline: none; }
 /* las tablas que se desplazan a lo ancho muestran el foco del teclado */
@@ -122,3 +144,190 @@ button[aria-busy="true"] { opacity: .65; cursor: progress; }
 .tm-modal .text-warning:not(.material-symbols-outlined) { color: #b45309; }
 #raiz main .material-symbols-outlined.text-warning,
 .tm-modal .material-symbols-outlined.text-warning { color: #d97706; }
+
+/* =========================================================================
+   Base común para el teléfono (todas las superficies)
+   -------------------------------------------------------------------------
+   Lo que aquí se arregla vale para cualquier vista sin tocar su módulo.
+   Las clases y atributos que los módulos pueden usar a propósito:
+     .tm-tocable        enlace o botón de texto con blanco táctil de 44 px
+     .tm-tira           fila desplazable a lo ancho (chips, pestañas)
+     .tm-tira-movil     una fila flex-wrap que en el teléfono pasa a tira
+     .tm-chip           chip/pestaña de 44 px en pantallas táctiles
+     .tm-num / .tm-id   importe o identificador que no se parte
+     table[data-tarjetas]  tabla hecha a mano que en el teléfono va en tarjetas
+     .tm-una-columna    una cuadrícula de UI.kpi que no pasa a 2 columnas
+   ========================================================================= */
+
+/* El atributo hidden oculta siempre: una clase de display de Tailwind
+   (.flex, .grid, .inline-flex…) va después en la hoja y lo reabría. */
+[hidden] { display: none !important; }
+
+/* Palabras, correos y URL largos se parten antes que salirse de su caja. */
+body { overflow-wrap: break-word; }
+/* Un hijo de una cuadrícula puede ser más estrecho que su contenido más
+   largo (sin esto, un importe o un ID sin cortes ensanchaba la columna y
+   la tarjeta se salía de la pantalla). Cualquier clase min-w-* manda. */
+:where(.grid) > * { min-width: 0; }
+/* Una fila flex que no cabe (tm-app la marca con data-envolver) pasa a
+   varias líneas en lugar de salirse por la derecha. */
+[data-envolver] { flex-wrap: wrap !important; row-gap: 4px; }
+
+/* --- Campos ---------------------------------------------------------------
+   En el teléfono y la tableta los campos miden 16 px de letra: con menos,
+   Safari de iOS hace zoom al enfocarlos y descuadra la página. La primera
+   regla (especificidad de elemento) le gana al «font-size: 100%» del
+   preflight y pierde ante cualquier clase de tamaño; la segunda sube las
+   clases pequeñas que usan los módulos. */
+@media (max-width: 1023.98px), (pointer: coarse) {
+  input:where(:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]):not([type=color]):not([type=hidden])),
+  select, textarea { font-size: 16px; }
+  :is(input, select, textarea):is(.text-body-sm, .text-data-mono, .text-label-md, .text-label-sm, .text-label-caps,
+    .text-xs, .text-sm, .text-\[11px\], .text-\[12px\], .text-\[13px\], .text-\[14px\], .text-\[15px\]) { font-size: 16px; }
+}
+/* lo que no cabe en un campo (valor o ejemplo) termina en «…» en vez de cortarse */
+input:not([type=checkbox]):not([type=radio]):not([type=range]) { text-overflow: ellipsis; }
+/* la flecha del select tiene su sitio: px-2/px-3 anulaban el que reserva @tailwindcss/forms */
+select:not([multiple]):not([size]) { padding-right: 2.25rem; text-overflow: ellipsis; }
+/* un campo de 32-36 px de alto no recorta su texto con el relleno vertical de @tailwindcss/forms */
+:where(input, select):is(.h-8, .h-9) { padding-top: 0; padding-bottom: 0; }
+
+/* Un control deshabilitado se ve deshabilitado (antes era idéntico al activo). */
+button:disabled, select:disabled, textarea:disabled, input:disabled { cursor: not-allowed; opacity: .5; }
+button[aria-busy="true"]:disabled { opacity: .65; cursor: progress; }
+
+/* --- Objetivos táctiles de 44 px ------------------------------------------ */
+.tm-tocable { display: inline-flex; align-items: center; gap: 4px; min-height: 24px; }
+@media (pointer: coarse) {
+  .tm-tocable,
+  .min-h-\[24px\], .min-h-\[28px\], .min-h-\[32px\], .min-h-\[36px\], .min-h-\[40px\], .min-h-\[42px\] { min-height: 44px; }
+  /* campos y botones de 32-40 px de alto */
+  :is(input, select):is(.h-8, .h-9, .h-10) { height: 44px; }
+  :is(a, button):is(.h-8, .h-9, .h-10) { height: 44px; }
+  :is(a, button):is(.h-8, .h-9, .h-10):is(.w-8, .w-9, .w-10) { width: 44px; }
+  /* enlaces de acción, botones de texto y etiquetas de casillas (inline-flex).
+     Solo el alto: un min-width fijo le quitaría a un hijo de una fila flex su
+     mínimo automático (el de su contenido) y los textos se montarían. */
+  :where(#raiz, .tm-modal, [data-tumbo-propio]) :is(a, button, label).inline-flex { min-height: 44px; }
+  :where(#raiz, .tm-modal, [data-tumbo-propio]) label.flex:has(> :is(input[type=checkbox], input[type=radio])) { min-height: 44px; }
+  :is(input[type=checkbox], input[type=radio]):is(.w-4, .w-5) { width: 22px; height: 22px; }
+  /* enlaces y botones de texto sueltos con letra de etiqueta («Ver ficha», «Editar»,
+     «Eliminar», «Cola de moderación») y los enlaces de las tablas */
+  :where(#raiz, .tm-modal, [data-tumbo-propio]) :is(a, button).font-label-md:not(.block):not(.flex):not(.inline-flex):not(.hidden),
+  :where([data-tabla], table[data-tarjetas]) td a:not(.block):not(.flex):not(.inline-flex):not(.hidden) {
+    display: inline-flex; align-items: center; min-height: 44px;
+  }
+  /* botones y enlaces de solo un icono (Editar, Kardex, Pausar…) */
+  :where(#raiz, .tm-modal, [data-tumbo-propio]) :is(a, button):is(.p-1, .p-1\.5, .p-2):has(> .material-symbols-outlined:only-child):not(.block):not(.flex):not(.w-full):not(.hidden) {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px;
+  }
+  /* los <summary> que abren y cierran (filtros, preguntas frecuentes) */
+  :where(#raiz, .tm-modal, [data-tumbo-propio]) summary { min-height: 44px; }
+  :where(#raiz, .tm-modal, [data-tumbo-propio]) :where(summary) { padding-top: 12px; padding-bottom: 12px; }
+  .tm-toast__x { min-width: 44px; min-height: 44px; margin: -12px -4px -12px 0; }
+}
+
+/* --- Filas desplazables a lo ancho ---------------------------------------- */
+.tm-tira { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; }
+.tm-tira::-webkit-scrollbar { display: none; }
+.tm-tira > * { flex: none; scroll-snap-align: start; }
+@media (max-width: 639.98px) {
+  .tm-tira-movil { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; }
+  .tm-tira-movil::-webkit-scrollbar { display: none; }
+  .tm-tira-movil > * { flex: none; }
+}
+.tm-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 14px; border-radius: 9999px; white-space: nowrap; }
+@media (pointer: coarse) {
+  .tm-chip { min-height: 44px; }
+  /* los chips y pestañas redondeados de los módulos (px-3 py-1.5 rounded-full) también miden 44 px */
+  :where(#raiz, .tm-modal, [data-tumbo-propio]) :is(a, button).rounded-full:is(.py-1, .py-1\.5, .py-2):not(.block):not(.flex):not(.w-full):not(.hidden) {
+    display: inline-flex; align-items: center; min-height: 44px;
+  }
+}
+/* Pista de que hay más a la derecha: tm-app marca con data-desborda cada
+   región .overflow-x-auto / .tm-tira que de verdad se desplaza («der»: hay
+   más a la derecha; «ambos»; «izq»: llegó al final). */
+[data-desborda="der"] { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); }
+[data-desborda="ambos"] { -webkit-mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 40px), transparent); }
+[data-desborda="izq"] { -webkit-mask-image: linear-gradient(to right, transparent, #000 32px); mask-image: linear-gradient(to right, transparent, #000 32px); }
+.tm-pista-desliza { display: none; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 4px; font: 500 12px/16px Inter, system-ui, sans-serif; color: #44506a; }
+[data-desborda] + .tm-pista-desliza { display: flex; }
+
+/* --- Importes e identificadores ------------------------------------------- */
+/* «TM-2026-00434», «Bs. 3.583,80», «IGTF (3 %)»: nunca se parten a la mitad.
+   tm-app marca con data-unido los elementos cuyo texto es solo eso. */
+.tm-num, .tm-id, [data-unido] { white-space: nowrap; }
+
+/* --- Tablas en el teléfono: una tarjeta por fila -------------------------- */
+/* UI.tabla (con 4 columnas o más, o {tarjetas:true}) y las tablas hechas a
+   mano con data-tarjetas. Cada celda lleva su etiqueta (data-th, de la
+   cabecera de su columna) en una columna a la izquierda y el valor al lado; la
+   columna de acciones (cabecera vacía) va a lo ancho con sus botones. Las
+   celdas, sus atributos y sus acciones son los mismos de la tabla. */
+@media (max-width: 639.98px) {
+  [data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas] { display: block; width: 100%; }
+  /* (cada celda ya lleva su etiqueta) */
+  :is([data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas]) > thead { display: none; }
+  /* una cabecera con «elegir todos» se queda como barra */
+  :is([data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas]) > thead:has(input, button, select) { display: block; }
+  :is([data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas]) > thead:has(input, button, select) > tr { display: flex; padding: 0 16px; }
+  :is([data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas]) > thead:has(input, button, select) th { display: none; }
+  :is([data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas]) > thead:has(input, button, select) th:has(input, button, select) {
+    display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0;
+  }
+  :is([data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas]) > thead th:has(> input[type=checkbox])::after {
+    content: "Elegir todos"; font: 400 14px/20px Inter, system-ui, sans-serif; text-transform: none; letter-spacing: normal; color: #172033;
+  }
+  :is([data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas]) > :is(tbody, tfoot) { display: block; }
+  :is([data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas]) > :is(tbody, tfoot) > tr { display: block; padding: 12px 16px; }
+  /* la celda es una tabla de dos columnas: la etiqueta (::before, una
+     celda) y todo su contenido (una celda anónima), así el valor nunca se
+     mete debajo de la etiqueta, tenga lo que tenga */
+  :is([data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas]) > :is(tbody, tfoot) > tr > :is(td, th):not(.hidden) {
+    display: table; table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 0;
+    padding: 4px 0; text-align: left !important; white-space: normal; overflow-wrap: anywhere;
+  }
+  :is([data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas]) > :is(tbody, tfoot) > tr > td[data-th]:not([data-th=""])::before {
+    content: attr(data-th); display: table-cell; width: 38%; padding-right: 12px; vertical-align: top;
+    font: 600 12px/20px Inter, system-ui, sans-serif; letter-spacing: .01em; color: #44506a; overflow-wrap: break-word;
+  }
+  /* un ancho mínimo pensado para la columna de la tabla no ensancha la tarjeta */
+  :is([data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas]) > :is(tbody, tfoot) > tr > td [class*="min-w-["] { min-width: 0 !important; }
+  /* sin cabecera (acciones, casilla): a lo ancho; las acciones a la derecha */
+  :is([data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas]) > :is(tbody, tfoot) > tr > td[data-th=""]:not(.hidden) {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; padding-top: 8px;
+  }
+  :is([data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas]) > :is(tbody, tfoot) > tr > td[data-th=""]:first-child { justify-content: flex-start; padding-top: 0; }
+  :is([data-tabla]:not([data-tabla="desliza"]) > table, table[data-tarjetas]) > :is(tbody, tfoot) > tr > td[data-th=""]:only-child { justify-content: flex-start; }
+}
+
+/* --- Indicadores (UI.kpi) -------------------------------------------------- */
+/* En el teléfono, dos por fila y compactos (antes, una columna de tarjetas altas). */
+@media (max-width: 639.98px) {
+  .grid:has(> [data-kpi]):not(.tm-una-columna) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  [data-kpi] { padding: 12px; min-width: 0; }
+  [data-kpi] .tm-kpi__valor { font-size: clamp(17px, 5vw, 22px); line-height: 1.3; overflow-wrap: anywhere; }
+  [data-kpi] .tm-kpi__titulo { letter-spacing: .03em; }
+}
+
+/* --- Menú del panel (Seller Center / Backoffice) --------------------------- */
+/* Secciones del menú lateral: el título va en un pseudoelemento (no es texto
+   de la navegación) y una sección cuyas entradas se ocultaron no se ve. */
+[data-seccion]::before {
+  content: attr(data-seccion); content: attr(data-seccion) / "";
+  display: block; padding: 16px 16px 6px;
+  font: 700 12px/16px Inter, system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #44506a;
+}
+[data-seccion]:first-child::before { padding-top: 4px; }
+[data-seccion]:not(:has(> a:not([style*="display: none"]))) { display: none; }
+/* el cajón cerrado (fuera de la pantalla) no asoma su sombra por el borde */
+[data-nav].-translate-x-full { box-shadow: none; }
+/* con el cajón abierto, la página de fondo no se desplaza */
+html.tm-sin-scroll, html.tm-sin-scroll body { overflow: hidden; }
+
+/* --- Carga: la marca arriba mientras llegan los datos ---------------------- */
+.tm-cargando__barra {
+  position: absolute; top: 0; left: 0; right: 0; height: 56px; padding: 0 16px;
+  display: flex; align-items: center; gap: 8px; background: #0b2545; color: #fff;
+  font: 700 18px/1 Inter, system-ui, sans-serif;
+}

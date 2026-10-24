@@ -20,7 +20,7 @@
      lleva a sin-conexion.html.
    ========================================================================= */
 'use strict';
-var VERSION = 'tumbo-4023a15eda8da797';
+var VERSION = 'tumbo-4587234a43ebb93e';
 var PRECACHE = [
   "index.html",
   "sin-conexion.html",

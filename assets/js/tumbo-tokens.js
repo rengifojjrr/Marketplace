@@ -121,7 +121,7 @@ tailwind.config = {
         'body-md':            ['16px', { lineHeight: '24px', fontWeight: '400' }],
         'body-sm':            ['14px', { lineHeight: '20px', fontWeight: '400' }],
         'label-md':           ['12px', { lineHeight: '16px', letterSpacing: '0.02em', fontWeight: '600' }],
-        'label-sm':           ['11px', { lineHeight: '14px', fontWeight: '500' }],
+        'label-sm':           ['12px', { lineHeight: '16px', fontWeight: '500' }],
         'label-caps':         ['12px', { lineHeight: '16px', letterSpacing: '0.05em', fontWeight: '700' }],
         'data-mono':          ['13px', { lineHeight: '16px', fontWeight: '500' }]
       },

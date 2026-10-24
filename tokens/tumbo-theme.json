@@ -185,9 +185,9 @@
       }
     ],
     "label-sm": [
-      "11px",
+      "12px",
       {
-        "lineHeight": "14px",
+        "lineHeight": "16px",
         "fontWeight": "500"
       }
     ],

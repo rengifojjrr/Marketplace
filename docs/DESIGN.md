@@ -58,7 +58,7 @@ distinguir `0`/`O` y `1`/`l` importa.
 | `body-sm` | 14 / 20 px | 400 | Texto secundario |
 | `label-md` | 12 / 16 px | 600 | Etiquetas de control |
 | `label-caps` | 12 / 16 px | 700 | Encabezados en versalitas |
-| `label-sm` | 11 / 14 px | 500 | Metadatos |
+| `label-sm` | 12 / 16 px | 500 | Metadatos (mínimo legible en el teléfono) |
 | `data-mono` | 13 / 16 px | 500 | IDs, SKU y montos |
 
 ### Convenciones locales
@@ -144,3 +144,50 @@ normal se convertía en una columna que deformaba la página.
 - Mensajes de error junto al campo que los origina.
 - Texto alternativo en toda imagen.
 - El estado nunca depende solo del color.
+
+## Base para el teléfono
+
+Lo común (assets/css/tm.css, assets/js/tm-ui.js y el armazón de
+assets/js/tm-app.js) ya resuelve en todas las vistas, sin tocar su módulo:
+
+- **Campos de 16 px** por debajo de 1024 px o con pantalla táctil (iOS no hace
+  zoom al enfocarlos); `h-8/h-9/h-10` de campos y botones pasan a 44 px con el
+  dedo; los `select` reservan el sitio de la flecha.
+- **Objetivos de 44 px** con el dedo: `min-h-[24…42px]`, enlaces y botones
+  `inline-flex`, chips `rounded-full py-1.5`, botones de solo un icono
+  (`p-1`/`p-2`), `<summary>`, la X de los avisos.
+- **Tablas (`UI.tabla`) en tarjetas** por debajo de 640 px cuando tienen 4
+  columnas o más: cada celda lleva su etiqueta (`data-th`, de la cabecera) y la
+  columna sin cabecera (las acciones) va a lo ancho. `UI.tabla(cab, filas,
+  vacío, {tarjetas: true|false})` lo fija. Una tabla hecha a mano entra con
+  `<table data-tarjetas>` (con `<thead>`). Lo que se desplaza a lo ancho
+  desvanece su borde y, en las tablas, dice «Desliza para ver más».
+- **IDs e importes** que son todo el texto de su elemento no se parten
+  (`TM-2026-00434`, `Bs. 3.583,80`); una fila flex que no cabe pasa a varias
+  líneas; un hijo de `.grid` puede encogerse (`min-width: 0`).
+- **Filas de 4 chips o más** (enlaces/botones `rounded-full`) son una tira que
+  se desplaza a lo ancho en el teléfono, con el chip activo a la vista.
+- **Indicadores (`UI.kpi`)**: dos por fila en el teléfono (`.tm-una-columna`
+  en la cuadrícula lo evita).
+- El atributo `hidden` oculta siempre, aunque el elemento tenga una clase de
+  display.
+
+Para los módulos:
+
+| Pieza | Uso |
+| --- | --- |
+| `UI.enlace(texto, href, icono)` / `.tm-tocable` | Enlace de acción suelto («Volver», «Ver ficha») con 44 px de blanco táctil |
+| `UI.chip(texto, href, activo)` / `.tm-chip` | Chip o pestaña de filtro; la fila: `flex flex-wrap gap-2 tm-tira-movil` |
+| `.tm-tira` | Fila que siempre se desplaza a lo ancho |
+| `.tm-num` / `.tm-id` | Importe o identificador que no se parte |
+| `UI.toast(t, texto, icono, {accion: {texto, href}})` | Aviso con acción («Ver carrito»); en el teléfono va arriba, uno a la vez |
+| `UI.vacio(icono, t, texto, accion, {compacto: true})` | Estado vacío de una sección dentro de una página |
+| `UI.avisoPrueba(texto, detalleHtml)` | Aviso de cuenta de prueba o de solo lectura en una línea, con «Más» |
+| `UI.fechaHora(fecha)` | `24/10/2026 05:35 pm`, en hora de Caracas |
+| `UI.tactil()` | ¿Pantalla táctil? (no abrir el teclado sin que lo pidan) |
+
+En el armazón: el menú de los paneles es un cajón bajo la cabecera, con
+scroll propio, por secciones (`SECCIONES` en tm-app.js; una vista nueva toma
+la sección de su vecina por orden) y el botón de menú pasa a «Cerrar»; los
+desplegables de la cabecera ocupan el ancho de la pantalla en el teléfono y se
+cierran al tocar fuera; la campana distingue las no leídas con fondo y punto.

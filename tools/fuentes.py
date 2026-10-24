@@ -260,12 +260,17 @@ def main():
     with open(os.path.join(DESTINO, 'fuentes.css'), 'w', encoding='utf-8') as f:
         f.write('/* Fuentes locales de la beta. Generado por tools/fuentes.py. */\n')
         f.write('\n'.join(reglas) + '\n')
+        # El display va aparte y con especificidad cero (:where): esta hoja se
+        # carga después de Tailwind y un display:inline-block de clase le
+        # ganaba a .hidden, .sm:block… (un icono «hidden sm:block» se veía en
+        # el teléfono). Así cualquier clase de display del icono manda.
         f.write(
             "\n.material-symbols-outlined{font-family:'Material Symbols Outlined';"
             "font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;"
-            "text-transform:none;display:inline-block;white-space:nowrap;"
+            "text-transform:none;white-space:nowrap;"
             "word-wrap:normal;direction:ltr;-webkit-font-feature-settings:'liga';"
-            "-webkit-font-smoothing:antialiased;font-feature-settings:'liga';}\n")
+            "-webkit-font-smoothing:antialiased;font-feature-settings:'liga';}\n"
+            ":where(.material-symbols-outlined){display:inline-block}\n")
 
     print('\nEscrito en assets/fuentes/')
 

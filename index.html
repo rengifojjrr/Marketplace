@@ -77,9 +77,9 @@
         </div>
         <label class="block font-label-md text-label-md text-on-surface mb-1" for="ac-codigo">Código de verificación</label>
         <input class="w-full h-12 px-3 rounded-btn border border-outline-variant bg-surface-container-low
-                      font-data-mono text-data-mono tracking-[0.4em] text-center
+                      font-data-mono text-[20px] leading-6 tracking-[0.4em] text-center
                       focus:border-secondary focus:ring-2 focus:ring-secondary/30 outline-none"
-               id="ac-codigo" inputmode="numeric" maxlength="6" placeholder="000000" aria-describedby="ac-codigo-err"/>
+               id="ac-codigo" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-describedby="ac-codigo-err"/>
         <p class="hidden items-center gap-1 mt-1 font-body-sm text-body-sm text-error" id="ac-codigo-err" role="alert">
           <span class="material-symbols-outlined text-[16px]" aria-hidden="true">error</span><span data-texto></span></p>
         <button class="w-full h-12 mt-5 rounded-btn bg-primary-container text-on-primary font-label-md text-label-md

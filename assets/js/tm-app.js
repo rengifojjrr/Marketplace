@@ -136,9 +136,13 @@
   function botonReiniciar(s) {
     if (!TM.puedeReiniciar(s)) return '';
     if (!DEMO && TM.modo === 'remoto') return '';
-    return '<button data-reiniciar class="block w-full text-left px-4 py-2 font-body-sm text-body-sm text-on-surface-variant hover:bg-surface-container-low">' +
-      (TM.modo === 'remoto' ? 'Reiniciar datos de la demo' : 'Reiniciar demo') + '</button>';
+    /* separado de «Cerrar sesión» y en color de peligro: no se toca por error */
+    return '<button data-reiniciar class="flex items-center w-full min-h-[44px] px-4 text-left font-body-sm text-body-sm text-error hover:bg-error-container/40">' +
+      (TM.modo === 'remoto' ? 'Reiniciar datos de la demo' : 'Reiniciar demo') + '</button>' +
+      '<hr class="my-1 border-outline-variant"/>';
   }
+  /* Clase de una entrada de los menús desplegables: 44 px de alto. */
+  var ITEM_MENU = 'flex items-center w-full min-h-[44px] px-4 text-left font-body-sm text-body-sm hover:bg-surface-container-low';
 
   /* Enlace «Saltar al contenido»: el primero de la página, visible al
      enfocarlo con el teclado (tm.css: .tm-saltar). */
@@ -153,64 +157,96 @@
      equipo) que entra a la tienda o al centro de ayuda, p. ej. a leer y
      aceptar el contrato que le pide su panel: lo saluda y le deja el camino
      de vuelta a su Seller Center o Backoffice. */
+  /* Categorías de la barra: sin las que no tienen productos publicados
+     (llevaban a resultados vacíos), salvo la que se está viendo. Sin el
+     módulo de catálogo en la página, todas. */
+  function categoriasBarra() {
+    var cats = TM.estado.categorias || [];
+    var cat = TM.cat;
+    if (!(cat && cat.raizDe && TM.catalogoPublico)) return cats;
+    var pub = TM.catalogoPublico();
+    if (!pub.length) return cats;
+    var n = {};
+    pub.forEach(function (p) {
+      var r = cat.raizDe(p.categoria);
+      n[r] = (n[r] || 0) + 1;
+      if (r !== p.categoria) n[p.categoria] = (n[p.categoria] || 0) + 1;
+    });
+    var actual = params().get('cat');
+    return cats.filter(function (c) { return n[c.id] || c.id === actual; });
+  }
+
+  /* En el teléfono: fila 1 con la marca, la cuenta, la campana y el carrito
+     (objetivos de 44 px); fila 2 con el buscador a todo el ancho. Hasta lg
+     (1024 px) el buscador conserva su fila: en la tableta, en una sola fila
+     quedaba de 50 px. «Entregar en…» y «Devoluciones y pedidos» aparecen
+     cuando hay sitio. Los desplegables, en el teléfono, ocupan el ancho de
+     la cabecera (no cuelgan del botón: se salían por la izquierda). */
   function cabeceraTienda(s, panel) {
     var carrito = TM.carrito();
     var vuelta = panel && ROLES[panel.rol]
       ? { href: href(ROLES[panel.rol].inicio), texto: ROLES[panel.rol].superficie === 'seller' ? 'Seller Center' : 'Backoffice' } : null;
     var nCarrito = carrito.reduce(function (t, i) { return t + i.cant; }, 0);
-    var cats = TM.estado.categorias;
+    var cats = categoriasBarra();
+    /* en los resultados, el buscador muestra lo que se buscó */
+    var buscado = document.body.getAttribute('data-vista') === 'tienda/resultados' ? (params().get('q') || '') : '';
+    var item = ITEM_MENU;
     return '' +
     '<header class="bg-primary-container text-on-primary">' +
-      '<div class="max-w-[1280px] mx-auto px-3 sm:px-4 py-2 sm:py-0 sm:h-16 flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-4">' +
-        '<a class="flex items-center gap-2 shrink-0" href="' + href('app/tienda/inicio.html') + '">' +
+      '<div class="relative max-w-[1280px] mx-auto px-4 py-2 lg:py-0 lg:h-16 flex flex-wrap lg:flex-nowrap items-center gap-x-1 gap-y-2 sm:gap-x-2 lg:gap-x-4">' +
+        '<a class="flex items-center gap-2 min-h-[44px] pr-1 rounded shrink-0" href="' + href('app/tienda/inicio.html') + '">' +
           ic('storefront', 'text-[26px]') +
           '<span class="font-bold text-[18px] tracking-tight">Tumbo</span></a>' +
-        '<span class="hidden md:inline-flex items-center gap-1 text-[12px] text-white/70 shrink-0">' +
+        '<span class="hidden xl:inline-flex items-center gap-1 text-[12px] text-white/75 shrink-0">' +
           ic('place', 'text-[16px]') + 'Entregar en ' + esc(TM.estado.config.ciudadEntrega) + '</span>' +
-        '<span class="flex-1 sm:hidden"></span>' +
-        '<form data-buscar class="order-last basis-full sm:order-none sm:basis-auto flex-1 flex min-w-0" role="search" aria-label="Buscar en Tumbo">' +
-          '<input name="q" type="search" placeholder="Buscar productos, marcas y más…" aria-label="Buscar en Tumbo" ' +
-            'class="w-full min-w-0 h-10 px-3 rounded-l-btn bg-white text-on-surface font-body-sm text-body-sm outline-none focus:ring-2 focus:ring-warning"/>' +
-          '<button class="h-10 px-3 rounded-r-btn bg-warning text-on-warning" aria-label="Buscar">' + ic('search') + '</button></form>' +
-        '<div class="relative shrink-0" data-menu-cuenta>' +
-          '<button class="flex flex-col items-start leading-tight px-2 py-1 rounded hover:bg-white/10" data-cuenta-btn aria-expanded="false" aria-controls="tm-panel-cuenta">' +
-            '<span class="text-[11px] text-white/80">' + (s || vuelta ? 'Hola, ' + esc((s || panel).nombre.split(' ')[0]) : 'Hola, identifícate') + '</span>' +
+        '<span class="flex-1 lg:hidden"></span>' +
+        '<form data-buscar class="order-last basis-full lg:order-none lg:basis-auto flex-1 flex min-w-0 lg:min-w-[240px]" role="search" aria-label="Buscar en Tumbo">' +
+          '<input name="q" type="search" enterkeyhint="search" autocomplete="off" value="' + esc(buscado) + '" placeholder="Buscar productos y marcas…" aria-label="Buscar en Tumbo" ' +
+            'class="w-full min-w-0 h-11 px-3 rounded-l-btn bg-white text-on-surface font-body-md text-body-md outline-none focus:ring-2 focus:ring-warning"/>' +
+          '<button class="inline-flex items-center justify-center h-11 w-12 shrink-0 rounded-r-btn bg-warning text-on-warning" aria-label="Buscar">' + ic('search') + '</button></form>' +
+        '<div class="sm:relative shrink-0" data-menu-cuenta>' +
+          '<button class="flex flex-col items-start justify-center min-h-[44px] leading-tight px-2 rounded hover:bg-white/10" data-cuenta-btn aria-expanded="false" aria-controls="tm-panel-cuenta">' +
+            '<span class="text-[12px] text-white/80">' + (s || vuelta ? 'Hola, ' + esc((s || panel).nombre.split(' ')[0]) : 'Hola, identifícate') + '</span>' +
             '<span class="text-[13px] font-bold flex items-center">Cuenta ' + ic('expand_more', 'text-[16px]') + '</span></button>' +
-          '<div data-cuenta-panel id="tm-panel-cuenta" hidden class="absolute right-0 top-full mt-1 w-56 rounded-card border border-outline-variant bg-surface-container-lowest text-on-surface shadow-nivel-3 py-2 z-50">' +
+          '<div data-cuenta-panel id="tm-panel-cuenta" hidden class="absolute left-2 right-2 sm:left-auto sm:right-0 top-full mt-1 sm:w-64 max-h-[75vh] overflow-y-auto overscroll-contain rounded-card border border-outline-variant bg-surface-container-lowest text-on-surface shadow-nivel-3 py-2 z-50">' +
           (s
-            ? '<a class="block px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low" href="' + href('app/tienda/pedidos.html') + '">Mis pedidos</a>' +
-              '<a class="block px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low" href="' + href('app/tienda/cuenta.html') + '">Mi cuenta</a>' +
-              '<a class="block px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low" href="' + href('app/tienda/direcciones.html') + '">Direcciones</a>' +
+            ? '<a class="' + item + '" href="' + href('app/tienda/pedidos.html') + '">Mis pedidos</a>' +
+              '<a class="' + item + '" href="' + href('app/tienda/cuenta.html') + '">Mi cuenta</a>' +
+              '<a class="' + item + '" href="' + href('app/tienda/direcciones.html') + '">Direcciones</a>' +
               navDe('cuenta', s).filter(function (i) { return i.href; }).map(function (i) {
-                return '<a class="block px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low" href="' + esc(enlace(i.href)) + '">' + esc(i.texto) + '</a>';
+                return '<a class="' + item + '" href="' + esc(enlace(i.href)) + '">' + esc(i.texto) + '</a>';
               }).join('') +
-              '<hr class="my-2 border-outline-variant"/>' +
+              '<hr class="my-1 border-outline-variant"/>' +
               botonReiniciar(s) +
-              '<button data-salir class="block w-full text-left px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low">Cerrar sesión</button>'
+              '<button data-salir class="' + item + '">Cerrar sesión</button>'
             : vuelta
-            ? '<a data-volver-panel class="block px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low" href="' + vuelta.href + '">Volver al ' + esc(vuelta.texto) + '</a>' +
-              '<hr class="my-2 border-outline-variant"/>' +
-              '<button data-salir class="block w-full text-left px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low">Cerrar sesión</button>'
-            : '<a class="block mx-4 my-2 text-center rounded-btn bg-secondary text-on-secondary font-label-md text-label-md py-2" href="' + href('index.html') + '">Iniciar sesión</a>' +
+            ? '<a data-volver-panel class="' + item + '" href="' + vuelta.href + '">Volver al ' + esc(vuelta.texto) + '</a>' +
+              '<hr class="my-1 border-outline-variant"/>' +
+              '<button data-salir class="' + item + '">Cerrar sesión</button>'
+            : '<a class="flex items-center justify-center mx-4 my-2 min-h-[44px] rounded-btn bg-secondary text-on-secondary font-label-md text-label-md" href="' + href('index.html') + '">Iniciar sesión</a>' +
               '<p class="px-4 pb-2 font-body-sm text-body-sm text-on-surface-variant">¿Nuevo aquí? El registro está en la misma pantalla.</p>') +
           '</div></div>' +
-        (vuelta ? '<a data-volver-panel class="hidden sm:flex flex-col items-start leading-tight px-2 py-1 rounded hover:bg-white/10 shrink-0" href="' + vuelta.href + '">' +
-          '<span class="text-[11px] text-white/70">Volver al</span><span class="text-[13px] font-bold">' + esc(vuelta.texto) + '</span></a>' : '') +
-        (s ? '<a class="hidden sm:flex flex-col items-start leading-tight px-2 py-1 rounded hover:bg-white/10 shrink-0" href="' + href('app/tienda/pedidos.html') + '">' +
-          '<span class="text-[11px] text-white/70">Devoluciones</span><span class="text-[13px] font-bold">y pedidos</span></a>' : '') +
+        /* un usuario de panel no compra: en el lugar del carrito, su camino de vuelta */
+        (vuelta ? '<a data-volver-panel class="flex items-center gap-1 min-h-[44px] px-2 rounded hover:bg-white/10 shrink-0" href="' + vuelta.href + '">' +
+          ic('arrow_back', 'text-[20px]') + '<span class="flex flex-col leading-tight"><span class="hidden sm:block text-[12px] text-white/75">Volver al</span>' +
+          '<span class="text-[13px] font-bold">' + esc(vuelta.texto) + '</span></span></a>' : '') +
+        (s ? '<a class="hidden lg:flex flex-col justify-center min-h-[44px] leading-tight px-2 rounded hover:bg-white/10 shrink-0" href="' + href('app/tienda/pedidos.html') + '">' +
+          '<span class="text-[12px] text-white/75">Devoluciones</span><span class="text-[13px] font-bold">y pedidos</span></a>' : '') +
         (s ? '<div class="shrink-0">' + campanita(s) + '</div>' : '') +
-        '<a class="relative flex items-end gap-1 px-2 py-1 rounded hover:bg-white/10 shrink-0" href="' + href('app/tienda/carrito.html') + '" aria-label="Carrito (' + nCarrito + ')">' +
+        (vuelta ? '' : '<a class="relative flex items-center justify-center gap-1 min-h-[44px] min-w-[44px] px-1.5 rounded hover:bg-white/10 shrink-0" href="' + href('app/tienda/carrito.html') + '" aria-label="Carrito (' + nCarrito + ')">' +
           ic('shopping_cart', 'text-[26px]') +
-          '<span class="absolute -top-1 left-4 min-w-[18px] text-center px-1 rounded-full bg-warning text-on-warning text-[11px] font-bold"' + (nCarrito ? '' : ' hidden') + '>' + nCarrito + '</span>' +
-          '<span class="hidden sm:inline text-[13px] font-bold">Carrito</span></a>' +
+          '<span class="absolute top-0.5 left-6 min-w-[20px] h-5 inline-flex items-center justify-center px-1 rounded-full bg-warning text-on-warning text-[12px] leading-none font-bold"' + (nCarrito ? '' : ' hidden') + '>' + nCarrito + '</span>' +
+          '<span class="hidden sm:inline text-[13px] font-bold">Carrito</span></a>') +
       '</div>' +
-      '<nav class="bg-[#12325c]" aria-label="Categorías"><div class="max-w-[1280px] mx-auto px-3 sm:px-4 h-10 flex items-center gap-1 overflow-x-auto">' +
+      /* categorías: se desplazan a lo ancho con el borde que se desvanece
+         (data-desborda); «Ver todo» queda fijo a la derecha */
+      '<nav class="bg-[#12325c]" aria-label="Categorías"><div class="max-w-[1280px] mx-auto px-4 flex items-center gap-1">' +
+        '<div class="tm-tira flex-1 min-w-0 gap-1 -ml-3">' +
         cats.map(function (c) {
-          return '<a class="px-3 py-1.5 rounded font-body-sm text-body-sm text-white/85 hover:bg-white/10 whitespace-nowrap" href="' +
+          return '<a class="inline-flex items-center h-11 px-3 rounded font-body-sm text-body-sm text-white/85 hover:bg-white/10 whitespace-nowrap" href="' +
             href('app/tienda/resultados.html?cat=' + c.id) + '">' + esc(c.nombre) + '</a>';
-        }).join('') +
-        '<span class="flex-1"></span>' +
-        '<a class="px-3 py-1.5 rounded font-body-sm text-body-sm text-warning font-semibold hover:bg-white/10 whitespace-nowrap" href="' + href('app/tienda/resultados.html') + '">Ver todo</a>' +
+        }).join('') + '</div>' +
+        '<a class="shrink-0 inline-flex items-center h-11 px-3 -mr-3 rounded font-body-sm text-body-sm text-warning font-semibold hover:bg-white/10 whitespace-nowrap" href="' + href('app/tienda/resultados.html') + '">Ver todo</a>' +
       '</div></nav>' +
     '</header>';
   }
@@ -224,9 +260,9 @@
       (DEMO ? '<div><p class="font-bold text-white mb-2">Versión beta</p><p>Datos ficticios y operaciones simuladas: aquí no se mueve dinero real ni se crean envíos reales.</p></div>'
             : '<div><p class="font-bold text-white mb-2">Compra protegida</p><p>Pagas a Tumbo y el comercio cobra cuando confirmas que recibiste tu pedido.</p></div>') +
       '</div>' +
-      (enlaces.length ? '<nav data-pie-enlaces aria-label="Más de Tumbo" class="max-w-[1280px] mx-auto px-4 pb-6 flex flex-wrap gap-x-5 gap-y-2 font-body-sm text-body-sm">' +
+      (enlaces.length ? '<nav data-pie-enlaces aria-label="Más de Tumbo" class="max-w-[1280px] mx-auto px-4 pb-6 flex flex-wrap gap-x-5 font-body-sm text-body-sm">' +
         enlaces.map(function (i) {
-          return '<a class="inline-flex items-center min-h-[24px] text-white/80 hover:text-white hover:underline" href="' + esc(enlace(i.href)) + '">' + esc(i.texto) + '</a>';
+          return '<a class="inline-flex items-center min-h-[44px] text-white/85 hover:text-white hover:underline" href="' + esc(enlace(i.href)) + '">' + esc(i.texto) + '</a>';
         }).join('') + '</nav>' : '') +
       /* «Instalar la app»: lo muestra tm-plataforma.js cuando el navegador la ofrece */
       '<div class="max-w-[1280px] mx-auto px-4 pb-4"><button type="button" data-instalar hidden ' +
@@ -238,75 +274,141 @@
   /* ---------------------------------------------------------------------
      Armazón de panel (Seller Center / Backoffice)
      ------------------------------------------------------------------- */
+  /* Campana de notificaciones (las tres superficies). En el teléfono el
+     panel ocupa el ancho de la cabecera; las no leídas se distinguen con un
+     fondo y un punto (antes las leídas bajaban la opacidad del texto y no se
+     leían bien). Al pie, el camino a las preferencias de avisos. */
   function campanita(s) {
     var lista = TM.misNotificaciones();
     var sinLeer = lista.filter(function (n) { return !n.leida; }).length;
-    return '<div class="relative" data-menu-notif>' +
-      '<button class="relative p-2 rounded hover:bg-white/10" data-notif-btn aria-expanded="false" aria-controls="tm-panel-notif" aria-label="Notificaciones (' + sinLeer + ' sin leer)">' +
-      ic('notifications', 'text-[22px]') +
-      (sinLeer ? '<span class="absolute top-0.5 right-0.5 min-w-[16px] text-center px-0.5 rounded-full bg-warning text-on-warning text-[10px] font-bold">' + sinLeer + '</span>' : '') +
+    var sup = ROLES[s.rol] ? ROLES[s.rol].superficie : 'tienda';
+    var vAvisos = sup + '/notificaciones';
+    var avisos = VISTAS[vAvisos] && puedeAbrir(vAvisos, s) ? href('app/' + vAvisos + '.html') : null;
+    return '<div class="sm:relative" data-menu-notif>' +
+      '<button class="relative inline-flex items-center justify-center w-11 h-11 rounded hover:bg-white/10" data-notif-btn aria-expanded="false" aria-controls="tm-panel-notif" aria-label="Notificaciones (' + sinLeer + ' sin leer)">' +
+      ic('notifications', 'text-[24px]') +
+      (sinLeer ? '<span class="absolute top-1 right-0.5 min-w-[18px] h-[18px] inline-flex items-center justify-center px-1 rounded-full bg-warning text-on-warning text-[12px] leading-none font-bold">' + sinLeer + '</span>' : '') +
       '</button>' +
-      '<div data-notif-panel id="tm-panel-notif" hidden class="absolute right-0 top-full mt-1 w-80 max-w-[90vw] rounded-card border border-outline-variant bg-surface-container-lowest text-on-surface shadow-nivel-3 z-50">' +
-      '<p class="px-4 py-2 border-b border-outline-variant font-label-caps text-label-caps uppercase text-on-surface-variant">Notificaciones</p>' +
-      '<div class="max-h-72 overflow-y-auto">' +
+      '<div data-notif-panel id="tm-panel-notif" hidden class="absolute left-2 right-2 sm:left-auto sm:right-0 top-full mt-1 sm:w-80 rounded-card border border-outline-variant bg-surface-container-lowest text-on-surface shadow-nivel-3 z-50 overflow-hidden">' +
+      '<p class="px-4 py-2.5 border-b border-outline-variant font-label-caps text-label-caps uppercase text-on-surface-variant">Notificaciones</p>' +
+      '<div class="max-h-[60vh] sm:max-h-80 overflow-y-auto overscroll-contain">' +
       (lista.length ? lista.slice(0, 8).map(function (n) {
-        return '<a class="flex gap-2 px-4 py-2.5 hover:bg-surface-container-low border-b border-outline-variant last:border-0 ' + (n.leida ? 'opacity-60' : '') + '"' +
+        return '<a class="flex gap-3 px-4 py-3 hover:bg-surface-container-low border-b border-outline-variant last:border-0' + (n.leida ? '' : ' bg-secondary-container/40') + '"' +
           (n.enlace ? ' href="' + href('app/' + n.enlace) + '"' : '') + '>' +
-          ic(n.icono, 'text-[18px] text-secondary shrink-0 mt-0.5') +
-          '<span><span class="block font-body-sm text-body-sm leading-snug">' + esc(n.texto) + '</span>' +
-          '<span class="block font-data-mono text-data-mono text-on-surface-variant mt-0.5">' + esc(n.fecha) + '</span></span></a>';
+          ic(n.icono, 'text-[20px] text-secondary shrink-0 mt-0.5') +
+          '<span class="min-w-0 flex-1"><span class="block font-body-sm text-body-sm leading-snug text-on-surface' + (n.leida ? '' : ' font-semibold') + '">' + esc(n.texto) + '</span>' +
+          '<span class="block mt-1 text-[12px] leading-4 text-on-surface-variant">' + esc(n.fecha) + (n.leida ? '' : '<span class="sr-only"> · sin leer</span>') + '</span></span>' +
+          (n.leida ? '' : '<span class="shrink-0 mt-1.5 w-2 h-2 rounded-full bg-secondary" aria-hidden="true"></span>') + '</a>';
       }).join('') : '<p class="px-4 py-6 text-center font-body-sm text-body-sm text-on-surface-variant">Sin notificaciones.</p>') +
-      '</div></div></div>';
+      '</div>' +
+      (avisos ? '<a class="flex items-center justify-center gap-1.5 min-h-[44px] px-4 border-t border-outline-variant font-label-md text-label-md text-secondary hover:bg-surface-container-low" href="' + avisos + '">' +
+        ic('tune', 'text-[18px]') + 'Configurar mis avisos</a>' : '') +
+      '</div></div>';
   }
 
+  /* Secciones del menú lateral (en el teléfono, 18-25 entradas en una
+     columna no se recorren con la vista). Una entrada de una vista que no
+     está aquí toma la sección de su vecina anterior por orden. */
+  var SECCIONES = {
+    seller: [
+      ['Inicio', ['seller/panel', 'seller/estadisticas']],
+      ['Ventas', ['seller/pedidos', 'seller/envios', 'seller/disputas', 'seller/preguntas', 'seller/resenas']],
+      ['Productos', ['seller/catalogo', 'seller/precios', 'seller/promociones', 'seller/inventario', 'seller/carga']],
+      ['Dinero', ['seller/finanzas']],
+      ['Tu comercio', ['seller/comercio', 'seller/equipo', 'seller/soporte', 'seller/notificaciones', 'seller/cuenta']]
+    ],
+    admin: [
+      ['Inicio', ['admin/panel']],
+      ['Operación', ['admin/pedidos', 'admin/operaciones', 'admin/disputas', 'admin/envios', 'admin/soporte', 'admin/comprador']],
+      ['Comercios y catálogo', ['admin/sellers', 'admin/seller', 'admin/moderacion', 'admin/reglas', 'admin/contenido', 'admin/marketing']],
+      ['Dinero', ['admin/finanzas', 'admin/conciliacion', 'admin/reembolsos', 'admin/liquidaciones', 'admin/riesgo']],
+      ['Plataforma', ['admin/ajustes', 'admin/usuarios', 'admin/mensajes', 'admin/auditoria', 'admin/sistema']],
+      ['Tu cuenta', ['admin/notificaciones', 'admin/cuenta']]
+    ]
+  };
+  /* [[título, [entradas…]], …] en el orden de las secciones; dentro de cada
+     una, el orden de las entradas. */
+  function enSecciones(superficie, items) {
+    var defs = SECCIONES[superficie] || [];
+    var de = {};
+    defs.forEach(function (d, n) { d[1].forEach(function (v) { de[v] = n; }); });
+    var grupos = defs.map(function (d) { return [d[0], []]; });
+    var previa = 0;
+    items.forEach(function (i) {
+      var n = de[i.vista] != null ? de[i.vista] : previa;
+      previa = n;
+      (grupos[n] || (grupos[n] = ['Más', []]))[1].push(i);
+    });
+    return grupos.filter(function (g) { return g && g[1].length; });
+  }
+
+  /* Armazón de panel. En el teléfono y la tableta (< lg) el menú es un
+     cajón que se abre bajo la cabecera (que sigue a la vista: el botón de
+     menú pasa a «Cerrar») y se desplaza por dentro (con 25 entradas no
+     cabía en la pantalla); las entradas miden 44 px y van por secciones.
+     Desde lg, la columna fija de siempre. */
   function armazonPanel(s, contenidoHtml, vistaActiva) {
     var superficie = ROLES[s.rol].superficie;
     var marca = superficie === 'seller' ? 'Seller Center' : 'Backoffice';
-    var sub = superficie === 'seller'
-      ? (TM.seller(s.sellerId) ? TM.seller(s.sellerId).nombre + ' · ' + s.sellerId : s.sellerId)
-      : ROLES[s.rol].nombre;
+    var comercio = superficie === 'seller' && TM.seller(s.sellerId) ? TM.seller(s.sellerId).nombre : '';
+    var sub = superficie === 'seller' ? (comercio || ROLES[s.rol].nombre) : ROLES[s.rol].nombre;
     var items = NAV_PANEL[superficie].filter(function (i) { return !i.roles || i.roles.indexOf(s.rol) >= 0; });
 
-    var nav = items.map(function (i) {
+    function entrada(i) {
       var activo = i.vista === vistaActiva;
-      return '<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg font-body-sm text-body-sm transition ' +
+      return '<a class="flex items-center gap-3 min-h-[44px] px-4 py-2 rounded-lg font-body-sm text-body-sm transition ' +
         (activo ? 'bg-secondary-container text-on-secondary-container font-semibold'
                 : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface') + '"' +
         ' href="' + href('app/' + i.vista + '.html') + '"' + (activo ? ' aria-current="page"' : '') + '>' +
-        ic(i.icono, 'text-[20px]') + esc(i.texto) + '</a>';
-    }).join('');
+        ic(i.icono, 'shrink-0 text-[20px]') + '<span class="min-w-0">' + esc(i.texto) + '</span></a>';
+    }
+    /* con pocas entradas, sin títulos de sección */
+    var nav = items.length > 6
+      ? enSecciones(superficie, items).map(function (g) {
+          return '<div role="group" aria-label="' + esc(g[0]) + '" data-seccion="' + esc(g[0]) + '" class="flex flex-col gap-0.5">' + g[1].map(entrada).join('') + '</div>';
+        }).join('')
+      : items.map(entrada).join('');
 
     return '' +
     saltar() +
     '<div class="min-h-screen flex flex-col">' +
     '<header class="bg-primary-container text-on-primary sticky top-0 z-40">' +
-      '<div class="h-14 px-3 sm:px-4 flex items-center gap-2">' +
-        '<button data-abrir-nav class="lg:hidden p-2 rounded hover:bg-white/10" aria-label="Abrir menú" aria-expanded="false" aria-controls="tm-menu-panel">' + ic('menu') + '</button>' +
-        '<span class="flex items-center gap-2 min-w-0">' + ic('storefront', 'text-[22px]') +
-          '<span class="font-bold text-[15px] whitespace-nowrap">Tumbo · ' + marca + '</span>' +
-          '<span class="hidden md:inline text-[12px] text-white/60 truncate">· ' + esc(sub) + '</span></span>' +
+      '<div class="relative h-14 pl-1 pr-2 sm:px-4 flex items-center gap-1 sm:gap-2">' +
+        '<button data-abrir-nav class="lg:hidden inline-flex items-center justify-center w-11 h-11 shrink-0 rounded hover:bg-white/10" aria-label="Abrir menú" aria-expanded="false" aria-controls="tm-menu-panel">' + ic('menu') + '</button>' +
+        '<span class="flex items-center gap-2 min-w-0">' + ic('storefront', 'shrink-0 text-[22px]') +
+          '<span class="font-bold text-[15px] whitespace-nowrap truncate"><span class="hidden sm:inline">Tumbo · </span>' + marca + '</span>' +
+          '<span class="hidden md:inline text-[12px] text-white/70 truncate">· ' + esc(sub) + '</span></span>' +
         '<span class="flex-1"></span>' +
-        (DEMO || TM.modo !== 'remoto' ? '<span class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning text-on-warning text-[11px] font-bold" title="' +
+        (DEMO || TM.modo !== 'remoto' ? '<span class="inline-flex items-center gap-1 h-6 px-1.5 sm:px-2 rounded-full bg-warning text-on-warning text-[12px] font-bold shrink-0" title="' +
           (TM.modo === 'remoto' ? 'Datos compartidos en la base de datos de la beta' : 'Datos guardados solo en este navegador') + '">' +
-          ic(TM.modo === 'remoto' ? 'cloud_done' : 'science', 'text-[14px]') + (TM.modo === 'remoto' ? 'BETA' : 'DEMO') + '</span>' : '') +
+          ic(TM.modo === 'remoto' ? 'cloud_done' : 'science', 'hidden sm:inline-block text-[14px]') + (TM.modo === 'remoto' ? 'BETA' : 'DEMO') + '</span>' : '') +
         campanita(s) +
-        '<div class="relative" data-menu-cuenta>' +
-          '<button data-cuenta-btn class="flex items-center gap-1 px-2 py-1.5 rounded hover:bg-white/10" aria-expanded="false" aria-controls="tm-panel-cuenta" ' +
+        '<div class="sm:relative shrink-0" data-menu-cuenta>' +
+          '<button data-cuenta-btn class="inline-flex items-center justify-center gap-1 min-w-[44px] h-11 px-1.5 sm:px-2 rounded hover:bg-white/10" aria-expanded="false" aria-controls="tm-panel-cuenta" ' +
             'aria-label="Cuenta de ' + esc(s.nombre.split(' ')[0]) + '">' +
-            ic('person', 'text-[20px]') + '<span class="hidden sm:inline text-[13px] font-semibold">' + esc(s.nombre.split(' ')[0]) + '</span>' + ic('expand_more', 'text-[16px]') + '</button>' +
-          '<div data-cuenta-panel id="tm-panel-cuenta" hidden class="absolute right-0 top-full mt-1 w-56 rounded-card border border-outline-variant bg-surface-container-lowest text-on-surface shadow-nivel-3 py-2 z-50">' +
-            '<p class="px-4 py-1 font-body-sm text-body-sm text-on-surface-variant">' + esc(s.nombre) + '<br/><span class="font-data-mono text-data-mono">' + esc(s.email) + '</span></p>' +
-            '<hr class="my-2 border-outline-variant"/>' +
+            ic('person', 'text-[22px]') + '<span class="hidden sm:inline text-[13px] font-semibold">' + esc(s.nombre.split(' ')[0]) + '</span>' + ic('expand_more', 'text-[16px]') + '</button>' +
+          '<div data-cuenta-panel id="tm-panel-cuenta" hidden class="absolute left-2 right-2 sm:left-auto sm:right-0 top-full mt-1 sm:w-72 rounded-card border border-outline-variant bg-surface-container-lowest text-on-surface shadow-nivel-3 py-2 z-50">' +
+            '<div class="px-4 py-2 font-body-sm text-body-sm"><p class="font-semibold text-on-surface">' + esc(s.nombre) + '</p>' +
+              '<p class="text-[13px] leading-5 text-on-surface-variant break-all">' + esc(s.email) + '</p>' +
+              '<p class="text-[12px] leading-4 text-on-surface-variant mt-0.5">' + esc(ROLES[s.rol].nombre) + (comercio ? ' · ' + esc(comercio) : '') + '</p></div>' +
+            '<hr class="my-1 border-outline-variant"/>' +
             botonReiniciar(s) +
-            '<button data-salir class="block w-full text-left px-4 py-2 font-body-sm text-body-sm hover:bg-surface-container-low">Cerrar sesión</button>' +
+            '<button data-salir class="' + ITEM_MENU + '">Cerrar sesión</button>' +
           '</div></div>' +
       '</div></header>' +
     '<div class="flex-1 flex min-h-0">' +
-      '<aside data-nav id="tm-menu-panel" class="fixed lg:static inset-y-0 left-0 z-40 w-60 shrink-0 bg-surface-container-lowest border-r border-outline-variant p-3 pt-16 lg:pt-3 -translate-x-full lg:translate-x-0 transition-transform">' +
-        '<nav class="flex flex-col gap-1" aria-label="Menú de ' + marca + '">' + nav + '</nav>' +
-        '<p class="mt-6 px-4 font-body-sm text-body-sm text-on-surface-variant">Ves solo las secciones de tu rol: <strong>' + esc(ROLES[s.rol].nombre) + '</strong>.</p>' +
+      '<aside data-nav id="tm-menu-panel" class="fixed lg:static top-14 bottom-0 left-0 z-[35] lg:z-auto w-72 max-w-[85vw] lg:w-60 lg:max-w-none shrink-0 flex flex-col ' +
+        'overflow-y-auto overscroll-contain lg:overflow-visible bg-surface-container-lowest border-r border-outline-variant shadow-nivel-3 lg:shadow-none -translate-x-full lg:translate-x-0 transition-transform">' +
+        /* en el cajón, quién eres (en el escritorio lo dice la cabecera) */
+        '<div class="lg:hidden flex items-center gap-3 mx-3 mt-3 pl-3 pr-1 py-1 rounded-lg bg-surface-container-low">' +
+          ic(superficie === 'seller' ? 'storefront' : 'admin_panel_settings', 'shrink-0 text-[22px] text-secondary') +
+          '<span class="flex-1 min-w-0 py-2"><span class="block font-body-sm text-body-sm font-semibold text-on-surface">' + esc(ROLES[s.rol].nombre) + '</span>' +
+          (comercio ? '<span class="block font-body-sm text-[13px] leading-5 text-on-surface-variant break-words">' + esc(comercio) + '</span>' : '') + '</span>' +
+          '<button type="button" data-cerrar-nav class="inline-flex items-center justify-center w-11 h-11 shrink-0 rounded-lg text-on-surface-variant hover:bg-surface-container-high" aria-label="Cerrar menú">' + ic('close') + '</button></div>' +
+        '<nav class="flex flex-col gap-0.5 p-3" aria-label="Menú de ' + marca + '">' + nav + '</nav>' +
+        '<p class="mt-2 px-7 pb-[max(24px,env(safe-area-inset-bottom))] font-body-sm text-body-sm text-on-surface-variant">Ves solo las secciones de tu rol: <strong>' + esc(ROLES[s.rol].nombre) + '</strong>.</p>' +
       '</aside>' +
-      '<div data-velo-nav hidden class="fixed inset-0 z-30 bg-black/40 lg:hidden"></div>' +
+      '<div data-velo-nav hidden class="fixed inset-x-0 top-14 bottom-0 z-30 bg-black/40 lg:hidden"></div>' +
       '<main id="contenido" tabindex="-1" class="flex-1 min-w-0 p-4 sm:p-6 max-w-[1200px] focus:outline-none">' + contenidoHtml + '</main>' +
     '</div></div>';
   }
@@ -326,9 +428,20 @@
   }
 
   /* Cierra los desplegables de la cabecera (y lo dice a los lectores). */
-  function cerrarMenus() {
-    document.querySelectorAll('[data-cuenta-panel],[data-notif-panel]').forEach(function (p) { p.hidden = true; });
-    document.querySelectorAll('[data-cuenta-btn],[data-notif-btn]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
+  function cerrarMenus() { UI.cerrarDesplegables(); }
+
+  /* Tocar fuera de un desplegable lo cierra, siempre: un solo oyente por
+     documento (antes era {once: true} en cada pintado y solo funcionaba la
+     primera vez). */
+  var oyenteFuera = false;
+  function cerrarAlTocarFuera() {
+    if (oyenteFuera) return;
+    oyenteFuera = true;
+    document.addEventListener('click', function (ev) {
+      var t = ev.target;
+      if (t && t.closest && t.closest('[data-menu-cuenta],[data-menu-notif]')) return;
+      if (document.querySelector('[data-cuenta-panel]:not([hidden]),[data-notif-panel]:not([hidden])')) cerrarMenus();
+    });
   }
 
   function conectarComunes(raiz) {
@@ -354,32 +467,51 @@
         if (ev.key === 'Escape' && !panel.hidden) { cerrarMenus(); btn.focus(); }
       });
     });
-    document.addEventListener('click', cerrarMenus, { once: true });
+    cerrarAlTocarFuera();
+    document.documentElement.classList.remove('tm-sin-scroll');
 
     /* menú lateral en móvil: fuera de la pantalla queda inerte (el teclado no
-       entra en él); abierto, recibe el foco y Escape lo cierra */
+       entra en él); abierto, recibe el foco, la página de fondo no se
+       desplaza y lo cierran su botón Cerrar, el velo o Escape */
     var abrirNav = raiz.querySelector('[data-abrir-nav]');
     var nav = raiz.querySelector('[data-nav]');
     var velo = raiz.querySelector('[data-velo-nav]');
     if (abrirNav && nav) {
       var movil = window.matchMedia ? window.matchMedia('(max-width: 1023.98px)') : { matches: false };
+      /* el botón de menú dice lo que hará: Abrir o Cerrar */
+      var icono = abrirNav.querySelector('.material-symbols-outlined');
+      var rotular = function (abierto) {
+        if (icono) icono.textContent = abierto ? 'close' : 'menu';
+        abrirNav.setAttribute('aria-label', abierto ? 'Cerrar menú' : 'Abrir menú');
+      };
       var cerrarNav = function (devolver) {
         nav.classList.add('-translate-x-full');
         if (velo) velo.hidden = true;
         abrirNav.setAttribute('aria-expanded', 'false');
+        rotular(false);
         nav.inert = !!movil.matches;
+        document.documentElement.classList.remove('tm-sin-scroll');
         if (devolver) abrirNav.focus();
       };
       nav.inert = !!movil.matches;
       if (movil.addEventListener) movil.addEventListener('change', function () { if (nav.isConnected) cerrarNav(false); });
       abrirNav.addEventListener('click', function () {
+        if (abrirNav.getAttribute('aria-expanded') === 'true') { cerrarNav(true); return; }
+        cerrarMenus();
         nav.classList.remove('-translate-x-full');
         if (velo) velo.hidden = false;
         nav.inert = false;
         abrirNav.setAttribute('aria-expanded', 'true');
+        rotular(true);
+        document.documentElement.classList.add('tm-sin-scroll');
+        /* la entrada activa a la vista dentro del cajón */
+        var activa = nav.querySelector('[aria-current="page"]');
+        if (activa && activa.scrollIntoView) { try { activa.scrollIntoView({ block: 'nearest' }); } catch (e) { } }
         var primero = nav.querySelector('a, button');
-        if (primero) primero.focus();
+        if (primero) primero.focus({ preventScroll: true });
       });
+      var cerrarBoton = nav.querySelector('[data-cerrar-nav]');
+      if (cerrarBoton) cerrarBoton.addEventListener('click', function () { cerrarNav(true); });
       if (velo) velo.addEventListener('click', function () { cerrarNav(false); });
       nav.addEventListener('keydown', function (ev) {
         if (ev.key === 'Escape' && movil.matches && !nav.classList.contains('-translate-x-full')) cerrarNav(true);
@@ -428,7 +560,8 @@
     c = document.createElement('div');
     c.className = 'tm-cargando';
     c.setAttribute('role', 'status');
-    c.innerHTML = '<span class="tm-cargando__giro" aria-hidden="true"></span><span>Cargando Tumbo…</span>';
+    c.innerHTML = '<div class="tm-cargando__barra" aria-hidden="true">' + ic('storefront', 'text-[24px]') + '<span>Tumbo</span></div>' +
+      '<span class="tm-cargando__giro" aria-hidden="true"></span><span>Cargando Tumbo…</span>';
     document.body.appendChild(c);
   }
 
@@ -442,7 +575,10 @@
     /* la copia sin conexión (gancho de la plataforma) solo existe en algunas
        vistas: la frase promete «lo de abajo» solo si de verdad hay algo */
     var copia = ganchos('sin.conexion', { vista: vista, error: e, sinSenal: sinSenal });
-    raiz.innerHTML = '<main id="contenido" tabindex="-1" class="min-h-[70vh] flex flex-col items-center justify-center p-4 focus:outline-none"><div class="max-w-md text-center">' +
+    /* con la marca arriba, como sin-conexion.html */
+    raiz.innerHTML = '<header class="bg-primary-container text-on-primary"><div class="max-w-[1280px] mx-auto px-4 h-14 flex items-center gap-2">' +
+      ic('storefront', 'text-[24px]') + '<span class="font-bold text-[18px] tracking-tight">Tumbo</span></div></header>' +
+      '<main id="contenido" tabindex="-1" class="min-h-[70vh] flex flex-col items-center justify-center p-4 focus:outline-none"><div class="max-w-md text-center">' +
       '<span class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-error-container text-on-error-container mb-4">' + ic(sinSenal ? 'wifi_off' : 'cloud_off', 'text-[30px]') + '</span>' +
       '<h1 class="font-headline-md text-headline-md text-primary-container mb-2">' + (sinSenal ? 'Estás sin conexión' : 'No pudimos cargar Tumbo') + '</h1>' +
       '<p class="font-body-md text-body-md text-on-surface-variant mb-6">' +
@@ -487,9 +623,23 @@
        también la recorre;
      · los botones que solo llevan un icono toman el nombre de su title. */
   function accesibilidad(raiz) {
+    tirasDeChips(raiz);
+    unirTextos(raiz);
+    tablasQueNoCaben(raiz);
+    etiquetarTablas(raiz);
+    envolverFilas(raiz);
+    marcarDesbordes(raiz);
     raiz.querySelectorAll('.overflow-x-auto, .overflow-auto').forEach(function (el) {
       if (el.hasAttribute('tabindex') || el.scrollWidth <= el.clientWidth + 1) return;
-      if (UI.enfocables && UI.enfocables(el).length) return;
+      /* con botones o enlaces dentro, el teclado ya la recorre: solo el nombre */
+      if (UI.enfocables && UI.enfocables(el).length) {
+        if (el.querySelector('table, [data-tabla]') && !el.getAttribute('role') && !el.getAttribute('aria-label')) {
+          var th0 = el.querySelector('th');
+          el.setAttribute('role', 'region');
+          el.setAttribute('aria-label', 'Tabla' + (th0 && th0.textContent.trim() ? ' (' + th0.textContent.trim().toLowerCase() + '…)' : '') + ': desplázala a los lados');
+        }
+        return;
+      }
       el.setAttribute('tabindex', '0');
       if (!el.getAttribute('role')) el.setAttribute('role', 'region');
       if (!el.getAttribute('aria-label')) {
@@ -501,6 +651,132 @@
       if (!textoLegible(b)) b.setAttribute('aria-label', b.getAttribute('title'));
     });
   }
+  /* Tablas en tarjetas (tm.css): cada celda sin data-th toma la cabecera de
+     su columna (también en las tablas hechas a mano con data-tarjetas). Una
+     cabecera con un control («elegir todos») o una celda que abarca varias
+     columnas no dan etiqueta. */
+  function textoCabecera(th) {
+    if (th.querySelector('input, select, button')) return '';
+    var t = '';
+    (function leer(n) {
+      Array.prototype.forEach.call(n.childNodes, function (c) {
+        if (c.nodeType === 3) t += c.textContent;
+        else if (c.nodeType === 1 && !c.classList.contains('sr-only') && !c.classList.contains('material-symbols-outlined')) leer(c);
+      });
+    })(th);
+    return t.replace(/\s+/g, ' ').trim();
+  }
+  function etiquetarTablas(raiz) {
+    raiz.querySelectorAll('[data-tabla] > table, table[data-tarjetas]').forEach(function (tabla) {
+      var fila = tabla.tHead && tabla.tHead.rows[0];
+      if (!fila) return;
+      var cab = [];
+      Array.prototype.forEach.call(fila.cells, function (th) {
+        var n = th.colSpan || 1, tx = n > 1 ? '' : textoCabecera(th);
+        for (var i = 0; i < n; i++) cab.push(tx);
+      });
+      var filas = [];
+      Array.prototype.forEach.call(tabla.tBodies, function (b) { filas.push.apply(filas, b.rows); });
+      if (tabla.tFoot) filas.push.apply(filas, tabla.tFoot.rows);
+      filas.forEach(function (tr) {
+        var col = 0;
+        Array.prototype.forEach.call(tr.cells, function (td) {
+          var n = td.colSpan || 1;
+          if (td.tagName === 'TD' && !td.hasAttribute('data-th')) td.setAttribute('data-th', n > 1 ? '' : (cab[col] || ''));
+          col += n;
+        });
+      });
+    });
+  }
+
+  /* Regiones que se desplazan a lo ancho (tablas, chips, pestañas): el borde
+     del lado que sigue se desvanece (tm.css [data-desborda]) y, la primera
+     vez, la pestaña o el chip activo queda a la vista (antes ?tab=… dejaba
+     la pestaña activa fuera de la pantalla). */
+  function estadoDesborde(el) {
+    var max = el.scrollWidth - el.clientWidth;
+    if (max <= 4) { if (el.hasAttribute('data-desborda')) el.removeAttribute('data-desborda'); return; }
+    var x = Math.abs(el.scrollLeft);
+    var v = x <= 2 ? 'der' : x >= max - 2 ? 'izq' : 'ambos';
+    if (el.getAttribute('data-desborda') !== v) el.setAttribute('data-desborda', v);
+  }
+  function marcarDesbordes(raiz) {
+    raiz.querySelectorAll('.overflow-x-auto, .overflow-auto, .tm-tira, .tm-tira-movil').forEach(function (el) {
+      if (getComputedStyle(el).overflowX === 'visible') { el.removeAttribute('data-desborda'); return; }
+      estadoDesborde(el);
+      if (!el.__tmDesliza) {
+        el.__tmDesliza = true;
+        el.addEventListener('scroll', function () { estadoDesborde(el); }, { passive: true });
+      }
+      if (el.hasAttribute('data-desborda') && !el.__tmCentrado) {
+        el.__tmCentrado = true;
+        var act = el.querySelector('[aria-current]:not([aria-current="false"]), [aria-selected="true"], .rounded-full.bg-secondary');
+        if (act) {
+          var r = act.getBoundingClientRect(), c = el.getBoundingClientRect();
+          el.scrollLeft += (r.left + r.width / 2) - (c.left + c.width / 2);
+          estadoDesborde(el);
+        }
+      }
+    });
+  }
+
+  /* Un identificador («TM-2026-00434», «SKU-TEC-0301») o un importe
+     («Bs. 3.583,80», «$9.50 ref.», «−$2.00», «3 %») que es todo el texto de
+     su elemento no se parte a la mitad (tm.css [data-unido]). En los
+     indicadores no: ahí la cifra puede bajar de línea antes que salirse. */
+  var RE_UNIDO = /^(?:[A-Z]{2,5}(?:-[A-Z0-9]{2,}){1,4}|[−–+-]?\s?(?:Bs\.|US\$|\$)\s?[\d.,]+(?:\s?ref\.)?|\(?[−–+-]?\d+(?:[.,]\d+)?\s?%\)?)$/;
+  function unirTextos(raiz) {
+    raiz.querySelectorAll('span, a, strong, b, dd, dt, td, p, code, small, li, div').forEach(function (el) {
+      if (el.children.length || el.hasAttribute('data-unido')) return;
+      var t = el.textContent;
+      if (!t || t.length > 32 || !RE_UNIDO.test(t.trim())) return;
+      if (el.closest('[data-kpi]')) return;
+      el.setAttribute('data-unido', '');
+    });
+  }
+
+  /* Una fila de 4 chips o más (enlaces o botones redondeados: pestañas de
+     estado, filtros) en el teléfono es una tira que se desplaza a lo ancho
+     (tm.css .tm-tira-movil) en vez de ocupar tres filas. */
+  function tirasDeChips(raiz) {
+    raiz.querySelectorAll('.flex.flex-wrap').forEach(function (el) {
+      if (el.classList.contains('tm-tira-movil') || el.children.length < 4) return;
+      var chips = Array.prototype.every.call(el.children, function (c) {
+        return (c.tagName === 'A' || c.tagName === 'BUTTON') && c.classList.contains('rounded-full');
+      });
+      if (chips) el.classList.add('tm-tira-movil');
+    });
+  }
+
+  /* Una tabla hecha a mano que no está en una región que se desplaza y en el
+     teléfono no cabe en su caja (p. ej. la hoja de picking) pasa a tarjetas
+     como UI.tabla (tm.css table[data-tarjetas]); al imprimir sigue siendo
+     tabla. */
+  function tablasQueNoCaben(raiz) {
+    if (!(window.matchMedia && window.matchMedia('(max-width: 639.98px)').matches)) return;
+    raiz.querySelectorAll('table:not([data-tarjetas])').forEach(function (t) {
+      if (!t.tHead || t.closest('[data-tabla], .overflow-x-auto, .overflow-auto')) return;
+      var caja = t.parentElement;
+      if (caja && t.offsetWidth > caja.clientWidth + 1) t.setAttribute('data-tarjetas', '');
+    });
+  }
+
+  /* Una fila flex (sin envolver) que se sale de su caja pasa a varias
+     líneas (tm.css [data-envolver]): en el teléfono, un ID, una insignia y
+     un importe en la misma fila ya no empujan la tarjeta fuera de la
+     pantalla. No toca las regiones que se desplazan ni las cabeceras. */
+  function envolverFilas(raiz) {
+    raiz.querySelectorAll('.flex, .inline-flex').forEach(function (el) {
+      if (el.hasAttribute('data-envolver') || el.children.length < 2 || el.scrollWidth <= el.clientWidth + 1) return;
+      /* ni el armazón (menú + contenido) ni una fila cuyo desborde es una tabla */
+      if (el.querySelector('main, [data-nav], table')) return;
+      var cs = getComputedStyle(el);
+      if (cs.flexDirection.indexOf('row') !== 0 || cs.flexWrap !== 'nowrap' || cs.overflowX !== 'visible') return;
+      if (el.closest('.overflow-x-auto, .overflow-auto, .overflow-hidden, .tm-tira, .tm-tira-movil, header, [data-nav]')) return;
+      el.setAttribute('data-envolver', '');
+    });
+  }
+
   /* El texto que un lector de pantalla lee de un elemento (sin los iconos). */
   function textoLegible(el) {
     var t = '';
@@ -573,8 +849,18 @@
       if (!s) { location.replace(href('index.html') + '?volver=' + volver); return; }
       if (def.roles && def.roles.indexOf(s.rol) < 0) {
         document.title = 'Sin acceso · Tumbo Market';
-        raiz.innerHTML = html403(s, def.titulo || vista);
+        /* dentro del armazón de quien entra: conserva su menú y su cabecera */
+        var sup = ROLES[s.rol] ? ROLES[s.rol].superficie : 'tienda';
+        if (sup === 'seller' || sup === 'admin') {
+          raiz.innerHTML = armazonPanel(s, html403(s, def.titulo || vista), null);
+        } else {
+          raiz.innerHTML = saltar() + cabeceraTienda(s.rol === 'comprador' ? s : null, s.rol !== 'comprador' ? s : null) +
+            '<main id="contenido" tabindex="-1" class="max-w-[1280px] mx-auto px-4 py-5 focus:outline-none">' + html403(s, def.titulo || vista) + '</main>' +
+            pieTienda(s.rol === 'comprador' ? s : null);
+        }
         conectarComunes(raiz);
+        avisarPintado(raiz, 'sin-acceso', params(), s);
+        accesibilidad(raiz);
         return;
       }
     }
@@ -591,7 +877,7 @@
       var contenido = def.render(params(), s);
       if (armazonDe(def, vista) === 'tienda') {
         raiz.innerHTML = saltar() + cabeceraTienda(s && s.rol === 'comprador' ? s : null, s && s.rol !== 'comprador' ? s : null) +
-          '<main id="contenido" tabindex="-1" class="max-w-[1280px] mx-auto px-3 sm:px-4 py-5 min-h-[60vh] focus:outline-none">' + contenido + '</main>' +
+          '<main id="contenido" tabindex="-1" class="max-w-[1280px] mx-auto px-4 py-5 min-h-[60vh] focus:outline-none">' + contenido + '</main>' +
           pieTienda(s && s.rol === 'comprador' ? s : null);
       } else {
         raiz.innerHTML = armazonPanel(s, contenido, vista);
@@ -633,6 +919,16 @@
       setTimeout(function () {
         if (pendiente && !ocupado(raiz)) { pendiente = false; pintar(); }
       }, 0);
+    }
+    /* al girar el teléfono o cambiar el ancho, se vuelven a medir los desbordes */
+    if (window.ResizeObserver) {
+      var medida = null, ancho = document.documentElement.clientWidth;
+      new ResizeObserver(function () {
+        if (document.documentElement.clientWidth === ancho) return;
+        ancho = document.documentElement.clientWidth;
+        clearTimeout(medida);
+        medida = setTimeout(function () { marcarDesbordes(raiz); }, 150);
+      }).observe(document.documentElement);
     }
     document.addEventListener('focusout', alLiberar);
     document.addEventListener('click', alLiberar);
