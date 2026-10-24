@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es-VE">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="robots" content="noindex, nofollow"/>
+<title>Sin conexión · Tumbo Market</title>
+<meta name="theme-color" content="#0b2545"/>
+<link rel="manifest" href="manifest.webmanifest"/>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/app/icono-32.png"/>
+<link rel="stylesheet" href="assets/css/tumbo-tailwind.css"/>
+<link rel="stylesheet" href="assets/fuentes/fuentes.css"/>
+<link rel="stylesheet" href="assets/css/tm.css"/>
+<style>body{font-family:Inter,system-ui,sans-serif}</style>
+</head>
+<!--
+  Tumbo Market — sin conexión. El service worker (sw.js) trae aquí una página
+  que no tiene guardada cuando no hay señal (?desde=<la página>). Muestra la
+  última copia de «Mis pedidos» y del carrito que guardó este dispositivo
+  (tm-mod-plataforma.js), solo si es de la sesión abierta aquí: otra sesión
+  no la ve y cerrar sesión la borra.
+-->
+<body class="bg-background text-on-background min-h-screen">
+<header class="bg-primary-container text-on-primary">
+  <div class="max-w-[1280px] mx-auto px-4 h-14 flex items-center gap-2">
+    <span class="material-symbols-outlined text-[24px]" aria-hidden="true">storefront</span>
+    <span class="font-bold text-[18px] tracking-tight">Tumbo</span>
+  </div>
+</header>
+<main id="contenido" class="max-w-2xl mx-auto px-4 py-10">
+  <div class="text-center mb-8">
+    <span class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-error-container text-on-error-container mb-4">
+      <span class="material-symbols-outlined text-[30px]" aria-hidden="true">wifi_off</span></span>
+    <h1 class="font-headline-md text-headline-md text-primary-container mb-2">Estás sin conexión</h1>
+    <p class="font-body-md text-body-md text-on-surface-variant mb-6">Esta página todavía no está guardada en tu dispositivo.
+      Cuando vuelva la señal, Tumbo sigue donde lo dejaste.</p>
+    <button type="button" data-reintentar class="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 rounded-btn bg-secondary text-on-secondary font-label-md text-label-md">
+      <span class="material-symbols-outlined text-[18px]" aria-hidden="true">refresh</span>Reintentar</button>
+  </div>
+  <div data-copia></div>
+</main>
+<script>
+(function () {
+  'use strict';
+  /* volver a la página que se pidió (solo una del propio sitio) */
+  var desde = new URLSearchParams(location.search).get('desde') || '';
+  if (!/^(app\/[a-z0-9-]+\/[a-z0-9-]+\.html|index\.html)(\?[\w=&%.,-]*)?$/.test(desde)) desde = 'app/tienda/inicio.html';
+  function volver() { location.href = desde; }
+  document.querySelector('[data-reintentar]').addEventListener('click', volver);
+  window.addEventListener('online', volver);
+
+  function leer(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+  /* la misma firma de sesión que tm-mod-plataforma.js */
+  function firma() {
+    var s = leer('tm.sesion.remota.v1');
+    var t = s && s.token ? String(s.token) : '';
+    if (!t) return 'invitado';
+    var h = 2166136261;
+    for (var i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    return 's' + h.toString(16);
+  }
+  var c = leer('tm.sinconexion.v1');
+  if (!c || c.firma !== firma()) return;
+  var guardado = '';
+  try {
+    guardado = new Date(c.guardado).toLocaleString('es-VE', { timeZone: 'America/Caracas', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  } catch (e) { }
+  var html = '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Copia guardada en este dispositivo el ' + esc(guardado) +
+    ': los estados pueden haber cambiado desde entonces.</p>';
+  if ((c.pedidos || []).length) {
+    html += '<section class="tm-sin-conexion" data-copia-pedidos><h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Tus pedidos</h2><ul>' +
+      c.pedidos.map(function (p) {
+        return '<li class="py-3 border-b border-outline-variant last:border-0">' +
+          '<p class="flex flex-wrap justify-between gap-2 font-label-md text-label-md"><span class="font-data-mono">' + esc(p.id) + '</span><span>' + esc(p.estado) + '</span></p>' +
+          '<p class="font-body-sm text-body-sm text-on-surface-variant">' + esc(p.comercio) + (p.creado ? ' · ' + esc(p.creado) : '') + (p.total ? ' · ' + esc(p.total) : '') + '</p>' +
+          '<p class="font-body-sm text-body-sm">' + (p.items || []).map(function (i) { return esc(i.cant + ' × ' + i.nombre); }).join(' · ') + '</p>' +
+          (p.ultimo ? '<p class="font-body-sm text-body-sm text-on-surface-variant">Último paso: ' + esc(p.ultimo.texto) + '</p>' : '') + '</li>';
+      }).join('') + '</ul></section>';
+  }
+  if ((c.carrito || []).length) {
+    html += '<section class="tm-sin-conexion" data-copia-carrito><h2 class="font-headline-sm text-headline-sm text-primary-container mb-1">Tu carrito</h2><ul>' +
+      c.carrito.map(function (i) {
+        return '<li class="py-2 flex justify-between gap-3 border-b border-outline-variant last:border-0 font-body-sm text-body-sm"><span>' +
+          esc(i.cant + ' × ' + i.nombre) + '</span><span class="whitespace-nowrap">' + esc(i.total) + '</span></li>';
+      }).join('') + '</ul><p class="mt-2 font-body-sm text-body-sm text-on-surface-variant">Los precios se confirman con la tasa del día al pagar.</p></section>';
+  }
+  document.querySelector('[data-copia]').innerHTML = html;
+})();
+</script>
+</body>
+</html>

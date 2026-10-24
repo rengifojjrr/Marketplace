@@ -116,7 +116,7 @@
     return titulo('Auditoría', '<span class="font-body-sm text-body-sm text-on-surface-variant">' + lista.length + ' eventos</span>') +
       '<form data-filtro class="mb-4 max-w-md flex" role="search">' +
         '<input name="q" value="' + esc(q.get('q') || '') + '" placeholder="Filtrar por actor, acción o detalle…" class="flex-1 h-10 px-3 rounded-l-btn border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm focus:border-secondary outline-none"/>' +
-        '<button class="h-10 px-3 rounded-r-btn bg-secondary text-on-secondary">' + ic('search') + '</button></form>' +
+        '<button class="h-10 px-3 rounded-r-btn bg-secondary text-on-secondary" aria-label="Filtrar">' + ic('search') + '</button></form>' +
       UI.tabla(['Fecha', 'Actor', 'Acción', 'Detalle'],
         lista.map(function (ev) {
           return td('<span class="font-data-mono text-data-mono whitespace-nowrap">' + esc(ev.fecha) + '</span>') +

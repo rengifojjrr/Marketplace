@@ -1,0 +1,118 @@
+# =========================================================================
+# Tumbo Market — pruebas en cada push y pull request
+# -------------------------------------------------------------------------
+# Levanta lo mismo que cada equipo en local (tools/supabase-local/levantar.sh):
+# Postgres 16, PostgREST 12.2.3 (binario oficial), la pasarela (Storage y la
+# función de archivos simulados) y el sitio; aplica todas las migraciones y
+# corre tools/verificar-todo.js: la API y el navegador (Playwright/Chromium)
+# contra ese backend y, con el sitio en local, el modo sin servidor. Después,
+# el simulacro de respaldo y restauración (tools/respaldo.sh).
+# No usa ningún secreto ni toca la nube.
+# =========================================================================
+name: Pruebas
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pruebas-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  todo:
+    name: API, navegador y modo local
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    env:
+      PG_BIN: /usr/lib/postgresql/16/bin
+      TM_STACK: ${{ github.workspace }}/.pila-local
+      BASE: tumbo_ci
+      PUERTO_PGRST: '54350'
+      PUERTO_PASARELA: '54351'
+      SITIO: http://localhost:8099
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Dependencias de Node (playwright, axe-core)
+        run: npm ci
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Dependencias de Python (fontTools para comprobar el recorte de iconos)
+        run: python3 -m pip install --quiet fonttools==4.67.0 brotli==1.2.1
+
+      - name: Lo generado está al día
+        run: |
+          python3 tools/generar_paginas.py --comprobar
+          python3 tools/fuentes.py --comprobar
+
+      - name: Caché de Chromium
+        id: cache-chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Chromium para Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Caché de PostgREST
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.TM_STACK }}/postgrest
+          key: postgrest-v12.2.3-linux-static-x64
+
+      - name: Postgres 16
+        run: |
+          if [ ! -x "$PG_BIN/initdb" ]; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-16 postgresql-contrib
+          fi
+          sudo systemctl stop postgresql || true
+          "$PG_BIN/postgres" --version
+
+      - name: Backend local (base, migraciones, PostgREST y pasarela)
+        # levantar.sh crea el clúster con «su postgres», así que corre como root;
+        # PostgREST y la pasarela quedan en segundo plano.
+        run: |
+          sudo env "PATH=$PATH" "PG_BIN=$PG_BIN" "TM_STACK=$TM_STACK" "HOME=$HOME" \
+            tools/supabase-local/levantar.sh "$BASE" "$PUERTO_PGRST" "$PUERTO_PASARELA"
+          sudo chmod -R a+rX "$TM_STACK"
+
+      - name: Sitio
+        run: |
+          nohup python3 -m http.server 8099 --bind 127.0.0.1 > "$RUNNER_TEMP/sitio.log" 2>&1 &
+          for i in $(seq 1 30); do curl -sf -o /dev/null "$SITIO/index.html" && break; sleep 0.5; done
+          curl -sf -o /dev/null "$SITIO/index.html"
+
+      - name: Todas las suites (API, navegador con backend y modo local)
+        run: |
+          K=$(node tools/supabase-local/pasarela.js --clave)
+          TM_PGDATABASE="$BASE" TM_SUPABASE_URL="http://127.0.0.1:$PUERTO_PASARELA" TM_SUPABASE_KEY="$K" \
+            node tools/verificar-todo.js "$SITIO"
+
+      - name: Simulacro de respaldo y restauración
+        run: tools/respaldo.sh simulacro "$BASE"
+
+      - name: Registros del backend
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: registros-backend
+          path: |
+            ${{ env.TM_STACK }}/*.log
+            ${{ runner.temp }}/sitio.log
+          retention-days: 7
+          if-no-files-found: ignore

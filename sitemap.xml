@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Tumbo Market: lo genera tools/generar_paginas.py (las páginas estáticas que se pueden indexar). -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://rengifojjrr.github.io/Marketplace/app/ayuda/inicio.html</loc></url>
+  <url><loc>https://rengifojjrr.github.io/Marketplace/app/tienda/inicio.html</loc></url>
+  <url><loc>https://rengifojjrr.github.io/Marketplace/app/ayuda/compra-protegida.html</loc></url>
+  <url><loc>https://rengifojjrr.github.io/Marketplace/app/ayuda/comprar.html</loc></url>
+  <url><loc>https://rengifojjrr.github.io/Marketplace/app/ayuda/contacto.html</loc></url>
+  <url><loc>https://rengifojjrr.github.io/Marketplace/app/ayuda/contrato-seller.html</loc></url>
+  <url><loc>https://rengifojjrr.github.io/Marketplace/app/ayuda/devoluciones.html</loc></url>
+  <url><loc>https://rengifojjrr.github.io/Marketplace/app/ayuda/envios.html</loc></url>
+  <url><loc>https://rengifojjrr.github.io/Marketplace/app/ayuda/pagar.html</loc></url>
+  <url><loc>https://rengifojjrr.github.io/Marketplace/app/ayuda/privacidad.html</loc></url>
+  <url><loc>https://rengifojjrr.github.io/Marketplace/app/ayuda/terminos.html</loc></url>
+  <url><loc>https://rengifojjrr.github.io/Marketplace/app/ayuda/vendedores.html</loc></url>
+  <url><loc>https://rengifojjrr.github.io/Marketplace/app/tienda/resultados.html</loc></url>
+</urlset>
