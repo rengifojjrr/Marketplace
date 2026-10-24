@@ -145,7 +145,32 @@ normal se convertía en una columna que deformaba la página.
 - Texto alternativo en toda imagen.
 - El estado nunca depende solo del color.
 
-## Base para el teléfono
+## Diseño en el teléfono
+
+Criterios con los que se revisa cada vista (se miden con código a 360×740,
+390×844 —táctil, DPR 2— y 768×1024, y se miran las capturas):
+
+- **Sin scroll lateral** del documento; nada se sale de la pantalla ni de su
+  caja; ningún texto cortado. Correos, IDs y URL largos se parten donde deben.
+- **Tablas**: las listas principales van en tarjetas «etiqueta: valor»; una
+  tabla que se desplaza lo hace dentro de su caja, con el borde desvanecido,
+  «Desliza para ver más» y sus botones a la vista.
+- **Táctil**: objetivos de 44 × 44 px (botones, enlaces sueltos, iconos de
+  acción, casillas con su etiqueta), separados; campos de 16 px; texto de
+  lectura de 14 px y nunca menos de 12.
+- **Navegación**: el menú de los paneles es un cajón; los diálogos caben con su
+  botón principal visible y se cierran con Escape, con el velo o con su botón;
+  los avisos no tapan acciones más de unos segundos.
+- **Formularios**: etiqueta visible, campos a lo ancho, teclado correcto
+  (`inputmode`, `type`), botones al pie con el mismo patrón.
+- **Que tenga sentido**: nada de claves internas, `null`, jerga técnica ni
+  textos que contradicen la vista; un estado vacío explica qué pasa; un botón
+  que la cuenta no puede usar se ve deshabilitado (no falla después).
+- **Bonito**: márgenes laterales de 16 px, tarjetas con el mismo radio y
+  borde, los tokens de color y tipografía, iconos alineados con su texto y el
+  mismo chip para todas las pestañas y filtros.
+
+### La base común
 
 Lo común (assets/css/tm.css, assets/js/tm-ui.js y el armazón de
 assets/js/tm-app.js) ya resuelve en todas las vistas, sin tocar su módulo:
@@ -155,39 +180,91 @@ assets/js/tm-app.js) ya resuelve en todas las vistas, sin tocar su módulo:
   dedo; los `select` reservan el sitio de la flecha.
 - **Objetivos de 44 px** con el dedo: `min-h-[24…42px]`, enlaces y botones
   `inline-flex`, chips `rounded-full py-1.5`, botones de solo un icono
-  (`p-1`/`p-2`), `<summary>`, la X de los avisos.
+  (`p-1`/`p-2`), `<summary>`, la X y la acción de los avisos.
 - **Tablas (`UI.tabla`) en tarjetas** por debajo de 640 px cuando tienen 4
   columnas o más: cada celda lleva su etiqueta (`data-th`, de la cabecera) y la
   columna sin cabecera (las acciones) va a lo ancho. `UI.tabla(cab, filas,
-  vacío, {tarjetas: true|false})` lo fija. Una tabla hecha a mano entra con
+  vacío, {tarjetas: true|false})` lo fija; con `tarjetas: 'lg'` también va en
+  tarjetas en la tableta (hasta lg), para las tablas de muchas columnas que en
+  768 px solo cabrían desplazándose. Una tabla hecha a mano entra con
   `<table data-tarjetas>` (con `<thead>`). Lo que se desplaza a lo ancho
-  desvanece su borde y, en las tablas, dice «Desliza para ver más».
-- **IDs e importes** que son todo el texto de su elemento no se parten
-  (`TM-2026-00434`, `Bs. 3.583,80`); una fila flex que no cabe pasa a varias
-  líneas; un hijo de `.grid` puede encogerse (`min-width: 0`).
-- **Filas de 4 chips o más** (enlaces/botones `rounded-full`) son una tira que
-  se desplaza a lo ancho en el teléfono, con el chip activo a la vista.
+  desvanece su borde y, en las tablas, dice «Desliza para ver más». En la
+  tarjeta, un espacio suelto entre dos elementos de una celda se conserva
+  (Chrome lo perdía: «MRWmrw»).
+- **Tablas que se desplazan** (la tableta, o el escritorio si no caben): si la
+  última columna de `UI.tabla` no tiene cabecera (los botones), queda fija a la
+  derecha con una sombra (`data-acciones-fijas`). `{desdeLg: [i, …]}` muestra
+  esas columnas (índices desde 0) solo desde lg; su dato va dentro de otra
+  celda con `lg:hidden` y sus `<td>` llevan `hidden lg:table-cell`.
+- **IDs e importes** no se parten: el texto que es solo eso queda marcado
+  (`data-unido`) y, dentro de un texto mixto («Confirmar la entrega de
+  TM-2026-00431», «IGTF (3 %)», «pagó Bs. 349,69»), `UI.unirPartes` lo
+  envuelve en `.tm-id` tras cada pintado y en los diálogos. Una fila flex que
+  no cabe pasa a varias líneas; un hijo de `.grid` puede encogerse.
+- **Filas de 4 chips o más** son una tira que se desplaza a lo ancho en el
+  teléfono, con el chip activo centrado y fuera de los bordes desvanecidos
+  (`scroll-padding-inline`).
 - **Indicadores (`UI.kpi`)**: dos por fila en el teléfono (`.tm-una-columna`
   en la cuadrícula lo evita).
+- **Avisos (`UI.toast`)**: en el teléfono van arriba, uno a la vez, con el
+  texto en cinco líneas como mucho (un correo se parte tras la arroba o
+  antes de un punto); duran 3,2 s (5 s con acción) y un toque los cierra.
+- **Menú de los paneles**: en el teléfono y la tableta, un cajón bajo la
+  cabecera con scroll propio, por secciones (`SECCIONES` en tm-app.js; una
+  vista nueva toma la sección de su vecina) y el botón de menú pasa a
+  «Cerrar». Desde lg, una columna que se queda a la vista al desplazar la
+  página y se desplaza por dentro (36 px por entrada con ratón, 44 con el
+  dedo). Los desplegables de la cabecera ocupan el ancho de la pantalla en el
+  teléfono y se cierran al tocar fuera.
 - El atributo `hidden` oculta siempre, aunque el elemento tenga una clase de
   display.
 
-Para los módulos:
+### Piezas para los módulos
 
 | Pieza | Uso |
 | --- | --- |
-| `UI.enlace(texto, href, icono)` / `.tm-tocable` | Enlace de acción suelto («Volver», «Ver ficha») con 44 px de blanco táctil |
-| `UI.chip(texto, href, activo)` / `.tm-chip` | Chip o pestaña de filtro; la fila: `flex flex-wrap gap-2 tm-tira-movil` |
+| `UI.enlace(texto, href, icono)` / `.tm-tocable` | Enlace de acción suelto («Volver», «Ver ficha») con 44 px de blanco táctil; un enlace que no está dentro de una frase va así, en su propia línea |
+| `UI.chip(texto, href, activo)` / `UI.claseChip(activo)` | Chip o pestaña (el activo, azul de acción): el mismo en filtros, pestañas de enlace y pestañas que son botones. La fila: `flex flex-wrap gap-2 tm-tira-movil` |
 | `.tm-tira` | Fila que siempre se desplaza a lo ancho |
 | `.tm-num` / `.tm-id` | Importe o identificador que no se parte |
-| `UI.toast(t, texto, icono, {accion: {texto, href}})` | Aviso con acción («Ver carrito»); en el teléfono va arriba, uno a la vez |
+| `UI.correo(email)` | Un correo que se parte tras la arroba o antes de un punto (con `[overflow-wrap:anywhere]`, no `break-all`) |
+| `.tm-acciones` | La fila de botones al pie de un formulario o un diálogo: a la derecha en el escritorio; a lo ancho y apilados en el teléfono |
+| `UI.confirmar(t, texto, {accion, peligro, estilo, cerrar}, fn)` | Diálogo de confirmación. Si la acción es «Cancelar…», el botón de salida dice «Volver» (`UI.textoCerrar`); `cerrar` lo fija («No, mantener el pedido») |
+| `UI.badge(estado, {masculino, retiro})` | Insignia de estado: `masculino` para «el reclamo» («Abierto»); `retiro` cuando se retira en la tienda («Listo para retiro»; si no, «Listo para despacho»). `por_pagar` = «Esperando tu pago» (pedido sin pago reportado) |
+| `UI.tabla(…, {tarjetas, desdeLg})` | Ver arriba |
+| `UI.toast(t, texto, icono, {accion: {texto, href}})` | Aviso con acción («Ver carrito») |
 | `UI.vacio(icono, t, texto, accion, {compacto: true})` | Estado vacío de una sección dentro de una página |
 | `UI.avisoPrueba(texto, detalleHtml)` | Aviso de cuenta de prueba o de solo lectura en una línea, con «Más» |
 | `UI.fechaHora(fecha)` | `24/10/2026 05:35 pm`, en hora de Caracas |
 | `UI.tactil()` | ¿Pantalla táctil? (no abrir el teclado sin que lo pidan) |
+| `APP.html403Error(error)` | Un error de datos «Tu rol no permite…» se pinta como el 403 de siempre, sin «Reintentar» |
+| `@container` + `@xl:` | Una fila que depende del ancho de su tarjeta, no de la pantalla (el delivery propio: sub-tarjeta en media columna, fila de tabla en una ancha) |
 
-En el armazón: el menú de los paneles es un cajón bajo la cabecera, con
-scroll propio, por secciones (`SECCIONES` en tm-app.js; una vista nueva toma
-la sección de su vecina por orden) y el botón de menú pasa a «Cerrar»; los
-desplegables de la cabecera ocupan el ancho de la pantalla en el teléfono y se
-cierran al tocar fuera; la campana distingue las no leídas con fondo y punto.
+### Patrones de las vistas
+
+- **Lo primero, primero**: en el teléfono, la acción que toca va arriba
+  («Pagar ahora» en un pedido sin pagar; las acciones del pedido justo después
+  de sus pasos) y una acción que no se deshace se confirma antes («¿Recibiste
+  tu pedido completo?»).
+- **Barra fija abajo** cuando la acción queda lejos de donde se elige: el
+  total del checkout, «N elegidos · Vista previa · Aplicar» en Precios,
+  «Guardar preferencias» en los avisos (`sticky bottom-0`, con el margen del
+  área segura).
+- **Una lista, no una tabla**, cuando cada fila tiene texto largo: los avisos
+  por canal (casillas «Correo» y «WhatsApp» rotuladas debajo en el teléfono),
+  las respuestas rápidas del chat (una debajo de otra, según el momento del
+  pedido), los datos de un reclamo (un dato por línea, sin «·» sueltos).
+- **Lo que la cuenta no puede hacer** se ve deshabilitado con su motivo
+  (`title`) y el aviso de solo lectura lo explica; sin permiso para editar, un
+  ajuste se lee como texto.
+- **Textos para personas**: el estado que ve el comprador («Esperando tu
+  pago»), la línea de tiempo sin la contabilidad del comercio
+  (`TM.textoEventoComprador`), nombres en vez de claves («Cierre contable
+  diario», con `cierre_diario` en pequeño), el rol con su nombre («Ana
+  (Finanzas)») y el método de pago («Pago Móvil») en los eventos (lo hace
+  tm-remoto.js), y en la auditoría el resumen de una tarea y las claves
+  del servidor se leen como texto («escalados aceptar 0 · …», «reembolso
+  parcial»).
+- **Peso**: cada superficie tiene su presupuesto (tools/e2e-plataforma.js).
+  Un módulo que solo usa una vista se carga solo en ella
+  (`MODULOS_SUPERFICIE` en tools/generar_paginas.py admite «admin/pedido»).
