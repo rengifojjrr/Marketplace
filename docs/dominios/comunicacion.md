@@ -515,11 +515,14 @@ apelación).
 
 - `node tools/api-comunicacion.js` (con `TM_PGDATABASE` hace además las
   comprobaciones por SQL, la función de envíos contra la simulación de la
-  pasarela y crea cuentas reales de apoyo): 98 comprobaciones contra el
+  pasarela y crea cuentas reales de apoyo): 118 comprobaciones contra el
   backend local (sin la base, las que dependen de ella se informan como
   omitidas).
-- `node tools/e2e-comunicacion.js <url>`: 14 pruebas con servidor y 4 en
-  modo local.
+- `node tools/e2e-comunicacion.js <url>`: 17 pruebas con servidor y 4 en
+  modo local (las nuevas: la apelación del comprador con evidencia nueva y
+  la del comercio aún posible, el envío de vuelta reportado con el recibo,
+  y los dos avisos legales: «Falta que aceptes» y el texto que aún no llegó
+  a la página, sin botón de aceptar).
 - `tools/api-fundaciones.js` (cambio mínimo): la prueba que espera
   `pedido_despachado` por WhatsApp registra antes el consentimiento de la
   compradora para ese número (y lo borra al terminar).
