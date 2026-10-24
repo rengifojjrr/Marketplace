@@ -21,6 +21,7 @@ const BD = process.env.TM_PGDATABASE || '';
 const SKU = 'SKU-TEC-0450';
 const CASA = 'd0000000-0000-4000-8000-000000000001';
 const COMPRADOR = 'a0000000-0000-4000-8000-000000000001';
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 
 function psql(consulta) {
   const r = spawnSync('psql', ['-h', process.env.PGHOST || '/tmp', '-p', process.env.PGPORT || '54322', '-U', 'postgres',
@@ -90,7 +91,12 @@ async function sesionApi(email) {
     s.comprador = await sesionApi('comprador@demo.ve');
     s.finanzas = await sesionApi('finanzas@tumbomarket.demo');
     s.operador = await sesionApi('operador@sel-014.demo');
+    s.ops = await sesionApi('operaciones@tumbomarket.demo');
   }
+  /* Sube un archivo con el selector de TM.archivos que está dentro de `dentro`. */
+  const subirEn = async (dentro, nombre) => {
+    await p.setInputFiles(dentro + ' [data-tm-archivo-input]:not([capture])', { name: nombre, mimeType: 'image/png', buffer: PNG });
+  };
 
   /* ================= Centro de ayuda (los dos modos) ================= */
   await prueba('el pie de la tienda lleva al centro de ayuda y a los documentos legales', async () => {
@@ -262,6 +268,22 @@ async function sesionApi(email) {
     if (!(await p.locator('[data-apelar]').count())) throw new Error('falta el botón de apelar');
   });
 
+  await pruebaSolo('remoto', 'el comprador apela el reembolso parcial con evidencia nueva y el comercio todavía puede apelar el suyo', async () => {
+    await p.locator('[data-apelar]').click();
+    await p.waitForSelector('.tm-velo [name=motivo]');
+    await p.fill('.tm-velo [name=motivo]', 'El cable original cuesta más de 5 dólares: adjunto la factura.');
+    await subirEn('.tm-velo', 'factura.png');
+    await p.waitForSelector('.tm-velo [data-adjuntos-lista]', { timeout: 20000 });
+    await p.locator('.tm-velo [data-ok]').click();
+    await aviso('Apelación enviada');
+    await p.waitForSelector('[data-apelacion] [data-apelacion-espera]');
+    if (await p.locator('[data-apelar]').count()) throw new Error('el comprador puede apelar dos veces');
+    await login('seller');
+    await abrir('seller/disputas?id=' + D1);
+    await p.waitForSelector('[data-apelar="' + D1 + '"]');
+    if (!/La otra parte ya apeló/.test(await texto())) throw new Error('el comercio no ve que la otra parte apeló');
+  });
+
   /* ================= Denuncia ================= */
   await pruebaSolo('remoto', 'el comprador reporta una publicación y Operaciones cierra la denuncia', async () => {
     await login('comprador');
@@ -283,6 +305,34 @@ async function sesionApi(email) {
     await p.locator('.tm-velo button', { hasText: 'Cerrar' }).last().click();
     await aviso('Denuncia cerrada');
   });
+
+  /* ================= Devolución que paga Tumbo: envío de vuelta ================= */
+  await pruebaSolo('remoto', 'devolución que paga Tumbo: el comprador reporta el envío de vuelta con el recibo y Operaciones lo revisa', async () => {
+    const PV = await pedidoEntregado();
+    const ab = await rpc('tm_abrir_disputa', { p_sesion: s.comprador, p_pedido: PV, p_motivo: 'Otro', p_descripcion: 'No me gustó el color que llegó.', p_evidencia: [] });
+    const rs = await rpc('tm_disputa_resolver', { p_sesion: s.ops, p_id: ab.dato, p_datos: { decision: 'devolucion', paga: 'tumbo' } });
+    if (!ab.ok || !rs.ok) throw new Error('preparación: ' + ab.texto + ' ' + rs.texto);
+    await login('comprador');
+    await abrir('tienda/reclamo?id=' + PV);
+    await p.waitForSelector('[data-envio-vuelta] [data-reportar-vuelta]');
+    await p.locator('[data-reportar-vuelta]').click();
+    await p.waitForSelector('.tm-velo [name=monto]');
+    await p.fill('.tm-velo [name=monto]', '350');
+    await subirEn('.tm-velo', 'recibo.png');
+    await p.waitForSelector('.tm-velo [data-adjuntos-lista]', { timeout: 20000 });
+    await p.locator('.tm-velo [data-ok]').click();
+    await aviso('Envío de vuelta reportado');
+    await p.waitForFunction(() => /Reportado/.test((document.querySelector('[data-envio-vuelta]') || {}).innerText || ''), null, { timeout: 15000 });
+    await login('ops');
+    await abrir('admin/disputas?id=' + ab.dato);
+    await p.waitForSelector('[data-resolver-vuelta="' + ab.dato + '"]');
+    await p.locator('[data-resolver-vuelta="' + ab.dato + '"]').click();
+    await p.waitForSelector('.tm-velo [name=aprobar]');
+    await p.locator('.tm-velo [data-ok]').click();
+    /* la devolución no se cerró todavía: el reintegro espera su reembolso */
+    await p.waitForFunction(() => /cierra la devolución/.test((document.querySelector('.tm-velo [data-error-form]') || {}).innerText || ''), null, { timeout: 15000 });
+    await p.locator('.tm-velo [data-cerrar]').click();
+  }, /status of 400/);
 
   /* ================= Mensajes salientes ================= */
   await pruebaSolo('remoto', 'Operaciones ve la bandeja de mensajes con el estado del envío y descarta uno', async () => {
@@ -317,17 +367,16 @@ async function sesionApi(email) {
     await esperarTexto(/Excelente sonido, llegó en dos días/);
   });
 
-  /* ================= Documento legal nuevo por aceptar (con SQL) ================= */
-  await soloBD('una versión nueva de la privacidad se avisa arriba de la tienda y se acepta desde su página', async () => {
-    psql(`insert into tumbo.documentos_legales (clave, version, titulo, vigente_desde, resumen, roles, borrador, publicado_por)
-          select clave, 'e2e-com-1', titulo, now() - interval '1 minute', 'Prueba del aviso', roles, true, 'Pruebas'
-          from tumbo.documentos_legales where clave = 'privacidad' and version = '2026-10-beta'
-          on conflict do nothing`);
+  /* ================= Documentos legales por aceptar (con SQL) ================= */
+  await soloBD('a quien nunca aceptó la privacidad se le pide aceptarla (no «actualizamos») y la acepta desde su página', async () => {
+    psql(`delete from tumbo.aceptaciones_legales where usuario_id = ${lit(COMPRADOR)} and clave = 'privacidad'`);
     try {
       await login('comprador');
       await p.evaluate(() => { try { sessionStorage.clear(); } catch (e) { } });
       await abrir('tienda/inicio');
       await p.waitForSelector('[data-legal-pendiente]', { timeout: 15000 });
+      const aviso0 = await p.locator('[data-legal-pendiente]').innerText();
+      if (!/Falta que aceptes Política de privacidad/.test(aviso0) || /Actualizamos/.test(aviso0)) throw new Error('aviso: ' + aviso0);
       await p.locator('[data-legal-pendiente] a', { hasText: 'Leer' }).first().click();
       await p.waitForSelector('[data-aceptar-legal="privacidad"]');
       await p.locator('[data-aceptar-legal="privacidad"]').click();
@@ -337,7 +386,26 @@ async function sesionApi(email) {
       await p.waitForTimeout(800);
       if (await p.locator('[data-legal-pendiente]').count()) throw new Error('el aviso sigue después de aceptar');
     } finally {
+      psql(`insert into tumbo.aceptaciones_legales (usuario_id, clave, version) values (${lit(COMPRADOR)}, 'privacidad', '2026-10-beta') on conflict do nothing`);
+    }
+  });
+  await soloBD('una versión nueva cuyo texto aún no llegó a la página se avisa, pero la página no ofrece aceptarla', async () => {
+    psql(`insert into tumbo.documentos_legales (clave, version, titulo, vigente_desde, resumen, roles, borrador, texto_publicado, publicado_por)
+          select clave, 'e2e-com-1', titulo, now() - interval '1 minute', 'Prueba del aviso', roles, true, true, 'Pruebas'
+          from tumbo.documentos_legales where clave = 'privacidad' and version = '2026-10-beta'
+          on conflict do nothing`);
+    try {
+      await login('comprador');
+      await p.evaluate(() => { try { sessionStorage.clear(); } catch (e) { } });
+      await abrir('tienda/inicio');
+      await p.waitForSelector('[data-legal-pendiente]', { timeout: 15000 });
+      if (!/Actualizamos Política de privacidad/.test(await p.locator('[data-legal-pendiente]').innerText())) throw new Error('sin «Actualizamos»');
+      await abrir('ayuda/privacidad');
+      await p.waitForSelector('[data-legal-estado="privacidad"] [data-legal-desfase]');
+      if (await p.locator('[data-aceptar-legal]').count()) throw new Error('se ofrece aceptar un texto que la página no muestra');
+    } finally {
       psql(`delete from tumbo.aceptaciones_legales where version = 'e2e-com-1'; delete from tumbo.documentos_legales where version = 'e2e-com-1';`);
+      await p.evaluate(() => { try { sessionStorage.clear(); } catch (e) { } });
     }
   });
 
