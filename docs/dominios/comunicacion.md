@@ -77,7 +77,10 @@ como el reclamo de la demo, siguen funcionando igual.
   parte nunca los recibe y el mensaje dice qué se ocultó.
 - **Preguntas** en la ficha (con sesión): hasta 10 por día y 3 sin responder
   por producto, sin repetir. Una pregunta con datos de contacto se rechaza
-  (es pública); una que pide pagar por fuera o insulta va a revisión.
+  (es pública); una que pide pagar por fuera o insulta va a revisión. Una
+  respuesta del comercio apartada por la moderación no la lee nadie (tampoco
+  quien preguntó, que ve «el comercio respondió; el equipo la revisa») hasta
+  que la apruebe una persona.
 - **Califica tus compras** (Mi cuenta): cuando el pedido entregado cierra su
   ventana de reclamo le llega la invitación (campana y bandeja). Califica
   cada producto (estrellas, calidad, texto, hasta 4 fotos) y al comercio
@@ -99,11 +102,24 @@ como el reclamo de la demo, siguen funcionando igual.
 - **Reclamos v2**: el asistente de siempre y, ya abierto, el **expediente**
   (`tienda/reclamo?id=<pedido>`): mensajes de las tres partes con evidencia
   (propósito `evidencia`), el plazo del comercio, la evidencia que pide
-  Operaciones con su vencimiento, la decisión y la **apelación** (una vez,
-  con evidencia nueva, dentro de 5 días; congela de nuevo los fondos).
+  Operaciones con su vencimiento, la decisión y la **apelación** (una vez por
+  parte, con evidencia nueva, dentro de 5 días). Tras «cerrar a favor del
+  comercio» o un reembolso parcial, los fondos siguen **retenidos** hasta que
+  vence su plazo de apelación (o se revisa su apelación): ninguna corrida de
+  liquidaciones le corta la apelación. Su descripción (y la primera
+  respuesta del comercio) se guardan sin datos de contacto.
+- **Envío de vuelta**: en una devolución que paga el comercio o Tumbo, si
+  pagó el envío lo **reporta** en el expediente (monto en bolívares y recibo,
+  hasta el equivalente de $200 y tres reportes); el expediente sigue abierto
+  a mensajes mientras la devolución está en curso, y Operaciones se lo
+  reintegra como otro reembolso cuando la devolución se cierra.
 - **Documentos legales**: si hay una versión nueva por aceptar, un aviso
-  arriba de la tienda lleva a la página del documento, que muestra la
-  versión vigente, su fecha y el historial, y el botón «He leído y acepto».
+  arriba de la tienda («Actualizamos…» si ya había aceptado otra versión;
+  «Falta que aceptes…» si nunca lo aceptó) lleva a la página del documento,
+  que muestra la versión vigente, su fecha y el historial, y el botón «He
+  leído y acepto» solo si el texto que muestra es el de esa versión. Al
+  registrarse (o al aceptar una invitación) quedan aceptados los términos y
+  la privacidad vigentes: una cuenta nueva no tiene nada pendiente.
 
 **Comercio (seller y operador)**
 
@@ -120,8 +136,11 @@ como el reclamo de la demo, siguen funcionando igual.
   (`seller/notificaciones`, también el gestor de precios).
 - **Reclamos**: 72 h para responder (recordatorio 24 h antes); escribe en el
   expediente con evidencia; si no responde, el reclamo se decide solo a favor
-  del comprador. Puede apelar una vez lo que le costó (reembolso o
-  devolución).
+  del comprador. Puede apelar una vez lo que le costó (reembolso, reembolso
+  parcial o devolución); en un reembolso parcial apelan las dos partes y su
+  apelación no le quita la suya al comprador (ni al revés). Lo que lee del
+  comprador llega sin datos de contacto. «Cerrado a tu favor» muestra hasta
+  cuándo siguen retenidos los fondos.
 
 **Operaciones y superadministrador**
 
@@ -147,15 +166,23 @@ como el reclamo de la demo, siguen funcionando igual.
   procede o repetida, con nota). La sanción de un producto o comercio la
   decide Crecimiento (enlaces a Moderación y Sellers). El
   superadministrador publica aquí las **versiones nuevas de los documentos
-  legales** (sesión elevada): a quien debe aceptarla se le pide hacerlo y le
-  llega el aviso.
+  legales** (sesión elevada). Una versión rige cuando su texto ya está
+  desplegado en el centro de ayuda (casilla al publicarla, o «Ya está su
+  texto» después): desde entonces a quien debe aceptarla se le pide hacerlo
+  y le llega el aviso; antes no rige ni se acepta.
 - **Reclamos** (`admin/disputas` y el expediente `?id=`): la lista de
   siempre (botones de decisión, con el reembolso parcial) y, en el
   expediente, «Resolver el reclamo» con **plantillas de decisión**,
-  reembolso parcial, quién paga el envío de vuelta en una devolución y nota;
-  «Pedir evidencia con plazo» (12 a 168 h, a una parte); «Revisar la
-  apelación» (solo otra persona que la que decidió); «Revisar plazos ahora».
-  El chat del pedido con reclamo aparece en el detalle 360 (`pedido.ops`).
+  reembolso parcial (menos de lo que pagó el comprador y de lo que cobra el
+  comercio por el pedido: el expediente da el tope), quién paga el envío de
+  vuelta en una devolución y nota; «Pedir evidencia con plazo» (12 a 168 h,
+  a una parte); «Revisar la apelación» (solo otra persona que la que
+  decidió; si apelaron las dos partes, elige a favor de quién; en un
+  reembolso parcial con una sola apelación, se habilita cuando vence el
+  plazo de la otra parte); «Revisar el envío de vuelta» (reintegrar, con el
+  monto, o rechazar con nota; el reintegro, cuando la devolución ya se cerró
+  con su reembolso); «Revisar plazos ahora». El chat del pedido con reclamo
+  aparece en el detalle 360 (`pedido.ops`).
 - **Paneles**: el del Backoffice suma casos de soporte (vencidos, sin
   asignar), contenido por revisar y mensajes fallidos; el del seller,
   preguntas por responder y su nivel.
@@ -171,8 +198,12 @@ como el reclamo de la demo, siguen funcionando igual.
 - **Función `tumbo-envios`**: toma lotes (`tm_envios_tomar`, con candado
   `skip locked`), envía por Resend (con `Idempotency-Key: tumbo-salida-<id>`)
   y por la API de WhatsApp Cloud (solo plantillas aprobadas, número E.164) y
-  anota el resultado (`tm_envios_resultado`): un fallo temporal se reintenta
-  a 1, 5, 30 y 120 minutos hasta `max_intentos` (5); uno permanente queda
+  anota el resultado (`tm_envios_resultado`): un fallo temporal del correo
+  (límite, 5xx, red) se reintenta a 1, 5, 30 y 120 minutos hasta
+  `max_intentos` (5); de WhatsApp solo se reintenta el límite de frecuencia
+  (429 y los códigos 4, 80007, 130429, 131048, 131056: Meta no lo entregó);
+  un corte de la red, un 408 o un 5xx de WhatsApp quedan fallidos «sin
+  confirmación: revisa si llegó antes de reenviarlo». Lo permanente queda
   fallido para enviarlo a mano. Un correo tomado sin resultado en 10 minutos
   se vuelve a tomar con la misma clave (Resend no lo manda dos veces); un
   WhatsApp así queda fallido (su API no tiene idempotencia). Los códigos de
@@ -188,26 +219,57 @@ como el reclamo de la demo, siguen funcionando igual.
   `tm_comunicacion_revisar`, una vez por minuto) avisa 24 h antes del plazo
   del comercio, aplica el **fallo automático** (reembolso total, «Sistema»),
   vence las solicitudes de evidencia y avisa los casos de soporte con el SLA
-  vencido. `tarea_envios` (cada minuto) llama a la función con pg_net si el
-  ajuste `envios.funcion_url` apunta a `https://…/functions/v1/tumbo-envios`
-  y hay algo por enviar.
+  vencido; además libera los fondos de los reclamos cuyo plazo de apelación
+  venció y deja la versión vigente de los términos como la del registro.
+  `tarea_envios` (cada minuto) llama a la función con pg_net si el ajuste
+  `envios.funcion_url` apunta a `https://…/functions/v1/tumbo-envios` y hay
+  algo que `tm_envios_tomar` tomaría (`envios_por_tomar`: ni los mensajes de
+  las cuentas de prueba ni los WhatsApp sin plantilla aprobada, que se
+  envían a mano; solo los canales con proveedor). Si la función informó que
+  no tiene proveedores, vuelve a probar cada 30 minutos.
 - **Reclamos**: `tm_abrir_disputa` y `tm_responder_disputa` (redefinidas desde
   la de Logística) crean el caso (`tumbo.disputa_casos`, plazo de 72 h), el
   mensaje del sistema y los avisos. La resolución de la ola 2
   (`tm_disputa_resolver`) y el fallo automático comparten
-  `disputa_resolver_interno`: reembolso total (Pagos, `crear_reembolso`),
-  **reembolso parcial** (pedido cerrado con el resto elegible, reembolso de
-  Pagos por el monto y un ajuste negativo al comercio), devolución (con quién
-  paga el envío de vuelta en la devolución de Logística, que sigue con su
-  inspección antes del reembolso) o liberar. `tm_resolver_disputa` (de la
-  integración de la ola 1) sigue igual: un trigger completa el caso, cancela
-  la evidencia pendiente, escribe la decisión en el expediente y avisa. La
-  **apelación** del comprador (de «liberar» o de un reembolso parcial)
-  congela los fondos si aún no se liquidaron; la revisa otra persona: puede
-  pasar a reembolso total (devolviendo lo que faltaba y quitando el
-  descuento parcial), a parcial o a devolución. La del comercio (de un
-  reembolso o una devolución) se resuelve con una compensación de Tumbo
-  (ajuste a favor con su asiento, como `tm_ajuste_seller`).
+  `disputa_resolver_interno`: reembolso total (lo que falta de lo que pagó
+  el comprador, con el IGTF: `disputa_reembolso_total`), **reembolso
+  parcial** (menos que lo pagado y que lo que cobra el comercio, descontado
+  lo ya reembolsado: `disputa_tope_parcial`, así Pagos nunca lo asienta como
+  completo; el ajuste negativo al comercio es lo que devolvió Pagos, leído
+  de `tumbo.reembolsos`), devolución (con quién paga el envío de vuelta en la
+  devolución de Logística, que sigue con su inspección antes del reembolso)
+  o liberar. `reembolso_usd` del caso es lo que devolvió Pagos.
+  `tm_resolver_disputa` (de la integración de la ola 1) sigue igual: un
+  trigger completa el caso, cancela la evidencia pendiente, escribe la
+  decisión en el expediente y avisa. El fallo automático vuelve a mirar el
+  reclamo ya bloqueado (la tarea lo elige con `skip locked`): si el comercio
+  respondió mientras tanto, no lo aplica.
+- **Fondos durante la apelación**: tras «liberar» o un reembolso parcial el
+  pedido queda `congelado` (no `elegible`) mientras el comprador puede
+  apelar o su apelación espera la revisión (`disputa_retiene_fondos`); un
+  disparador en `tumbo.pedidos` (`pedidos_retener_apelacion`) lo aplica
+  también a la resolución de siempre, y `tarea_comunicacion` lo pasa a
+  elegible al vencer el plazo.
+- **Apelaciones** (`tumbo.disputa_apelaciones`, una por parte): el
+  comprador apela «liberar» o un reembolso parcial (congela los fondos); el
+  comercio, un reembolso, un parcial o una devolución. Una sola revisión de
+  otra persona decide todas (en un parcial con una sola apelación, después
+  de que venza el plazo de la otra parte) y después no se apela más. A favor
+  del comprador: reembolso total (lo que faltaba de lo pagado, con el IGTF;
+  el asiento se completa como el de un reembolso completo: vuelve el IGTF
+  por pagar y se revierte el descuento de Tumbo), parcial o devolución, y
+  sobra el descuento parcial; a favor del comercio: una compensación de
+  Tumbo (ajuste a favor con su asiento, como `tm_ajuste_seller`). La
+  decisión nueva queda también en `tumbo.disputas` (listas, `tm_cargar`) y
+  la reputación cuenta como perdido lo que costó al comercio salvo que la
+  revisión le diera la razón.
+- **Envío de vuelta**: `tm_disputa_envio_vuelta` (comprador: Bs. y recibo) y
+  `tm_disputa_envio_vuelta_resolver` (equipo; dinero de un pedido real con
+  sesión elevada): el reintegro es otro reembolso del pedido en
+  `tumbo.reembolsos` (Finanzas lo envía al destino que elija el comprador)
+  con su asiento: contra `por_pagar_seller` y un descuento en la próxima
+  liquidación si paga el comercio, o contra `devoluciones_envio` si paga
+  Tumbo.
 - **Reputación** (`reputacion_comercio`): últimos 90 días; menos de 5 ventas
   entregadas, «comercio nuevo»; los umbrales están en la función.
 - **Documentos legales** (`tumbo.documentos_legales`, versión
@@ -222,8 +284,17 @@ como el reclamo de la demo, siguen funcionando igual.
 - **Cuentas de prueba** (contraseña pública): nunca ven ni tocan datos de
   personas o comercios reales (`exigir_cuenta_real`, `exigir_si_real`,
   `salida_visible`, `ticket_visible`, cola de contenido filtrada); no
-  disparan el envío real, no editan macros ni plantillas ni publican
-  documentos legales.
+  preguntan, reseñan ni reportan en un comercio real ni reportan lo que
+  escribió una persona real, no le escriben por el chat a una persona o un
+  comercio real (no les disparan correos); no disparan el envío real, no
+  editan macros ni plantillas ni publican documentos legales.
+- **Datos de contacto ocultos** (`ocultar_contacto`): las cifras se buscan
+  aunque vengan con espacios, puntos, barras, paréntesis, guion bajo o
+  guiones de cualquier tipo (hasta 3 seguidos) y con la letra O en lugar del
+  cero; una tira de 16 cifras o más se oculta siempre, y una de 10 o más que
+  contiene un celular venezolano, también. Lo usan el chat, las preguntas,
+  las reseñas, el expediente, la descripción del reclamo y la respuesta del
+  comercio.
 - **Auditoría**: moderación, denuncias, casos, macros, plantillas, mensajes
   marcados o reintentados, documentos aceptados y publicados, reseñas,
   respuestas, decisiones, evidencia pedida y apelaciones
@@ -235,12 +306,15 @@ como el reclamo de la demo, siguen funcionando igual.
   aplica después), los permisos de este dominio los decide
   `archivo_permitido_comunicacion`, consultada por `tm_archivo_preparar` y
   `tm_archivo_acceso` (redefinidas desde las de fundaciones, una línea más).
-- **Reinicio de la demo** (`sembrar_ext_comunicacion`): borra chats,
-  preguntas, reseñas (y descarta sus fotos), expedientes, denuncias, los casos
-  de las cuentas de prueba (los de personas reales se conservan sin el
-  pedido), los avisos de este dominio y el consentimiento de WhatsApp de las
-  cuentas de prueba; da a los reclamos sembrados su caso con el plazo desde
-  hoy. No siembra mensajes, preguntas ni reseñas: nada inventado.
+- **Reinicio de la demo** (`sembrar_ext_comunicacion`): borra lo que cuelga
+  de pedidos y reclamos (chats, reseñas y sus fotos, expedientes,
+  apelaciones) y lo que escribieron las cuentas de prueba (preguntas,
+  denuncias, casos, avisos de este dominio, consentimiento de WhatsApp); lo
+  de las personas reales se conserva (sus preguntas con su respuesta, sus
+  denuncias, sus casos sin el pedido y sus avisos), así una cuenta de prueba
+  que reinicia la demo no borra nada de ellas. Da a los reclamos sembrados
+  su caso con el plazo desde hoy. No siembra mensajes, preguntas ni reseñas:
+  nada inventado.
 
 ## API
 
@@ -261,15 +335,17 @@ como el reclamo de la demo, siguen funcionando igual.
 | `tm_resenas(sesion, tipo, id, pagina)` | todos | reseñas y resumen de un producto o comercio |
 | `tm_resenas_pendientes(sesion)` / `tm_resena_crear(sesion, pedido, datos)` | comprador | calificar |
 | `tm_resenas_seller(sesion)` / `tm_resena_responder(sesion, id, texto)` | seller (operador lee) | reseñas recibidas y respuesta |
-| `tm_legales(sesion)` / `tm_legal_aceptar(sesion, clave, version)` | todos / toda cuenta | documentos, pendientes, historial y plazos |
-| `tm_legal_publicar(sesion, datos)` | superadmin real con sesión elevada | versión nueva |
+| `tm_legales(sesion)` / `tm_legal_aceptar(sesion, clave, version)` | todos / toda cuenta | documentos (con `previa`), pendientes, historial, plazos y, al superadmin real, `por_publicar` |
+| `tm_legal_publicar(sesion, datos)` | superadmin real con sesión elevada | versión nueva (`texto_publicado`: rige y se avisa) |
+| `tm_legal_texto_publicado(sesion, clave, version)` | superadmin real con sesión elevada | su texto ya está en el centro de ayuda: rige y se avisa |
 | `tm_denunciar(sesion, tipo, objeto, motivo, detalle)` | comprador, comercio | reportar |
 | `tm_contenido_cola(sesion, filtro)` / `tm_contenido_moderar(...)` / `tm_denuncia_cerrar(...)` | equipo con permiso `contenido` | moderación y denuncias |
 | `tm_ticket_crear` / `tm_tickets` / `tm_ticket` / `tm_ticket_responder` | clientes y soporte | casos de soporte |
 | `tm_ticket_gestionar` / `tm_soporte_macro_guardar` | equipo con permiso `soporte` | asignar, estado, prioridad, macros |
 | `tm_disputa(sesion, id)` / `tm_disputas_resumen(sesion)` | las partes / comercio y equipo | expediente (por reclamo o por pedido) |
 | `tm_disputa_mensaje` / `tm_disputa_solicitar` / `tm_disputa_resolver` | partes / equipo | mensajes, evidencia con plazo, resolución v2 |
-| `tm_disputa_apelar` / `tm_disputa_apelacion_resolver` | comprador y seller / otra persona del equipo | apelación |
+| `tm_disputa_apelar` / `tm_disputa_apelacion_resolver` | comprador y seller / otra persona del equipo | apelación (una por parte) y su revisión (`a_favor` si apelaron las dos) |
+| `tm_disputa_envio_vuelta(sesion, id, monto_bs, recibo)` / `tm_disputa_envio_vuelta_resolver(sesion, id, datos)` | comprador / equipo | envío de vuelta reportado y su reintegro |
 | `tm_comunicacion_revisar(sesion)` | superadmin, ops | corre la tarea (una vez por minuto) |
 
 Las lecturas automáticas que pueden no aplicar responden `{error}` en vez
@@ -278,9 +354,13 @@ de fallar (`tm_chat` sin acceso, `tm_ticket`, `tm_disputa`, `tm_reputacion`,
 
 **Funciones redefinidas** (desde su última definición en todas las
 migraciones): `tumbo_privado.encolar`, `tm_abrir_disputa`,
-`tm_responder_disputa`, `tumbo_privado.reputacion_productos`,
-`tumbo_privado.reputacion_sellers`, `tm_archivo_preparar` y
-`tm_archivo_acceso`. **No** se redefinen `tm_resolver_disputa`,
+`tm_responder_disputa` (las dos guardan el texto sin datos de contacto),
+`tumbo_privado.reputacion_productos`, `tumbo_privado.reputacion_sellers`,
+`tm_archivo_preparar` y `tm_archivo_acceso`. Disparadores sobre tablas de
+otros dominios: `pedidos_invitar_resena` y `pedidos_retener_apelacion`
+(`tumbo.pedidos`), `disputas_al_resolver` (`tumbo.disputas`) y
+`usuarios_acepto_registro` (`tumbo.usuarios`: al crear la cuenta queda
+constancia de los términos y la privacidad aceptados). **No** se redefinen `tm_resolver_disputa`,
 `archivo_permitido`, `tm_cargar` ni `tm_reiniciar_demo`: la migración de la
 integración de la ola 1 (`20261023190000`) los vuelve a definir y se aplica
 después; este dominio los extiende con el trigger `disputas_al_resolver`,
@@ -316,13 +396,21 @@ con `archivo_permitido_comunicacion` y con `sembrar_ext_comunicacion`.
   de la ola 1 (`190000`). Si al integrar se renumera, mantener que no
   redefina `tm_resolver_disputa`, `archivo_permitido`, `tm_cargar` ni
   `tm_reiniciar_demo` (o mover lo de este dominio después).
+- **Logística**: las instrucciones de la devolución que paga el comercio o
+  Tumbo ahora remiten al «Envío de vuelta» del expediente; si cambia el texto
+  base de `devolucion_crear`, la frase que reemplaza
+  `disputa_resolver_interno` debe seguir siendo «El envío de vuelta lo paga
+  el comercio…» / «…lo pagas tú.».
 - **Logística (`tienda/pedido`)**: con `resolucion_decision = 'reembolso'`
   muestra «reembolso total a tu favor» también en un **reembolso parcial**
   (la nota sí dice «Reembolso parcial de $X (no es total…)»). Debería leer
   `tm_disputas_resumen` (decision `reembolso_parcial`, `reembolso_usd`) o que
   `tm-remoto.js` (`construir`) exponga el monto; el expediente y el gancho de
   este dominio ya lo muestran bien.
-- **Cuentas**: `anonimizar_cuenta` debería borrar
+- **Cuentas**: el registro y la invitación dicen «Acepto los términos y
+  las políticas de privacidad»; el disparador `usuarios_acepto_registro`
+  deja constancia de las dos al crear la cuenta (si el texto de la casilla
+  cambia, revisarlo). `anonimizar_cuenta` debería borrar
   `consentimientos_whatsapp`, `chat_lecturas` y anonimizar los casos de
   soporte de la persona (las aceptaciones legales conviene conservarlas como
   constancia); quitar la 2FA o desbloquear una cuenta puede encolar las
@@ -333,10 +421,10 @@ con `archivo_permitido_comunicacion` y con `sembrar_ext_comunicacion`.
 - **Fundaciones (`tarea_archivos`)**: su limpieza de huérfanos reconoce los
   propósitos por una expresión que no incluye `resena` ni `soporte`
   (`tools/retirar-tumbo.sql` ya los incluye).
-- **Integración (`reinicio_borra_reales`)**: no cuenta preguntas, reseñas ni
-  denuncias de personas reales; el reinicio las borra junto con los
-  productos y pedidos (que esa función sí cuenta). Los casos de soporte de
-  personas reales se conservan.
+- **Integración (`reinicio_borra_reales`)**: no hace falta que cuente
+  preguntas ni denuncias: el reinicio ya no borra las de personas reales
+  (ni sus casos de soporte ni sus avisos). Las reseñas y los chats cuelgan de
+  pedidos, que esa función sí cuenta.
 - **Catálogo**: la tienda del comercio (`tienda/seller`) no tiene gancho; la
   reputación, las reseñas y «Reportar seller» se insertan tras pintar. Un
   gancho `seller.secciones` lo haría limpio. Las estrellas de sus tarjetas
@@ -344,12 +432,27 @@ con `archivo_permitido_comunicacion` y con `sembrar_ext_comunicacion`.
 - **Crecimiento (ola 2)**: decide la sanción de las denuncias que proceden
   (pausar la publicación, suspender el comercio) en su backoffice; la cola de
   contenido enlaza a Moderación y a Sellers.
-- **Pagos**: el reembolso parcial usa `crear_reembolso` y un ajuste negativo
-  al comercio sin asiento propio (el reembolso ya carga `por_pagar_seller`);
-  conviene revisar en su libro que la corrida de liquidaciones cuadre con un
-  pedido cerrado con reembolso parcial. Para pedidos sin pago guiado (los de
-  antes) `crear_reembolso` no limita el monto: la apelación calcula lo que
-  falta.
+- **Pagos**:
+  - el reembolso parcial usa `crear_reembolso` (con el tope de lo pagado,
+    para que nunca lo asiente como completo) y un ajuste negativo al
+    comercio sin asiento propio por lo que de verdad devolvió;
+  - al pasar de un parcial al total (apelación) se pide lo que falta de lo
+    pagado y este dominio **completa el asiento** (`disputa_reembolso_total`:
+    `igtf_por_pagar` al debe, `descuentos_tumbo` al haber y la diferencia en
+    `por_pagar_seller`), porque `crear_reembolso` asienta como parcial todo
+    reembolso que no es el primero. Lo limpio sería que Pagos exponga un
+    contrato «completar a total» (o que `crear_reembolso` asiente el completo
+    cuando lo ya reembolsado más el monto llega a lo pagado);
+  - el reintegro del envío de vuelta se inserta en `tumbo.reembolsos` (tipo
+    `pedido`, después del reembolso de la devolución) con su asiento; usa la
+    cuenta nueva **`devoluciones_envio`** (lo paga Tumbo): falta su nombre en
+    `CUENTAS` de `tm-mod-pagos-admin.js` («Envíos de devoluciones pagados por
+    Tumbo»). Conviene un contrato `crear_reembolso_extra(pedido, monto,
+    motivo, cargo)`;
+  - los pedidos con un reclamo resuelto a favor del comercio o con un
+    reembolso parcial quedan `congelado` hasta que vence el plazo de
+    apelación del comprador (5 días): el panel financiero los cuenta como
+    congelados y la tarea de este dominio los pasa a elegibles.
 - `tm-vistas-tienda.js` conserva `tituloSeccion`, que ya no usa nadie.
 
 ## Dependencias de terceros
@@ -369,6 +472,44 @@ con `archivo_permitido_comunicacion` y con `sembrar_ext_comunicacion`.
   revisada (sin la marca de borrador) desde `admin/contenido`.
 - Canal de **contacto público** (correo o teléfono de atención): hoy el
   contacto es solo por casos de soporte con sesión; no se inventó ninguno.
+
+## Revisión adversarial (segunda ronda)
+
+De los 17 hallazgos ninguno se descartó; cada uno tiene su prueba en
+`api-comunicacion.js` (y los de la interfaz, en `e2e-comunicacion.js`):
+
+- **Dinero de los reclamos**: el reembolso parcial tiene el tope de lo que
+  pagó el comprador y de lo que cobra el comercio (con descuentos de Tumbo o
+  del comercio, Pagos ya no lo convierte en uno completo) y el descuento al
+  comercio es lo que devolvió Pagos; pasar de un parcial al total devuelve
+  también el IGTF y completa el asiento; los fondos no se liquidan mientras
+  el comprador puede apelar.
+- **Apelaciones por parte** (`disputa_apelaciones`): la que apela primero no
+  le quita la suya a la otra; una sola revisión decide a favor de cualquiera
+  de las que apelaron, y la decisión nueva queda en `tumbo.disputas`.
+- **Envío de vuelta**: el expediente sigue abierto durante la devolución, el
+  comprador reporta lo que pagó y Operaciones lo reintegra.
+- **Antiestafa**: la descripción del reclamo y la primera respuesta del
+  comercio se guardan sin datos de contacto; `ocultar_contacto` detecta los
+  teléfonos y las cuentas con separadores de cualquier tipo y la letra O; la
+  respuesta en revisión no la lee nadie.
+- **Personas reales**: el reinicio de una cuenta de prueba ya no borra sus
+  preguntas ni sus denuncias; las cuentas de prueba no preguntan, reseñan,
+  reportan ni chatean con un comercio o una persona real.
+- **Legales**: el registro deja aceptada la privacidad (sin el falso
+  «Actualizamos»); una versión rige cuando su texto está publicado y la
+  página solo ofrece aceptar el texto que muestra.
+- **Tareas y envíos**: el fallo automático no gana la carrera a la respuesta
+  del comercio; WhatsApp no se reenvía solo tras un error ambiguo;
+  `tarea_envios` no llama a la función por mensajes que nunca tomaría.
+- **Reseñas**: la tienda del comercio y la ficha se paginan y cuentan las
+  páginas con el mismo filtro de la lista.
+
+Cambios mínimos en suites de otros dominios: `api-pagos.js` simula que
+venció el plazo de apelación de `DSP-0098` (y corre la tarea) antes de
+liquidar `TM-2026-00428`, y `api-integracion.js` acepta el pedido
+`cerrado/congelado` tras «liberar» (los fondos siguen retenidos durante la
+apelación).
 
 ## Pruebas
 
