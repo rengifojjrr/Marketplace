@@ -12,7 +12,9 @@
  *   3. verificar-beta.js y los e2e-*.js en modo local (datos en el navegador).
  * Sin backend solo corre el paso 3. Las suites reinician la demo del backend
  * que usan: contra uno que no es local hace falta TM_NUBE=1 (lo exige cada
- * suite). TM_PGDATABASE habilita las comprobaciones por SQL de las api-*.js.
+ * suite). TM_PGDATABASE habilita las comprobaciones por SQL de las api-*.js
+ * y, con el backend local, vacía entre suite y suite los topes que gastan
+ * las cuentas de prueba.
  *
  * Ejemplo (stack local de tools/supabase-local/levantar.sh):
  *   K=$(node tools/supabase-local/pasarela.js --clave)
@@ -54,9 +56,27 @@ if ((!conBackend || sitioLocal) && !args.includes('--sin-local')) {
 }
 if (!pasos.length) { console.error('No hay nada que correr con esas opciones.'); process.exit(2); }
 
+/* Con la base local (TM_PGDATABASE y el backend en localhost), entre una
+   suite y otra se vacían los topes de escrituras (150 cada 10 minutos) y los
+   accesos recientes (60 cada 15) de las cuentas de prueba: los gastan todas
+   las suites y la pasarela local da la misma red a todo, así que una suite
+   no falla por lo que gastaron las anteriores. No cambia lo que se prueba
+   (las suites que prueban esos topes los llenan ellas mismas). */
+const BASE_LOCAL = process.env.TM_PGDATABASE && conBackend && /\/\/(localhost|127\.0\.0\.1)[:/]/.test(process.env.TM_SUPABASE_URL);
+function vaciarTopesDemo() {
+  if (!BASE_LOCAL) return;
+  spawnSync('psql', ['-h', process.env.PGHOST || '/tmp', '-p', process.env.PGPORT || '54322', '-U', 'postgres',
+    '-d', process.env.TM_PGDATABASE, '-X', '-q', '-v', 'ON_ERROR_STOP=1'], {
+    input: `delete from tumbo.cuotas_red where usuario_id in (select id from tumbo.usuarios where tumbo_privado.cuenta_demo(email));
+            delete from tumbo.intentos_acceso where exito and fecha > now() - interval '1 hour' and tumbo_privado.cuenta_demo(email);`,
+    encoding: 'utf8'
+  });
+}
+
 const resultados = [];
 for (const paso of pasos) {
   const titulo = `${paso.archivo} (${paso.modo})`;
+  if (paso.modo !== 'local') vaciarTopesDemo();
   console.log('\n' + negrita('══ ' + titulo + ' ══'));
   const inicio = Date.now();
   const r = spawnSync(process.execPath, [path.join(DIR, paso.archivo)].concat(paso.args), { stdio: 'inherit', env: paso.env });
