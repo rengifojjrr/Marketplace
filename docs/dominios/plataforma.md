@@ -363,12 +363,14 @@ para la API). Ajuste privado nuevo: `funciones_url` (texto, vaciable, null).
 - El tope de errores por red es estricto en local (todas las pruebas salen de
   127.0.0.1) y holgado en la nube; un error repetido no ocupa filas nuevas.
 - Interruptor de la demo: `TM_CONFIG.demo = false` (en `tm-config.js`) quita
-  del cliente las cuentas de prueba del acceso y los textos de «beta»; apagar
-  la demo en el servidor está en [docs/PRODUCCION.md](../PRODUCCION.md).
+  del cliente las cuentas de prueba del acceso y los textos y la insignia de
+  «beta»; apagar la demo en el servidor (cerrar las cuentas de prueba y
+  suspender los comercios de la semilla) está en
+  [docs/PRODUCCION.md](../PRODUCCION.md#apagar-la-demo-cuando-se-lance).
 
 ## Pruebas
 
-- `tools/api-plataforma.js` (31 comprobaciones; 8 sin `TM_PGDATABASE`):
+- `tools/api-plataforma.js` (32 comprobaciones; 8 sin `TM_PGDATABASE`):
   salud mínima; errores sin sesión y con 200 siempre; quién ve el sistema;
   las cuentas de prueba no corren ni programan; con SQL: limpieza de datos
   personales en el servidor, «veces», topes por red (otras direcciones de
@@ -381,14 +383,15 @@ para la API). Ajuste privado nuevo: `funciones_url` (texto, vaciable, null).
   las externas); mantenimiento y almacenamiento; funciones sin catálogo; el
   reinicio; permisos; y que `retirar-tumbo.sql` conoce **todas** las `tm_*`
   de la base.
-- `tools/e2e-plataforma.js` (18 pruebas con backend, 15 en local): lo
+- `tools/e2e-plataforma.js` (19 pruebas con backend, 17 en local): lo
   generado al día; robots, títulos, Open Graph, sitemap y robots.txt; la
   ficha y la tienda (meta y datos estructurados); compartir por WhatsApp;
   axe-core en 42 páginas; el diálogo; «Saltar al contenido» y los menús; el
   menú lateral del móvil; ningún icono como texto; peso por superficie;
   errores del navegador hasta `admin/sistema` (o nada en local);
   `admin/sistema` (y una cuenta real que corre una tarea); la copia sin
-  conexión por sesión; y con su propio servidor y el service worker:
+  conexión por sesión; el interruptor de la demo (`demo: false`); y con su
+  propio servidor y el service worker:
   instalable (sin errores de instalación de Chromium), la caché con su versión
   y nada de la API, y sin señal (página sin red y sitio apagado) la tienda
   abre de la caché y lo no guardado lleva a `sin-conexion.html`.

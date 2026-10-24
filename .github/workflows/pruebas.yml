@@ -87,7 +87,8 @@ jobs:
         # levantar.sh crea el clúster con «su postgres», así que corre como root;
         # PostgREST y la pasarela quedan en segundo plano.
         run: |
-          sudo --preserve-env=PATH,PG_BIN,TM_STACK,HOME tools/supabase-local/levantar.sh "$BASE" "$PUERTO_PGRST" "$PUERTO_PASARELA"
+          sudo env "PATH=$PATH" "PG_BIN=$PG_BIN" "TM_STACK=$TM_STACK" "HOME=$HOME" \
+            tools/supabase-local/levantar.sh "$BASE" "$PUERTO_PGRST" "$PUERTO_PASARELA"
           sudo chmod -R a+rX "$TM_STACK"
 
       - name: Sitio

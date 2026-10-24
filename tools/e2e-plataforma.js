@@ -463,6 +463,25 @@ function servidor(config) {
     if (await p.evaluate(() => localStorage.getItem('tm.sinconexion.v1'))) throw new Error('cerrar sesión no borró la copia');
   }, /internetdisconnected|Failed to load|ERR_/);
 
+  /* ================= Apagar la demo ================= */
+  await prueba('con TM_CONFIG.demo = false, el acceso no ofrece las cuentas de prueba y la tienda no dice «beta»', async () => {
+    const cfg = remoto ? { supabaseUrl: process.env.TM_SUPABASE_URL, supabaseKey: process.env.TM_SUPABASE_KEY, tiempoReal: false, demo: false }
+      : { supabaseUrl: '', supabaseKey: '', demo: false };
+    const q = await ctx.newPage();
+    try {
+      await q.route('**/assets/js/tm-config.js', (r) => r.fulfill({ contentType: 'application/javascript', body: 'window.TM_CONFIG = ' + JSON.stringify(cfg) + ';' }));
+      await q.goto(t.BASE + '/index.html', { waitUntil: 'load' });
+      const acceso = await q.evaluate(() => ({ cuentas: getComputedStyle(document.querySelector('[data-cuentas]')).display,
+        beta: !!document.querySelector('[data-solo-demo]'), form: !!document.querySelector('form[data-paso=credenciales]') }));
+      if (acceso.cuentas !== 'none' || acceso.beta || !acceso.form) throw new Error(JSON.stringify(acceso));
+      await abrir('tienda/inicio', q);
+      const pie = await q.locator('#raiz footer').innerText();
+      if (/beta|ficticios/i.test(pie)) throw new Error('el pie dice: ' + pie.slice(0, 200));
+    } finally {
+      await q.close();
+    }
+  });
+
   /* ================= PWA con service worker (servidor propio) ================= */
   const config = remoto ? { supabaseUrl: process.env.TM_SUPABASE_URL, supabaseKey: process.env.TM_SUPABASE_KEY, tiempoReal: false }
     : { supabaseUrl: '', supabaseKey: '' };

@@ -262,9 +262,9 @@
           '<span class="font-bold text-[15px] whitespace-nowrap">Tumbo · ' + marca + '</span>' +
           '<span class="hidden md:inline text-[12px] text-white/60 truncate">· ' + esc(sub) + '</span></span>' +
         '<span class="flex-1"></span>' +
-        '<span class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning text-on-warning text-[11px] font-bold" title="' +
+        (DEMO || TM.modo !== 'remoto' ? '<span class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning text-on-warning text-[11px] font-bold" title="' +
           (TM.modo === 'remoto' ? 'Datos compartidos en la base de datos de la beta' : 'Datos guardados solo en este navegador') + '">' +
-          ic(TM.modo === 'remoto' ? 'cloud_done' : 'science', 'text-[14px]') + (TM.modo === 'remoto' ? 'BETA' : 'DEMO') + '</span>' +
+          ic(TM.modo === 'remoto' ? 'cloud_done' : 'science', 'text-[14px]') + (TM.modo === 'remoto' ? 'BETA' : 'DEMO') + '</span>' : '') +
         campanita(s) +
         '<div class="relative" data-menu-cuenta>' +
           '<button data-cuenta-btn class="flex items-center gap-1 px-2 py-1.5 rounded hover:bg-white/10" aria-expanded="false" aria-controls="tm-panel-cuenta" ' +
