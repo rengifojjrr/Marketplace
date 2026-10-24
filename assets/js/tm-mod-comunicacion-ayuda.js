@@ -9,9 +9,11 @@
      que da el servidor (tm_legales → plazos); sin servidor, los de la demo.
    · Los documentos legales tienen versión (tumbo.documentos_legales): la
      página muestra la vigente y, con sesión, si falta aceptarla
-     (tm_legal_aceptar). Publicar una versión nueva (admin/contenido) exige
-     antes desplegar su texto aquí: TEXTOS[clave].version dice de qué
-     versión es el texto que se muestra.
+     (tm_legal_aceptar). Una versión nueva rige cuando el superadministrador
+     marca su texto como publicado (admin/contenido) después de desplegarlo
+     aquí: VERSION_TEXTO dice de qué versión es el texto que se muestra, y
+     la página solo ofrece aceptar esa (si no coincide con la vigente, lo
+     dice y no ofrece el botón).
    · Contacto: el formulario de caso de soporte (TM.soporteCom, del módulo
      de cuenta) para quien tiene sesión.
    ========================================================================= */
@@ -134,9 +136,13 @@
                                   : C().chip('Falta tu aceptación', 'ambar', 'pending')) : '') + '</div>' +
       '<p class="font-body-sm text-body-sm text-on-surface-variant">Rige desde el ' + esc(C().dia(d.vigente_desde)) + '.' +
         (d.resumen ? ' ' + esc(d.resumen) : '') + '</p>' +
-      (desfase ? C().aviso('ambar', 'info', 'El texto de abajo es de la versión ' + esc(VERSION_TEXTO) + '; el de la versión ' + esc(d.version) + ' se está publicando en esta página.') : '') +
-      (d.requiere && !d.aceptado
-        ? '<div class="mt-3">' + btn('He leído y acepto esta versión', { estilo: 'primario', icono: 'task_alt', attr: 'data-aceptar-legal="' + esc(clave) + '" data-version="' + esc(d.version) + '"' }) + '</div>'
+      (desfase ? C().aviso('ambar', 'info', 'El texto de abajo es de la versión ' + esc(VERSION_TEXTO) + '; el de la versión ' + esc(d.version) +
+        ' todavía no llegó a esta página.' + (d.requiere && !d.aceptado ? ' Podrás aceptarla cuando se publique: nadie acepta un texto que no pudo leer.' : ''),
+        ' data-legal-desfase') : '') +
+      /* se acepta la versión del texto que la página muestra (el servidor
+         rechaza la aceptación si no es la vigente) */
+      (d.requiere && !d.aceptado && !desfase
+        ? '<div class="mt-3">' + btn('He leído y acepto esta versión', { estilo: 'primario', icono: 'task_alt', attr: 'data-aceptar-legal="' + esc(clave) + '" data-version="' + esc(VERSION_TEXTO) + '"' }) + '</div>'
         : '') +
       (historial.length > 1 ? '<details class="mt-3"><summary class="cursor-pointer font-label-md text-label-md text-secondary">Versiones anteriores</summary>' +
         '<ul class="mt-2 space-y-1 font-body-sm text-body-sm text-on-surface-variant">' + historial.map(function (h) {
@@ -223,10 +229,11 @@
         'Operaciones revisa el expediente (puede pedir más evidencia a cualquiera de las partes) y decide.'], true)],
       ['Qué puede decidir Tumbo', lista(['<strong>Reembolso total</strong> (productos y envío).',
         '<strong>Reembolso parcial</strong>, por ejemplo si falta una pieza.',
-        '<strong>Devolución del producto</strong>: lo envías de vuelta (te decimos quién paga el envío de regreso) y, al recibirlo e inspeccionarlo, se hace el reembolso.',
+        '<strong>Devolución del producto</strong>: lo envías de vuelta (te decimos quién paga el envío de regreso) y, al recibirlo e inspeccionarlo, se hace el reembolso. Si el envío lo paga el comercio o Tumbo y lo pagaste tú, repórtalo con el recibo en el expediente del reclamo y te lo reintegramos.',
         '<strong>Cerrar a favor del comercio</strong>, si la evidencia muestra que todo estaba bien.'])],
       ['Reembolsos', p('El reembolso lo envía Finanzas al destino que elijas (Pago Móvil o Zelle) y lo sigues en ' + a('app/tienda/reembolsos.html', 'Mis reembolsos') + '.')],
-      ['Si no estás de acuerdo', p('Puedes apelar <strong>una vez</strong>, dentro de ' + esc(n(P.apelacion, 'día')) + ' desde la decisión y con evidencia nueva. La revisa otra persona del equipo, distinta de quien decidió.')]
+      ['Si no estás de acuerdo', p('Cada parte puede apelar <strong>una vez</strong>, dentro de ' + esc(n(P.apelacion, 'día')) + ' desde la decisión y con evidencia nueva. La revisa otra persona del equipo, distinta de quien decidió; si apelan las dos (por ejemplo, en un reembolso parcial), se revisan juntas.') +
+        p('Mientras puedes apelar una decisión a favor del comercio o un reembolso parcial, el dinero del pedido sigue retenido: no se le liquida al comercio hasta que vence ese plazo o se revisa tu apelación.')]
     ]), s);
   }
 
@@ -241,7 +248,7 @@
       ['Qué no cubre', lista(['Pagos o acuerdos hechos por fuera de Tumbo.',
         'Reclamos abiertos después de ' + esc(n(P.reclamo, 'día')) + ' desde la entrega.',
         'Daños causados después de recibir el producto o por mal uso.'])],
-      ['Apelación', p('Una vez por caso, dentro de ' + esc(n(P.apelacion, 'día')) + ' y con evidencia nueva. La revisa otra persona del equipo.')]
+      ['Apelación', p('Una vez por parte, dentro de ' + esc(n(P.apelacion, 'día')) + ' y con evidencia nueva. La revisa otra persona del equipo y, mientras puedes apelar, el dinero del comercio sigue retenido.')]
     ]), s);
   }
 

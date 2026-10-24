@@ -12,9 +12,12 @@
    real (TM.archivos, propósito «evidencia»), solicitudes de evidencia con
    plazo, el plazo de 72 h del comercio (si no responde, fallo automático a
    favor del comprador), la decisión (con reembolso parcial y quién paga la
-   logística inversa) y la apelación (una vez, con evidencia nueva, la
-   revisa otra persona del equipo). La inspección de la devolución sigue en
-   el detalle 360 de Logística y los reembolsos, en Pagos.
+   logística inversa), el envío de vuelta que el comprador reporta con su
+   recibo para el reintegro, los fondos retenidos durante el plazo de
+   apelación y las apelaciones (una por parte, con evidencia nueva; una
+   sola revisión de otra persona del equipo las decide). La inspección de la
+   devolución sigue en el detalle 360 de Logística y los reembolsos, en
+   Pagos.
    En modo local los recorridos de siempre funcionan igual; lo nuevo dice
    que necesita el servidor.
    ========================================================================= */
@@ -116,26 +119,70 @@
       (r.por ? '<p class="font-label-sm text-label-sm text-on-surface-variant mt-1">Decidió: ' + esc(r.por) + '</p>' : '') + '</div>';
   }
 
+  var NOMBRE_LADO = { comprador: 'el comprador', comercio: 'el comercio' };
+  /* Las apelaciones (una por parte: en un reembolso parcial apelan las dos y
+     una sola revisión las decide), el plazo para apelar y los fondos que
+     siguen retenidos mientras el comprador puede apelar. */
   function apelacionHtml(d) {
-    var a = d.apelacion;
+    var a = d.apelacion, lista = d.apelaciones || [];
     var h = '';
-    if (a) {
+    if (a && (lista.length || a.estado !== 'pedida')) {
+      var otro = a.espera_hasta ? ['comprador', 'comercio'].filter(function (l) { return (a.de || []).indexOf(l) < 0; })[0] : null;
       h += '<div data-apelacion class="rounded-btn border border-outline-variant p-3 mb-3">' +
-        '<p class="flex flex-wrap items-center gap-2 mb-1"><strong class="font-body-sm text-body-sm">Apelación ' + (a.de === 'comprador' ? 'del comprador' : 'del comercio') + '</strong>' +
+        '<p class="flex flex-wrap items-center gap-2 mb-1"><strong class="font-body-sm text-body-sm">' +
+          (lista.length > 1 ? 'Apelaciones de las dos partes' : lista.length ? 'Apelación ' + (lista[0].lado === 'comprador' ? 'del comprador' : 'del comercio') : 'Apelación') + '</strong>' +
         C().chip(a.estado === 'pedida' ? 'En revisión por otra persona' : a.estado === 'confirmada' ? 'Decisión confirmada' : 'Decisión modificada',
           a.estado === 'pedida' ? 'ambar' : 'verde', 'gavel') + '</p>' +
-        (a.motivo ? '<p class="font-body-sm text-body-sm text-on-surface whitespace-pre-line">' + esc(a.motivo) + '</p>' : '') +
-        C().listaArchivos(a.evidencia) +
+        lista.map(function (x) {
+          return '<div data-apelacion-lado="' + esc(x.lado) + '" class="mt-2">' +
+            (lista.length > 1 || x.mia ? '<p class="font-label-sm text-label-sm text-on-surface-variant">' + (x.mia ? 'Tu apelación' : x.lado === 'comprador' ? 'Del comprador' : 'Del comercio') +
+              ' · ' + esc(C().fecha(x.fecha)) + '</p>' : '') +
+            (x.motivo ? '<p class="font-body-sm text-body-sm text-on-surface whitespace-pre-line">' + esc(x.motivo) + '</p>' : '') +
+            C().listaArchivos(x.evidencia) + '</div>';
+        }).join('') +
+        (otro ? '<p data-apelacion-espera class="font-body-sm text-body-sm text-on-surface-variant mt-2">' + esc(NOMBRE_LADO[otro].charAt(0).toUpperCase() + NOMBRE_LADO[otro].slice(1)) +
+          ' también puede apelar hasta el ' + esc(C().fecha(a.espera_hasta)) + ': la revisión decide las apelaciones juntas, después de ese plazo o cuando apele.</p>' : '') +
         (a.resultado ? '<p class="font-body-sm text-body-sm text-on-surface mt-2"><strong>Resultado:</strong> ' + esc(a.resultado) + '. ' + esc(a.nota || '') + '</p>' : '') +
         (a.por ? '<p class="font-label-sm text-label-sm text-on-surface-variant mt-1">Revisó: ' + esc(a.por) + '</p>' : '') + '</div>';
     }
     if (d.acciones && d.acciones.apelar) {
+      var yaOtro = lista.some(function (x) { return !x.mia; });
       h += '<div class="mb-3">' + C().aviso('azul', 'gavel', 'Si no estás de acuerdo con la decisión, puedes <strong>apelar una sola vez</strong> hasta el ' +
         esc(C().fecha(d.apelar_hasta)) + ', con <strong>evidencia nueva</strong>. La revisa otra persona del equipo y su decisión es definitiva.' +
-        (d.lado === 'comprador' ? ' Mientras tanto el dinero del comercio vuelve a quedar congelado.' : '')) +
+        (yaOtro ? ' La otra parte ya apeló: las dos apelaciones se revisan juntas.' : '') +
+        (d.lado === 'comprador' ? ' Mientras tanto el dinero del comercio sigue congelado.' : '')) +
         btn('Apelar la decisión', { icono: 'gavel', attr: 'data-apelar="' + esc(d.id) + '"' }) + '</div>';
     }
+    if (d.retenido_hasta && !(a && a.estado === 'pedida')) {
+      h += C().aviso('gris', 'lock_clock', 'Los fondos del pedido siguen retenidos hasta el ' + esc(C().fecha(d.retenido_hasta)) +
+        ' (plazo de apelación del comprador); después pasan a la liquidación del comercio.', ' data-fondos-retenidos');
+    }
     return h;
+  }
+
+  /* El envío de vuelta de una devolución que paga el comercio o Tumbo: el
+     comprador lo reporta con el recibo y Operaciones lo reintegra cuando la
+     devolución se cierra con su reembolso. */
+  function bs(v) { return 'Bs. ' + Number(v || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function envioVueltaHtml(d) {
+    var e = d.envio_vuelta;
+    if (!e) return '';
+    var quien = e.paga === 'seller' ? 'el comercio' : 'Tumbo';
+    var estados = { reportado: ['Reportado: Operaciones lo revisa', 'ambar'], reintegrado: ['Reintegrado', 'verde'], rechazado: ['No se reintegró', 'rojo'] };
+    var est = estados[e.estado];
+    return '<div data-envio-vuelta class="rounded-btn border border-outline-variant p-3 mb-3">' +
+      '<p class="flex flex-wrap items-center gap-2 mb-1"><strong class="font-body-sm text-body-sm">Envío de vuelta</strong>' +
+        (est ? C().chip(est[0], est[1], 'local_shipping') : '') + '</p>' +
+      '<p class="font-body-sm text-body-sm text-on-surface">Lo paga ' + esc(quien) + '. ' +
+        (e.estado ? 'El comprador reportó ' + esc(bs(e.bs)) + ' (unos ' + esc(C().usd(e.usd)) + ').' +
+            (e.reintegro_usd != null ? ' Reintegro: <strong>' + esc(C().usd(e.reintegro_usd)) + '</strong> (en «Mis reembolsos»).' : '')
+          : d.lado === 'comprador' ? 'Si lo pagaste tú, repórtalo aquí con el recibo: te lo reintegramos cuando se cierre la devolución.'
+          : 'El comprador reporta aquí lo que pagó, con el recibo.') + '</p>' +
+      (e.nota ? '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">' + esc(e.nota) + '</p>' : '') +
+      C().listaArchivos(e.recibo) +
+      (e.por ? '<p class="font-label-sm text-label-sm text-on-surface-variant mt-1">Revisó: ' + esc(e.por) + '</p>' : '') +
+      (d.acciones && d.acciones.reportar_vuelta ? '<div class="mt-2">' + btn(e.estado === 'rechazado' ? 'Reportarlo de nuevo' : 'Reportar el envío de vuelta',
+        { icono: 'local_shipping', attr: 'data-reportar-vuelta="' + esc(d.id) + '"' }) + '</div>' : '') + '</div>';
   }
 
   function devolucionHtml(d) {
@@ -157,7 +204,7 @@
     }
     return '<div data-expediente="' + esc(d.id) + '" class="grid lg:grid-cols-[1fr_360px] gap-4 items-start">' +
       '<div class="min-w-0">' +
-        plazoHtml(d) + solicitudesHtml(d) + resolucionHtml(d) + apelacionHtml(d) + devolucionHtml(d) +
+        plazoHtml(d) + solicitudesHtml(d) + resolucionHtml(d) + apelacionHtml(d) + devolucionHtml(d) + envioVueltaHtml(d) +
         C().tarjeta('Expediente del reclamo', mensajesHtml(d) + formMensaje(d)) +
       '</div>' +
       '<aside class="space-y-4">' +
@@ -166,7 +213,8 @@
           ((d.evidencia_nombres || []).length ? '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Adjuntos: ' + d.evidencia_nombres.map(esc).join(', ') + '</p>' : '') +
           '<p class="font-body-sm text-body-sm text-on-surface-variant mt-2">Pedido <a class="text-secondary hover:underline" href="' +
           href('app/' + (d.lado === 'comercio' ? 'seller' : d.lado === 'tumbo' ? 'admin' : 'tienda') + '/pedido.html?id=' + encodeURIComponent(d.pedido)) + '">' + esc(d.pedido) + '</a> · ' +
-          esc(d.comercio || '') + ' · cobrado ' + esc(C().usd(d.total_usd)) + (d.congelado ? ' · fondos del comercio congelados' : '') + '</p>') +
+          esc(d.comercio || '') + ' · pagó ' + esc(C().usd(d.pagado_usd != null ? d.pagado_usd : d.total_usd)) +
+          (d.congelado ? ' · fondos del comercio congelados' + (d.retenido_hasta ? ' hasta el ' + esc(C().dia(d.retenido_hasta)) : '') : '') + '</p>') +
         (d.respuesta ? C().tarjeta('Respuesta del comercio', '<p class="font-body-sm text-body-sm text-on-surface whitespace-pre-line">' + esc(d.respuesta.texto) + '</p>' +
           C().listaArchivos(d.respuesta.evidencia) + '<p class="font-label-sm text-label-sm text-on-surface-variant mt-1">' + esc(C().fecha(d.respuesta.fecha)) + '</p>') : '') +
         accionesTumbo(d) +
@@ -189,17 +237,25 @@
     if (a.revisar_apelacion) {
       h += btn('Revisar la apelación', { estilo: 'primario', icono: 'gavel', attr: 'data-revisar-apelacion="' + esc(d.id) + '"', clase: 'w-full' });
     } else if (d.apelacion && d.apelacion.estado === 'pedida') {
-      h += '<p class="font-body-sm text-body-sm text-on-surface-variant">La apelación la revisa otra persona del equipo, no quien decidió el reclamo.</p>';
+      h += '<p class="font-body-sm text-body-sm text-on-surface-variant">' + (d.apelacion.espera_hasta
+        ? 'La revisión se habilita el ' + esc(C().fecha(d.apelacion.espera_hasta)) + ' (o antes, si apela la otra parte).'
+        : 'La apelación la revisa otra persona del equipo, no quien decidió el reclamo.') + '</p>';
+    }
+    if (a.resolver_vuelta) {
+      h += btn('Revisar el envío de vuelta', { icono: 'local_shipping', attr: 'data-resolver-vuelta="' + esc(d.id) + '"', clase: 'w-full' });
     }
     return h ? C().tarjeta('Acciones de Operaciones', '<div class="space-y-2">' + h + '</div>') : '';
   }
 
+  /* El tope del reembolso parcial: menos de lo que pagó el comprador y de
+     lo que cobra el comercio por el pedido (lo da el servidor). */
+  function topeParcial(d) { return d.tope_parcial_usd != null ? d.tope_parcial_usd : d.total_usd; }
   function campoDecision(d, decision, conParcial) {
     var opciones = ['reembolso', 'devolucion', 'liberar'].concat(conParcial ? ['reembolso_parcial'] : []);
     return '<label class="block"><span class="block font-label-md text-label-md mb-1">Decisión</span><select name="decision" class="' + C().CLASE_INPUT + '">' +
       opciones.map(function (o) { return '<option value="' + o + '"' + (o === decision ? ' selected' : '') + '>' + esc(DECISION[o]) + '</option>'; }).join('') + '</select></label>' +
-      '<label class="block" data-campo-monto><span class="block font-label-md text-label-md mb-1">Monto del reembolso parcial (USD, menos de ' + esc(C().usd(d.total_usd)) + ')</span>' +
-      '<input name="monto" type="number" min="0.01" step="0.01" max="' + esc(d.total_usd) + '" class="' + C().CLASE_INPUT + '"/></label>' +
+      '<label class="block" data-campo-monto><span class="block font-label-md text-label-md mb-1">Monto del reembolso parcial (USD, menos de ' + esc(C().usd(topeParcial(d))) + ')</span>' +
+      '<input name="monto" type="number" min="0.01" step="0.01" max="' + esc(topeParcial(d)) + '" class="' + C().CLASE_INPUT + '"/></label>' +
       '<label class="block" data-campo-paga><span class="block font-label-md text-label-md mb-1">Envío de vuelta (devolución)</span><select name="paga" class="' + C().CLASE_INPUT + '">' +
       '<option value="">Según el motivo (lo decide Logística)</option><option value="seller">Lo paga el comercio</option><option value="comprador">Lo paga el comprador</option>' +
       '<option value="tumbo">Lo paga Tumbo</option></select></label>';
@@ -225,8 +281,10 @@
       campoDecision(d, decisionInicial || 'reembolso', d.pedido_estado === 'entregado') +
       '<label class="block"><span class="block font-label-md text-label-md mb-1">Nota para las partes</span>' +
       '<textarea name="nota" rows="3" maxlength="500" class="' + C().CLASE_AREA + '"></textarea></label>' +
-      '<p class="font-body-sm text-body-sm text-on-surface-variant">El reembolso total devuelve lo cobrado (' + esc(C().usd(d.total_usd)) + ', con el envío). ' +
-      'La decisión les llega al comprador, al comercio y a Finanzas; cada parte puede apelar una vez con evidencia nueva.</p>',
+      '<p class="font-body-sm text-body-sm text-on-surface-variant">El reembolso total devuelve lo que pagó el comprador (' +
+        esc(C().usd(d.reembolso_total_usd != null ? d.reembolso_total_usd : d.total_usd)) + ', con el envío y el IGTF). ' +
+      'La decisión les llega al comprador, al comercio y a Finanzas; cada parte puede apelar una vez con evidencia nueva. ' +
+      'Si se cierra a favor del comercio o con un reembolso parcial, los fondos siguen retenidos durante el plazo de apelación del comprador.</p>',
       'Resolver', function (f) {
         return TM.api('tm_disputa_resolver', { p_id: d.id, p_datos: {
           decision: f.decision.value, monto: f.decision.value === 'reembolso_parcial' ? f.monto.value : null,
@@ -269,37 +327,90 @@
       C().adjuntos('apel:' + d.id, { proposito: 'evidencia', entidad: d.id, max: 10, texto: 'Adjuntar evidencia nueva' }),
       'Apelar', function (f) {
         return TM.api('tm_disputa_apelar', { p_id: d.id, p_motivo: f.motivo.value.trim(), p_evidencia: C().adjuntosDe('apel:' + d.id) });
-      }, { texto: 'Solo se apela una vez. La revisa otra persona del equipo y su decisión es definitiva.',
+      }, { texto: 'Cada parte apela una sola vez. La revisa otra persona del equipo y su decisión es definitiva.',
         alExito: function () { C().limpiarAdjuntos('apel:' + d.id); invalidarTodo(d.id); TM.refrescar(); UI.toast('Apelación enviada', 'Otra persona del equipo la revisa.', 'gavel'); } });
   }
 
+  /* Revisión de las apelaciones: confirmar o modificar a favor de una parte
+     que apeló (si apelaron las dos, se elige cuál). A favor del comprador,
+     la decisión nueva; a favor del comercio, la compensación de Tumbo. */
   function revisarApelacion(d) {
-    var deComprador = d.apelacion && d.apelacion.de === 'comprador';
+    var lados = (d.apelacion && d.apelacion.de) || [];
+    var ambos = lados.length > 1;
+    var costo = d.resolucion && d.resolucion.reembolso_usd != null ? d.resolucion.reembolso_usd : d.reembolso_total_usd;
+    var bloqueComprador = '<div data-modificar data-favor="comprador">' + campoDecision(d, 'reembolso', d.resolucion && d.resolucion.decision === 'liberar') + '</div>';
+    var bloqueComercio = '<label class="block" data-modificar data-favor="comercio"><span class="block font-label-md text-label-md mb-1">Compensación de Tumbo al comercio (USD, hasta ' +
+      esc(C().usd(costo)) + ')</span><input name="compensacion" type="number" min="0.01" step="0.01" class="' + C().CLASE_INPUT + '"/></label>';
     C().formulario('Revisar la apelación · ' + d.id,
       '<label class="block"><span class="block font-label-md text-label-md mb-1">Resultado</span><select name="resultado" class="' + C().CLASE_INPUT + '">' +
       '<option value="confirmar">Confirmar la decisión</option><option value="modificar">Modificar la decisión</option></select></label>' +
-      (deComprador ? '<div data-modificar>' + campoDecision(d, 'reembolso', d.resolucion && d.resolucion.decision === 'liberar') + '</div>'
-        : '<label class="block" data-modificar><span class="block font-label-md text-label-md mb-1">Compensación de Tumbo al comercio (USD, hasta ' +
-          esc(C().usd(d.resolucion && d.resolucion.reembolso_usd != null ? d.resolucion.reembolso_usd : d.total_usd)) + ')</span>' +
-          '<input name="monto" type="number" min="0.01" step="0.01" class="' + C().CLASE_INPUT + '"/></label>') +
+      (ambos ? '<label class="block" data-modificar><span class="block font-label-md text-label-md mb-1">A favor de</span><select name="a_favor" class="' + C().CLASE_INPUT + '">' +
+        '<option value="comprador">El comprador</option><option value="comercio">El comercio</option></select></label>' : '') +
+      (lados.indexOf('comprador') >= 0 ? bloqueComprador : '') + (lados.indexOf('comercio') >= 0 ? bloqueComercio : '') +
       '<label class="block"><span class="block font-label-md text-label-md mb-1">Explicación para las dos partes</span>' +
       '<textarea name="nota" rows="3" maxlength="1000" class="' + C().CLASE_AREA + '"></textarea></label>',
       'Guardar la revisión', function (f) {
         var datos = { resultado: f.resultado.value, nota: f.nota.value.trim() };
         if (f.resultado.value === 'modificar') {
-          if (deComprador) {
+          var favor = ambos ? f.a_favor.value : lados[0];
+          datos.a_favor = favor;
+          if (favor === 'comprador') {
             datos.decision = f.decision.value;
             datos.monto = f.decision.value === 'reembolso_parcial' ? f.monto.value : null;
             datos.paga = f.decision.value === 'devolucion' ? (f.paga.value || null) : null;
-          } else datos.monto = f.monto.value;
+          } else datos.monto = f.compensacion.value;
         }
         return TM.api('tm_disputa_apelacion_resolver', { p_id: d.id, p_datos: datos }, { accion: 'Revisar la apelación' });
       }, { alAbrir: function (velo) {
         var r = velo.querySelector('[name=resultado]');
-        function ver() { velo.querySelectorAll('[data-modificar]').forEach(function (x) { x.hidden = r.value !== 'modificar'; }); }
-        r.addEventListener('change', ver); ver();
+        var af = velo.querySelector('[name=a_favor]');
+        function ver() {
+          var favor = af ? af.value : lados[0];
+          velo.querySelectorAll('[data-modificar]').forEach(function (x) {
+            var de = x.getAttribute('data-favor');
+            x.hidden = r.value !== 'modificar' || (de && de !== favor);
+          });
+        }
+        r.addEventListener('change', ver);
+        if (af) af.addEventListener('change', ver);
+        ver();
         enlazarCamposDecision(velo);
       }, alExito: function () { invalidarTodo(d.id); TM.refrescar(); UI.toast('Apelación revisada', 'Les avisamos a las dos partes.', 'gavel'); } });
+  }
+
+  function reportarVuelta(d) {
+    C().formulario('Envío de vuelta · ' + d.id,
+      '<label class="block"><span class="block font-label-md text-label-md mb-1">Lo que pagaste por el envío (Bs.)</span>' +
+      '<input name="monto" type="number" min="0.01" step="0.01" required class="' + C().CLASE_INPUT + '"/></label>' +
+      '<p class="font-body-sm text-body-sm text-on-surface-variant">Adjunta el recibo de la agencia (foto o PDF):</p>' +
+      C().adjuntos('vuelta:' + d.id, { proposito: 'evidencia', entidad: d.id, max: 5, texto: 'Adjuntar el recibo' }),
+      'Reportar', function (f) {
+        return TM.api('tm_disputa_envio_vuelta', { p_id: d.id, p_monto_bs: Number(f.monto.value), p_recibo: C().adjuntosDe('vuelta:' + d.id) });
+      }, { texto: 'Operaciones revisa el recibo y, cuando la devolución se cierra con su reembolso, te reintegra el envío como otro reembolso.',
+        alExito: function () { C().limpiarAdjuntos('vuelta:' + d.id); invalidarTodo(d.id); UI.toast('Envío de vuelta reportado', 'Operaciones revisa el recibo.', 'local_shipping'); TM._avisar('propio'); } });
+  }
+
+  function resolverVuelta(d) {
+    var e = d.envio_vuelta || {};
+    C().formulario('Envío de vuelta · ' + d.id,
+      '<p class="font-body-sm text-body-sm text-on-surface">El comprador reportó ' + esc(bs(e.bs)) + ' (unos ' + esc(C().usd(e.usd)) + '). Lo paga ' +
+        (e.paga === 'seller' ? 'el comercio (se descuenta de su próxima liquidación)' : 'Tumbo') + '.</p>' + C().listaArchivos(e.recibo) +
+      '<label class="block"><span class="block font-label-md text-label-md mb-1">Decisión</span><select name="aprobar" class="' + C().CLASE_INPUT + '">' +
+        '<option value="1">Reintegrar</option><option value="0">No reintegrar</option></select></label>' +
+      '<label class="block" data-campo-reintegro><span class="block font-label-md text-label-md mb-1">Reintegro (USD, hasta ' + esc(C().usd(e.usd)) + ')</span>' +
+        '<input name="monto" type="number" min="0.01" step="0.01" value="' + esc(e.usd) + '" max="' + esc(e.usd) + '" class="' + C().CLASE_INPUT + '"/></label>' +
+      '<label class="block"><span class="block font-label-md text-label-md mb-1">Nota para el comprador (obligatoria si no se reintegra)</span>' +
+        '<textarea name="nota" rows="2" maxlength="500" class="' + C().CLASE_AREA + '"></textarea></label>',
+      'Guardar', function (f) {
+        var aprobar = f.aprobar.value === '1';
+        return TM.api('tm_disputa_envio_vuelta_resolver', { p_id: d.id, p_datos: { aprobar: aprobar, monto_usd: aprobar ? f.monto.value : null,
+          nota: f.nota.value.trim() || null } }, { accion: 'Reintegrar el envío de vuelta' });
+      }, { texto: 'El reintegro se crea cuando la devolución ya se cerró con su reembolso; Finanzas lo envía al destino que elija el comprador.',
+        alAbrir: function (velo) {
+          var a = velo.querySelector('[name=aprobar]'), m = velo.querySelector('[data-campo-reintegro]');
+          a.addEventListener('change', function () { m.hidden = a.value !== '1'; });
+        },
+        alExito: function (r) { invalidarTodo(d.id); TM.refrescar(); UI.toast(r && r.estado === 'reintegrado' ? 'Envío de vuelta reintegrado' : 'Envío de vuelta rechazado', 'Le avisamos al comprador.', 'local_shipping'); } });
   }
 
   function enlazarExpediente(raiz) {
@@ -333,6 +444,8 @@
     conDisputa('data-solicitar', solicitar);
     conDisputa('data-apelar', apelar);
     conDisputa('data-revisar-apelacion', revisarApelacion);
+    conDisputa('data-reportar-vuelta', reportarVuelta);
+    conDisputa('data-resolver-vuelta', resolverVuelta);
   }
 
   function vistaExpediente(id, s, volverHtml) {
@@ -510,7 +623,8 @@
               : '')) +
           (d.resolucion ? '<p class="mt-2 font-body-sm text-body-sm"><strong>Resolución de Operaciones:</strong> ' +
             (x && x.decision === 'reembolso_parcial' ? 'reembolso parcial de ' + esc(C().usd(x.reembolso_usd)) + ' a cargo de tu comercio.'
-              : d.resolucion.decision === 'reembolso' ? 'reembolso al comprador.' : d.resolucion.decision === 'devolucion' ? 'devolución del producto.' : 'caso cerrado a tu favor: fondos liberados.') + '</p>' : '') +
+              : d.resolucion.decision === 'reembolso' ? 'reembolso al comprador.' : d.resolucion.decision === 'devolucion' ? 'devolución del producto.'
+              : 'caso cerrado a tu favor' + (x && x.retenido_hasta ? ': los fondos pasan a elegibles el ' + esc(C().dia(x.retenido_hasta)) + ' si el comprador no apela.' : ': fondos liberados.')) + '</p>' : '') +
           (C().remoto() ? '<a class="inline-flex items-center gap-1 mt-2 font-label-md text-label-md text-secondary hover:underline" data-expediente-enlace href="' +
             href('app/seller/disputas.html?id=' + encodeURIComponent(d.id)) + '">Ver el expediente' + (x && x.mensajes ? ' (' + x.mensajes + ' mensajes)' : '') + ic('arrow_forward', 'text-[16px]') + '</a>' : '') +
           '</article>';
@@ -604,7 +718,8 @@
             ? '<p class="font-body-sm text-body-sm"><strong>Resuelta (' + esc(d.resolucion.fecha) + '):</strong> ' +
               (x && x.decision === 'reembolso_parcial' ? 'reembolso parcial de ' + esc(C().usd(x.reembolso_usd)) + ' al comprador.'
                 : d.resolucion.decision === 'reembolso' ? 'reembolso total al comprador.' : d.resolucion.decision === 'devolucion' ? 'devolución con logística inversa' +
-                  (x && x.paga ? ' (envío de vuelta: ' + esc(PAGA[x.paga] || x.paga) + ').' : '.') : 'a favor del seller, fondos liberados.') +
+                  (x && x.paga ? ' (envío de vuelta: ' + esc(PAGA[x.paga] || x.paga) + ').' : '.')
+                : 'a favor del seller' + (x && x.retenido_hasta ? ' (fondos retenidos hasta el ' + esc(C().dia(x.retenido_hasta)) + ' por el plazo de apelación).' : ', fondos liberados.')) +
               (d.resolucion.nota ? ' ' + esc(d.resolucion.nota) : '') + '</p>' +
               (p && p.estado === 'devolucion' && (s.rol === 'ops' || s.rol === 'superadmin') && !d.bloqueado
                 ? '<div class="flex flex-wrap items-center gap-2 mt-2"><span class="font-body-sm text-body-sm text-on-surface-variant">Devolución en curso:</span>' + botonesDevolucion(p.id) + '</div>' : '')
@@ -649,7 +764,8 @@
     var plantillas = (r.listo && r.dato && r.dato.plantillas) || [];
     var texto = 'La decisión les llega al comprador, al comercio y a Finanzas, y no se puede deshacer (cada parte puede apelar una vez con evidencia nueva).' +
       (decision === 'reembolso' && p ? ' Se crea un reembolso de ' + TM.fmtTotalPedido(p) + ' (productos y envío) que Finanzas envía al destino que elija el comprador.' : '') +
-      (decision === 'reembolso_parcial' ? ' El comprador conserva el producto; el monto se descuenta de la próxima liquidación del comercio.' : '');
+      (decision === 'reembolso_parcial' ? ' El comprador conserva el producto; el monto se descuenta de la próxima liquidación del comercio.' : '') +
+      (decision === 'reembolso_parcial' || decision === 'liberar' ? ' Los fondos del comercio siguen retenidos durante el plazo de apelación del comprador.' : '');
     UI.modal('<h3 class="font-headline-sm text-headline-sm text-primary-container mb-2">' + esc(TITULOS[decision]) + '</h3>' +
       '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">' + esc(texto) + '</p>' +
       '<div class="space-y-3 mb-4">' +
@@ -658,7 +774,8 @@
           plantillas.filter(function (x) { return x.decision === decision; }).map(function (x) {
             return '<option value="' + esc(x.clave) + '">' + esc(x.titulo) + '</option>';
           }).join('') + '</select></label>' : '') +
-      (decision === 'reembolso_parcial' ? '<label class="block"><span class="block font-label-md text-label-md mb-1">Monto a devolver (USD)</span>' +
+      (decision === 'reembolso_parcial' ? '<label class="block"><span class="block font-label-md text-label-md mb-1">Monto a devolver (USD' +
+        (r.listo && r.dato && r.dato.tope_parcial_usd != null ? ', menos de ' + esc(C().usd(r.dato.tope_parcial_usd)) : '') + ')</span>' +
         '<input data-monto type="number" min="0.01" step="0.01" class="' + C().CLASE_INPUT + '"/></label>' : '') +
       (decision === 'devolucion' ? '<label class="block"><span class="block font-label-md text-label-md mb-1">Envío de vuelta</span><select data-paga class="' + C().CLASE_INPUT + '">' +
         '<option value="">Según el motivo (lo decide Logística)</option><option value="seller">Lo paga el comercio</option><option value="comprador">Lo paga el comprador</option>' +

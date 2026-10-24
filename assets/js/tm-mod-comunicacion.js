@@ -351,8 +351,13 @@
       p = r.dato.pendientes || [];
     }
     if (!p.length) return '';
+    /* «Actualizamos» solo si la persona ya había aceptado otra versión de
+       ese documento; si nunca lo aceptó, se le pide aceptarlo. */
+    var nuevos = p.filter(function (d) { return d.previa; }), nunca = p.filter(function (d) { return !d.previa; });
+    var titulos = function (l) { return l.map(function (d) { return esc(d.titulo); }).join(' y '); };
     return '<div data-legal-pendiente class="max-w-[1280px] mx-auto px-3 sm:px-4 pt-3">' +
-      aviso('ambar', 'gavel', '<strong>Actualizamos ' + p.map(function (d) { return esc(d.titulo); }).join(' y ') + '.</strong> ' +
+      aviso('ambar', 'gavel', (nuevos.length ? '<strong>Actualizamos ' + titulos(nuevos) + '.</strong> ' : '') +
+        (nunca.length ? '<strong>Falta que aceptes ' + titulos(nunca) + '.</strong> ' : '') +
         'Revísalo y acéptalo para seguir usando Tumbo con las condiciones vigentes. ' +
         p.map(function (d) {
           return '<a class="underline font-semibold" href="' + href('app/ayuda/' + (LEGAL_PAGINA[d.clave] || 'inicio') + '.html') + '">Leer ' + esc(d.titulo) + '</a>';

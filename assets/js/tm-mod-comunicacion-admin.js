@@ -537,16 +537,24 @@
   function bloqueLegal(s) {
     var r = C().legales(s);
     var docs = (r.listo && r.dato && r.dato.documentos) || [];
+    var porPublicar = (r.listo && r.dato && r.dato.por_publicar) || [];
     return '<section data-legal-admin class="rounded-card border border-outline-variant bg-surface-container-lowest p-4 mt-8">' +
       '<div class="flex flex-wrap items-center justify-between gap-2 mb-2"><h2 class="font-headline-sm text-headline-sm text-primary-container">Documentos legales</h2>' +
         (s.demo ? '' : btn('Publicar versión nueva', { icono: 'publish', attr: 'data-publicar-legal' })) + '</div>' +
-      '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Antes de publicar una versión, despliega su texto en el centro de ayuda. Al entrar en vigor, a quien debe aceptarla se le pide hacerlo y le llega un aviso. ' +
+      '<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Una versión nueva rige cuando su texto ya está desplegado en el centro de ayuda: márcalo al publicarla o después, con «Ya está su texto». ' +
+        'Desde entonces, a quien debe aceptarla se le pide hacerlo y le llega un aviso. ' +
         (s.demo ? 'Con una cuenta de prueba no se publica.' : 'Pide la verificación en dos pasos.') + '</p>' +
       (docs.length ? '<ul class="divide-y divide-outline-variant font-body-sm text-body-sm">' + docs.map(function (d) {
         return '<li class="flex flex-wrap items-center justify-between gap-2 py-2"><span><a class="text-secondary hover:underline" href="' + href('app/ayuda/' + (C().LEGAL_PAGINA[d.clave] || 'inicio') + '.html') + '">' +
           esc(d.titulo) + '</a> · <span class="font-data-mono text-data-mono">' + esc(d.version) + '</span> · desde el ' + esc(C().dia(d.vigente_desde)) + '</span>' +
           (d.borrador ? C().chip('Borrador', 'ambar') : C().chip('Revisado', 'verde')) + '</li>';
-      }).join('') + '</ul>' : C().cargando()) + '</section>';
+      }).join('') + '</ul>' : C().cargando()) +
+      (porPublicar.length ? '<h3 class="font-label-md text-label-md text-on-surface mt-4 mb-1">Versiones que esperan su texto</h3>' +
+        '<ul data-legal-por-publicar class="divide-y divide-outline-variant font-body-sm text-body-sm">' + porPublicar.map(function (d) {
+          return '<li class="flex flex-wrap items-center justify-between gap-2 py-2"><span>' + esc(d.titulo) + ' · <span class="font-data-mono text-data-mono">' +
+            esc(d.version) + '</span> · desde el ' + esc(C().dia(d.vigente_desde)) + '</span>' +
+            btn('Ya está su texto', { icono: 'task_alt', clase: 'min-h-[32px] px-3', attr: 'data-texto-legal="' + esc(d.clave) + '" data-version="' + esc(d.version) + '"' }) + '</li>';
+        }).join('') + '</ul>' : '') + '</section>';
   }
 
   function despuesContenido(raiz, q, s) {
@@ -599,12 +607,30 @@
         '<label class="block"><span class="block font-label-md text-label-md mb-1">Versión</span><input name="version" required pattern="[A-Za-z0-9._-]{3,40}" placeholder="2027-01" class="' + C().CLASE_INPUT + '"/></label>' +
         '<label class="block"><span class="block font-label-md text-label-md mb-1">Qué cambia (resumen para el aviso)</span><textarea name="resumen" rows="3" maxlength="600" class="' + C().CLASE_AREA + '"></textarea></label>' +
         '<label class="block"><span class="block font-label-md text-label-md mb-1">Rige desde (vacío: ahora)</span><input type="datetime-local" name="desde" class="' + C().CLASE_INPUT + '"/></label>' +
-        '<label class="flex items-center gap-2 font-body-sm text-body-sm"><input type="checkbox" name="borrador" checked class="w-4 h-4 rounded border-outline text-secondary"/>Todavía es borrador (sin revisión legal)</label>',
+        '<label class="flex items-center gap-2 font-body-sm text-body-sm"><input type="checkbox" name="borrador" checked class="w-4 h-4 rounded border-outline text-secondary"/>Todavía es borrador (sin revisión legal)</label>' +
+        '<label class="flex items-start gap-2 font-body-sm text-body-sm"><input type="checkbox" name="texto" class="mt-0.5 w-4 h-4 rounded border-outline text-secondary"/>' +
+          '<span>Su texto ya está desplegado en el centro de ayuda (si no, la versión queda guardada y rige cuando lo marques).</span></label>',
         'Publicar', function (f) {
           return TM.api('tm_legal_publicar', { p_datos: { clave: f.clave.value, version: f.version.value.trim(), resumen: f.resumen.value.trim(),
-            vigente_desde: f.desde.value ? new Date(f.desde.value).toISOString() : null, borrador: f.borrador.checked } }, { accion: 'Publicar un documento legal' });
-        }, { alExito: function (r) { C().olvidarLegales(); UI.toast('Versión publicada', (r && r.avisados) + ' cuentas avisadas.', 'publish'); TM._avisar('propio'); },
-             texto: 'Quien debe aceptarla recibe el aviso y la ve pendiente al entrar.' });
+            vigente_desde: f.desde.value ? new Date(f.desde.value).toISOString() : null, borrador: f.borrador.checked,
+            texto_publicado: f.texto.checked } }, { accion: 'Publicar un documento legal' });
+        }, { alExito: function (r) {
+               C().olvidarLegales();
+               UI.toast('Versión publicada', r && r.texto_publicado ? (r.avisados + ' cuentas avisadas.') : 'Rige cuando marques su texto como desplegado.', 'publish');
+               TM._avisar('propio');
+             },
+             texto: 'Quien debe aceptarla recibe el aviso y la ve pendiente al entrar, desde que su texto está en el centro de ayuda.' });
+    });
+    raiz.querySelectorAll('[data-texto-legal]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var clave = b.getAttribute('data-texto-legal'), version = b.getAttribute('data-version');
+        UI.confirmar('El texto de ' + version + ' ya está publicado', 'Confírmalo solo si el centro de ayuda ya muestra el texto de esta versión: desde ahora rige y se pide aceptarla.',
+          { accion: 'Ya está publicado' }, function () {
+            UI.accion(b, function () { return TM.api('tm_legal_texto_publicado', { p_clave: clave, p_version: version }, { accion: 'Publicar un documento legal' }); },
+              function (r) { C().olvidarLegales(); UI.toast('Versión vigente', (r && r.avisados) + ' cuentas avisadas.', 'task_alt'); TM._avisar('propio'); },
+              'No se marcó el texto');
+          });
+      });
     });
   }
 

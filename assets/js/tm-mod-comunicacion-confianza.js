@@ -102,6 +102,7 @@
             (q.estado === 'revision' ? ' ' + C().chip('En revisión', 'ambar', 'schedule') : '') + '</p>' +
             (q.respuesta ? '<p class="font-body-sm text-body-sm text-on-surface mt-1"><strong>R:</strong> ' + esc(q.respuesta) +
               ' <span class="text-on-surface-variant">· el comercio, ' + esc(C().hace(q.respondida_en)) + '</span></p>'
+              : q.respuesta_en_revision ? '<p data-respuesta-revision class="font-body-sm text-body-sm text-on-surface-variant mt-1">El comercio respondió; el equipo de Tumbo revisa la respuesta antes de publicarla.</p>'
               : '<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Sin respuesta todavía.</p>') +
             '<p class="font-label-sm text-label-sm text-on-surface-variant mt-1">' + esc(C().dia(q.creado)) +
             (s && !q.mia ? ' · <button type="button" data-denunciar="pregunta" data-objeto="' + esc(q.id) + '" class="hover:underline">Reportar</button>' : '') + '</p></li>';
@@ -119,11 +120,13 @@
   /* ---------------------------------------------------------------------
      Reseñas verificadas
      ------------------------------------------------------------------- */
-  function claveResenas(tipo, id) { return 'res:' + tipo + ':' + id; }
+  var PAGINA_RESENAS = {};
+  function claveResenas(tipo, id) { return 'res:' + tipo + ':' + id + ':' + (PAGINA_RESENAS[tipo + ':' + id] || 1); }
   function resenas(tipo, id) {
+    var pag = PAGINA_RESENAS[tipo + ':' + id] || 1;
     return C().datos(claveResenas(tipo, id), function () {
-      return TM.sesion() ? TM.api('tm_resenas', { p_tipo: tipo, p_id: id, p_pagina: 1 })
-        : TM.apiPublica('tm_resenas', { p_sesion: null, p_tipo: tipo, p_id: id, p_pagina: 1 });
+      return TM.sesion() ? TM.api('tm_resenas', { p_tipo: tipo, p_id: id, p_pagina: pag })
+        : TM.apiPublica('tm_resenas', { p_sesion: null, p_tipo: tipo, p_id: id, p_pagina: pag });
     }, 60000);
   }
   function barra(n, total) {
@@ -171,7 +174,12 @@
       var lista = d.resenas || [];
       return resumenHtml(d.resumen) +
         (lista.length ? '<ul class="divide-y divide-outline-variant">' + lista.map(function (x) { return itemResena(x, s); }).join('') + '</ul>'
-          : '<p class="font-body-sm text-body-sm text-on-surface-variant">Todavía no hay reseñas. Solo califica quien compró y recibió el pedido: así cada reseña es real.</p>');
+          : '<p class="font-body-sm text-body-sm text-on-surface-variant">Todavía no hay reseñas. Solo califica quien compró y recibió el pedido: así cada reseña es real.</p>') +
+        (d.paginas > 1 ? '<div data-resenas-paginas class="flex items-center gap-2 mt-3">' +
+          (d.pagina > 1 ? btn('Anteriores', { attr: 'data-resenas-pag="' + (d.pagina - 1) + '" data-tipo="' + esc(tipo) + '" data-id="' + esc(id) + '"', clase: 'min-h-[32px] px-3' }) : '') +
+          '<span class="font-body-sm text-body-sm text-on-surface-variant">Página ' + d.pagina + ' de ' + d.paginas + '</span>' +
+          (d.pagina < d.paginas ? btn('Más reseñas', { attr: 'data-resenas-pag="' + (d.pagina + 1) + '" data-tipo="' + esc(tipo) + '" data-id="' + esc(id) + '"', clase: 'min-h-[32px] px-3' }) : '') +
+          '</div>' : '');
     }, 'Cargando las reseñas…');
     return '<section data-resenas class="rounded-card border border-outline-variant bg-surface-container-lowest p-4">' +
       '<h2 class="font-headline-sm text-headline-sm text-primary-container mb-3">' + esc(tituloTexto) + '</h2>' + cuerpo + '</section>';
@@ -256,6 +264,13 @@
     raiz.querySelectorAll('[data-preguntas-pag]').forEach(function (b) {
       b.addEventListener('click', function () {
         PAGINA_PREGUNTAS[b.getAttribute('data-sku')] = Number(b.getAttribute('data-preguntas-pag'));
+        TM._avisar('propio');
+      });
+    });
+    raiz.querySelectorAll('[data-resenas-pag]:not([data-resenas-pag-ok])').forEach(function (b) {
+      b.setAttribute('data-resenas-pag-ok', '1');
+      b.addEventListener('click', function () {
+        PAGINA_RESENAS[b.getAttribute('data-tipo') + ':' + b.getAttribute('data-id')] = Number(b.getAttribute('data-resenas-pag'));
         TM._avisar('propio');
       });
     });
