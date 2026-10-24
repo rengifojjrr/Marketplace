@@ -401,10 +401,14 @@ formato anterior (`correo:clave`) se detienen con un mensaje claro.
   direcciones de las personas reales). Antes de operar con comercios reales
   en el mismo proyecto conviene acotarlo a los datos de la demo.
 
-Pendiente para la persona dueña del proyecto: aplicar en la nube las
-migraciones `20261023110000` a `20261023140000` y la de integración
-`20261023190000`, en ese orden, y reiniciar la demo; habilitar pg_cron y
-pg_net; crear la primera cuenta real con `invitacion_inicial` y activarle la
+Ya en la nube (24/10/2026): las migraciones `20261023110000` a
+`20261023140000` y la de integración `20261023190000`, aplicadas en ese
+orden en trozos de sentencias completas (cada una verificada con la huella
+md5 de su archivo), y el sitio publicado en GitHub Pages. El proyecto ya
+tiene pg_cron y pg_net.
+
+Pendiente para la persona dueña del proyecto: crear la primera cuenta real
+con `invitacion_inicial` y activarle la
 2FA; fijar `sitio_url` si el sitio no vive en GitHub Pages; cargar los datos
 reales de cobro (`pagos_beneficiario`), los patrones de rastreo y las
 tarifas de los couriers; y correr las suites contra la nube con `TM_NUBE=1`
@@ -644,13 +648,19 @@ negras compartidas y verificación de identidad o por SMS (sin proveedor).
 - Vistas previas por producto en WhatsApp (una función que sirva el HTML
   con su Open Graph).
 
-Pendiente para la persona dueña del proyecto: aplicar en la nube, después
-de las de la ola 1, `20261024150000`, `20261024160000`, `20261024170000` y
-`20261024190000`, en ese orden (en trozos de sentencias completas con
-`tools/supabase-local/partir-migracion.js --max 30000`), y reiniciar la
-demo; desplegar `tumbo-envios` con sus secretos y cargar los ajustes
-`funciones_url` y `envios.funcion_url`; con pg_cron y pg_net, «Programar
-tareas» en `admin/sistema`; dar los permisos `marketing` y `riesgo` a quien
+Ya en la nube (24/10/2026): `20261024150000`, `20261024160000`,
+`20261024170000` y `20261024190000`, después de las de la ola 1 y en ese
+orden (en trozos de sentencias completas con
+`tools/supabase-local/partir-migracion.js --max 30000`, cada migración
+verificada con la huella md5 de su archivo); la función `tumbo-envios`
+desplegada sin verificación de JWT (responde 401 sin credenciales); y el
+sitio publicado en GitHub Pages.
+
+Pendiente para la persona dueña del proyecto: los secretos de
+`tumbo-envios` (Resend y WhatsApp) y los ajustes `funciones_url` y
+`envios.funcion_url` (las tareas ya quedaron programadas con pg_cron: 12
+trabajos «tumbo-*» envueltos, sin ninguna tarea sin su función); dar los
+permisos `marketing` y `riesgo` a quien
 corresponda; los secretos del respaldo en GitHub; y correr las suites contra
 la nube con `TM_NUBE=1` y `TM_SUPERADMIN`. Paso a paso en
 [PRODUCCION.md](PRODUCCION.md).
